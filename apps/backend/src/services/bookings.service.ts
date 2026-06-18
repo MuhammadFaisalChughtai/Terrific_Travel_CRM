@@ -1000,6 +1000,35 @@ export class BookingsService {
 
     return { success: true };
   }
+
+  async searchAllPassengers(query: string) {
+    const q = query.trim();
+    if (!q) return [];
+    return prisma.passenger.findMany({
+      where: {
+        OR: [
+          { firstName: { contains: q, mode: 'insensitive' } },
+          { lastName: { contains: q, mode: 'insensitive' } },
+          { email: { contains: q, mode: 'insensitive' } },
+          { passportNumber: { contains: q, mode: 'insensitive' } },
+        ],
+      },
+      take: 10,
+      select: {
+        id: true,
+        title: true,
+        firstName: true,
+        lastName: true,
+        dateOfBirth: true,
+        email: true,
+        phoneNumber: true,
+        nationality: true,
+        passportNumber: true,
+        passportExpiryDate: true,
+        passportIssuingCountry: true,
+      },
+    });
+  }
 }
 
 export const bookingsService = new BookingsService();

@@ -62,6 +62,8 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minio_admin}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minio_password}
+      MINIO_BROWSER_REDIRECT_URL: https://cdn.terrifictravel.co.uk/minio/ui
+      MINIO_SERVER_URL: https://cdn.terrifictravel.co.uk
     command: server /data --console-address ":9001"
     volumes:
       - minio_data:/data
@@ -78,11 +80,11 @@ services:
     container_name: tms-backend
     restart: always
     ports:
-      - "3000:3000"
+      - "3081:3000"
     volumes:
       - ./apps/backend/src:/usr/src/app/apps/backend/src
     environment:
-      NODE_ENV: ${NODE_ENV:-development}
+      NODE_ENV: ${NODE_ENV:-production}
       DATABASE_URL: ${DATABASE_URL:-postgresql://tms_user:tms_password@postgres:5432/tms_db?schema=public}
       REDIS_HOST: ${REDIS_HOST:-redis}
       REDIS_PORT: ${REDIS_PORT:-6379}
@@ -92,7 +94,7 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minio_admin}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minio_password}
       # Dev: http://localhost:9000 | Prod: https://cdn.terrifictravel.co.uk
-      MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL:-http://localhost:9000}
+      MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL:-https://cdn.terrifictravel.co.uk}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-tms_super_secret_access_key_987654321}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-tms_super_secret_refresh_key_123456789}
       JWT_ACCESS_EXPIRATION: ${JWT_ACCESS_EXPIRATION:-15m}
@@ -106,9 +108,9 @@ services:
       SMTP_PASSWORD: ${SMTP_PASSWORD}
       SMTP_FROM: ${SMTP_FROM}
       # Dev: http://localhost:5173 | Prod: https://crm.terrifictravel.co.uk
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+      FRONTEND_URL: ${FRONTEND_URL:-https://crm.terrifictravel.co.uk}
       # Dev: http://localhost:3000 | Prod: https://api.terrifictravel.co.uk
-      BACKEND_URL: ${BACKEND_URL:-http://localhost:3000}
+      BACKEND_URL: ${BACKEND_URL:-https://api.terrifictravel.co.uk}
     depends_on:
       postgres:
         condition: service_healthy
@@ -135,7 +137,7 @@ services:
     container_name: tms-frontend
     restart: always
     ports:
-      - "5173:5173"
+      - "5174:5173"
     volumes:
       - ./apps/frontend/src:/usr/src/app/apps/frontend/src
     environment:

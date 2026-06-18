@@ -230,3 +230,9 @@ export const adminDeletePassengerDocument = asyncHandler(async (req: Authenticat
   const result = await bookingsService.adminDeletePassengerDocument(id, documentId);
   res.status(200).json({ success: true, data: result });
 });
+
+export const searchAllPassengers = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const query = (req.query.q as string || '').trim();
+  const result = await bookingsService.searchAllPassengers(query);
+  res.status(200).json({ success: true, data: result });
+});

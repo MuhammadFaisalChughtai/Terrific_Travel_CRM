@@ -19,12 +19,17 @@ export async function authMiddleware(
   res: Response,
   next: NextFunction
 ) {
+  let token = '';
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return next(new UnauthorizedException('Access token is missing or invalid.'));
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.split(' ')[1];
+  } else if (req.query.token && typeof req.query.token === 'string') {
+    token = req.query.token;
   }
 
-  const token = authHeader.split(' ')[1];
+  if (!token) {
+    return next(new UnauthorizedException('Access token is missing or invalid.'));
+  }
 
   try {
     const decoded = jwt.verify(token, config.jwt.accessSecret) as any;

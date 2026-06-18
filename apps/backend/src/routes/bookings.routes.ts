@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import multer from 'multer';
-import { create, findAll, findOne, updateStatus, cancel, finalizeMargin, addFlightService, updateFlightService, addPassenger, updatePassenger, deletePassenger, getPassengerForm, submitPassengerForm, sendPassengerLink, uploadPassengerPassportScan, getPassengerPassportScan, deletePassengerPassportScan, addPassengerDocument, getPassengerDocumentFile, deletePassengerDocument, addPassengerByFormToken, deletePassengerByFormToken, adminUploadPassportScan, adminGetPassportScan, adminDeletePassportScan, adminAddPassengerDocument, adminGetPassengerDocumentFile, adminDeletePassengerDocument } from '../controllers/bookings.controller';
+import { create, findAll, findOne, updateStatus, cancel, finalizeMargin, addFlightService, updateFlightService, addPassenger, updatePassenger, deletePassenger, getPassengerForm, submitPassengerForm, sendPassengerLink, uploadPassengerPassportScan, getPassengerPassportScan, deletePassengerPassportScan, addPassengerDocument, getPassengerDocumentFile, deletePassengerDocument, addPassengerByFormToken, deletePassengerByFormToken, adminUploadPassportScan, adminGetPassportScan, adminDeletePassportScan, adminAddPassengerDocument, adminGetPassengerDocumentFile, adminDeletePassengerDocument, searchAllPassengers } from '../controllers/bookings.controller';
 import { authMiddleware } from '../middleware/auth.middleware';
 import { requireRoles } from '../middleware/rbac.middleware';
 
@@ -21,6 +21,8 @@ router.delete('/passenger-form/:token/passenger/:passengerId', deletePassengerBy
 
 // Secure all remaining booking routes
 router.use(authMiddleware as any);
+
+router.get('/passengers/global-search', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, searchAllPassengers);
 
 router.post('/', create);
 router.get('/', findAll);

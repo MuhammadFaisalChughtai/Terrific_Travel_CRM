@@ -80,11 +80,9 @@ export class MinioService {
   async getPresignedUrl(bucketName: string, objectName: string): Promise<string> {
     let url = await minioClient.presignedGetObject(bucketName, objectName, 24 * 60 * 60);
     // The MinIO client signs the URL with the docker-internal hostname (e.g. minio:9000).
-    // Replace it with the correct public-facing URL so browsers can access it.
-    // Dev:  minio:9000  → localhost:9000
-    // Prod: minio:9000  → cdn.terrifictravel.co.uk (no port)
+    // Replace it with the correct public-facing URL and protocol so browsers can access it.
     const publicUrl = new URL(config.minio.publicUrl);
-    url = url.replace(/\/\/[^/]+\//, `//${publicUrl.host}/`);
+    url = url.replace(/^https?:\/\/[^/]+/, `${publicUrl.protocol}//${publicUrl.host}`);
     return url;
   }
 
