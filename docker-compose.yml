@@ -1,0 +1,162 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: tms-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-tms_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tms_password}
+      POSTGRES_DB: ${POSTGRES_DB:-tms_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-tms_user} -d ${POSTGRES_DB:-tms_db}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: tms-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: tms-rabbitmq
+    restart: always
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD-SHELL", "rabbitmq-diagnostics -q check_running"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: tms-minio
+    restart: always
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minio_admin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minio_password}
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend/Dockerfile
+    container_name: tms-backend
+    restart: always
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./apps/backend/src:/usr/src/app/apps/backend/src
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://tms_user:tms_password@postgres:5432/tms_db?schema=public}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      RABBITMQ_URL: ${RABBITMQ_URL:-amqp://guest:guest@rabbitmq:5672}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-minio}
+      MINIO_PORT: ${MINIO_PORT:-9000}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minio_admin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minio_password}
+      # Dev: http://localhost:9000 | Prod: https://cdn.terrifictravel.co.uk
+      MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL:-http://localhost:9000}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-tms_super_secret_access_key_987654321}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-tms_super_secret_refresh_key_123456789}
+      JWT_ACCESS_EXPIRATION: ${JWT_ACCESS_EXPIRATION:-15m}
+      JWT_REFRESH_EXPIRATION: ${JWT_REFRESH_EXPIRATION:-7d}
+      PORT: 3000
+      CURRENCY: ${CURRENCY:-USD}
+      CURRENCY_SYMBOL: ${CURRENCY_SYMBOL:-$}
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      SMTP_FROM: ${SMTP_FROM}
+      # Dev: http://localhost:5173 | Prod: https://crm.terrifictravel.co.uk
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+      # Dev: http://localhost:3000 | Prod: https://api.terrifictravel.co.uk
+      BACKEND_URL: ${BACKEND_URL:-http://localhost:3000}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend/Dockerfile
+    container_name: tms-frontend
+    restart: always
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./apps/frontend/src:/usr/src/app/apps/frontend/src
+    environment:
+      VITE_API_URL: /api
+      VITE_BACKEND_URL: http://backend:3000
+      VITE_CURRENCY: ${CURRENCY:-USD}
+      VITE_CURRENCY_SYMBOL: ${CURRENCY_SYMBOL:-$}
+    depends_on:
+      - backend
+
+  adminer:
+    image: adminer:latest
+    container_name: tms-adminer
+    restart: always
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_data:
+  redis_data:
+  rabbitmq_data:
+  minio_data:

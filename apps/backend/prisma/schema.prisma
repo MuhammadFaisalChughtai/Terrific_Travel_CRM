@@ -1,0 +1,522 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+enum BookingStatus {
+  DRAFT
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+enum PaymentProvider {
+  STRIPE
+  PAYPAL
+}
+
+enum BookingItemType {
+  FLIGHT
+  HOTEL
+  TOUR
+}
+
+model User {
+  id                      String         @id @default(uuid())
+  email                   String         @unique
+  passwordHash            String
+  firstName               String
+  lastName                String
+  isEmailVerified         Boolean        @default(false)
+  emailVerificationToken  String?
+  forgotPasswordToken     String?
+  createdAt               DateTime       @default(now())
+  updatedAt               DateTime       @updatedAt
+  userRoles               UserRole[]
+  bookings                Booking[]
+  refreshTokens           RefreshToken[]
+  fileUploads             FileUpload[]
+  auditLogs               AuditLog[]
+  notifications           Notification[]
+}
+
+model Role {
+  id              String           @id @default(uuid())
+  name            String           @unique
+  description     String?
+  userRoles       UserRole[]
+  rolePermissions RolePermission[]
+}
+
+model Permission {
+  id              String           @id @default(uuid())
+  name            String           @unique
+  description     String?
+  rolePermissions RolePermission[]
+}
+
+model UserRole {
+  userId String
+  roleId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  isRevoked Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Airline {
+  id        String   @id @default(uuid())
+  name      String
+  code      String   @unique
+  country   String
+  logoUrl   String?
+  flights   Flight[]
+}
+
+model Airport {
+  id               String   @id @default(uuid())
+  name             String
+  code             String   @unique
+  city             String
+  country          String
+  departureFlights Flight[] @relation("DepartureAirport")
+  arrivalFlights   Flight[] @relation("ArrivalAirport")
+}
+
+model Flight {
+  id                 String        @id @default(uuid())
+  flightNumber       String        @unique
+  airlineId          String
+  airline            Airline       @relation(fields: [airlineId], references: [id])
+  departureAirportId String
+  departureAirport   Airport       @relation("DepartureAirport", fields: [departureAirportId], references: [id])
+  arrivalAirportId   String
+  arrivalAirport     Airport       @relation("ArrivalAirport", fields: [arrivalAirportId], references: [id])
+  departureTime      DateTime
+  arrivalTime        DateTime
+  price              Float
+  availableSeats     Int
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  bookingItems       BookingItem[]
+}
+
+model Hotel {
+  id          String   @id @default(uuid())
+  name        String
+  description String
+  address     String
+  city        String
+  country     String
+  rating      Float    @default(0.0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  rooms       Room[]
+}
+
+model Room {
+  id           String        @id @default(uuid())
+  hotelId      String
+  hotel        Hotel         @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  roomType     String
+  price        Float
+  maxOccupancy Int
+  isAvailable  Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  bookingItems BookingItem[]
+}
+
+model Destination {
+  id          String   @id @default(uuid())
+  name        String
+  country     String
+  description String
+  imageKey    String?
+  tours       Tour[]
+}
+
+model Tour {
+  id            String        @id @default(uuid())
+  name          String
+  description   String
+  durationDays  Int
+  price         Float
+  imageKey      String?
+  category      String
+  destinationId String
+  destination   Destination   @relation(fields: [destinationId], references: [id])
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  bookingItems  BookingItem[]
+}
+
+model Booking {
+  id                  String                 @id @default(uuid())
+  userId              String
+  user                User                   @relation(fields: [userId], references: [id])
+  status              BookingStatus          @default(PENDING)
+  totalPrice          Float
+  agentId             String?
+  agent               Agent?                 @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+  bookingItems        BookingItem[]
+  payments            Payment[]
+  invoices            Invoice[]
+
+  // New Detailed CRM Fields
+  bookingReference    String                 @unique @default(cuid())
+  departureDate       DateTime?
+  paidAmount          Float                  @default(0.0)
+  refundAmount        Float                  @default(0.0)
+  cardPaymentCharges  Float                  @default(0.0)
+  cancellationCharges Float                  @default(0.0)
+  remainingAmount     Float                  @default(0.0)
+  paymentStatus       String                 @default("UNPAID")
+  lockedStatus        String                 @default("UNLOCKED")
+
+  // New Relations
+  transactions        BookingTransaction[]
+  passengers          Passenger[]
+  vendorPayments      VendorPayment[]
+  accommodations      AccommodationService[]
+  flightServices      FlightService[]
+  flightReservations  FlightReservation[]
+  transportServices   TransportService[]
+  visaServices        VisaService[]
+
+  @@index([bookingReference])
+}
+
+model BookingItem {
+  id        String          @id @default(uuid())
+  bookingId String
+  booking   Booking         @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  itemType  BookingItemType
+  price     Float
+  
+  flightId  String?
+  flight    Flight?         @relation(fields: [flightId], references: [id], onDelete: SetNull)
+  roomId    String?
+  room      Room?           @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  tourId    String?
+  tour      Tour?           @relation(fields: [tourId], references: [id], onDelete: SetNull)
+  
+  details   Json?
+  createdAt DateTime        @default(now())
+}
+
+model Payment {
+  id            String          @id @default(uuid())
+  bookingId     String
+  booking       Booking         @relation(fields: [bookingId], references: [id])
+  amount        Float
+  status        PaymentStatus   @default(PENDING)
+  provider      PaymentProvider
+  transactionId String?         @unique
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+}
+
+model Invoice {
+  id            String   @id @default(uuid())
+  bookingId     String
+  booking       Booking  @relation(fields: [bookingId], references: [id])
+  invoiceNumber String   @unique
+  pdfUrl        String?
+  amount        Float
+  createdAt     DateTime @default(now())
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  details   Json
+  ipAddress String?
+  createdAt DateTime @default(now())
+}
+
+model FileUpload {
+  id           String   @id @default(uuid())
+  filename     String
+  originalname String
+  size         Int
+  mimetype     String
+  bucket       String
+  key          String   @unique
+  userId       String?
+  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt    DateTime @default(now())
+}
+
+model SystemSetting {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       String
+  description String?
+  updatedAt   DateTime @updatedAt
+}
+
+model Agent {
+  id            String      @id @default(uuid())
+  name          String
+  email         String      @unique
+  phoneNumber   String
+  payrollEmail  String?
+  gdsSystem     String
+  client        String
+  pcc           String
+  jobStatus     String      @default("Active")
+  passwordHash  String
+  walletBalance Float       @default(0.0)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  slabs         AgentSlab[]
+  bookings      Booking[]
+  passengers    Passenger[]
+}
+
+model AgentSlab {
+  id             String   @id @default(uuid())
+  agentId        String
+  agent          Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  minSales       Float
+  maxSales       Float?
+  commissionRate Float
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Vendor {
+  id            String   @id @default(uuid())
+  name          String
+  phoneNumber   String
+  website       String?
+  supportEmail  String?
+  vendorType    String   // "flight" or "accommodation"
+  walletBalance Float    @default(0.0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  vendorPayments        VendorPayment[]
+  accommodations        AccommodationService[]
+  flightServices        FlightService[]
+  flightReservations    FlightReservation[]
+  transportServices     TransportService[]
+  visaServices          VisaService[]
+}
+
+model BookingTransaction {
+  id            String   @id @default(uuid())
+  bookingId     String
+  booking       Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  amount        Float
+  paymentMethod String
+  paidOn        DateTime @default(now())
+  notes         String?
+}
+
+model Passenger {
+  id                 String    @id @default(uuid())
+  bookingId          String
+  booking            Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  title              String
+  firstName          String
+  lastName           String
+  dateOfBirth        DateTime?
+  age                String    // Auto-derived: Infant, Child, Youth, Adult
+  email              String?
+  phoneNumber        String?
+  nationality        String?
+  passportNumber     String?
+  passportExpiryDate DateTime?
+  passportIssuingCountry String?
+  agentId            String?
+  agent              Agent?    @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  role               String    // Leader, Family Member
+  formToken          String?   @unique @default(uuid())
+  formSubmittedAt    DateTime?
+  passportScanKey    String?
+  collectPassport    Boolean   @default(true)
+  collectAdditional  Boolean   @default(false)
+  documents          PassengerDocument[]
+}
+
+model PassengerDocument {
+  id           String     @id @default(uuid())
+  passengerId  String
+  passenger    Passenger  @relation(fields: [passengerId], references: [id], onDelete: Cascade)
+  title        String
+  description  String?
+  fileKey      String?
+  fileName     String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+model AccommodationService {
+  id                      String    @id @default(uuid())
+  bookingId               String
+  booking                 Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  vendorId                String
+  vendor                  Vendor    @relation(fields: [vendorId], references: [id])
+  hotelName               String
+  roomType                String
+  checkInDate             DateTime
+  checkOutDate            DateTime
+  mealType                String
+  reservationNumber       String?
+  qty                     Int       @default(1)
+  price                   Float
+  currency                String
+  otherCurrency           String?
+  conversionRate          Float?
+  issueDate               DateTime?
+  refundAmount            Float     @default(0.0)
+  fineAmount              Float     @default(0.0)
+  hotelConfirmationNumber String?
+  hotelAddress            String?
+  lastCancellationDate    DateTime?
+}
+
+model FlightReservation {
+  id          String          @id @default(uuid())
+  bookingId   String
+  booking     Booking         @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  vendorId    String
+  vendor      Vendor          @relation(fields: [vendorId], references: [id])
+  pnr         String
+  issueDate   DateTime?
+  currency    String          @default("GBP")
+  price       Float           @default(0.0)
+  notes       String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  legs        FlightService[]
+
+  @@index([bookingId])
+}
+
+model FlightService {
+  id                   String             @id @default(uuid())
+  bookingId            String
+  booking              Booking            @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  flightReservationId  String?
+  flightReservation    FlightReservation? @relation(fields: [flightReservationId], references: [id], onDelete: Cascade)
+  date                 DateTime
+  vendorId             String
+  vendor               Vendor             @relation(fields: [vendorId], references: [id])
+  flightNo             String
+  pnr                  String             @default("")
+  departedFrom         String
+  arrivedAt            String
+  departTime           String
+  arrivalTime          String
+  price                Float
+  currency             String
+  issueDate            DateTime?
+  refundAmount         Float              @default(0.0)
+  fineAmount           Float              @default(0.0)
+  baggage              String?
+  carryOnBaggage       String?
+  checkedBaggage       String?
+  flightClass          String?
+}
+
+model TransportService {
+  id                   String    @id @default(uuid())
+  bookingId            String
+  booking              Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  vendorId             String
+  vendor               Vendor    @relation(fields: [vendorId], references: [id])
+  vehicleType          String
+  departureDestination String
+  arrivalDestination   String
+  date                 DateTime
+  departureTime        String
+  arrivalTime          String
+  flightNo             String?
+  price                Float
+  currency             String
+  otherCurrency        String?
+  conversionRate       Float?
+  issueDate            DateTime?
+  refundAmount         Float     @default(0.0)
+  fineAmount           Float     @default(0.0)
+}
+
+model VisaService {
+  id             String    @id @default(uuid())
+  bookingId      String
+  booking        Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  vendorId       String
+  vendor         Vendor    @relation(fields: [vendorId], references: [id])
+  passportNumber String
+  visaType       String
+  visaNumber     String?
+  issueDate      DateTime?
+  expiryDate     DateTime?
+  price          Float
+  currency       String
+  otherCurrency  String?
+  conversionRate Float?
+  refundAmount   Float     @default(0.0)
+  fineAmount     Float     @default(0.0)
+}
+
+model VendorPayment {
+  id          String   @id @default(uuid())
+  bookingId   String
+  booking     Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  vendorId    String
+  vendor      Vendor   @relation(fields: [vendorId], references: [id])
+  amount      Float
+  paymentDate DateTime @default(now())
+  reference   String?
+  status      String   @default("PAID")
+}

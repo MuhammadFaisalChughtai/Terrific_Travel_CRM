@@ -1,0 +1,232 @@
+import { Response } from 'express';
+import { bookingsService } from '../services/bookings.service';
+import { asyncHandler } from '../middleware/async.middleware';
+import { AuthenticatedRequest } from '../middleware/auth.middleware';
+import { minioService } from '../services/minio.service';
+
+export const create = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const result = await bookingsService.create(req.user!.id, req.body);
+  res.status(201).json({
+    success: true,
+    data: result,
+  });
+});
+
+export const findAll = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const result = await bookingsService.findAll(req.user, req.query);
+  res.status(200).json({
+    success: true,
+    data: result,
+  });
+});
+
+export const findOne = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id } = req.params;
+  const result = await bookingsService.findOne(id);
+  res.status(200).json({
+    success: true,
+    data: result,
+  });
+});
+
+export const updateStatus = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id } = req.params;
+  const { status } = req.body;
+  const result = await bookingsService.updateStatus(id, status);
+  res.status(200).json({
+    success: true,
+    data: result,
+  });
+});
+
+export const cancel = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id } = req.params;
+  const result = await bookingsService.delete(id);
+  res.status(200).json({
+    success: true,
+    data: result,
+  });
+});
+
+export const finalizeMargin = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id } = req.params;
+  const { agentId } = req.body;
+  const result = await bookingsService.finalizeMargin(id, agentId);
+  res.status(200).json({
+    success: true,
+    data: result,
+  });
+});
+
+export const addFlightService = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id } = req.params;
+  const result = await bookingsService.addFlightService(id, req.body);
+  res.status(201).json({
+    success: true,
+    data: result,
+  });
+});
+
+export const updateFlightService = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id, flightServiceId } = req.params;
+  const result = await bookingsService.updateFlightService(id, flightServiceId, req.body);
+  res.status(200).json({
+    success: true,
+    data: result,
+  });
+});
+
+// ─── Passenger controllers ────────────────────────────────────────────────────
+
+export const addPassenger = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id } = req.params;
+  const result = await bookingsService.addPassenger(id, req.body);
+  res.status(201).json({ success: true, data: result });
+});
+
+export const updatePassenger = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id, passengerId } = req.params;
+  const result = await bookingsService.updatePassenger(id, passengerId, req.body);
+  res.status(200).json({ success: true, data: result });
+});
+
+export const deletePassenger = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id, passengerId } = req.params;
+  const result = await bookingsService.deletePassenger(id, passengerId);
+  res.status(200).json({ success: true, data: result });
+});
+
+/** Public — no auth required */
+export const getPassengerForm = asyncHandler(async (req: any, res: Response) => {
+  const { token } = req.params;
+  const result = await bookingsService.getPassengerByToken(token);
+  res.status(200).json({ success: true, data: result });
+});
+
+/** Public — no auth required */
+export const submitPassengerForm = asyncHandler(async (req: any, res: Response) => {
+  const { token } = req.params;
+  const result = await bookingsService.submitPassengerForm(token, req.body);
+  res.status(200).json({ success: true, data: result });
+});
+
+export const sendPassengerLink = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id, passengerId } = req.params;
+  const result = await bookingsService.sendPassengerLink(id, passengerId);
+  res.status(200).json({ success: true, data: result });
+});
+
+
+/** Public — no auth required */
+export const uploadPassengerPassportScan = asyncHandler(async (req: any, res: Response) => {
+  const { token, passengerId } = req.params;
+  const result = await bookingsService.uploadPassengerPassportScan(token, passengerId, req.file);
+  res.status(200).json({ success: true, data: result });
+});
+
+/** Public — no auth required */
+export const getPassengerPassportScan = asyncHandler(async (req: any, res: Response) => {
+  const { token, passengerId } = req.params;
+  const { bucket, key } = await bookingsService.getPassengerPassportScan(token, passengerId);
+  const stream = await minioService.getObjectStream(bucket, key);
+  const stat = await minioService.statObject(bucket, key);
+  res.setHeader('Content-Type', stat.metaData['content-type'] || 'application/octet-stream');
+  res.setHeader('Content-Length', stat.size);
+  stream.pipe(res);
+});
+
+/** Public — no auth required */
+export const deletePassengerPassportScan = asyncHandler(async (req: any, res: Response) => {
+  const { token, passengerId } = req.params;
+  const result = await bookingsService.deletePassengerPassportScan(token, passengerId);
+  res.status(200).json({ success: true, data: result });
+});
+
+/** Public — no auth required */
+export const addPassengerDocument = asyncHandler(async (req: any, res: Response) => {
+  const { token, passengerId } = req.params;
+  const { title, description } = req.body;
+  const result = await bookingsService.addPassengerDocument(token, passengerId, title, description, req.file);
+  res.status(201).json({ success: true, data: result });
+});
+
+/** Public — no auth required */
+export const getPassengerDocumentFile = asyncHandler(async (req: any, res: Response) => {
+  const { token, documentId } = req.params;
+  const { bucket, key } = await bookingsService.getPassengerDocumentFile(token, documentId);
+  const stream = await minioService.getObjectStream(bucket, key);
+  const stat = await minioService.statObject(bucket, key);
+  res.setHeader('Content-Type', stat.metaData['content-type'] || 'application/octet-stream');
+  res.setHeader('Content-Length', stat.size);
+  stream.pipe(res);
+});
+
+/** Public — no auth required */
+export const deletePassengerDocument = asyncHandler(async (req: any, res: Response) => {
+  const { token, documentId } = req.params;
+  const result = await bookingsService.deletePassengerDocument(token, documentId);
+  res.status(200).json({ success: true, data: result });
+});
+
+/** Public — no auth required */
+export const addPassengerByFormToken = asyncHandler(async (req: any, res: Response) => {
+  const { token } = req.params;
+  const result = await bookingsService.addPassengerByFormToken(token);
+  res.status(201).json({ success: true, data: result });
+});
+
+/** Public — no auth required */
+export const deletePassengerByFormToken = asyncHandler(async (req: any, res: Response) => {
+  const { token, passengerId } = req.params;
+  const result = await bookingsService.deletePassengerByFormToken(token, passengerId);
+  res.status(200).json({ success: true, data: result });
+});
+
+// ─── Admin passport scan (authenticated) ─────────────────────────────────────
+
+export const adminUploadPassportScan = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id, passengerId } = req.params;
+  const result = await bookingsService.adminUploadPassportScan(id, passengerId, req.file);
+  res.status(200).json({ success: true, data: result });
+});
+
+export const adminGetPassportScan = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id, passengerId } = req.params;
+  const { bucket, key } = await bookingsService.adminGetPassportScan(id, passengerId);
+  const stream = await minioService.getObjectStream(bucket, key);
+  const stat = await minioService.statObject(bucket, key);
+  res.setHeader('Content-Type', stat.metaData['content-type'] || 'application/octet-stream');
+  res.setHeader('Content-Length', stat.size);
+  stream.pipe(res);
+});
+
+export const adminDeletePassportScan = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id, passengerId } = req.params;
+  const result = await bookingsService.adminDeletePassportScan(id, passengerId);
+  res.status(200).json({ success: true, data: result });
+});
+
+// ─── Admin additional documents (authenticated) ───────────────────────────────
+
+export const adminAddPassengerDocument = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id, passengerId } = req.params;
+  const { title, description } = req.body;
+  const result = await bookingsService.adminAddPassengerDocument(id, passengerId, title, description, req.file);
+  res.status(201).json({ success: true, data: result });
+});
+
+export const adminGetPassengerDocumentFile = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id, documentId } = req.params;
+  const { bucket, key } = await bookingsService.adminGetPassengerDocumentFile(id, documentId);
+  const stream = await minioService.getObjectStream(bucket, key);
+  const stat = await minioService.statObject(bucket, key);
+  res.setHeader('Content-Type', stat.metaData['content-type'] || 'application/octet-stream');
+  res.setHeader('Content-Length', stat.size);
+  stream.pipe(res);
+});
+
+export const adminDeletePassengerDocument = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id, documentId } = req.params;
+  const result = await bookingsService.adminDeletePassengerDocument(id, documentId);
+  res.status(200).json({ success: true, data: result });
+});

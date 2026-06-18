@@ -1,0 +1,37 @@
+# Production Docker Compose Override
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# This file overrides dev-specific settings for production deployment at:
+#   Frontend : https://crm.terrifictravel.co.uk
+#   Backend  : https://api.terrifictravel.co.uk
+#   MinIO CDN: https://cdn.terrifictravel.co.uk
+
+version: "3.8"
+
+services:
+  backend:
+    restart: always
+    environment:
+      NODE_ENV: production
+      MINIO_PUBLIC_URL: https://cdn.terrifictravel.co.uk
+      FRONTEND_URL: https://crm.terrifictravel.co.uk
+      BACKEND_URL: https://api.terrifictravel.co.uk
+
+  frontend:
+    restart: always
+    environment:
+      VITE_API_URL: /api
+      # In production, the Vite dev server proxy is NOT used.
+      # The reverse proxy (nginx/caddy) routes /api → backend container.
+      VITE_BACKEND_URL: http://backend:3000
+
+  minio:
+    restart: always
+    # In production, MinIO is accessible externally via cdn.terrifictravel.co.uk
+    # Configure your reverse proxy to forward cdn.terrifictravel.co.uk → minio:9000
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      # Set MinIO's own public domain so its console links are correct
+      MINIO_BROWSER_REDIRECT_URL: https://cdn.terrifictravel.co.uk/minio/ui
+      MINIO_SERVER_URL: https://cdn.terrifictravel.co.uk

@@ -1,0 +1,652 @@
+import React, { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiClient } from "../api/client";
+import { useBookingStore } from "../store/booking.store";
+import { useAuthStore } from "../store/auth.store";
+import { formatCurrency } from "@tms/shared-utils";
+import {
+  CalendarRange,
+  Plane,
+  Hotel,
+  Compass,
+  Trash2,
+  CreditCard,
+  Receipt,
+  FileText,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+  Wallet,
+  Eye,
+  Edit,
+} from "lucide-react";
+import { toast } from "sonner";
+import Modal from "../components/Modal";
+import BookingManager from "../components/BookingManager";
+import CreateBookingInitModal from "../components/CreateBookingInitModal";
+
+export default function Bookings() {
+  const queryClient = useQueryClient();
+  const user = useAuthStore((state) => state.user);
+
+  // Checkout cart Zustand state
+  const { flight, hotel, room, tour, clearCart } = useBookingStore();
+
+  // Finalize Margin Modal states
+  const [isFinalizeModalOpen, setIsFinalizeModalOpen] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState<any>(null);
+  const [selectedAgentId, setSelectedAgentId] = useState("");
+
+  // Booking Management state
+  const [selectedBookingId, setSelectedBookingId] = useState<string | null>(
+    null,
+  );
+  const [isInitModalOpen, setIsInitModalOpen] = useState(false);
+
+  // Query existing bookings
+  const { data: bookingsResult, isLoading } = useQuery({
+    queryKey: ["bookings"],
+    queryFn: async () => {
+      const res = await apiClient.get("/bookings");
+      return res.data.data;
+    },
+  });
+
+  // Query agents list for margin finalization selection
+  const { data: agents } = useQuery({
+    queryKey: ["agents"],
+    queryFn: async () => {
+      const res = await apiClient.get("/agents");
+      return res.data.data.items || [];
+    },
+  });
+
+  const createBookingMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await apiClient.post("/bookings", data);
+      return res.data;
+    },
+    onSuccess: (res: any) => {
+      toast.success("Booking reservation created successfully!");
+      clearCart();
+      queryClient.invalidateQueries({ queryKey: ["bookings"] });
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || "Failed to create booking.");
+    },
+  });
+
+  // Cancel booking mutation
+  const cancelBookingMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiClient.delete(`/bookings/${id}`);
+    },
+    onSuccess: () => {
+      toast.success("Booking cancelled successfully.");
+      queryClient.invalidateQueries({ queryKey: ["bookings"] });
+    },
+  });
+
+  // Finalize booking margin mutation
+  const finalizeMarginMutation = useMutation({
+    mutationFn: async ({
+      bookingId,
+      agentId,
+    }: {
+      bookingId: string;
+      agentId: string;
+    }) => {
+      const res = await apiClient.patch(
+        `/bookings/${bookingId}/finalize-margin`,
+        { agentId },
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      toast.success("Booking margin finalized and agent wallet credited!");
+      setIsFinalizeModalOpen(false);
+      setSelectedBooking(null);
+      setSelectedAgentId("");
+      queryClient.invalidateQueries({ queryKey: ["bookings"] });
+      queryClient.invalidateQueries({ queryKey: ["agents"] });
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || "Failed to finalize margin.");
+    },
+  });
+
+  const handleCheckout = async (bookingId: string, amount: number) => {
+    try {
+      toast.info("Redirecting to payment gateway checkout...");
+      const res = await apiClient.post("/payments/checkout", {
+        bookingId,
+        amount,
+        provider: "STRIPE",
+      });
+
+      // Mock payment trigger hook
+      toast.success("Payment successfully processed! Receipt generated.");
+      queryClient.invalidateQueries({ queryKey: ["bookings"] });
+    } catch (err: any) {
+      toast.error("Payment checkout failed.");
+    }
+  };
+
+  const handleReserve = () => {
+    const items: any[] = [];
+    if (flight) {
+      items.push({
+        itemType: "FLIGHT",
+        flightId: flight.id,
+        price: flight.price,
+      });
+    }
+    if (room) {
+      items.push({ itemType: "HOTEL", roomId: room.id, price: room.price });
+    }
+    if (tour) {
+      items.push({ itemType: "TOUR", tourId: tour.id, price: tour.price });
+    }
+
+    if (items.length === 0) {
+      toast.error("Your cart is empty! Select a flight, room, or tour first.");
+      return;
+    }
+
+    createBookingMutation.mutate(items);
+  };
+
+  // Helper functions for matching slabs and calculating margins
+  const getCommissionRate = (price: number, slabs: any[]) => {
+    const slab = slabs?.find(
+      (s: any) =>
+        price >= s.minSales && (s.maxSales === null || price <= s.maxSales),
+    );
+    return slab ? slab.commissionRate : 0;
+  };
+
+  const calculateMargin = (price: number, slabs: any[]) => {
+    const rate = getCommissionRate(price, slabs);
+    return price * (rate / 100);
+  };
+
+  const bookings = bookingsResult?.items || [];
+  const cartPrice =
+    (flight?.price || 0) + (room?.price || 0) + (tour?.price || 0);
+
+  const selectedAgent = agents?.find((a: any) => a.id === selectedAgentId);
+
+  return (
+    <div className="space-y-6">
+      {/* Top Action Bar */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <h2 className="text-2xl font-black text-foreground flex items-center gap-2">
+          <Receipt size={28} className="text-primary" />
+          Bookings Management
+        </h2>
+        <button
+          onClick={() => setIsInitModalOpen(true)}
+          className="bg-primary hover:bg-primary/90 text-primary-foreground px-5 py-2.5 rounded-lg text-sm font-bold shadow-md shadow-primary/20 transition-all flex items-center gap-2"
+        >
+          <CalendarRange size={18} />
+          Create New Booking
+        </button>
+      </div>
+
+      {/* Main Bookings List */}
+      <div className="p-6 bg-card border border-border rounded-2xl shadow-sm space-y-6">
+        <h3 className="text-base font-bold flex items-center gap-2">
+          Active Travel Reservations
+        </h3>
+
+        {isLoading ? (
+          <div className="text-center py-12 text-muted-foreground flex flex-col items-center justify-center gap-3">
+            <Loader2 className="animate-spin text-primary" size={28} />
+            <span className="text-sm font-medium">Loading itineraries...</span>
+          </div>
+        ) : bookings.length === 0 ? (
+          <div className="p-8 text-center bg-secondary/10 border border-dashed border-border rounded-2xl text-muted-foreground">
+            No historical reservations logged.
+          </div>
+        ) : (
+          <div className="overflow-x-auto -mx-6">
+            <div className="inline-block min-w-full align-middle">
+              <table className="min-w-full divide-y divide-border table-auto text-left">
+                <thead>
+                  <tr className="bg-secondary/20 text-[11px] uppercase tracking-wider text-muted-foreground font-black border-b border-border">
+                    <th className="px-4 py-3 w-12 text-center">No.</th>
+                    <th className="px-4 py-3">Ref</th>
+                    <th className="px-4 py-3">Booking Date</th>
+                    <th className="px-4 py-3">Travel Date</th>
+                    <th className="px-4 py-3">Passenger</th>
+                    <th className="px-4 py-3">Agent</th>
+                    <th className="px-4 py-3 text-right">Total Price</th>
+                    <th className="px-4 py-3 text-right">Paid</th>
+                    <th className="px-4 py-3 text-right">Remaining</th>
+                    <th className="px-4 py-3 text-right">Agent Margin</th>
+                    <th className="px-4 py-3 text-right">Vendor Due</th>
+                    <th className="px-4 py-3 text-center">Lock</th>
+                    <th className="px-4 py-3 text-center">Payment</th>
+                    <th className="px-4 py-3 text-center">Status</th>
+                    <th className="px-4 py-3 text-right pr-6">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/65 text-xs text-foreground bg-card">
+                  {bookings.map((booking: any, index: number) => {
+                    const firstPassenger = booking.passengers?.[0];
+                    const passengerName = firstPassenger
+                      ? `${firstPassenger.firstName} ${firstPassenger.lastName}`
+                      : "—";
+
+                    const formatDate = (dateString: any) => {
+                      if (!dateString) return "—";
+                      const date = new Date(dateString);
+                      return date.toLocaleDateString("en-US", {
+                        month: "long",
+                        day: "2-digit",
+                        year: "numeric",
+                      });
+                    };
+
+                    const bookingDate = formatDate(booking.createdAt);
+                    const travelDate = formatDate(booking.departureDate);
+
+                    // Dynamic Vendor Payment calculations
+                    const accommodationsCost =
+                      booking.accommodations?.reduce(
+                        (sum: number, acc: any) =>
+                          sum + acc.price * (acc.qty || 1),
+                        0,
+                      ) || 0;
+                    const flightsCost =
+                      booking.flightServices?.reduce(
+                        (sum: number, fs: any) => sum + fs.price,
+                        0,
+                      ) || 0;
+                    const transportsCost =
+                      booking.transportServices?.reduce(
+                        (sum: number, ts: any) => sum + ts.price,
+                        0,
+                      ) || 0;
+                    const visasCost =
+                      booking.visaServices?.reduce(
+                        (sum: number, vs: any) => sum + vs.price,
+                        0,
+                      ) || 0;
+
+                    const totalVendorCost =
+                      accommodationsCost +
+                      flightsCost +
+                      transportsCost +
+                      visasCost;
+                    const totalPaidToVendors =
+                      booking.vendorPayments?.reduce(
+                        (sum: number, vp: any) => sum + vp.amount,
+                        0,
+                      ) || 0;
+                    const vendorRemaining =
+                      totalVendorCost - totalPaidToVendors;
+
+                    // Agent Margin calculation
+                    const agentMargin =
+                      booking.agentId && booking.agent
+                        ? calculateMargin(
+                            booking.totalPrice,
+                            booking.agent.slabs,
+                          )
+                        : null;
+
+                    // Lock Status Styling - matching user image (dark teal-green or rose-red block)
+                    const isLocked = booking.lockedStatus === "LOCKED";
+                    const lockBadge = isLocked
+                      ? "bg-[#be123c] text-white font-bold px-2.5 py-0.5 rounded-full text-[10px]"
+                      : "bg-[#0f766e] text-white font-bold px-2.5 py-0.5 rounded-full text-[10px]";
+
+                    // Payment Status Styling - matching user image (UNPAID gold block)
+                    const payStatus = booking.paymentStatus;
+                    const paymentBadge =
+                      payStatus === "PAID"
+                        ? "bg-[#0f766e] text-white font-bold px-2.5 py-0.5 rounded-full text-[10px]"
+                        : payStatus === "PARTIALLY_PAID"
+                          ? "bg-[#c2410c] text-white font-bold px-2.5 py-0.5 rounded-full text-[10px]"
+                          : "bg-[#b45309] text-white font-bold px-2.5 py-0.5 rounded-full text-[10px]";
+
+                    // Booking Status
+                    const statusText = (booking.status || "").toLowerCase();
+                    const statusBadge =
+                      booking.status === "CONFIRMED"
+                        ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 font-bold px-2.5 py-0.5 rounded-full text-[10px]"
+                        : booking.status === "PENDING"
+                          ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 font-bold px-2.5 py-0.5 rounded-full text-[10px]"
+                          : "bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20 font-bold px-2.5 py-0.5 rounded-full text-[10px]";
+
+                    return (
+                      <tr
+                        key={booking.id}
+                        className="hover:bg-secondary/5 transition-colors"
+                      >
+                        <td className="px-4 py-3.5 whitespace-nowrap text-center text-muted-foreground font-mono align-middle">
+                          {index + 1}
+                        </td>
+                        <td className="px-4 py-3.5 whitespace-nowrap font-semibold font-mono text-primary align-middle">
+                          {booking.bookingReference ||
+                            booking.id.substring(0, 8).toUpperCase()}
+                        </td>
+                        <td className="px-4 py-3.5 whitespace-nowrap text-muted-foreground align-middle">
+                          {bookingDate}
+                        </td>
+                        <td className="px-4 py-3.5 whitespace-nowrap text-muted-foreground align-middle">
+                          {travelDate}
+                        </td>
+                        <td className="px-4 py-3.5 whitespace-nowrap font-medium text-foreground align-middle">
+                          {passengerName}
+                        </td>
+                        <td className="px-4 py-3.5 whitespace-nowrap text-primary hover:underline cursor-pointer font-medium align-middle">
+                          {booking.agent?.name || "—"}
+                        </td>
+                        <td className="px-4 py-3.5 whitespace-nowrap text-right font-bold text-foreground align-middle">
+                          {formatCurrency(booking.totalPrice)}
+                        </td>
+                        <td className="px-4 py-3.5 whitespace-nowrap text-right font-semibold text-emerald-600 dark:text-emerald-400 align-middle">
+                          {formatCurrency(booking.paidAmount)}
+                        </td>
+                        <td className="px-4 py-3.5 whitespace-nowrap text-right font-semibold text-muted-foreground align-middle">
+                          {formatCurrency(booking.remainingAmount)}
+                        </td>
+                        <td className="px-4 py-3.5 whitespace-nowrap text-right font-semibold text-blue-600 dark:text-blue-400 align-middle">
+                          {agentMargin !== null
+                            ? formatCurrency(agentMargin)
+                            : "—"}
+                        </td>
+                        <td className="px-4 py-3.5 whitespace-nowrap text-right font-semibold text-rose-600 dark:text-rose-400 align-middle">
+                          {formatCurrency(vendorRemaining)}
+                        </td>
+                        <td className="px-4 py-3.5 whitespace-nowrap text-center align-middle">
+                          <span
+                            className={`inline-block text-[9px] uppercase tracking-wider ${lockBadge}`}
+                          >
+                            {booking.lockedStatus || "UNLOCKED"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3.5 whitespace-nowrap text-center align-middle">
+                          <span
+                            className={`inline-block text-[9px] uppercase tracking-wider ${paymentBadge}`}
+                          >
+                            {booking.paymentStatus || "UNPAID"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3.5 whitespace-nowrap text-center align-middle">
+                          <span
+                            className={`inline-block text-[9px] uppercase tracking-wider ${statusBadge}`}
+                          >
+                            {statusText}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3.5 whitespace-nowrap text-right align-middle pr-6">
+                          <div className="inline-flex items-center gap-2 justify-end w-full">
+                            <button
+                              onClick={() => setSelectedBookingId(booking.id)}
+                              className="text-primary hover:text-primary-hover p-1 rounded hover:bg-secondary/35 transition-all"
+                              title="View Booking"
+                            >
+                              <Eye size={15} />
+                            </button>
+                            <span className="text-muted-foreground/30">|</span>
+                            <button
+                              onClick={() => setSelectedBookingId(booking.id)}
+                              className="text-foreground hover:text-foreground/80 p-1 rounded hover:bg-secondary/35 transition-all"
+                              title="Edit Booking"
+                            >
+                              <Edit size={15} />
+                            </button>
+                            {booking.status === "CONFIRMED" &&
+                              !booking.agentId && (
+                                <>
+                                  <span className="text-muted-foreground/30">
+                                    |
+                                  </span>
+                                  <button
+                                    onClick={() => {
+                                      setSelectedBooking(booking);
+                                      setIsFinalizeModalOpen(true);
+                                    }}
+                                    className="text-amber-600 hover:text-amber-700 font-bold text-xs inline-flex items-center gap-1 hover:underline"
+                                    title="Finalize Margin"
+                                  >
+                                    <Receipt size={14} />
+                                    <span>Finalize</span>
+                                  </button>
+                                </>
+                              )}
+
+                            {booking.status === "CONFIRMED" &&
+                              booking.invoices?.length > 0 && (
+                                <>
+                                  <span className="text-muted-foreground/30">
+                                    |
+                                  </span>
+                                  <a
+                                    href={booking.invoices[0].pdfUrl || "#"}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-muted-foreground hover:text-foreground font-bold text-xs inline-flex items-center gap-1 hover:underline"
+                                    title="View Invoice"
+                                  >
+                                    <FileText size={14} />
+                                    <span>Invoice</span>
+                                  </a>
+                                </>
+                              )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Finalize Margin Modal */}
+      <Modal
+        isOpen={isFinalizeModalOpen}
+        onClose={() => {
+          setIsFinalizeModalOpen(false);
+          setSelectedBooking(null);
+          setSelectedAgentId("");
+        }}
+        title="Finalize Booking Margin"
+        maxWidth="lg"
+      >
+        {selectedBooking && (
+          <div className="space-y-4">
+            <div className="bg-secondary/20 p-3 rounded-lg border border-border/80 text-xs space-y-1">
+              <p className="font-semibold text-foreground">
+                Booking Reference:{" "}
+                <span className="font-mono font-bold text-primary">
+                  {selectedBooking.id.toUpperCase()}
+                </span>
+              </p>
+              <p className="text-muted-foreground">
+                Booking Total Price:{" "}
+                <span className="font-bold text-foreground">
+                  {formatCurrency(selectedBooking.totalPrice)}
+                </span>
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-[9px] font-bold text-muted-foreground uppercase tracking-wide">
+                Select Agent
+              </label>
+              <select
+                value={selectedAgentId}
+                onChange={(e) => setSelectedAgentId(e.target.value)}
+                className="w-full px-3 py-2 bg-secondary/20 border border-border/80 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-primary text-foreground transition-all focus:bg-background"
+              >
+                <option value="">-- Choose an Agent --</option>
+                {agents?.map((agent: any) => (
+                  <option key={agent.id} value={agent.id}>
+                    {agent.name} ({agent.client} - {agent.gdsSystem})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {selectedAgentId && selectedAgent && (
+              <div className="border border-border/80 rounded-xl p-4 bg-secondary/10 space-y-3">
+                <div className="flex justify-between items-center text-xs">
+                  <div>
+                    <h4 className="font-bold text-foreground">
+                      {selectedAgent.name}
+                    </h4>
+                    <p className="text-[10px] text-muted-foreground">
+                      Client: {selectedAgent.client} | PCC: {selectedAgent.pcc}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] text-muted-foreground uppercase font-semibold">
+                      Wallet Balance
+                    </span>
+                    <p className="font-bold text-emerald-600 dark:text-emerald-400">
+                      {formatCurrency(selectedAgent.walletBalance || 0)}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Slabs list with matching one highlighted */}
+                <div className="space-y-1.5">
+                  <span className="block text-[9px] font-bold text-muted-foreground uppercase tracking-wide">
+                    Agent Commission Slabs
+                  </span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px]">
+                    {selectedAgent.slabs?.map((slab: any) => {
+                      const isMatched =
+                        selectedBooking.totalPrice >= slab.minSales &&
+                        (slab.maxSales === null ||
+                          selectedBooking.totalPrice <= slab.maxSales);
+                      return (
+                        <div
+                          key={slab.id}
+                          className={`p-2 rounded-lg border flex items-center justify-between transition-all ${
+                            isMatched
+                              ? "bg-emerald-500/10 border-emerald-500/40 font-bold text-emerald-800 dark:text-emerald-300"
+                              : "bg-background border-border/50 text-muted-foreground"
+                          }`}
+                        >
+                          <span>
+                            {slab.maxSales !== null
+                              ? `${formatCurrency(slab.minSales)} - ${formatCurrency(slab.maxSales)}`
+                              : `${formatCurrency(slab.minSales)}+`}
+                          </span>
+                          <span
+                            className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                              isMatched
+                                ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-300"
+                                : "bg-secondary text-muted-foreground"
+                            }`}
+                          >
+                            {slab.commissionRate}%
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Calculation breakdown */}
+                <div className="border-t border-border pt-3 flex justify-between items-center text-xs">
+                  <div>
+                    <span className="text-[9px] font-semibold uppercase text-muted-foreground">
+                      Calculated Commission
+                    </span>
+                    <p className="text-foreground">
+                      {formatCurrency(selectedBooking.totalPrice)} &times;{" "}
+                      {getCommissionRate(
+                        selectedBooking.totalPrice,
+                        selectedAgent.slabs,
+                      )}
+                      %
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[9px] font-semibold uppercase text-muted-foreground">
+                      Margin to Deposit
+                    </span>
+                    <p className="text-lg font-black text-emerald-600 dark:text-emerald-400">
+                      +
+                      {formatCurrency(
+                        calculateMargin(
+                          selectedBooking.totalPrice,
+                          selectedAgent.slabs,
+                        ),
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-2 justify-end pt-3 border-t border-border/60 mt-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsFinalizeModalOpen(false);
+                  setSelectedBooking(null);
+                  setSelectedAgentId("");
+                }}
+                className="py-1.5 px-4 bg-secondary text-secondary-foreground hover:bg-secondary/80 font-semibold rounded-lg text-xs transition-all border border-border"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!selectedAgentId || finalizeMarginMutation.isPending}
+                onClick={() => {
+                  if (selectedBooking && selectedAgentId) {
+                    finalizeMarginMutation.mutate({
+                      bookingId: selectedBooking.id,
+                      agentId: selectedAgentId,
+                    });
+                  }
+                }}
+                className="py-1.5 px-5 bg-primary text-primary-foreground hover:bg-primary/95 font-semibold rounded-lg text-xs transition-all shadow-md shadow-primary/10 flex items-center gap-1.5 disabled:opacity-50"
+              >
+                {finalizeMarginMutation.isPending && (
+                  <Loader2 size={12} className="animate-spin" />
+                )}
+                Finalize & Fund Wallet
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Initial Create Booking Modal */}
+      <CreateBookingInitModal
+        isOpen={isInitModalOpen}
+        onClose={() => setIsInitModalOpen(false)}
+        agents={agents || []}
+        onSuccess={(id) => {
+          setIsInitModalOpen(false);
+          setSelectedBookingId(id);
+        }}
+      />
+
+      {/* Full Screen Booking Dashboard Modal */}
+      <BookingManager
+        isOpen={!!selectedBookingId}
+        bookingId={selectedBookingId}
+        bookingReference={
+          bookings.find((b: any) => b.id === selectedBookingId)
+            ?.bookingReference
+        }
+        onClose={() => {
+          setSelectedBookingId(null);
+        }}
+      />
+    </div>
+  );
+}

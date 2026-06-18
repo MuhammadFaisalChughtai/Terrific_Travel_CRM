@@ -1,0 +1,1006 @@
+import { prisma, logger } from '../config';
+import { rabbitMQService } from './rabbitmq.service';
+import { BookingStatus } from '@prisma/client';
+import { NotFoundException, BadRequestException } from '../middleware/error.middleware';
+import { emailService } from './email.service';
+import { randomUUID } from 'crypto';
+import { minioService } from './minio.service';
+
+export class BookingsService {
+  async create(userId: string, data: any) {
+    // Generate sequential bookingReference (e.g. TT1101)
+    const lastBooking = await prisma.booking.findFirst({
+      where: {
+        bookingReference: {
+          startsWith: 'TT',
+        },
+      },
+      orderBy: {
+        bookingReference: 'desc',
+      },
+      select: {
+        bookingReference: true,
+      },
+    });
+
+    let nextRef = 'TT1101';
+    if (lastBooking && lastBooking.bookingReference) {
+      const numStr = lastBooking.bookingReference.replace('TT', '');
+      const num = parseInt(numStr, 10);
+      if (!isNaN(num)) {
+        nextRef = `TT${num + 1}`;
+      }
+    }
+
+    const booking = await prisma.booking.create({
+      data: {
+        bookingReference: nextRef,
+        userId,
+        totalPrice: Number(data.totalPrice) || 0,
+        status: data.status || BookingStatus.PENDING,
+        agentId: data.agentId || null,
+        departureDate: data.departureDate ? new Date(data.departureDate) : null,
+        paidAmount: Number(data.paidAmount) || 0,
+        refundAmount: Number(data.refundAmount) || 0,
+        cardPaymentCharges: Number(data.cardPaymentCharges) || 0,
+        cancellationCharges: Number(data.cancellationCharges) || 0,
+        remainingAmount: Number(data.remainingAmount) || 0,
+        paymentStatus: data.paymentStatus || 'UNPAID',
+        lockedStatus: data.lockedStatus || 'UNLOCKED',
+        
+        // Handle optional old bookingItems logic if provided
+        ...(Array.isArray(data.items) && data.items.length > 0 ? {
+          bookingItems: {
+            create: data.items.map((item: any) => ({
+              itemType: item.itemType,
+              price: Number(item.price),
+              flightId: item.flightId,
+              roomId: item.roomId,
+              tourId: item.tourId,
+              details: item.details || {},
+            })),
+          }
+        } : {}),
+
+        // New CRM relations
+        ...(Array.isArray(data.transactions) && data.transactions.length > 0 ? {
+          transactions: {
+            create: data.transactions.map((tx: any) => ({
+              amount: Number(tx.amount),
+              paymentMethod: tx.paymentMethod,
+              paidOn: tx.paidOn ? new Date(tx.paidOn) : new Date(),
+              notes: tx.notes,
+            })),
+          }
+        } : {}),
+
+        ...(Array.isArray(data.passengers) && data.passengers.length > 0 ? {
+          passengers: {
+            create: data.passengers.map((p: any, idx: number) => ({
+              title: p.title,
+              firstName: p.firstName,
+              lastName: p.lastName,
+              age: p.age,
+              email: p.email,
+              phoneNumber: p.phoneNumber,
+              passportExpiryDate: p.passportExpiryDate ? new Date(p.passportExpiryDate) : null,
+              agentId: p.agentId || null,
+              role: idx === 0 ? 'Leader' : (p.role || 'Passenger'),
+            })),
+          }
+        } : {}),
+
+        ...(Array.isArray(data.vendorPayments) && data.vendorPayments.length > 0 ? {
+          vendorPayments: {
+            create: data.vendorPayments.map((vp: any) => ({
+              vendorId: vp.vendorId,
+              amount: Number(vp.amount),
+              paymentDate: vp.paymentDate ? new Date(vp.paymentDate) : new Date(),
+              reference: vp.reference,
+              status: vp.status || 'PAID',
+            })),
+          }
+        } : {}),
+
+        ...(Array.isArray(data.accommodations) && data.accommodations.length > 0 ? {
+          accommodations: {
+            create: data.accommodations.map((acc: any) => ({
+              vendorId: acc.vendorId,
+              hotelName: acc.hotelName,
+              roomType: acc.roomType,
+              checkInDate: new Date(acc.checkInDate),
+              checkOutDate: new Date(acc.checkOutDate),
+              mealType: acc.mealType,
+              reservationNumber: acc.reservationNumber,
+              qty: Number(acc.qty) || 1,
+              price: Number(acc.price),
+              currency: acc.currency,
+              otherCurrency: acc.otherCurrency,
+              conversionRate: acc.conversionRate ? Number(acc.conversionRate) : null,
+              issueDate: acc.issueDate ? new Date(acc.issueDate) : null,
+              refundAmount: Number(acc.refundAmount) || 0,
+              fineAmount: Number(acc.fineAmount) || 0,
+              hotelConfirmationNumber: acc.hotelConfirmationNumber,
+              hotelAddress: acc.hotelAddress,
+            })),
+          }
+        } : {}),
+
+        ...(Array.isArray(data.flightServices) && data.flightServices.length > 0 ? {
+          flightServices: {
+            create: data.flightServices.map((fs: any) => ({
+              date: new Date(fs.date),
+              vendorId: fs.vendorId,
+              flightNo: fs.flightNo,
+              pnr: fs.pnr,
+              departedFrom: fs.departedFrom,
+              arrivedAt: fs.arrivedAt,
+              departTime: fs.departTime,
+              arrivalTime: fs.arrivalTime,
+              price: Number(fs.price),
+              currency: fs.currency,
+              issueDate: fs.issueDate ? new Date(fs.issueDate) : null,
+              refundAmount: Number(fs.refundAmount) || 0,
+              fineAmount: Number(fs.fineAmount) || 0,
+              baggage: fs.baggage,
+              carryOnBaggage: fs.carryOnBaggage,
+              checkedBaggage: fs.checkedBaggage,
+              flightClass: fs.flightClass,
+            })),
+          }
+        } : {}),
+
+        ...(Array.isArray(data.transportServices) && data.transportServices.length > 0 ? {
+          transportServices: {
+            create: data.transportServices.map((ts: any) => ({
+              vendorId: ts.vendorId,
+              vehicleType: ts.vehicleType,
+              departureDestination: ts.departureDestination,
+              arrivalDestination: ts.arrivalDestination,
+              date: new Date(ts.date),
+              departureTime: ts.departureTime,
+              arrivalTime: ts.arrivalTime,
+              flightNo: ts.flightNo,
+              price: Number(ts.price),
+              currency: ts.currency,
+              otherCurrency: ts.otherCurrency,
+              conversionRate: ts.conversionRate ? Number(ts.conversionRate) : null,
+              issueDate: ts.issueDate ? new Date(ts.issueDate) : null,
+              refundAmount: Number(ts.refundAmount) || 0,
+              fineAmount: Number(ts.fineAmount) || 0,
+            })),
+          }
+        } : {}),
+
+        ...(Array.isArray(data.visaServices) && data.visaServices.length > 0 ? {
+          visaServices: {
+            create: data.visaServices.map((vs: any) => ({
+              vendorId: vs.vendorId,
+              passportNumber: vs.passportNumber,
+              visaType: vs.visaType,
+              visaNumber: vs.visaNumber,
+              issueDate: vs.issueDate ? new Date(vs.issueDate) : null,
+              expiryDate: vs.expiryDate ? new Date(vs.expiryDate) : null,
+              price: Number(vs.price),
+              currency: vs.currency,
+              otherCurrency: vs.otherCurrency,
+              conversionRate: vs.conversionRate ? Number(vs.conversionRate) : null,
+              refundAmount: Number(vs.refundAmount) || 0,
+              fineAmount: Number(vs.fineAmount) || 0,
+            })),
+          }
+        } : {}),
+      },
+      include: {
+        bookingItems: true,
+        transactions: true,
+        passengers: true,
+        vendorPayments: true,
+        accommodations: true,
+        flightServices: true,
+        transportServices: true,
+        visaServices: true,
+      },
+    });
+
+    await rabbitMQService.publish('booking.created', {
+      bookingId: booking.id,
+      userId,
+      totalPrice: booking.totalPrice,
+    });
+
+    return booking;
+  }
+
+  async findAll(user: any, query: any) {
+    const limit = Number(query.limit) || 10;
+    const offset = Number(query.offset) || 0;
+    const where: any = {};
+    
+    if (!user.roles.includes('SUPER_ADMIN') && !user.roles.includes('ADMIN') && !user.roles.includes('TRAVEL_AGENT')) {
+      where.userId = user.id;
+    }
+
+    const [total, items] = await Promise.all([
+      prisma.booking.count({ where }),
+      prisma.booking.findMany({
+        where,
+        include: {
+          bookingItems: {
+            include: {
+              flight: { include: { airline: true } },
+              room: { include: { hotel: true } },
+              tour: { include: { destination: true } },
+            },
+          },
+          payments: true,
+          invoices: true,
+          agent: { include: { slabs: { orderBy: { minSales: 'asc' } } } },
+          transactions: true,
+          passengers: { include: { agent: true } },
+          vendorPayments: { include: { vendor: true } },
+          accommodations: { include: { vendor: true } },
+          flightServices: { include: { vendor: true } },
+          transportServices: { include: { vendor: true } },
+          visaServices: { include: { vendor: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        skip: offset,
+      }),
+    ]);
+
+    for (const item of items) {
+      if (item.passengers && item.passengers.length > 0) {
+        item.passengers.sort((a, b) => {
+          if (a.role === 'Leader' && b.role !== 'Leader') return -1;
+          if (a.role !== 'Leader' && b.role === 'Leader') return 1;
+          return a.id.localeCompare(b.id);
+        });
+      }
+    }
+
+    return { total, limit, offset, items };
+  }
+
+  async findOne(id: string) {
+    const booking = await prisma.booking.findUnique({
+      where: { id },
+      include: {
+        bookingItems: {
+          include: {
+            flight: { include: { airline: true } },
+            room: { include: { hotel: true } },
+            tour: { include: { destination: true } },
+          },
+        },
+        payments: true,
+        invoices: true,
+        agent: { include: { slabs: { orderBy: { minSales: 'asc' } } } },
+        transactions: true,
+        passengers: { include: { agent: true, documents: true } },
+        vendorPayments: { include: { vendor: true } },
+        accommodations: { include: { vendor: true } },
+        flightServices: { include: { vendor: true } },
+        transportServices: { include: { vendor: true } },
+        visaServices: { include: { vendor: true } },
+      },
+    });
+    if (!booking) throw new NotFoundException('Booking not found');
+
+    if (booking.passengers && booking.passengers.length > 0) {
+      booking.passengers.sort((a, b) => {
+        if (a.role === 'Leader' && b.role !== 'Leader') return -1;
+        if (a.role !== 'Leader' && b.role === 'Leader') return 1;
+        return a.id.localeCompare(b.id);
+      });
+    }
+
+    return booking;
+  }
+
+  async updateStatus(id: string, status: BookingStatus) {
+    const booking = await prisma.booking.update({
+      where: { id },
+      data: { status },
+    });
+
+    await rabbitMQService.publish('booking.updated', {
+      bookingId: booking.id,
+      status: booking.status,
+    });
+
+    return booking;
+  }
+
+  async delete(id: string) {
+    const booking = await prisma.booking.update({
+      where: { id },
+      data: { status: BookingStatus.CANCELLED },
+    });
+
+    await rabbitMQService.publish('booking.cancelled', {
+      bookingId: booking.id,
+    });
+
+    return { success: true };
+  }
+
+  async finalizeMargin(bookingId: string, agentId: string) {
+    // 1. Fetch booking
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+    });
+    if (!booking) throw new NotFoundException('Booking not found');
+
+    if (booking.agentId) {
+      throw new BadRequestException('Margin has already been finalized for this booking');
+    }
+
+    // 2. Fetch agent with slabs
+    const agent = await prisma.agent.findUnique({
+      where: { id: agentId },
+      include: {
+        slabs: {
+          orderBy: { minSales: 'asc' },
+        },
+      },
+    });
+    if (!agent) throw new NotFoundException('Agent not found');
+
+    // 3. Compute commission rate based on slabs matching the booking's totalPrice
+    const price = booking.totalPrice;
+    const slab = agent.slabs.find(
+      (s) => price >= s.minSales && (s.maxSales === null || price <= s.maxSales)
+    );
+    const rate = slab ? slab.commissionRate : 0.0;
+    const margin = price * (rate / 100.0);
+
+    // 4. Update booking and agent in a transaction
+    const [updatedBooking, updatedAgent] = await prisma.$transaction([
+      prisma.booking.update({
+        where: { id: bookingId },
+        data: { agentId },
+      }),
+      prisma.agent.update({
+        where: { id: agentId },
+        data: {
+          walletBalance: {
+            increment: margin,
+          },
+        },
+      }),
+    ]);
+
+    return {
+      booking: updatedBooking,
+      agent: updatedAgent,
+      calculatedMargin: margin,
+      commissionRate: rate,
+    };
+  }
+
+  async addFlightService(bookingId: string, data: any) {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId }
+    });
+    if (!booking) throw new NotFoundException('Booking not found');
+
+    const flight = await prisma.flightService.create({
+      data: {
+        bookingId,
+        date: new Date(data.date),
+        vendorId: data.vendorId,
+        flightNo: data.flightNo,
+        pnr: data.pnr,
+        departedFrom: data.departedFrom,
+        arrivedAt: data.arrivedAt,
+        departTime: data.departTime,
+        arrivalTime: data.arrivalTime,
+        price: Number(data.price) || 0,
+        currency: data.currency || 'GBP',
+        flightClass: data.flightClass || null,
+        baggage: data.baggage || null,
+        carryOnBaggage: data.carryOnBaggage || null,
+        checkedBaggage: data.checkedBaggage || null,
+        issueDate: data.issueDate ? new Date(data.issueDate) : null,
+      },
+      include: {
+        vendor: true
+      }
+    });
+
+    await rabbitMQService.publish('booking.updated', {
+      bookingId: booking.id,
+    });
+
+    return flight;
+  }
+
+  async updateFlightService(bookingId: string, flightServiceId: string, data: any) {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId }
+    });
+    if (!booking) throw new NotFoundException('Booking not found');
+
+    const flight = await prisma.flightService.update({
+      where: { id: flightServiceId, bookingId },
+      data: {
+        date: data.date ? new Date(data.date) : undefined,
+        vendorId: data.vendorId !== undefined ? data.vendorId : undefined,
+        flightNo: data.flightNo !== undefined ? data.flightNo : undefined,
+        pnr: data.pnr !== undefined ? data.pnr : undefined,
+        departedFrom: data.departedFrom !== undefined ? data.departedFrom : undefined,
+        arrivedAt: data.arrivedAt !== undefined ? data.arrivedAt : undefined,
+        departTime: data.departTime !== undefined ? data.departTime : undefined,
+        arrivalTime: data.arrivalTime !== undefined ? data.arrivalTime : undefined,
+        price: data.price !== undefined ? (Number(data.price) || 0) : undefined,
+        currency: data.currency !== undefined ? data.currency : undefined,
+        flightClass: data.flightClass !== undefined ? data.flightClass : undefined,
+        baggage: data.baggage !== undefined ? data.baggage : undefined,
+        carryOnBaggage: data.carryOnBaggage !== undefined ? data.carryOnBaggage : undefined,
+        checkedBaggage: data.checkedBaggage !== undefined ? data.checkedBaggage : undefined,
+        issueDate: data.issueDate !== undefined ? (data.issueDate ? new Date(data.issueDate) : null) : undefined,
+      },
+      include: {
+        vendor: true
+      }
+    });
+
+    await rabbitMQService.publish('booking.updated', {
+      bookingId: booking.id,
+    });
+
+    return flight;
+  }
+
+  // ─── Passenger helpers ──────────────────────────────────────────────────────
+
+  private deriveAgeCategory(dateOfBirth: Date | null | undefined): string {
+    if (!dateOfBirth) return 'Adult';
+    const today = new Date();
+    let years = today.getFullYear() - dateOfBirth.getFullYear();
+    const m = today.getMonth() - dateOfBirth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < dateOfBirth.getDate())) years--;
+    if (years < 2)  return 'Infant';
+    if (years < 13) return 'Child';
+    if (years < 15) return 'Youth';
+    return 'Adult';
+  }
+
+  async addPassenger(bookingId: string, data: any) {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: { passengers: true }
+    });
+    if (!booking) throw new NotFoundException('Booking not found');
+
+    const dob = data.dateOfBirth ? new Date(data.dateOfBirth) : null;
+    const age = this.deriveAgeCategory(dob);
+
+    const isFirst = (booking.passengers || []).length === 0;
+
+    const passenger = await prisma.passenger.create({
+      data: {
+        bookingId,
+        title:              data.title || 'Mr',
+        firstName:          data.firstName,
+        lastName:           data.lastName,
+        dateOfBirth:        dob,
+        age,
+        email:              data.email || null,
+        phoneNumber:        data.phoneNumber || null,
+        nationality:        data.nationality || null,
+        passportNumber:     data.passportNumber || null,
+        passportExpiryDate: data.passportExpiryDate ? new Date(data.passportExpiryDate) : null,
+        passportIssuingCountry: data.passportIssuingCountry || null,
+        agentId:            data.agentId || null,
+        role:               isFirst ? 'Leader' : (data.role || 'Passenger'),
+        collectPassport:    data.collectPassport !== undefined ? Boolean(data.collectPassport) : true,
+        collectAdditional:  data.collectAdditional !== undefined ? Boolean(data.collectAdditional) : false,
+      },
+      include: { agent: true },
+    });
+    return passenger;
+  }
+
+  async updatePassenger(bookingId: string, passengerId: string, data: any) {
+    const booking = await prisma.booking.findUnique({ where: { id: bookingId } });
+    if (!booking) throw new NotFoundException('Booking not found');
+
+    const dob = data.dateOfBirth !== undefined
+      ? (data.dateOfBirth ? new Date(data.dateOfBirth) : null)
+      : undefined;
+    const age = dob !== undefined ? this.deriveAgeCategory(dob) : undefined;
+
+    const passenger = await prisma.passenger.update({
+      where:  { id: passengerId, bookingId },
+      data: {
+        title:              data.title              !== undefined ? data.title              : undefined,
+        firstName:          data.firstName          !== undefined ? data.firstName          : undefined,
+        lastName:           data.lastName           !== undefined ? data.lastName           : undefined,
+        dateOfBirth:        dob,
+        age:                age,
+        email:              data.email              !== undefined ? data.email              : undefined,
+        phoneNumber:        data.phoneNumber        !== undefined ? data.phoneNumber        : undefined,
+        nationality:        data.nationality        !== undefined ? data.nationality        : undefined,
+        passportNumber:     data.passportNumber     !== undefined ? data.passportNumber     : undefined,
+        passportExpiryDate: data.passportExpiryDate !== undefined
+          ? (data.passportExpiryDate ? new Date(data.passportExpiryDate) : null)
+          : undefined,
+        passportIssuingCountry: data.passportIssuingCountry !== undefined ? data.passportIssuingCountry : undefined,
+        agentId:            data.agentId            !== undefined ? data.agentId            : undefined,
+        role:               data.role               !== undefined ? data.role               : undefined,
+        collectPassport:    data.collectPassport    !== undefined ? Boolean(data.collectPassport) : undefined,
+        collectAdditional:  data.collectAdditional  !== undefined ? Boolean(data.collectAdditional) : undefined,
+      },
+      include: { agent: true },
+    });
+    return passenger;
+  }
+
+  async deletePassenger(bookingId: string, passengerId: string) {
+    const booking = await prisma.booking.findUnique({ where: { id: bookingId } });
+    if (!booking) throw new NotFoundException('Booking not found');
+    await prisma.passenger.delete({ where: { id: passengerId, bookingId } });
+    return { success: true };
+  }
+
+  // ─── Admin passport scan (authenticated) ────────────────────────────────────
+
+  async adminUploadPassportScan(bookingId: string, passengerId: string, file: any) {
+    const booking = await prisma.booking.findUnique({ where: { id: bookingId } });
+    if (!booking) throw new NotFoundException('Booking not found');
+
+    const passenger = await prisma.passenger.findUnique({ where: { id: passengerId } });
+    if (!passenger || passenger.bookingId !== bookingId) throw new NotFoundException('Passenger not found');
+    if (!file) throw new BadRequestException('No file uploaded');
+
+    const allowedMime = ['image/jpeg', 'image/png', 'application/pdf'];
+    if (!allowedMime.includes(file.mimetype)) throw new BadRequestException('MIME type not allowed. Please upload JPEG, PNG, or PDF.');
+    if (file.size > 5 * 1024 * 1024) throw new BadRequestException('File size exceeds 5MB limit');
+
+    if (passenger.passportScanKey) {
+      try { await minioService.deleteFile('documents', passenger.passportScanKey); } catch {}
+    }
+
+    const key = `passport-${passengerId}-${Date.now()}-${file.originalname}`;
+    await minioService.uploadFile('documents', key, file.buffer, file.size, file.mimetype);
+
+    const updated = await prisma.passenger.update({
+      where: { id: passengerId },
+      data: { passportScanKey: key },
+    });
+    return { passengerId: updated.id, passportScanKey: key };
+  }
+
+  async adminGetPassportScan(bookingId: string, passengerId: string) {
+    const passenger = await prisma.passenger.findUnique({ where: { id: passengerId } });
+    if (!passenger || passenger.bookingId !== bookingId) throw new NotFoundException('Passenger not found');
+    if (!passenger.passportScanKey) throw new NotFoundException('No passport scan uploaded');
+    return { bucket: 'documents', key: passenger.passportScanKey };
+  }
+
+  async adminDeletePassportScan(bookingId: string, passengerId: string) {
+    const passenger = await prisma.passenger.findUnique({ where: { id: passengerId } });
+    if (!passenger || passenger.bookingId !== bookingId) throw new NotFoundException('Passenger not found');
+    if (passenger.passportScanKey) {
+      try { await minioService.deleteFile('documents', passenger.passportScanKey); } catch {}
+    }
+    await prisma.passenger.update({ where: { id: passengerId }, data: { passportScanKey: null } });
+    return { success: true };
+  }
+
+  // ─── Admin additional documents (authenticated) ──────────────────────────────
+
+  async adminAddPassengerDocument(bookingId: string, passengerId: string, title: string, description?: string, file?: any) {
+    const passenger = await prisma.passenger.findUnique({ where: { id: passengerId } });
+    if (!passenger || passenger.bookingId !== bookingId) throw new NotFoundException('Passenger not found');
+    if (!title || title.trim() === '') throw new BadRequestException('Document title is required');
+
+    let fileKey: string | null = null;
+    let fileName: string | null = null;
+
+    if (file) {
+      const allowedMime = ['image/jpeg', 'image/png', 'application/pdf'];
+      if (!allowedMime.includes(file.mimetype)) throw new BadRequestException('MIME type not allowed.');
+      if (file.size > 5 * 1024 * 1024) throw new BadRequestException('File size exceeds 5MB limit');
+      fileKey = `additional-${passengerId}-${Date.now()}-${file.originalname}`;
+      fileName = file.originalname;
+      await minioService.uploadFile('documents', fileKey, file.buffer, file.size, file.mimetype);
+    }
+
+    const document = await prisma.passengerDocument.create({
+      data: { passengerId, title: title.trim(), description: description ? description.trim() : null, fileKey, fileName },
+    });
+    return document;
+  }
+
+  async adminGetPassengerDocumentFile(bookingId: string, documentId: string) {
+    const document = await prisma.passengerDocument.findUnique({ where: { id: documentId }, include: { passenger: true } });
+    if (!document || document.passenger.bookingId !== bookingId) throw new NotFoundException('Document not found');
+    if (!document.fileKey) throw new NotFoundException('No file for this document');
+    return { bucket: 'documents', key: document.fileKey };
+  }
+
+  async adminDeletePassengerDocument(bookingId: string, documentId: string) {
+    const document = await prisma.passengerDocument.findUnique({ where: { id: documentId }, include: { passenger: true } });
+    if (!document || document.passenger.bookingId !== bookingId) throw new NotFoundException('Document not found');
+    if (document.fileKey) {
+      try { await minioService.deleteFile('documents', document.fileKey); } catch {}
+    }
+    await prisma.passengerDocument.delete({ where: { id: documentId } });
+    return { success: true };
+  }
+
+  /** Public — no auth. Lookup passenger by formToken. */
+  async getPassengerByToken(token: string) {
+    const passenger = await prisma.passenger.findUnique({
+      where: { formToken: token },
+      include: { documents: true }
+    });
+    if (!passenger) throw new NotFoundException('Form link is invalid or has expired');
+
+    const booking = await prisma.booking.findUnique({
+      where: { id: passenger.bookingId },
+      include: {
+        passengers: {
+          orderBy: { id: 'asc' },
+          include: { documents: true }
+        },
+      },
+    });
+    if (!booking) throw new NotFoundException('Booking not found');
+
+    if (booking.passengers && booking.passengers.length > 0) {
+      booking.passengers.sort((a, b) => {
+        if (a.role === 'Leader' && b.role !== 'Leader') return -1;
+        if (a.role !== 'Leader' && b.role === 'Leader') return 1;
+        return a.id.localeCompare(b.id);
+      });
+    }
+
+    return {
+      passenger,
+      booking: {
+        bookingReference: booking.bookingReference,
+        departureDate: booking.departureDate,
+      },
+      passengers: booking.passengers,
+    };
+  }
+
+  /** Public — no auth. Customer submits details (single or multiple) via formToken. */
+  async submitPassengerForm(token: string, data: any) {
+    const tokenPassenger = await prisma.passenger.findUnique({ where: { formToken: token } });
+    if (!tokenPassenger) throw new NotFoundException('Form link is invalid or has expired');
+
+    if (data.passengers && Array.isArray(data.passengers)) {
+      const updatedPassengers = [];
+      for (const pData of data.passengers) {
+        if (!pData.id) continue;
+        const dbPassenger = await prisma.passenger.findUnique({ where: { id: pData.id } });
+        if (!dbPassenger || dbPassenger.bookingId !== tokenPassenger.bookingId) {
+          continue; // security check: must belong to the same booking
+        }
+        const dob = pData.dateOfBirth ? new Date(pData.dateOfBirth) : dbPassenger.dateOfBirth;
+        const age = this.deriveAgeCategory(dob);
+
+        const updated = await prisma.passenger.update({
+          where: { id: pData.id },
+          data: {
+            title:                  pData.title              !== undefined ? pData.title              : dbPassenger.title,
+            firstName:              pData.firstName          !== undefined ? pData.firstName          : dbPassenger.firstName,
+            lastName:               pData.lastName           !== undefined ? pData.lastName           : dbPassenger.lastName,
+            dateOfBirth:            pData.dateOfBirth        !== undefined ? (pData.dateOfBirth ? new Date(pData.dateOfBirth) : null) : dbPassenger.dateOfBirth,
+            age,
+            email:                  pData.email              !== undefined ? pData.email              : dbPassenger.email,
+            phoneNumber:            pData.phoneNumber        !== undefined ? pData.phoneNumber        : dbPassenger.phoneNumber,
+            nationality:            pData.nationality        !== undefined ? pData.nationality        : dbPassenger.nationality,
+            passportNumber:         pData.passportNumber     !== undefined ? pData.passportNumber     : dbPassenger.passportNumber,
+            passportExpiryDate:     pData.passportExpiryDate !== undefined ? (pData.passportExpiryDate ? new Date(pData.passportExpiryDate) : null) : dbPassenger.passportExpiryDate,
+            passportIssuingCountry: pData.passportIssuingCountry !== undefined ? pData.passportIssuingCountry : dbPassenger.passportIssuingCountry,
+            formSubmittedAt:        new Date(),
+          },
+        });
+        updatedPassengers.push(updated);
+      }
+      return updatedPassengers;
+    }
+
+    // Fallback: single passenger submit (backwards compatibility)
+    const dob = data.dateOfBirth ? new Date(data.dateOfBirth) : tokenPassenger.dateOfBirth;
+    const age = this.deriveAgeCategory(dob);
+
+    return prisma.passenger.update({
+      where: { formToken: token },
+      data: {
+        title:              data.title              || tokenPassenger.title,
+        firstName:          data.firstName          || tokenPassenger.firstName,
+        lastName:           data.lastName           || tokenPassenger.lastName,
+        dateOfBirth:        dob,
+        age,
+        email:              data.email              || tokenPassenger.email,
+        phoneNumber:        data.phoneNumber        || tokenPassenger.phoneNumber,
+        nationality:        data.nationality        || tokenPassenger.nationality,
+        passportNumber:     data.passportNumber     || tokenPassenger.passportNumber,
+        passportExpiryDate: data.passportExpiryDate ? new Date(data.passportExpiryDate) : tokenPassenger.passportExpiryDate,
+        passportIssuingCountry: data.passportIssuingCountry || tokenPassenger.passportIssuingCountry,
+        formSubmittedAt: new Date(),
+      },
+    });
+  }
+
+  async addPassengerByFormToken(token: string) {
+    const tokenPassenger = await prisma.passenger.findUnique({ where: { formToken: token } });
+    if (!tokenPassenger) throw new NotFoundException('Form link is invalid or has expired');
+
+    const passenger = await prisma.passenger.create({
+      data: {
+        bookingId: tokenPassenger.bookingId,
+        title: 'Mr',
+        firstName: '',
+        lastName: '',
+        role: 'Passenger',
+        age: 'Adult',
+        collectPassport: tokenPassenger.collectPassport,
+        collectAdditional: tokenPassenger.collectAdditional,
+      },
+      include: {
+        documents: true
+      }
+    });
+
+    return passenger;
+  }
+
+  async deletePassengerByFormToken(token: string, passengerId: string) {
+    const tokenPassenger = await prisma.passenger.findUnique({ where: { formToken: token } });
+    if (!tokenPassenger) throw new NotFoundException('Form link is invalid or has expired');
+
+    const passenger = await prisma.passenger.findUnique({ where: { id: passengerId } });
+    if (!passenger || passenger.bookingId !== tokenPassenger.bookingId) {
+      throw new NotFoundException('Passenger not found in this booking');
+    }
+
+    if (passenger.role === 'Leader') {
+      throw new BadRequestException('The lead passenger cannot be removed from the booking');
+    }
+
+    await prisma.passenger.delete({ where: { id: passengerId } });
+
+    return { success: true };
+  }
+
+  /** Send email link to specific passenger */
+  async sendPassengerLink(bookingId: string, passengerId: string) {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: { passengers: true },
+    });
+    if (!booking) throw new NotFoundException('Booking not found');
+
+    const passenger = booking.passengers.find((p) => p.id === passengerId);
+    if (!passenger) throw new NotFoundException('Passenger not found');
+    if (passenger.role !== 'Leader') {
+      throw new BadRequestException('Request links can only be sent to the Lead Passenger');
+    }
+    if (!passenger.email) throw new BadRequestException('Passenger email is required to send link');
+
+    let token = passenger.formToken;
+    if (!token) {
+      token = randomUUID();
+      await prisma.passenger.update({
+        where: { id: passenger.id },
+        data: { formToken: token },
+      });
+    }
+
+    const otherPassengers = booking.passengers.filter((p) => p.id !== passengerId);
+
+    await emailService.sendPassengerFormLink(
+      passenger.email,
+      `${passenger.firstName} ${passenger.lastName}`,
+      booking.bookingReference,
+      token,
+      otherPassengers
+    );
+
+    return { success: true };
+  }
+
+  async uploadPassengerPassportScan(token: string, passengerId: string, file: any) {
+    const tokenPassenger = await prisma.passenger.findUnique({ where: { formToken: token } });
+    if (!tokenPassenger) throw new NotFoundException('Form link is invalid or has expired');
+
+    const passenger = await prisma.passenger.findUnique({ where: { id: passengerId } });
+    if (!passenger || passenger.bookingId !== tokenPassenger.bookingId) {
+      throw new NotFoundException('Passenger not found in this booking');
+    }
+
+    if (!file) throw new BadRequestException('No file uploaded');
+
+    const allowedMime = ['image/jpeg', 'image/png', 'application/pdf'];
+    if (!allowedMime.includes(file.mimetype)) {
+      throw new BadRequestException('MIME type not allowed. Please upload JPEG, PNG, or PDF.');
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      throw new BadRequestException('File size exceeds 5MB limit');
+    }
+
+    // Delete old file if exists
+    if (passenger.passportScanKey) {
+      try {
+        await minioService.deleteFile('documents', passenger.passportScanKey);
+      } catch (err) {
+        logger.error('Failed to delete old passport scan:', err);
+      }
+    }
+
+    const key = `passport-${passengerId}-${Date.now()}-${file.originalname}`;
+    const fileUrl = await minioService.uploadFile(
+      'documents',
+      key,
+      file.buffer,
+      file.size,
+      file.mimetype
+    );
+
+    const updated = await prisma.passenger.update({
+      where: { id: passengerId },
+      data: {
+        passportScanKey: key,
+      },
+    });
+
+    return {
+      passengerId: updated.id,
+      passportScanKey: key,
+      url: fileUrl,
+    };
+  }
+
+  async getPassengerPassportScan(token: string, passengerId: string) {
+    const tokenPassenger = await prisma.passenger.findUnique({ where: { formToken: token } });
+    if (!tokenPassenger) throw new NotFoundException('Form link is invalid or has expired');
+
+    const passenger = await prisma.passenger.findUnique({ where: { id: passengerId } });
+    if (!passenger || passenger.bookingId !== tokenPassenger.bookingId) {
+      throw new NotFoundException('Passenger not found in this booking');
+    }
+
+    if (!passenger.passportScanKey) {
+      throw new NotFoundException('No passport scan uploaded for this passenger');
+    }
+
+    return { bucket: 'documents', key: passenger.passportScanKey };
+  }
+
+  async deletePassengerPassportScan(token: string, passengerId: string) {
+    const tokenPassenger = await prisma.passenger.findUnique({ where: { formToken: token } });
+    if (!tokenPassenger) throw new NotFoundException('Form link is invalid or has expired');
+
+    const passenger = await prisma.passenger.findUnique({ where: { id: passengerId } });
+    if (!passenger || passenger.bookingId !== tokenPassenger.bookingId) {
+      throw new NotFoundException('Passenger not found in this booking');
+    }
+
+    if (passenger.passportScanKey) {
+      try {
+        await minioService.deleteFile('documents', passenger.passportScanKey);
+      } catch (err) {
+        logger.error('Failed to delete passport scan file from MinIO:', err);
+      }
+    }
+
+    await prisma.passenger.update({
+      where: { id: passengerId },
+      data: { passportScanKey: null },
+    });
+
+    return { success: true };
+  }
+
+  async addPassengerDocument(token: string, passengerId: string, title: string, description?: string, file?: any) {
+    const tokenPassenger = await prisma.passenger.findUnique({ where: { formToken: token } });
+    if (!tokenPassenger) throw new NotFoundException('Form link is invalid or has expired');
+
+    const passenger = await prisma.passenger.findUnique({ where: { id: passengerId } });
+    if (!passenger || passenger.bookingId !== tokenPassenger.bookingId) {
+      throw new NotFoundException('Passenger not found in this booking');
+    }
+
+    if (!title || title.trim() === '') {
+      throw new BadRequestException('Document title is required');
+    }
+
+    let fileKey: string | null = null;
+    let fileName: string | null = null;
+
+    if (file) {
+      const allowedMime = ['image/jpeg', 'image/png', 'application/pdf'];
+      if (!allowedMime.includes(file.mimetype)) {
+        throw new BadRequestException('MIME type not allowed. Please upload JPEG, PNG, or PDF.');
+      }
+
+      if (file.size > 5 * 1024 * 1024) {
+        throw new BadRequestException('File size exceeds 5MB limit');
+      }
+
+      fileKey = `additional-${passengerId}-${Date.now()}-${file.originalname}`;
+      fileName = file.originalname;
+
+      await minioService.uploadFile(
+        'documents',
+        fileKey,
+        file.buffer,
+        file.size,
+        file.mimetype
+      );
+    }
+
+    const document = await prisma.passengerDocument.create({
+      data: {
+        passengerId,
+        title: title.trim(),
+        description: description ? description.trim() : null,
+        fileKey,
+        fileName,
+      },
+    });
+
+    return document;
+  }
+
+  async getPassengerDocumentFile(token: string, documentId: string) {
+    const tokenPassenger = await prisma.passenger.findUnique({ where: { formToken: token } });
+    if (!tokenPassenger) throw new NotFoundException('Form link is invalid or has expired');
+
+    const document = await prisma.passengerDocument.findUnique({
+      where: { id: documentId },
+      include: { passenger: true },
+    });
+
+    if (!document || document.passenger.bookingId !== tokenPassenger.bookingId) {
+      throw new NotFoundException('Document not found in this booking');
+    }
+
+    if (!document.fileKey) {
+      throw new NotFoundException('No file uploaded for this document');
+    }
+
+    return { bucket: 'documents', key: document.fileKey };
+  }
+
+  async deletePassengerDocument(token: string, documentId: string) {
+    const tokenPassenger = await prisma.passenger.findUnique({ where: { formToken: token } });
+    if (!tokenPassenger) throw new NotFoundException('Form link is invalid or has expired');
+
+    const document = await prisma.passengerDocument.findUnique({
+      where: { id: documentId },
+      include: { passenger: true },
+    });
+
+    if (!document || document.passenger.bookingId !== tokenPassenger.bookingId) {
+      throw new NotFoundException('Document not found in this booking');
+    }
+
+    if (document.fileKey) {
+      try {
+        await minioService.deleteFile('documents', document.fileKey);
+      } catch (err) {
+        logger.error('Failed to delete document file from MinIO:', err);
+      }
+    }
+
+    await prisma.passengerDocument.delete({
+      where: { id: documentId },
+    });
+
+    return { success: true };
+  }
+}
+
+export const bookingsService = new BookingsService();
+
