@@ -36,6 +36,7 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 5173,
       host: true,
+      allowedHosts: ['crm.terrifictravel.co.uk'],
       proxy: {
         '/api': {
           target: backendUrl,
