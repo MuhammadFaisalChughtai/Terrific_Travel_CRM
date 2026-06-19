@@ -14,6 +14,9 @@ RUN npm install --legacy-peer-deps
 # Copy backend application source
 COPY apps/backend/ ./apps/backend/
 
+# Copy data directory (contains airport.txt for seeding)
+COPY data/ ./data/
+
 # Generate Prisma client
 WORKDIR /usr/src/app/apps/backend
 RUN npx prisma generate
@@ -23,4 +26,4 @@ WORKDIR /usr/src/app
 RUN npm run build --workspace=apps/backend
 
 EXPOSE 3000
-CMD ["npm", "run", "start:dev", "--workspace=apps/backend"]
+CMD ["sh", "-c", "npx prisma db push --schema=apps/backend/prisma/schema.prisma && npm run prisma:seed --workspace=apps/backend && npm run start:dev --workspace=apps/backend"]
