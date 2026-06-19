@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import multer from 'multer';
-import { create, findAll, findOne, updateStatus, cancel, finalizeMargin, addFlightService, updateFlightService, addPassenger, updatePassenger, deletePassenger, getPassengerForm, submitPassengerForm, sendPassengerLink, uploadPassengerPassportScan, getPassengerPassportScan, deletePassengerPassportScan, addPassengerDocument, getPassengerDocumentFile, deletePassengerDocument, addPassengerByFormToken, deletePassengerByFormToken, adminUploadPassportScan, adminGetPassportScan, adminDeletePassportScan, adminAddPassengerDocument, adminGetPassengerDocumentFile, adminDeletePassengerDocument, searchAllPassengers } from '../controllers/bookings.controller';
+import { create, findAll, findOne, updateStatus, cancel, finalizeMargin, addFlightService, updateFlightService, deleteFlightService, addAccommodationService, updateAccommodationService, deleteAccommodationService, addPassenger, updatePassenger, deletePassenger, getPassengerForm, submitPassengerForm, sendPassengerLink, uploadPassengerPassportScan, getPassengerPassportScan, deletePassengerPassportScan, addPassengerDocument, getPassengerDocumentFile, deletePassengerDocument, addPassengerByFormToken, deletePassengerByFormToken, adminUploadPassportScan, adminGetPassportScan, adminDeletePassportScan, adminAddPassengerDocument, adminGetPassengerDocumentFile, adminDeletePassengerDocument, searchAllPassengers, addTransportService, updateTransportService, deleteTransportService } from '../controllers/bookings.controller';
 import { authMiddleware } from '../middleware/auth.middleware';
 import { requireRoles } from '../middleware/rbac.middleware';
 
@@ -31,6 +31,15 @@ router.patch('/:id/status', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT')
 router.patch('/:id/finalize-margin', requireRoles('SUPER_ADMIN', 'ADMIN') as any, finalizeMargin);
 router.post('/:id/flights', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, addFlightService);
 router.patch('/:id/flights/:flightServiceId', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, updateFlightService);
+router.delete('/:id/flights/:flightServiceId', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, deleteFlightService);
+
+router.post('/:id/accommodations', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, addAccommodationService);
+router.patch('/:id/accommodations/:accommodationId', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, updateAccommodationService);
+router.delete('/:id/accommodations/:accommodationId', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, deleteAccommodationService);
+
+router.post('/:id/transports', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, addTransportService);
+router.patch('/:id/transports/:transportServiceId', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, updateTransportService);
+router.delete('/:id/transports/:transportServiceId', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, deleteTransportService);
 
 // Passenger CRUD
 router.post('/:id/passengers', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, addPassenger);

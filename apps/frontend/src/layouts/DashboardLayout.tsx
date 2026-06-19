@@ -20,6 +20,7 @@ import {
   User,
   Users,
   Store,
+  BookOpen,
 } from "lucide-react";
 export default function DashboardLayout() {
   const location = useLocation();

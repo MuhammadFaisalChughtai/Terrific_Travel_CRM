@@ -1,11 +1,12 @@
 import { Router } from 'express';
-import { create, search, findOne, update, deleteFlight } from '../controllers/flights.controller';
+import { create, search, findOne, update, deleteFlight, getAirportByCode } from '../controllers/flights.controller';
 import { authMiddleware } from '../middleware/auth.middleware';
 import { requireRoles } from '../middleware/rbac.middleware';
 
 const router = Router();
 
 // Public routes
+router.get('/airports/:code', authMiddleware as any, getAirportByCode);
 router.get('/', search);
 router.get('/:id', findOne);
 

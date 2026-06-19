@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../api/client";
 import { formatCurrency } from "@tms/shared-utils";
+import { toast } from "sonner";
 import {
   Wallet,
   ArrowDownRight,
@@ -31,6 +32,8 @@ import {
 import Modal from "./Modal";
 import PnrFlightModal from "./PnrFlightModal";
 import PassengerModal from "./PassengerModal";
+import HotelReservationModal from "./HotelReservationModal";
+import TransportReservationModal from "./TransportReservationModal";
 
 interface BookingManagerProps {
   isOpen: boolean;
@@ -50,6 +53,74 @@ export default function BookingManager({
   const [editingFlight, setEditingFlight] = useState<any | null>(null);
   const [isPassengerModalOpen, setIsPassengerModalOpen] = useState(false);
   const [editingPassenger, setEditingPassenger] = useState<any | null>(null);
+  const [isHotelModalOpen, setIsHotelModalOpen] = useState(false);
+  const [editingAccommodation, setEditingAccommodation] = useState<any | null>(null);
+  const [isTransportModalOpen, setIsTransportModalOpen] = useState(false);
+  const [editingTransport, setEditingTransport] = useState<any | null>(null);
+
+  const handleDeletePassenger = async (passengerId: string) => {
+    if (!booking) return;
+    const passenger = booking.passengers?.find((p: any) => p.id === passengerId);
+    if (!passenger) return;
+
+    const isLeader = passenger.role === "Leader";
+    const msg = isLeader
+      ? "Warning: You are deleting the Lead Passenger. This booking will no longer have a leader. Are you sure you want to proceed?"
+      : "Are you sure you want to delete this passenger?";
+
+    if (!window.confirm(msg)) return;
+
+    const toastId = toast.loading("Deleting passenger...");
+    try {
+      await apiClient.delete(`/bookings/${booking.id}/passengers/${passengerId}`);
+      toast.success("Passenger deleted successfully", { id: toastId });
+      queryClient.invalidateQueries({ queryKey: ["booking", booking.id] });
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to delete passenger", { id: toastId });
+    }
+  };
+
+  const handleDeleteFlight = async (flightServiceId: string) => {
+    if (!booking) return;
+    if (!window.confirm("Are you sure you want to delete this flight service segment?")) return;
+
+    const toastId = toast.loading("Deleting flight service...");
+    try {
+      await apiClient.delete(`/bookings/${booking.id}/flights/${flightServiceId}`);
+      toast.success("Flight service deleted successfully", { id: toastId });
+      queryClient.invalidateQueries({ queryKey: ["booking", booking.id] });
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to delete flight service", { id: toastId });
+    }
+  };
+
+  const handleDeleteAccommodation = async (accommodationId: string) => {
+    if (!booking) return;
+    if (!window.confirm("Are you sure you want to delete this hotel reservation?")) return;
+
+    const toastId = toast.loading("Deleting hotel reservation...");
+    try {
+      await apiClient.delete(`/bookings/${booking.id}/accommodations/${accommodationId}`);
+      toast.success("Hotel reservation deleted successfully", { id: toastId });
+      queryClient.invalidateQueries({ queryKey: ["booking", booking.id] });
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to delete hotel reservation", { id: toastId });
+    }
+  };
+
+  const handleDeleteTransport = async (transportId: string) => {
+    if (!booking) return;
+    if (!window.confirm("Are you sure you want to delete this transport service?")) return;
+
+    const toastId = toast.loading("Deleting transport service...");
+    try {
+      await apiClient.delete(`/bookings/${booking.id}/transports/${transportId}`);
+      toast.success("Transport service deleted successfully", { id: toastId });
+      queryClient.invalidateQueries({ queryKey: ["booking", booking.id] });
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to delete transport service", { id: toastId });
+    }
+  };
 
   const [openSections, setOpenSections] = useState({
     financial: true,
@@ -149,7 +220,7 @@ export default function BookingManager({
   // Vendor Cost Calculations
   const accommodationsCost =
     booking.accommodations?.reduce(
-      (sum: number, acc: any) => sum + acc.price * (acc.qty || 1),
+      (sum: number, acc: any) => sum + acc.price,
       0,
     ) || 0;
   const flightsCost =
@@ -545,6 +616,13 @@ export default function BookingManager({
                                 >
                                   <Pencil size={11} />
                                 </button>
+                                <button
+                                  onClick={() => handleDeletePassenger(p.id)}
+                                  className="p-1 hover:bg-secondary rounded text-muted-foreground hover:text-rose-600 transition-all"
+                                  title="Delete Passenger"
+                                >
+                                  <Trash2 size={11} />
+                                </button>
                               </div>
                             </td>
                           </tr>
@@ -692,6 +770,17 @@ export default function BookingManager({
                             >
                               <Pencil size={11} />
                             </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteFlight(fs.id);
+                              }}
+                              className="p-1 hover:bg-secondary rounded text-muted-foreground hover:text-rose-600 transition-all"
+                              title="Delete Flight"
+                            >
+                              <Trash2 size={11} />
+                            </button>
                           </div>
                         </div>
                       ))
@@ -717,7 +806,11 @@ export default function BookingManager({
               </h2>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setEditingAccommodation(null);
+                    setIsHotelModalOpen(true);
+                  }}
                   className="flex items-center gap-1 px-2 py-0.5 bg-secondary/50 border border-border text-foreground hover:bg-secondary font-bold rounded text-[12px] transition-colors"
                 >
                   <Plus size={12} /> Add
@@ -744,9 +837,38 @@ export default function BookingManager({
                         <span className="absolute -top-2.5 left-2 bg-card px-1 text-[8px] font-bold text-emerald-600 border border-emerald-200 rounded uppercase">
                           Confirmed
                         </span>
-                        <h4 className="font-bold text-foreground mt-0.5">
-                          {acc.hotelName}
-                        </h4>
+                        
+                        <div className="flex justify-between items-start mt-0.5">
+                          <h4 className="font-bold text-foreground">
+                            {acc.hotelName} {acc.city ? `(${acc.city})` : ''}
+                          </h4>
+                          <div className="flex gap-1">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingAccommodation(acc);
+                                setIsHotelModalOpen(true);
+                              }}
+                              className="p-1 hover:bg-secondary rounded text-muted-foreground hover:text-primary transition-all"
+                              title="Edit Hotel"
+                            >
+                              <Pencil size={11} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteAccommodation(acc.id);
+                              }}
+                              className="p-1 hover:bg-secondary rounded text-muted-foreground hover:text-rose-600 transition-all"
+                              title="Delete Hotel"
+                            >
+                              <Trash2 size={11} />
+                            </button>
+                          </div>
+                        </div>
+
                         <div className="space-y-0.5 mt-1.5">
                           <div className="flex justify-between">
                             <span className="text-muted-foreground text-[12px]">
@@ -760,7 +882,7 @@ export default function BookingManager({
                                   day: "2-digit",
                                   year: "numeric",
                                 },
-                              )}
+                              )} {acc.checkInTime ? `@ ${acc.checkInTime}` : ''}
                             </span>
                           </div>
                           <div className="flex justify-between">
@@ -775,7 +897,7 @@ export default function BookingManager({
                                   day: "2-digit",
                                   year: "numeric",
                                 },
-                              )}
+                              )} {acc.checkOutTime ? `@ ${acc.checkOutTime}` : ''}
                             </span>
                           </div>
                           <div className="flex justify-between">
@@ -783,7 +905,7 @@ export default function BookingManager({
                               Room:
                             </span>
                             <span className="font-medium text-foreground text-[12px]">
-                              {acc.roomType} x {acc.qty || 1}
+                              {acc.roomType} x {acc.qty || 1} ({acc.mealType || 'Room Only'})
                             </span>
                           </div>
                           <div className="flex justify-between">
@@ -819,7 +941,11 @@ export default function BookingManager({
               </h2>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setEditingTransport(null);
+                    setIsTransportModalOpen(true);
+                  }}
                   className="flex items-center gap-1 px-2 py-0.5 bg-secondary/50 border border-border text-foreground hover:bg-secondary font-bold rounded text-[12px] transition-colors"
                 >
                   <Plus size={12} /> Add
@@ -840,8 +966,9 @@ export default function BookingManager({
                   <thead>
                     <tr className="bg-secondary/10 border-b border-border text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
                       <th className="px-4 py-2">Vehicle</th>
-                      <th className="px-4 py-2">Route</th>
+                      <th className="px-4 py-2">Route / Details</th>
                       <th className="px-4 py-2 text-right">Price</th>
+                      <th className="px-4 py-2 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="text-foreground divide-y divide-border">
@@ -860,24 +987,59 @@ export default function BookingManager({
                               {ts.departureDestination} &rarr;{" "}
                               {ts.arrivalDestination}
                             </p>
-                            <p className="text-[10px] text-muted-foreground">
-                              {new Date(ts.date).toLocaleDateString("en-US", {
-                                month: "short",
-                                day: "2-digit",
-                                year: "numeric",
-                              })}{" "}
-                              at {ts.departureTime}
-                            </p>
+                            <div className="flex flex-col gap-0.5 mt-0.5 text-[10px] text-muted-foreground">
+                              <p>
+                                Date: {new Date(ts.date).toLocaleDateString("en-US", {
+                                  month: "short",
+                                  day: "2-digit",
+                                  year: "numeric",
+                                })}{" "}
+                                {ts.departureTime ? `at ${ts.departureTime}` : ''}
+                                {ts.arrivalTime ? ` - ${ts.arrivalTime}` : ''}
+                              </p>
+                              {ts.flightNo && (
+                                <p className="text-primary font-medium">
+                                  Flight: {ts.flightNo}
+                                </p>
+                              )}
+                            </div>
                           </td>
                           <td className="px-4 py-2.5 text-right font-bold text-[12px]">
                             {formatCurrency(ts.price)}
+                          </td>
+                          <td className="px-4 py-2.5 text-right text-[12px]">
+                            <div className="flex gap-1 justify-end">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingTransport(ts);
+                                  setIsTransportModalOpen(true);
+                                }}
+                                className="p-1 hover:bg-secondary rounded text-muted-foreground hover:text-primary transition-all"
+                                title="Edit Transport"
+                              >
+                                <Pencil size={11} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteTransport(ts.id);
+                                }}
+                                className="p-1 hover:bg-secondary rounded text-muted-foreground hover:text-rose-600 transition-all"
+                                title="Delete Transport"
+                              >
+                                <Trash2 size={11} />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))
                     ) : (
                       <tr>
                         <td
-                          colSpan={3}
+                          colSpan={4}
                           className="text-center py-4 text-muted-foreground italic text-[12px]"
                         >
                           No transfers registered.
@@ -1031,6 +1193,33 @@ export default function BookingManager({
         bookingId={booking.id}
         passengerToEdit={editingPassenger}
         bookingPassengers={booking.passengers}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["booking", booking.id] });
+        }}
+      />
+
+      <HotelReservationModal
+        isOpen={isHotelModalOpen}
+        onClose={() => {
+          setIsHotelModalOpen(false);
+          setEditingAccommodation(null);
+        }}
+        bookingId={booking.id}
+        accommodationToEdit={editingAccommodation}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["booking", booking.id] });
+        }}
+      />
+
+      <TransportReservationModal
+        isOpen={isTransportModalOpen}
+        onClose={() => {
+          setIsTransportModalOpen(false);
+          setEditingTransport(null);
+        }}
+        bookingId={booking.id}
+        booking={booking}
+        transportToEdit={editingTransport}
         onSuccess={() => {
           queryClient.invalidateQueries({ queryKey: ["booking", booking.id] });
         }}

@@ -122,6 +122,14 @@ export class FlightsService {
     await redisService.flushall();
     return { success: true };
   }
+
+  async findAirportByCode(code: string) {
+    const airport = await prisma.airport.findUnique({
+      where: { code: code.toUpperCase() },
+    });
+    if (!airport) throw new NotFoundException('Airport not found');
+    return airport;
+  }
 }
 
 export const flightsService = new FlightsService();

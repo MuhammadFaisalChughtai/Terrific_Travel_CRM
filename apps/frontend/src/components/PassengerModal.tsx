@@ -74,6 +74,57 @@ function cleanOcrDigits(str: string): string {
 }
 
 function parsePassportOcr(text: string) {
+  const parseOcrDate = (str: string): Date | null => {
+    if (!str) return null;
+    const cleanStr = str.trim().toUpperCase();
+
+    const monthNames = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+    const alphaMatch = cleanStr.match(/^(\d{1,2})\s*([A-Z]{3,9})(?:\s*\/[A-Z]{3,9})?\s*(\d{2,4})/);
+    if (alphaMatch) {
+      const day = parseInt(alphaMatch[1], 10);
+      const monthStr = alphaMatch[2].substring(0, 3);
+      let yy = parseInt(alphaMatch[3], 10);
+      const monthIndex = monthNames.indexOf(monthStr);
+      if (monthIndex !== -1 && day >= 1 && day <= 31) {
+        if (yy < 100) {
+          const currentYear = new Date().getFullYear() % 100;
+          yy = yy > currentYear + 15 ? 1900 + yy : 2000 + yy;
+        }
+        return new Date(Date.UTC(yy, monthIndex, day));
+      }
+    }
+
+    const numericMatch = cleanStr.match(/^(\d{2,4})[./-]\s*(\d{1,2})[./-]\s*(\d{2,4})/);
+    if (numericMatch) {
+      let p1 = parseInt(numericMatch[1], 10);
+      let p2 = parseInt(numericMatch[2], 10);
+      let p3 = parseInt(numericMatch[3], 10);
+
+      let year = 0, month = 0, day = 0;
+      if (p1 > 31) {
+        year = p1;
+        month = p2;
+        day = p3;
+      } else {
+        day = p1;
+        month = p2;
+        year = p3;
+      }
+
+      if (year < 100) {
+        const currentYear = new Date().getFullYear() % 100;
+        year = year > currentYear + 15 ? 1900 + year : 2000 + year;
+      }
+
+      const monthIndex = month - 1;
+      if (monthIndex >= 0 && monthIndex < 12 && day >= 1 && day <= 31) {
+        return new Date(Date.UTC(year, monthIndex, day));
+      }
+    }
+
+    return null;
+  };
+
   const result: {
     passportNumber?: string;
     nationality?: string;
@@ -84,36 +135,52 @@ function parsePassportOcr(text: string) {
     passportIssuingCountry?: string;
   } = {};
 
-  // Strip ALL whitespace & uppercase — mirrors what PassengerForm does
+  // Clean lines
   const lines = text
     .split("\n")
     .map((line) => line.replace(/\s+/g, "").toUpperCase())
-    .filter((line) => line.length > 20);
+    .filter((line) => line.length > 15);
 
   let mrzLine1 = "";
   let mrzLine2 = "";
-  let startIdx = 0;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    // Check if line looks like MRZ Line 1:
-    // It should have length >= 30, contain '<', and either start with P/I/O/Q/< or contain 'P<' in the first few chars
-    const hasManyChevrons = (line.match(/</g) || []).length >= 5;
-    const startsWithMRZType = /^[PIOQ<]/.test(line) || line.includes("P<");
-    if (line.length >= 30 && hasManyChevrons && startsWithMRZType) {
-      const pIdx = line.indexOf("P<");
-      if (pIdx !== -1) {
-        startIdx = pIdx;
-      } else {
-        const matchP = line.match(/P[A-Z<]{10,}/);
+    
+    // Normalize potential chevron misreads
+    let normalized = line.replace(/[{}[\]()|\\/*]/g, "<")
+                         .replace(/K{2,}/g, (match) => "<".repeat(match.length));
+                         
+    // Sometimes a single 'K' at index 1 is a misread chevron in 'P<'
+    if (normalized.startsWith("PK") || normalized.startsWith("PX") || normalized.startsWith("PC")) {
+      normalized = "P<" + normalized.substring(2);
+    }
+    
+    const chevronCount = (normalized.match(/</g) || []).length;
+    const isPLine = normalized.startsWith("P<") || normalized.includes("P<") || /^[PIOQ<]/.test(normalized);
+    
+    if (normalized.length >= 30 && (chevronCount >= 5 || normalized.includes("P<")) && isPLine) {
+      let startIdx = normalized.indexOf("P<");
+      if (startIdx === -1) {
+        const matchP = normalized.match(/P[A-Z<]{10,}/);
         if (matchP && matchP.index !== undefined) {
           startIdx = matchP.index;
+        } else {
+          startIdx = 0;
         }
       }
       
-      mrzLine1 = line.substring(startIdx);
-      if (i + 1 < lines.length) {
-        mrzLine2 = lines[i + 1].substring(startIdx);
+      mrzLine1 = normalized.substring(startIdx);
+      
+      // Look for mrzLine2 in the next few lines
+      for (let j = i + 1; j <= Math.min(i + 2, lines.length - 1); j++) {
+        const nextLine = lines[j];
+        const normalizedNext = nextLine.replace(/[{}[\]()|\\/*]/g, "<")
+                                       .replace(/K{2,}/g, (match) => "<".repeat(match.length));
+        if (normalizedNext.length >= 30) {
+          mrzLine2 = normalizedNext.substring(Math.min(startIdx, normalizedNext.length - 1));
+          break;
+        }
       }
       break;
     }
@@ -124,12 +191,10 @@ function parsePassportOcr(text: string) {
     console.log("PassengerModal OCR — MRZ Line 2:", mrzLine2);
 
     try {
-      // Issuing country — chars 2-4 of line 1
       const countryCode = mrzLine1.substring(2, 5).replace(/</g, "");
       result.passportIssuingCountry = countryCodeMap[countryCode] || countryCode;
       result.nationality = countryCodeMap[countryCode] || countryCode;
 
-      // Name — after char 5, split on <<
       const namePart = mrzLine1.substring(5);
       const nameSplit = namePart.split("<<");
       if (nameSplit.length >= 2) {
@@ -137,33 +202,29 @@ function parsePassportOcr(text: string) {
         result.firstName = nameSplit[1].split("<")[0].replace(/</g, " ").trim();
       }
 
-      // Passport number — chars 0-8 of line 2
       const passportNo = mrzLine2.substring(0, 9).replace(/</g, "");
       if (passportNo) result.passportNumber = passportNo;
 
-      // Date of birth — chars 13-18 of line 2 (YYMMDD)
       const dobStr = cleanOcrDigits(mrzLine2.substring(13, 19));
       if (dobStr.length === 6) {
         const yy = parseInt(dobStr.substring(0, 2), 10);
         const mm = parseInt(dobStr.substring(2, 4), 10) - 1;
         const dd = parseInt(dobStr.substring(4, 6), 10);
-        // If yy > current year + 10 → assume 1900s (i.e. someone born in 1985 shows as 85)
         const currentYear = new Date().getFullYear() % 100;
         const year = yy > currentYear + 10 ? 1900 + yy : 2000 + yy;
-        const dobDate = new Date(year, mm, dd);
+        const dobDate = new Date(Date.UTC(year, mm, dd));
         if (!isNaN(dobDate.getTime())) {
           result.dateOfBirth = dobDate.toISOString().substring(0, 10);
         }
       }
 
-      // Expiry date — chars 21-26 of line 2 (YYMMDD) — always 2000s
       const expStr = cleanOcrDigits(mrzLine2.substring(21, 27));
       if (expStr.length === 6) {
         const yy = parseInt(expStr.substring(0, 2), 10);
         const mm = parseInt(expStr.substring(2, 4), 10) - 1;
         const dd = parseInt(expStr.substring(4, 6), 10);
         const year = 2000 + yy;
-        const expDate = new Date(year, mm, dd);
+        const expDate = new Date(Date.UTC(year, mm, dd));
         if (!isNaN(expDate.getTime())) {
           result.passportExpiryDate = expDate.toISOString().substring(0, 10);
         }
@@ -173,18 +234,106 @@ function parsePassportOcr(text: string) {
     }
   }
 
-  // Fallback: regex-based extraction from raw text if MRZ parsing yielded nothing
+  // Fallback regex-based extraction from raw text if MRZ parsing yielded nothing or is incomplete
+  const cleanRawText = text.replace(/\s+/g, " ");
+
   if (!result.passportNumber) {
-    const m = text.match(/(?:passport|doc|document)\s*(?:no|number|num)?\s*[:.-]?\s*([A-Z0-9]{8,9})/i);
-    if (m) result.passportNumber = m[1].toUpperCase();
+    const pNoMatch = cleanRawText.match(/(?:passport|doc|document|passeport)\s*(?:no|number|num)?\s*[:.-]?\s*([A-Z0-9]{8,9})/i);
+    if (pNoMatch) {
+      result.passportNumber = pNoMatch[1].toUpperCase();
+    } else {
+      // Find 9-digit passport number word (must contain at least one digit to avoid labels like "SIGNATURE")
+      const words = text.split(/\s+/);
+      for (const word of words) {
+        const cleanWord = word.replace(/[^A-Z0-9]/ig, "");
+        if (/^[A-Z0-9]{9}$/i.test(cleanWord) && /\d/.test(cleanWord)) {
+          result.passportNumber = cleanWord.toUpperCase();
+          break;
+        }
+      }
+    }
   }
-  if (!result.firstName) {
-    const m = text.match(/(?:given\s*names?|first\s*names?)\s*[:.-]?\s*([A-Z\s]{2,30})/i);
-    if (m) result.firstName = m[1].trim();
+
+  // Parse lines for labeled fields
+  const rawLines = text.split("\n");
+  for (let i = 0; i < rawLines.length; i++) {
+    const line = rawLines[i].toUpperCase();
+    
+    // A line is only a surname line if it doesn't contain given names descriptors to prevent overlap
+    const isSurnameLine = (line.includes("SURNAME") || line.includes("NOM") || line.includes("SURNAME/NOM")) &&
+                          !(line.includes("GIVEN") || line.includes("PRÉNOM") || line.includes("PRENOM") || line.includes("PRÉ-NOM"));
+
+    if (isSurnameLine) {
+      if (i + 1 < rawLines.length) {
+        const cleanName = rawLines[i + 1].split(/\s+/)[0].replace(/[^A-Z]/ig, "");
+        if (cleanName.length > 2) {
+          result.lastName = cleanName.toUpperCase();
+        }
+      }
+    }
+
+    if (line.includes("GIVEN") || line.includes("PRÉNOM") || line.includes("PRENOM") || line.includes("GIVEN NAMES")) {
+      if (i + 1 < rawLines.length) {
+        const cleanName = rawLines[i + 1].split(/\s+/)[0].replace(/[^A-Z]/ig, "");
+        if (cleanName.length > 2) {
+          result.firstName = cleanName.toUpperCase();
+        }
+      }
+    }
+
+    if (line.includes("NATIONALITY") || line.includes("NATIONALITÉ") || line.includes("NATIONALITE")) {
+      if (i + 1 < rawLines.length) {
+        const cleanNat = rawLines[i + 1].split(/[|]/)[0].replace(/[^A-Z\s]/ig, "").trim();
+        if (cleanNat.length > 3) {
+          if (cleanNat.toUpperCase().includes("BRITISH") || cleanNat.toUpperCase().includes("UNITED KINGDOM") || cleanNat.toUpperCase().includes("GBR")) {
+            result.passportIssuingCountry = "United Kingdom";
+            result.nationality = "United Kingdom";
+          } else {
+            result.nationality = cleanNat;
+            result.passportIssuingCountry = cleanNat;
+          }
+        }
+      }
+    }
+
+    if (line.includes("DATE OF BIRTH") || line.includes("NAISSANCE") || line.includes("BIRTH")) {
+      if (i + 1 < rawLines.length) {
+        const dobDate = parseOcrDate(rawLines[i + 1]);
+        if (dobDate) {
+          result.dateOfBirth = dobDate.toISOString().substring(0, 10);
+        }
+      }
+    }
+
+    if (line.includes("EXPIRY") || line.includes("EXPIRATION")) {
+      if (i + 1 < rawLines.length) {
+        const expDate = parseOcrDate(rawLines[i + 1]);
+        if (expDate) {
+          result.passportExpiryDate = expDate.toISOString().substring(0, 10);
+        }
+      }
+    }
   }
-  if (!result.lastName) {
-    const m = text.match(/(?:surname|last\s*names?)\s*[:.-]?\s*([A-Z\s]{2,30})/i);
-    if (m) result.lastName = m[1].trim();
+
+  // ParseDateFromText helper as additional fallback
+  const parseDateFromText = (labelText: string): string | undefined => {
+    const regex = new RegExp(`(?:${labelText})\\s*[:.-]?\\s*(?:DATE\\s*OF\\s*)?\\s*(\\d{1,2}[/-]\\d{1,2}[/-]\\d{2,4}|\\d{1,2}\\s+[A-Z]{3,10}\\s+\\d{2,4}|\\d{4}[/-]\\d{1,2}[/-]\\d{1,2})`, 'i');
+    const match = cleanRawText.match(regex);
+    if (match) {
+      const dateStr = match[1];
+      const parsedDate = parseOcrDate(dateStr);
+      if (parsedDate) {
+        return parsedDate.toISOString().substring(0, 10);
+      }
+    }
+    return undefined;
+  };
+
+  if (!result.passportExpiryDate) {
+    result.passportExpiryDate = parseDateFromText("EXPIRY|EXP|VALID\\s+UNTIL|VAL");
+  }
+  if (!result.dateOfBirth) {
+    result.dateOfBirth = parseDateFromText("BIRTH|DOB|BORN");
   }
 
   return result;
@@ -249,6 +398,7 @@ export default function PassengerModal({
 
   const leaderPassenger = bookingPassengers?.find((p) => p.role === "Leader");
   const leaderEmail = leaderPassenger?.email || "";
+  const leaderPhone = leaderPassenger?.phoneNumber || "";
 
   const ageCategory = deriveAgeCategory(dateOfBirth);
 
@@ -308,12 +458,17 @@ export default function PassengerModal({
     };
   }, []);
 
-  // Autofill leader email for family members
+  // Autofill leader email & phone for family members
   useEffect(() => {
-    if (role === "Family Member" && !email && leaderEmail) {
-      setEmail(leaderEmail);
+    if (role === "Family Member") {
+      if (!email && leaderEmail) {
+        setEmail(leaderEmail);
+      }
+      if (!phoneNumber && leaderPhone) {
+        setPhoneNumber(leaderPhone);
+      }
     }
-  }, [role, leaderEmail]);
+  }, [role, leaderEmail, leaderPhone]);
 
   // ─── Passenger Search Handlers ─────────────────────────────────────────────
 
@@ -750,7 +905,21 @@ export default function PassengerModal({
                 </div>
 
                 {showPassportSection && (
-                  <div><label className={lbl}>Phone Number</label><input type="tel" placeholder="+44 7889 952013" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} className={inp} /></div>
+                  <div>
+                    <div className="flex justify-between items-center mb-0.5">
+                      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Phone Number</label>
+                      {leaderPhone && (
+                        <button
+                          type="button"
+                          onClick={() => setPhoneNumber(leaderPhone)}
+                          className="text-[9px] text-primary hover:underline font-bold"
+                        >
+                          Same as Leader
+                        </button>
+                      )}
+                    </div>
+                    <input type="tel" placeholder="+44 7889 952013" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} className={inp} />
+                  </div>
                 )}
               </div>
             </div>
@@ -766,7 +935,32 @@ export default function PassengerModal({
                 <div className="grid grid-cols-2 gap-3">
                   <div><label className={lbl}>Passport Number</label><input type="text" placeholder="e.g. GB123456" value={passportNumber} onChange={e => setPassportNumber(e.target.value.toUpperCase())} className={`${inp} font-mono uppercase`} /></div>
                   <div><label className={lbl}>Issuing Country</label><input type="text" placeholder="e.g. United Kingdom" value={passportIssuingCountry} onChange={e => setPassportIssuingCountry(e.target.value)} className={inp} /></div>
-                  <div className="col-span-2"><label className={lbl}>Passport Expiry Date</label><input type="date" value={passportExpiryDate} onChange={e => setPassportExpiryDate(e.target.value)} className={inp} /></div>
+                  <div className="col-span-2">
+                    <label className={lbl}>Passport Expiry Date</label>
+                    <input type="date" value={passportExpiryDate} onChange={e => setPassportExpiryDate(e.target.value)} className={inp} />
+                    {passportExpiryDate && (() => {
+                      const expDate = new Date(passportExpiryDate);
+                      if (!isNaN(expDate.getTime())) {
+                        const today = new Date();
+                        const sixMonths = new Date();
+                        sixMonths.setMonth(today.getMonth() + 6);
+                        if (expDate < today) {
+                          return (
+                            <p className="text-[10px] text-rose-600 font-bold mt-1">
+                              ⚠️ Passport has already expired!
+                            </p>
+                          );
+                        } else if (expDate <= sixMonths) {
+                          return (
+                            <p className="text-[10px] text-amber-600 font-bold mt-1">
+                              ⚠️ Passport expires in less than 6 months (validity: {expDate.toLocaleDateString('en-GB')}).
+                            </p>
+                          );
+                        }
+                      }
+                      return null;
+                    })()}
+                  </div>
                 </div>
               </div>
             )}

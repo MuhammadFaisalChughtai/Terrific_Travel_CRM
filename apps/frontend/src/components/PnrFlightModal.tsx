@@ -119,8 +119,8 @@ export default function PnrFlightModal({
   const [date, setDate] = useState('');
   const [flightClass, setFlightClass] = useState('Y');
   const [price, setPrice] = useState('0');
-  const [baggage, setBaggage] = useState('');
-  const [carryOnBaggage, setCarryOnBaggage] = useState('');
+  const [baggage, setBaggage] = useState('23 KG');
+  const [carryOnBaggage, setCarryOnBaggage] = useState('7 KG');
   const [checkedBaggage, setCheckedBaggage] = useState('');
   const [issueDate, setIssueDate] = useState('');
 
@@ -132,8 +132,31 @@ export default function PnrFlightModal({
         setVendorId(flightToEdit.vendorId || '');
         setFlightNo(flightToEdit.flightNo || '');
         setPnr(flightToEdit.pnr || '');
-        setDepartedFrom(flightToEdit.departedFrom || '');
-        setArrivedAt(flightToEdit.arrivedAt || '');
+        const initialDeparted = flightToEdit.departedFrom || '';
+        const initialArrived = flightToEdit.arrivedAt || '';
+        setDepartedFrom(initialDeparted);
+        setArrivedAt(initialArrived);
+
+        if (initialDeparted.trim().length === 3) {
+          apiClient.get(`/flights/airports/${initialDeparted.trim()}`)
+            .then(res => {
+              if (res.data?.success && res.data?.data?.name) {
+                setDepartedFrom(`${res.data.data.name} (${res.data.data.code.toUpperCase()})`);
+              }
+            })
+            .catch(err => console.warn(err));
+        }
+
+        if (initialArrived.trim().length === 3) {
+          apiClient.get(`/flights/airports/${initialArrived.trim()}`)
+            .then(res => {
+              if (res.data?.success && res.data?.data?.name) {
+                setArrivedAt(`${res.data.data.name} (${res.data.data.code.toUpperCase()})`);
+              }
+            })
+            .catch(err => console.warn(err));
+        }
+
         setDepartTime(flightToEdit.departTime || '');
         setArrivalTime(flightToEdit.arrivalTime || '');
         
@@ -175,8 +198,8 @@ export default function PnrFlightModal({
         setDate('');
         setFlightClass('Y');
         setPrice('0');
-        setBaggage('');
-        setCarryOnBaggage('');
+        setBaggage('23 KG');
+        setCarryOnBaggage('7 KG');
         setCheckedBaggage('');
         setIssueDate('');
       }
@@ -195,13 +218,63 @@ export default function PnrFlightModal({
 
   const flightVendors = vendorsData?.filter((v: any) => v.vendorType?.toLowerCase() === 'flight') || [];
 
-  const handleConvert = () => {
+  const handleDepartedFromChange = async (val: string) => {
+    setDepartedFrom(val);
+    if (val.trim().length === 3) {
+      try {
+        const res = await apiClient.get(`/flights/airports/${val.trim()}`);
+        if (res.data?.success && res.data?.data?.name) {
+          setDepartedFrom(`${res.data.data.name} (${res.data.data.code.toUpperCase()})`);
+        }
+      } catch (err) {
+        // Ignore lookup error when typing
+      }
+    }
+  };
+
+  const handleArrivedAtChange = async (val: string) => {
+    setArrivedAt(val);
+    if (val.trim().length === 3) {
+      try {
+        const res = await apiClient.get(`/flights/airports/${val.trim()}`);
+        if (res.data?.success && res.data?.data?.name) {
+          setArrivedAt(`${res.data.data.name} (${res.data.data.code.toUpperCase()})`);
+        }
+      } catch (err) {
+        // Ignore lookup error when typing
+      }
+    }
+  };
+
+  const handleConvert = async () => {
     const parsed = parsePNRText(pnrText, bookingYear);
     if (parsed) {
       setFlightNo(parsed.flightNo);
       setPnr(parsed.pnr);
-      setDepartedFrom(parsed.departedFrom);
-      setArrivedAt(parsed.arrivedAt);
+      
+      let finalDeparted = parsed.departedFrom;
+      let finalArrived = parsed.arrivedAt;
+
+      try {
+        const depRes = await apiClient.get(`/flights/airports/${parsed.departedFrom}`);
+        if (depRes.data?.success && depRes.data?.data?.name) {
+          finalDeparted = `${depRes.data.data.name} (${depRes.data.data.code.toUpperCase()})`;
+        }
+      } catch (err) {
+        console.warn(`Failed to fetch departure airport for code: ${parsed.departedFrom}`, err);
+      }
+
+      try {
+        const arrRes = await apiClient.get(`/flights/airports/${parsed.arrivedAt}`);
+        if (arrRes.data?.success && arrRes.data?.data?.name) {
+          finalArrived = `${arrRes.data.data.name} (${arrRes.data.data.code.toUpperCase()})`;
+        }
+      } catch (err) {
+        console.warn(`Failed to fetch arrival airport for code: ${parsed.arrivedAt}`, err);
+      }
+
+      setDepartedFrom(finalDeparted);
+      setArrivedAt(finalArrived);
       setDepartTime(parsed.departTime);
       setArrivalTime(parsed.arrivalTime);
       setDate(parsed.date);
@@ -386,32 +459,30 @@ export default function PnrFlightModal({
                 {/* Departed From */}
                 <div className="flex flex-col gap-1">
                   <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                    Departed From (IATA) *
+                    Departed From *
                   </label>
                   <input
                     type="text"
                     required
-                    maxLength={3}
-                    placeholder="e.g. JED"
+                    placeholder="e.g. London Heathrow Airport"
                     value={departedFrom}
-                    onChange={(e) => setDepartedFrom(e.target.value.toUpperCase())}
-                    className="text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary font-mono uppercase"
+                    onChange={(e) => handleDepartedFromChange(e.target.value)}
+                    className="text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                   />
                 </div>
 
                 {/* Arrived At */}
                 <div className="flex flex-col gap-1">
                   <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                    Arrived At (IATA) *
+                    Arrived At *
                   </label>
                   <input
                     type="text"
                     required
-                    maxLength={3}
-                    placeholder="e.g. RUH"
+                    placeholder="e.g. King Abdulaziz International Airport"
                     value={arrivedAt}
-                    onChange={(e) => setArrivedAt(e.target.value.toUpperCase())}
-                    className="text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary font-mono uppercase"
+                    onChange={(e) => handleArrivedAtChange(e.target.value)}
+                    className="text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                   />
                 </div>
 

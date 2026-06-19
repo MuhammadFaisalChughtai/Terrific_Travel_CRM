@@ -110,6 +110,9 @@ export class BookingsService {
               roomType: acc.roomType,
               checkInDate: new Date(acc.checkInDate),
               checkOutDate: new Date(acc.checkOutDate),
+              checkInTime: acc.checkInTime !== undefined ? acc.checkInTime : "16:00",
+              checkOutTime: acc.checkOutTime !== undefined ? acc.checkOutTime : "12:00",
+              city: acc.city || null,
               mealType: acc.mealType,
               reservationNumber: acc.reservationNumber,
               qty: Number(acc.qty) || 1,
@@ -452,6 +455,217 @@ export class BookingsService {
     });
 
     return flight;
+  }
+
+  async deleteFlightService(bookingId: string, flightServiceId: string) {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId }
+    });
+    if (!booking) throw new NotFoundException('Booking not found');
+
+    await prisma.flightService.delete({
+      where: { id: flightServiceId, bookingId }
+    });
+
+    await rabbitMQService.publish('booking.updated', {
+      bookingId: booking.id,
+    });
+
+    return { success: true };
+  }
+
+  async addAccommodationService(bookingId: string, data: any) {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId }
+    });
+    if (!booking) throw new NotFoundException('Booking not found');
+
+    const accommodation = await prisma.accommodationService.create({
+      data: {
+        bookingId,
+        vendorId: data.vendorId,
+        hotelName: data.hotelName,
+        roomType: data.roomType,
+        checkInDate: new Date(data.checkInDate),
+        checkOutDate: new Date(data.checkOutDate),
+        checkInTime: data.checkInTime !== undefined ? data.checkInTime : "16:00",
+        checkOutTime: data.checkOutTime !== undefined ? data.checkOutTime : "12:00",
+        city: data.city || null,
+        mealType: data.mealType,
+        reservationNumber: data.reservationNumber || null,
+        qty: Number(data.qty) || 1,
+        price: Number(data.price) || 0,
+        currency: data.currency || 'GBP',
+        otherCurrency: data.otherCurrency || null,
+        conversionRate: data.conversionRate ? Number(data.conversionRate) : null,
+        issueDate: data.issueDate ? new Date(data.issueDate) : null,
+        refundAmount: Number(data.refundAmount) || 0,
+        fineAmount: Number(data.fineAmount) || 0,
+        hotelConfirmationNumber: data.hotelConfirmationNumber || null,
+        hotelAddress: data.hotelAddress || null,
+        lastCancellationDate: data.lastCancellationDate ? new Date(data.lastCancellationDate) : null,
+      },
+      include: {
+        vendor: true
+      }
+    });
+
+    await rabbitMQService.publish('booking.updated', {
+      bookingId: booking.id,
+    });
+
+    return accommodation;
+  }
+
+  async updateAccommodationService(bookingId: string, accommodationId: string, data: any) {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId }
+    });
+    if (!booking) throw new NotFoundException('Booking not found');
+
+    const accommodation = await prisma.accommodationService.update({
+      where: { id: accommodationId, bookingId },
+      data: {
+        vendorId: data.vendorId !== undefined ? data.vendorId : undefined,
+        hotelName: data.hotelName !== undefined ? data.hotelName : undefined,
+        roomType: data.roomType !== undefined ? data.roomType : undefined,
+        checkInDate: data.checkInDate !== undefined ? new Date(data.checkInDate) : undefined,
+        checkOutDate: data.checkOutDate !== undefined ? new Date(data.checkOutDate) : undefined,
+        checkInTime: data.checkInTime !== undefined ? data.checkInTime : undefined,
+        checkOutTime: data.checkOutTime !== undefined ? data.checkOutTime : undefined,
+        city: data.city !== undefined ? data.city : undefined,
+        mealType: data.mealType !== undefined ? data.mealType : undefined,
+        reservationNumber: data.reservationNumber !== undefined ? data.reservationNumber : undefined,
+        qty: data.qty !== undefined ? (Number(data.qty) || 1) : undefined,
+        price: data.price !== undefined ? (Number(data.price) || 0) : undefined,
+        currency: data.currency !== undefined ? data.currency : undefined,
+        otherCurrency: data.otherCurrency !== undefined ? data.otherCurrency : undefined,
+        conversionRate: data.conversionRate !== undefined ? (data.conversionRate ? Number(data.conversionRate) : null) : undefined,
+        issueDate: data.issueDate !== undefined ? (data.issueDate ? new Date(data.issueDate) : null) : undefined,
+        refundAmount: data.refundAmount !== undefined ? (Number(data.refundAmount) || 0) : undefined,
+        fineAmount: data.fineAmount !== undefined ? (Number(data.fineAmount) || 0) : undefined,
+        hotelConfirmationNumber: data.hotelConfirmationNumber !== undefined ? data.hotelConfirmationNumber : undefined,
+        hotelAddress: data.hotelAddress !== undefined ? data.hotelAddress : undefined,
+        lastCancellationDate: data.lastCancellationDate !== undefined ? (data.lastCancellationDate ? new Date(data.lastCancellationDate) : null) : undefined,
+      },
+      include: {
+        vendor: true
+      }
+    });
+
+    await rabbitMQService.publish('booking.updated', {
+      bookingId: booking.id,
+    });
+
+    return accommodation;
+  }
+
+  async deleteAccommodationService(bookingId: string, accommodationId: string) {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId }
+    });
+    if (!booking) throw new NotFoundException('Booking not found');
+
+    await prisma.accommodationService.delete({
+      where: { id: accommodationId, bookingId }
+    });
+
+    await rabbitMQService.publish('booking.updated', {
+      bookingId: booking.id,
+    });
+
+    return { success: true };
+  }
+
+  async addTransportService(bookingId: string, data: any) {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId }
+    });
+    if (!booking) throw new NotFoundException('Booking not found');
+
+    const transport = await prisma.transportService.create({
+      data: {
+        bookingId,
+        vendorId: data.vendorId,
+        vehicleType: data.vehicleType,
+        departureDestination: data.departureDestination,
+        arrivalDestination: data.arrivalDestination,
+        date: new Date(data.date),
+        departureTime: data.departureTime || '',
+        arrivalTime: data.arrivalTime || '',
+        flightNo: data.flightNo || null,
+        price: Number(data.price) || 0,
+        currency: data.currency || 'GBP',
+        otherCurrency: data.otherCurrency || null,
+        conversionRate: data.conversionRate ? Number(data.conversionRate) : null,
+        issueDate: data.issueDate ? new Date(data.issueDate) : null,
+        refundAmount: Number(data.refundAmount) || 0,
+        fineAmount: Number(data.fineAmount) || 0,
+      },
+      include: {
+        vendor: true
+      }
+    });
+
+    await rabbitMQService.publish('booking.updated', {
+      bookingId: booking.id,
+    });
+
+    return transport;
+  }
+
+  async updateTransportService(bookingId: string, transportServiceId: string, data: any) {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId }
+    });
+    if (!booking) throw new NotFoundException('Booking not found');
+
+    const transport = await prisma.transportService.update({
+      where: { id: transportServiceId, bookingId },
+      data: {
+        vendorId: data.vendorId !== undefined ? data.vendorId : undefined,
+        vehicleType: data.vehicleType !== undefined ? data.vehicleType : undefined,
+        departureDestination: data.departureDestination !== undefined ? data.departureDestination : undefined,
+        arrivalDestination: data.arrivalDestination !== undefined ? data.arrivalDestination : undefined,
+        date: data.date !== undefined ? new Date(data.date) : undefined,
+        departureTime: data.departureTime !== undefined ? data.departureTime : undefined,
+        arrivalTime: data.arrivalTime !== undefined ? data.arrivalTime : undefined,
+        flightNo: data.flightNo !== undefined ? data.flightNo : undefined,
+        price: data.price !== undefined ? (Number(data.price) || 0) : undefined,
+        currency: data.currency !== undefined ? data.currency : undefined,
+        otherCurrency: data.otherCurrency !== undefined ? data.otherCurrency : undefined,
+        conversionRate: data.conversionRate !== undefined ? (data.conversionRate ? Number(data.conversionRate) : null) : undefined,
+        issueDate: data.issueDate !== undefined ? (data.issueDate ? new Date(data.issueDate) : null) : undefined,
+        refundAmount: data.refundAmount !== undefined ? (Number(data.refundAmount) || 0) : undefined,
+        fineAmount: data.fineAmount !== undefined ? (Number(data.fineAmount) || 0) : undefined,
+      },
+      include: {
+        vendor: true
+      }
+    });
+
+    await rabbitMQService.publish('booking.updated', {
+      bookingId: booking.id,
+    });
+
+    return transport;
+  }
+
+  async deleteTransportService(bookingId: string, transportServiceId: string) {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId }
+    });
+    if (!booking) throw new NotFoundException('Booking not found');
+
+    await prisma.transportService.delete({
+      where: { id: transportServiceId, bookingId }
+    });
+
+    await rabbitMQService.publish('booking.updated', {
+      bookingId: booking.id,
+    });
+
+    return { success: true };
   }
 
   // ─── Passenger helpers ──────────────────────────────────────────────────────

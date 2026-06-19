@@ -349,6 +349,8 @@ model Vendor {
   flightReservations    FlightReservation[]
   transportServices     TransportService[]
   visaServices          VisaService[]
+  transportRates        TransportRate[]
+  visaRates             VisaRate[]
 }
 
 model BookingTransaction {
@@ -422,6 +424,9 @@ model AccommodationService {
   hotelConfirmationNumber String?
   hotelAddress            String?
   lastCancellationDate    DateTime?
+  city                    String?
+  checkInTime             String?   @default("16:00")
+  checkOutTime            String?   @default("12:00")
 }
 
 model FlightReservation {
@@ -519,4 +524,33 @@ model VendorPayment {
   paymentDate DateTime @default(now())
   reference   String?
   status      String   @default("PAID")
+}
+
+model TransportRate {
+  id           String   @id @default(uuid())
+  vendorId     String
+  vendor       Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  route        String
+  carPrice     Float    @default(0.0)
+  h1Price      Float    @default(0.0)
+  gmcPrice     Float    @default(0.0)
+  hiacePrice   Float    @default(0.0)
+  coasterPrice Float    @default(0.0)
+  busPrice     Float    @default(0.0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([vendorId, route])
+}
+
+model VisaRate {
+  id        String   @id @default(uuid())
+  vendorId  String
+  vendor    Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  visaType  String
+  price     Float    @default(0.0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([vendorId, visaType])
 }

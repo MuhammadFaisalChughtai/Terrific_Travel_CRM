@@ -247,7 +247,6 @@ export default function Bookings() {
                         year: "numeric",
                       });
                     };
-
                     const bookingDate = formatDate(booking.createdAt);
                     const travelDate = formatDate(booking.departureDate);
 
@@ -255,7 +254,7 @@ export default function Bookings() {
                     const accommodationsCost =
                       booking.accommodations?.reduce(
                         (sum: number, acc: any) =>
-                          sum + acc.price * (acc.qty || 1),
+                          sum + acc.price,
                         0,
                       ) || 0;
                     const flightsCost =

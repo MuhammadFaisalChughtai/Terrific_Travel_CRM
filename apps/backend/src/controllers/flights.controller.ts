@@ -44,3 +44,12 @@ export const deleteFlight = asyncHandler(async (req: Request, res: Response) => 
     data: result,
   });
 });
+
+export const getAirportByCode = asyncHandler(async (req: Request, res: Response) => {
+  const { code } = req.params;
+  const result = await flightsService.findAirportByCode(code);
+  res.status(200).json({
+    success: true,
+    data: result,
+  });
+});

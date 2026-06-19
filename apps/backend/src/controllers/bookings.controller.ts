@@ -76,6 +76,69 @@ export const updateFlightService = asyncHandler(async (req: AuthenticatedRequest
   });
 });
 
+export const deleteFlightService = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id, flightServiceId } = req.params;
+  const result = await bookingsService.deleteFlightService(id, flightServiceId);
+  res.status(200).json({
+    success: true,
+    data: result,
+  });
+});
+
+export const addAccommodationService = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id } = req.params;
+  const result = await bookingsService.addAccommodationService(id, req.body);
+  res.status(201).json({
+    success: true,
+    data: result,
+  });
+});
+
+export const updateAccommodationService = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id, accommodationId } = req.params;
+  const result = await bookingsService.updateAccommodationService(id, accommodationId, req.body);
+  res.status(200).json({
+    success: true,
+    data: result,
+  });
+});
+
+export const deleteAccommodationService = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id, accommodationId } = req.params;
+  const result = await bookingsService.deleteAccommodationService(id, accommodationId);
+  res.status(200).json({
+    success: true,
+    data: result,
+  });
+});
+
+export const addTransportService = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id } = req.params;
+  const result = await bookingsService.addTransportService(id, req.body);
+  res.status(201).json({
+    success: true,
+    data: result,
+  });
+});
+
+export const updateTransportService = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id, transportServiceId } = req.params;
+  const result = await bookingsService.updateTransportService(id, transportServiceId, req.body);
+  res.status(200).json({
+    success: true,
+    data: result,
+  });
+});
+
+export const deleteTransportService = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id, transportServiceId } = req.params;
+  const result = await bookingsService.deleteTransportService(id, transportServiceId);
+  res.status(200).json({
+    success: true,
+    data: result,
+  });
+});
+
 // ─── Passenger controllers ────────────────────────────────────────────────────
 
 export const addPassenger = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
