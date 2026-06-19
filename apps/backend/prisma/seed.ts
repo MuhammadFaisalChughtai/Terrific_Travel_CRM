@@ -347,42 +347,6 @@ async function main() {
     }
   });
 
-  const predefinedRates = [
-    { route: 'JEDDAH AIRPORT TO MAKKAH', carPrice: 250, h1Price: 300, gmcPrice: 420, hiacePrice: 350, coasterPrice: 500, busPrice: 850 },
-    { route: 'MAKKAH TO MADINAH', carPrice: 450, h1Price: 550, gmcPrice: 850, hiacePrice: 650, coasterPrice: 900, busPrice: 1150 },
-    { route: 'JEDDAH TO MADINAH', carPrice: 450, h1Price: 550, gmcPrice: 850, hiacePrice: 650, coasterPrice: 900, busPrice: 1150 },
-    { route: 'MAK HOTEL TO MAK TRS', carPrice: 120, h1Price: 160, gmcPrice: 300, hiacePrice: 250, coasterPrice: 300, busPrice: 550 },
-    { route: 'MAD HOTEL TO MAD TRS', carPrice: 120, h1Price: 160, gmcPrice: 300, hiacePrice: 250, coasterPrice: 300, busPrice: 550 },
-    { route: 'ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO JEDDAH AIRPORT', carPrice: 1100, h1Price: 1400, gmcPrice: 2080, hiacePrice: 1650, coasterPrice: 2300, busPrice: 3200 },
-    { route: 'ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO JEDDAH AIRPORT WITH MAZARAT', carPrice: 1500, h1Price: 1900, gmcPrice: 3300, hiacePrice: 2250, coasterPrice: 3000, busPrice: 4100 },
-    { route: 'ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MADINAH AIRPORT', carPrice: 830, h1Price: 1050, gmcPrice: 1550, hiacePrice: 1300, coasterPrice: 1750, busPrice: 2500 },
-    { route: 'ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MADINAH AIRPORT WITH MAZARAT', carPrice: 1250, h1Price: 1550, gmcPrice: 2200, hiacePrice: 1900, coasterPrice: 2450, busPrice: 3500 },
-    { route: 'ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MAKKAH TO JEDDAH', carPrice: 1350, h1Price: 1700, gmcPrice: 2540, hiacePrice: 2000, coasterPrice: 2800, busPrice: 4000 },
-    { route: 'ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MAKKAH TO JEDDAH WITH MAZARAT', carPrice: 1750, h1Price: 2200, gmcPrice: 3190, hiacePrice: 2600, coasterPrice: 3500, busPrice: 5200 },
-    { route: 'JEDDAH AIRPORT TO JEDDAH CITY TO JEDDAH AIRPORT', carPrice: 180, h1Price: 230, gmcPrice: 400, hiacePrice: 250, coasterPrice: 400, busPrice: 600 },
-    { route: 'MAKKAH ZIARAT', carPrice: 175, h1Price: 250, gmcPrice: 325, hiacePrice: 300, coasterPrice: 400, busPrice: 600 },
-    { route: 'MADINAH ZIARAT', carPrice: 175, h1Price: 250, gmcPrice: 325, hiacePrice: 300, coasterPrice: 350, busPrice: 600 },
-    { route: 'MADINAH AIRPORT TO MADINAH HOTEL', carPrice: 150, h1Price: 200, gmcPrice: 300, hiacePrice: 300, coasterPrice: 350, busPrice: 500 },
-    { route: 'MADINAH HOTEL TO MADINAH AIRPORT', carPrice: 150, h1Price: 200, gmcPrice: 300, hiacePrice: 300, coasterPrice: 350, busPrice: 500 }
-  ];
-
-  for (const rate of predefinedRates) {
-    await prisma.transportRate.upsert({
-      where: {
-        vendorId_route: {
-          vendorId: goldenCrownVendor.id,
-          route: rate.route,
-        }
-      },
-      update: rate,
-      create: {
-        vendorId: goldenCrownVendor.id,
-        ...rate
-      }
-    });
-  }
-  console.log('Predefined Transport Rates Seeded.');
-
   console.log('Database Seeding Completed Successfully.');
 }
 
