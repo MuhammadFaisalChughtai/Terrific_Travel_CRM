@@ -261,7 +261,7 @@ export default function BookingManager({
       title={`Booking #${booking.bookingReference || bookingReference || "Details"}`}
       maxWidth="4xl"
     >
-      <div className="bg-secondary/15 text-foreground pb-6 font-sans -mx-6 -mb-6 -mt-2 max-h-[78vh] overflow-y-auto custom-scrollbar">
+      <div className="bg-secondary/15 text-foreground pb-6 font-sans -mx-5 -mb-5 -mt-5">
         {/* Header Actions */}
         <div className="bg-card border-b border-border px-5 py-3 flex items-center justify-between sticky top-0 z-10 shadow-sm">
           <div>

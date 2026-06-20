@@ -48,10 +48,10 @@ export default function Modal({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 15 }}
             transition={{ type: 'spring', duration: 0.4 }}
-            className={`w-full ${maxWClass} bg-card border border-border/80 rounded-xl shadow-xl overflow-hidden relative z-10`}
+            className={`w-full ${maxWClass} max-h-[calc(100vh-2rem)] flex flex-col bg-card border border-border/80 rounded-xl shadow-xl overflow-hidden relative z-10`}
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-3 border-b border-border/60">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-border/60 shrink-0">
               <h3 className="text-xs font-bold tracking-wider uppercase text-foreground bg-gradient-to-r from-primary to-orange-500 bg-clip-text text-transparent">
                 {title}
               </h3>
@@ -64,7 +64,7 @@ export default function Modal({
             </div>
 
             {/* Content */}
-            <div className="p-5">
+            <div className="p-5 overflow-y-auto overflow-x-hidden custom-scrollbar min-h-0 flex-1">
               {children}
             </div>
           </motion.div>

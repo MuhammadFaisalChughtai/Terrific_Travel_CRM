@@ -40,7 +40,7 @@ export default function CRMBookingModal({ isOpen, onClose, booking }: CRMBooking
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={`Booking: ${booking.bookingReference || booking.id.substring(0, 8).toUpperCase()}`} maxWidth="6xl">
-      <div className="space-y-8 max-h-[80vh] overflow-y-auto pr-2 pb-6 custom-scrollbar">
+      <div className="space-y-8 pr-2 pb-6">
         
         {/* Booking Details Section */}
         <section className="bg-card border border-border shadow-sm">

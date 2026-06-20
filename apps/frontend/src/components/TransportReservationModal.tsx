@@ -263,12 +263,12 @@ export default function TransportReservationModal({
                     value={departureDestination}
                     onChange={(e) => setDepartureDestination(e.target.value)}
                     className={`w-full text-xs py-1.5 pl-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary ${
-                      isReturnFlight && booking?.accommodations?.length > 0
+                      booking?.accommodations?.length > 0
                         ? 'pr-[110px]'
                         : 'pr-3'
                     }`}
                   />
-                  {isReturnFlight && booking?.accommodations?.length > 0 && (
+                  {booking?.accommodations?.length > 0 && (
                     <select
                       onChange={(e) => {
                         if (e.target.value) {
@@ -302,12 +302,12 @@ export default function TransportReservationModal({
                     value={arrivalDestination}
                     onChange={(e) => setArrivalDestination(e.target.value)}
                     className={`w-full text-xs py-1.5 pl-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary ${
-                      !isReturnFlight && booking?.accommodations?.length > 0
+                      booking?.accommodations?.length > 0
                         ? 'pr-[110px]'
                         : 'pr-3'
                     }`}
                   />
-                  {!isReturnFlight && booking?.accommodations?.length > 0 && (
+                  {booking?.accommodations?.length > 0 && (
                     <select
                       onChange={(e) => {
                         if (e.target.value) {
