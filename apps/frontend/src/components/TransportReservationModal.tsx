@@ -255,14 +255,38 @@ export default function TransportReservationModal({
                 <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
                   Departure Destination *
                 </label>
-                <input
-                  required
-                  type="text"
-                  placeholder="e.g. Jeddah Airport"
-                  value={departureDestination}
-                  onChange={(e) => setDepartureDestination(e.target.value)}
-                  className="w-full text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
-                />
+                <div className="relative flex items-center">
+                  <input
+                    required
+                    type="text"
+                    placeholder="e.g. Jeddah Airport"
+                    value={departureDestination}
+                    onChange={(e) => setDepartureDestination(e.target.value)}
+                    className={`w-full text-xs py-1.5 pl-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary ${
+                      isReturnFlight && booking?.accommodations?.length > 0
+                        ? 'pr-[110px]'
+                        : 'pr-3'
+                    }`}
+                  />
+                  {isReturnFlight && booking?.accommodations?.length > 0 && (
+                    <select
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          setDepartureDestination(e.target.value);
+                        }
+                      }}
+                      className="absolute right-1.5 py-0.5 px-1 bg-secondary/80 border border-border rounded text-[9px] text-muted-foreground focus:outline-none cursor-pointer hover:bg-secondary transition-colors max-w-[100px] truncate"
+                      defaultValue=""
+                    >
+                      <option value="" disabled>-- Select Hotel --</option>
+                      {booking.accommodations.map((acc: any) => (
+                        <option key={acc.id} value={acc.hotelName}>
+                          {acc.hotelName}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
               </div>
 
               {/* Arrival Destination */}
@@ -277,9 +301,13 @@ export default function TransportReservationModal({
                     placeholder="e.g. Marriott Hotel Makkah"
                     value={arrivalDestination}
                     onChange={(e) => setArrivalDestination(e.target.value)}
-                    className="w-full text-xs py-1.5 pl-3 pr-[110px] bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                    className={`w-full text-xs py-1.5 pl-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary ${
+                      !isReturnFlight && booking?.accommodations?.length > 0
+                        ? 'pr-[110px]'
+                        : 'pr-3'
+                    }`}
                   />
-                  {booking?.accommodations?.length > 0 && (
+                  {!isReturnFlight && booking?.accommodations?.length > 0 && (
                     <select
                       onChange={(e) => {
                         if (e.target.value) {

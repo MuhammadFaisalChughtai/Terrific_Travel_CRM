@@ -83,7 +83,7 @@ export default function VendorPage() {
   const [supportEmail, setSupportEmail] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [vendorTypeSelect, setVendorTypeSelect] = useState<
-    "Flight" | "Accommodation" | "Other"
+    "Flight" | "Accommodation" | "VISA" | "Transportation" | "Other"
   >("Flight");
   const [customVendorType, setCustomVendorType] = useState("");
   const [walletBalance, setWalletBalance] = useState(0);
@@ -170,7 +170,9 @@ export default function VendorPage() {
     setPhoneNumber(vendor.phoneNumber);
     if (
       vendor.vendorType === "Flight" ||
-      vendor.vendorType === "Accommodation"
+      vendor.vendorType === "Accommodation" ||
+      vendor.vendorType === "VISA" ||
+      vendor.vendorType === "Transportation"
     ) {
       setVendorTypeSelect(vendor.vendorType);
       setCustomVendorType("");
