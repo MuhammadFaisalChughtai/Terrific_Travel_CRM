@@ -16,11 +16,20 @@ export class HotelsService {
   }
 
   async findAll(query: any) {
-    const { city, country, rating, limit = 10, offset = 0 } = query;
+    const { search, name, city, country, rating, limit = 100, offset = 0 } = query;
     const where: any = {};
+    if (name) where.name = { contains: name, mode: 'insensitive' };
     if (city) where.city = { contains: city, mode: 'insensitive' };
     if (country) where.country = { contains: country, mode: 'insensitive' };
     if (rating) where.rating = { gte: Number(rating) };
+    
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { city: { contains: search, mode: 'insensitive' } },
+        { country: { contains: search, mode: 'insensitive' } },
+      ];
+    }
 
     const [total, items] = await Promise.all([
       prisma.hotel.count({ where }),

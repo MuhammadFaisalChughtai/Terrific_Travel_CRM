@@ -210,7 +210,7 @@ export default function TransportReservationModal({
           <p className="text-xs font-bold text-muted-foreground">Loading transport vendors...</p>
         </div>
       ) : (
-        <form onSubmit={handleSubmit} className="space-y-6 font-sans text-xs max-h-[75vh] overflow-y-auto px-1">
+        <form onSubmit={handleSubmit} className="space-y-6 font-sans text-xs max-h-[75vh] overflow-y-auto overflow-x-hidden px-1">
           
           {/* Section 1: Transport Service Details */}
           <div className="space-y-4">
@@ -614,7 +614,7 @@ export default function TransportReservationModal({
           </div>
 
           {/* Form Actions */}
-          <div className="flex justify-end gap-3 pt-4 border-t border-border">
+          <div className="sticky -bottom-5 bg-card flex justify-end gap-3 py-3 px-5 border-t border-border -mx-5 z-10">
             <button
               type="button"
               onClick={onClose}

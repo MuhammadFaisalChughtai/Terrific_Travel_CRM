@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { paymentsService } from '../services/payments.service';
 import { asyncHandler } from '../middleware/async.middleware';
+import { AuthenticatedRequest } from '../middleware/auth.middleware';
 
 export const checkout = asyncHandler(async (req: Request, res: Response) => {
   const result = await paymentsService.checkout(req.body);
@@ -20,6 +21,16 @@ export const webhook = asyncHandler(async (req: Request, res: Response) => {
 
 export const findAll = asyncHandler(async (req: Request, res: Response) => {
   const result = await paymentsService.findAll(req.query);
+  res.status(200).json({
+    success: true,
+    data: result,
+  });
+});
+
+export const recordTransaction = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const userId = req.user?.id || 'system';
+  const adminName = req.user ? `${req.user.firstName} ${req.user.lastName}` : 'Admin';
+  const result = await paymentsService.recordTransaction(req.body, userId, adminName);
   res.status(200).json({
     success: true,
     data: result,

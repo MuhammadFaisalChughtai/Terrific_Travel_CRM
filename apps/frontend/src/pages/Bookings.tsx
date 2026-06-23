@@ -19,6 +19,7 @@ import {
   Wallet,
   Eye,
   Edit,
+  Filter,
 } from "lucide-react";
 import { toast } from "sonner";
 import Modal from "../components/Modal";
@@ -42,12 +43,64 @@ export default function Bookings() {
     null,
   );
   const [isInitModalOpen, setIsInitModalOpen] = useState(false);
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
 
-  // Query existing bookings
+  // Filters State
+  const [filterDepartureDateFrom, setFilterDepartureDateFrom] = useState("");
+  const [filterDepartureDateTo, setFilterDepartureDateTo] = useState("");
+  
+  const [filterRefVal, setFilterRefVal] = useState("");
+  
+  const [filterAgentId, setFilterAgentId] = useState("Any");
+  const [filterCustomerName, setFilterCustomerName] = useState("");
+  const [filterCustomerEmail, setFilterCustomerEmail] = useState("");
+  
+  const [filterStatus, setFilterStatus] = useState("Any");
+  const [filterLockedStatus, setFilterLockedStatus] = useState("Any");
+  const [filterPaymentStatus, setFilterPaymentStatus] = useState("Any");
+  
+  const [filterPhoneVal, setFilterPhoneVal] = useState("");
+  
+  const [filterCreatedAtFrom, setFilterCreatedAtFrom] = useState("");
+  const [filterCreatedAtTo, setFilterCreatedAtTo] = useState("");
+
+  // Applied parameters
+  const [appliedFilters, setAppliedFilters] = useState<any>({});
+
+  // Query existing bookings with dynamic parameters
   const { data: bookingsResult, isLoading } = useQuery({
-    queryKey: ["bookings"],
+    queryKey: ["bookings", JSON.stringify(appliedFilters)],
     queryFn: async () => {
-      const res = await apiClient.get("/bookings");
+      const params = new URLSearchParams();
+      if (appliedFilters.departureDateFrom) params.append("departureDateFrom", appliedFilters.departureDateFrom);
+      if (appliedFilters.departureDateTo) params.append("departureDateTo", appliedFilters.departureDateTo);
+      if (appliedFilters.bookingReference) {
+        params.append("bookingReference", appliedFilters.bookingReference);
+        params.append("bookingReferenceOp", "contains");
+      }
+      if (appliedFilters.agentId && appliedFilters.agentId !== "Any") {
+        params.append("agentId", appliedFilters.agentId);
+      }
+      if (appliedFilters.customerName) params.append("customerName", appliedFilters.customerName);
+      if (appliedFilters.customerEmail) params.append("customerEmail", appliedFilters.customerEmail);
+      if (appliedFilters.status && appliedFilters.status !== "Any") {
+        params.append("status", appliedFilters.status);
+      }
+      if (appliedFilters.lockedStatus && appliedFilters.lockedStatus !== "Any") {
+        params.append("lockedStatus", appliedFilters.lockedStatus);
+      }
+      if (appliedFilters.paymentStatus && appliedFilters.paymentStatus !== "Any") {
+        params.append("paymentStatus", appliedFilters.paymentStatus);
+      }
+      if (appliedFilters.customerPhone) {
+        params.append("customerPhone", appliedFilters.customerPhone);
+      }
+      if (appliedFilters.createdAtFrom) params.append("createdAtFrom", appliedFilters.createdAtFrom);
+      if (appliedFilters.createdAtTo) params.append("createdAtTo", appliedFilters.createdAtTo);
+      
+      params.append("limit", "1000");
+
+      const res = await apiClient.get(`/bookings?${params.toString()}`);
       return res.data.data;
     },
   });
@@ -176,6 +229,41 @@ export default function Bookings() {
 
   const selectedAgent = agents?.find((a: any) => a.id === selectedAgentId);
 
+  const handleApplyFilters = (e: React.FormEvent) => {
+    e.preventDefault();
+    setAppliedFilters({
+      departureDateFrom: filterDepartureDateFrom,
+      departureDateTo: filterDepartureDateTo,
+      bookingReference: filterRefVal,
+      agentId: filterAgentId,
+      customerName: filterCustomerName,
+      customerEmail: filterCustomerEmail,
+      status: filterStatus,
+      lockedStatus: filterLockedStatus,
+      paymentStatus: filterPaymentStatus,
+      customerPhone: filterPhoneVal,
+      createdAtFrom: filterCreatedAtFrom,
+      createdAtTo: filterCreatedAtTo,
+    });
+    setIsFilterModalOpen(false);
+  };
+
+  const handleClearFilters = () => {
+    setFilterDepartureDateFrom("");
+    setFilterDepartureDateTo("");
+    setFilterRefVal("");
+    setFilterAgentId("Any");
+    setFilterCustomerName("");
+    setFilterCustomerEmail("");
+    setFilterStatus("Any");
+    setFilterLockedStatus("Any");
+    setFilterPaymentStatus("Any");
+    setFilterPhoneVal("");
+    setFilterCreatedAtFrom("");
+    setFilterCreatedAtTo("");
+    setAppliedFilters({});
+  };
+
   return (
     <div className="space-y-6">
       {/* Top Action Bar */}
@@ -184,13 +272,27 @@ export default function Bookings() {
           <Receipt size={28} className="text-primary" />
           Bookings Management
         </h2>
-        <button
-          onClick={() => setIsInitModalOpen(true)}
-          className="bg-primary hover:bg-primary/90 text-primary-foreground px-5 py-2.5 rounded-lg text-sm font-bold shadow-md shadow-primary/20 transition-all flex items-center gap-2"
-        >
-          <CalendarRange size={18} />
-          Create New Booking
-        </button>
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={() => setIsFilterModalOpen(true)}
+            className="bg-card text-foreground border border-border px-4 py-2.5 rounded-lg text-sm font-bold shadow-sm transition-all flex items-center gap-1.5 hover:bg-secondary/40"
+          >
+            <Filter size={15} />
+            Filter Bookings
+            {Object.keys(appliedFilters).filter(k => appliedFilters[k] && appliedFilters[k] !== "Any").length > 0 && (
+              <span className="bg-primary text-primary-foreground text-[10px] px-1.5 py-0.5 rounded-full font-black ml-1">
+                {Object.keys(appliedFilters).filter(k => appliedFilters[k] && appliedFilters[k] !== "Any").length}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setIsInitModalOpen(true)}
+            className="bg-primary hover:bg-primary/90 text-primary-foreground px-5 py-2.5 rounded-lg text-sm font-bold shadow-md shadow-primary/20 transition-all flex items-center gap-1.5"
+          >
+            <CalendarRange size={15} />
+            Create New Booking
+          </button>
+        </div>
       </div>
 
       {/* Main Bookings List */}
@@ -621,6 +723,185 @@ export default function Bookings() {
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* Filter Bookings Modal */}
+      <Modal
+        isOpen={isFilterModalOpen}
+        onClose={() => setIsFilterModalOpen(false)}
+        title="Filter Bookings"
+        maxWidth="2xl"
+      >
+        <form onSubmit={handleApplyFilters} className="space-y-5 text-xs text-muted-foreground p-1">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* BOOKING REFERENCE */}
+            <div className="space-y-1">
+              <label className="font-bold text-muted-foreground uppercase tracking-wider block">BOOKING REFERENCE</label>
+              <input
+                type="text"
+                placeholder="Reference"
+                value={filterRefVal}
+                onChange={(e) => setFilterRefVal(e.target.value)}
+                className="w-full bg-secondary/20 border border-border/80 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary text-foreground transition-all focus:bg-background"
+              />
+            </div>
+
+            {/* CUSTOMER NAME CONTAINS */}
+            <div className="space-y-1">
+              <label className="font-bold text-muted-foreground uppercase tracking-wider block">CUSTOMER NAME CONTAINS</label>
+              <input
+                type="text"
+                placeholder="Name pattern"
+                value={filterCustomerName}
+                onChange={(e) => setFilterCustomerName(e.target.value)}
+                className="w-full bg-secondary/20 border border-border/80 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary text-foreground transition-all focus:bg-background"
+              />
+            </div>
+
+            {/* CUSTOMER EMAIL CONTAINS */}
+            <div className="space-y-1">
+              <label className="font-bold text-muted-foreground uppercase tracking-wider block">CUSTOMER EMAIL CONTAINS</label>
+              <input
+                type="text"
+                placeholder="Email pattern"
+                value={filterCustomerEmail}
+                onChange={(e) => setFilterCustomerEmail(e.target.value)}
+                className="w-full bg-secondary/20 border border-border/80 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary text-foreground transition-all focus:bg-background"
+              />
+            </div>
+
+            {/* CUSTOMER PHONE NUMBER */}
+            <div className="space-y-1">
+              <label className="font-bold text-muted-foreground uppercase tracking-wider block">CUSTOMER PHONE NUMBER</label>
+              <input
+                type="text"
+                placeholder="Phone"
+                value={filterPhoneVal}
+                onChange={(e) => setFilterPhoneVal(e.target.value)}
+                className="w-full bg-secondary/20 border border-border/80 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary text-foreground transition-all focus:bg-background"
+              />
+            </div>
+
+            {/* AGENT */}
+            <div className="space-y-1">
+              <label className="font-bold text-muted-foreground uppercase tracking-wider block">AGENT</label>
+              <select
+                value={filterAgentId}
+                onChange={(e) => setFilterAgentId(e.target.value)}
+                className="w-full bg-secondary/20 border border-border/80 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary text-foreground transition-all focus:bg-background"
+              >
+                <option value="Any">Any</option>
+                {agents?.map((a: any) => (
+                  <option key={a.id} value={a.id}>{a.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* STATUS */}
+            <div className="space-y-1">
+              <label className="font-bold text-muted-foreground uppercase tracking-wider block">STATUS</label>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="w-full bg-secondary/20 border border-border/80 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary text-foreground transition-all focus:bg-background"
+              >
+                <option value="Any">Any</option>
+                <option value="PENDING">PENDING</option>
+                <option value="CONFIRMED">CONFIRMED</option>
+                <option value="CANCELLED">CANCELLED</option>
+                <option value="COMPLETED">COMPLETED</option>
+              </select>
+            </div>
+
+            {/* LOCKED STATUS */}
+            <div className="space-y-1">
+              <label className="font-bold text-muted-foreground uppercase tracking-wider block">LOCKED STATUS</label>
+              <select
+                value={filterLockedStatus}
+                onChange={(e) => setFilterLockedStatus(e.target.value)}
+                className="w-full bg-secondary/20 border border-border/80 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary text-foreground transition-all focus:bg-background"
+              >
+                <option value="Any">Any</option>
+                <option value="LOCKED">LOCKED</option>
+                <option value="UNLOCKED">UNLOCKED</option>
+              </select>
+            </div>
+
+            {/* PAYMENT STATUS */}
+            <div className="space-y-1">
+              <label className="font-bold text-muted-foreground uppercase tracking-wider block">PAYMENT STATUS</label>
+              <select
+                value={filterPaymentStatus}
+                onChange={(e) => setFilterPaymentStatus(e.target.value)}
+                className="w-full bg-secondary/20 border border-border/80 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary text-foreground transition-all focus:bg-background"
+              >
+                <option value="Any">Any</option>
+                <option value="PAID">PAID</option>
+                <option value="PARTIALLY_PAID">PARTIALLY PAID</option>
+                <option value="UNPAID">UNPAID</option>
+              </select>
+            </div>
+
+            {/* DEPARTURE DATE */}
+            <div className="space-y-1">
+              <label className="font-bold text-muted-foreground uppercase tracking-wider block">DEPARTURE DATE (FROM / TO)</label>
+              <div className="flex gap-2">
+                <input
+                  type="date"
+                  placeholder="From"
+                  value={filterDepartureDateFrom}
+                  onChange={(e) => setFilterDepartureDateFrom(e.target.value)}
+                  className="flex-1 bg-secondary/20 border border-border/80 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary text-foreground transition-all focus:bg-background"
+                />
+                <input
+                  type="date"
+                  placeholder="To"
+                  value={filterDepartureDateTo}
+                  onChange={(e) => setFilterDepartureDateTo(e.target.value)}
+                  className="flex-1 bg-secondary/20 border border-border/80 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary text-foreground transition-all focus:bg-background"
+                />
+              </div>
+            </div>
+
+            {/* CREATED AT */}
+            <div className="space-y-1">
+              <label className="font-bold text-muted-foreground uppercase tracking-wider block">CREATED AT (FROM / TO)</label>
+              <div className="flex gap-2">
+                <input
+                  type="date"
+                  placeholder="From"
+                  value={filterCreatedAtFrom}
+                  onChange={(e) => setFilterCreatedAtFrom(e.target.value)}
+                  className="flex-1 bg-secondary/20 border border-border/80 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary text-foreground transition-all focus:bg-background"
+                />
+                <input
+                  type="date"
+                  placeholder="To"
+                  value={filterCreatedAtTo}
+                  onChange={(e) => setFilterCreatedAtTo(e.target.value)}
+                  className="flex-1 bg-secondary/20 border border-border/80 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary text-foreground transition-all focus:bg-background"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Modal Footer Action Buttons */}
+          <div className="flex gap-2 justify-end pt-4 border-t border-border/60">
+            <button
+              type="button"
+              onClick={handleClearFilters}
+              className="py-1.5 px-4 bg-secondary text-secondary-foreground hover:bg-secondary/80 font-semibold rounded-lg text-xs transition-all border border-border"
+            >
+              Clear Filters
+            </button>
+            <button
+              type="submit"
+              className="py-1.5 px-5 bg-primary text-primary-foreground hover:bg-primary/95 font-semibold rounded-lg text-xs transition-all shadow-md shadow-primary/10"
+            >
+              Apply Filters
+            </button>
+          </div>
+        </form>
       </Modal>
 
       {/* Initial Create Booking Modal */}

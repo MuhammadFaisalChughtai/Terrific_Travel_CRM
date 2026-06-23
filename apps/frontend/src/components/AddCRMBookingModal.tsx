@@ -496,7 +496,7 @@ export default function AddCRMBookingModal({
       </div>
 
       {/* Footer Actions */}
-      <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-border">
+      <div className="sticky -bottom-5 bg-card flex justify-end gap-3 py-3 px-5 border-t border-border -mx-5 z-10">
         <button
           onClick={onClose}
           className="px-5 py-2 text-xs font-bold text-muted-foreground hover:text-foreground"

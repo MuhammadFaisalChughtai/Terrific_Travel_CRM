@@ -39,6 +39,15 @@ export const updateStatus = asyncHandler(async (req: AuthenticatedRequest, res: 
   });
 });
 
+export const toggleLock = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id } = req.params;
+  const result = await bookingsService.toggleLock(id);
+  res.status(200).json({
+    success: true,
+    data: result,
+  });
+});
+
 export const cancel = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
   const result = await bookingsService.delete(id);
@@ -294,8 +303,62 @@ export const adminDeletePassengerDocument = asyncHandler(async (req: Authenticat
   res.status(200).json({ success: true, data: result });
 });
 
+export const addVisaService = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id } = req.params;
+  const result = await bookingsService.addVisaService(id, req.body);
+  res.status(201).json({
+    success: true,
+    data: result,
+  });
+});
+
+export const updateVisaService = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id, visaServiceId } = req.params;
+  const result = await bookingsService.updateVisaService(id, visaServiceId, req.body);
+  res.status(200).json({
+    success: true,
+    data: result,
+  });
+});
+
+export const deleteVisaService = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id, visaServiceId } = req.params;
+  const result = await bookingsService.deleteVisaService(id, visaServiceId);
+  res.status(200).json({
+    success: true,
+    data: result,
+  });
+});
+
 export const searchAllPassengers = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const query = (req.query.q as string || '').trim();
   const result = await bookingsService.searchAllPassengers(query);
   res.status(200).json({ success: true, data: result });
+});
+
+export const addAdditionalService = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id } = req.params;
+  const result = await bookingsService.addAdditionalService(id, req.body);
+  res.status(201).json({
+    success: true,
+    data: result,
+  });
+});
+
+export const updateAdditionalService = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id, serviceId } = req.params;
+  const result = await bookingsService.updateAdditionalService(id, serviceId, req.body);
+  res.status(200).json({
+    success: true,
+    data: result,
+  });
+});
+
+export const deleteAdditionalService = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id, serviceId } = req.params;
+  const result = await bookingsService.deleteAdditionalService(id, serviceId);
+  res.status(200).json({
+    success: true,
+    data: result,
+  });
 });

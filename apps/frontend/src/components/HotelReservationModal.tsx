@@ -1,3 +1,6 @@
+
+
+
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
@@ -34,9 +37,13 @@ export default function HotelReservationModal({
   const [checkOutTime, setCheckOutTime] = useState('12:00');
   const [mealTypeSelect, setMealTypeSelect] = useState('Room Only');
   const [customMealType, setCustomMealType] = useState('');
-  
   const [price, setPrice] = useState('0');
   const [currency, setCurrency] = useState('');
+
+  // Search suggestion states
+  const [hotelSearchQuery, setHotelSearchQuery] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
   const [reservationNumber, setReservationNumber] = useState('');
   const [qty, setQty] = useState('1');
   const [otherCurrency, setOtherCurrency] = useState('');
@@ -190,8 +197,20 @@ export default function HotelReservationModal({
     (v: any) => v.vendorType?.toLowerCase() === 'accommodation' || v.vendorType?.toLowerCase() === 'hotel'
   ) || [];
 
+  // Fetch existing hotels list
+  const { data: existingHotelsData } = useQuery({
+    queryKey: ['existing-hotels', hotelSearchQuery],
+    queryFn: async () => {
+      const res = await apiClient.get(`/hotels?search=${encodeURIComponent(hotelSearchQuery)}&limit=10`);
+      return res.data.data.items || [];
+    },
+    enabled: isOpen && hotelSearchQuery.trim().length > 0
+  });
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+
 
     if (!vendorId || !hotelName || !checkInDate || !checkOutDate) {
       toast.error('Please fill in all required fields (Vendor, Hotel Name, Check-in & Check-out dates)');
@@ -266,7 +285,7 @@ export default function HotelReservationModal({
           <p className="text-xs font-bold text-muted-foreground">Loading hotel vendors...</p>
         </div>
       ) : (
-        <form onSubmit={handleSubmit} className="space-y-6 font-sans text-xs max-h-[75vh] overflow-y-auto px-1">
+        <form onSubmit={handleSubmit} className="space-y-6 font-sans text-xs">
           
           {/* Section 1: Accommodation Service Details */}
           <div className="space-y-4">
@@ -296,7 +315,7 @@ export default function HotelReservationModal({
               </div>
 
               {/* Hotel Name */}
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-1 relative">
                 <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
                   Hotel Name *
                 </label>
@@ -305,9 +324,41 @@ export default function HotelReservationModal({
                   required
                   placeholder="e.g. New Madinah Hotel"
                   value={hotelName}
-                  onChange={(e) => setHotelName(e.target.value)}
+                  onChange={(e) => {
+                    setHotelName(e.target.value);
+                    setHotelSearchQuery(e.target.value);
+                    setShowSuggestions(true);
+                  }}
+                  onBlur={() => {
+                    // Delay blur to allow clicking a suggestion
+                    setTimeout(() => setShowSuggestions(false), 200);
+                  }}
+                  onFocus={() => setShowSuggestions(true)}
                   className="text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                 />
+
+                {showSuggestions && existingHotelsData && existingHotelsData.length > 0 && (
+                  <div className="absolute top-[100%] left-0 right-0 z-50 mt-1 max-h-40 overflow-y-auto bg-card border border-border rounded-lg shadow-lg divide-y divide-border/50">
+                    {existingHotelsData.map((h: any) => (
+                      <button
+                        key={h.id}
+                        type="button"
+                        onClick={() => {
+                          setHotelName(h.name);
+                          setCity(h.city || '');
+                          if (h.address) {
+                            setHotelAddress(h.address);
+                          }
+                          setShowSuggestions(false);
+                        }}
+                        className="w-full text-left px-3 py-2 hover:bg-secondary/60 text-xs font-medium text-foreground transition-colors flex flex-col"
+                      >
+                        <span className="font-bold">{h.name}</span>
+                        <span className="text-[10px] text-muted-foreground">{h.city}, {h.country}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* City */}
@@ -639,7 +690,7 @@ export default function HotelReservationModal({
           </div>
 
           {/* Form Actions */}
-          <div className="flex justify-end gap-2 pt-4 border-t border-border">
+          <div className="flex justify-end gap-2 mt-6 pt-3 border-t border-border">
             <button
               type="button"
               onClick={onClose}

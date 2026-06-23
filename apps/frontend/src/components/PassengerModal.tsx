@@ -4,8 +4,17 @@ import Modal from "./Modal";
 import { useAuthStore } from "../store/auth.store";
 import { toast } from "sonner";
 import {
-  Loader2, Copy, Check, User, FileText, Trash2, Plus, Eye,
-  ScanLine, Upload, X,
+  Loader2,
+  Copy,
+  Check,
+  User,
+  FileText,
+  Trash2,
+  Plus,
+  Eye,
+  ScanLine,
+  Upload,
+  X,
 } from "lucide-react";
 import Tesseract from "tesseract.js";
 
@@ -19,7 +28,7 @@ interface PassengerModalProps {
 }
 
 const TITLES = ["Mr", "Mrs", "Ms", "Miss", "Dr", "Prof"];
-const ROLES  = ["Leader", "Family Member", "Passenger"];
+const ROLES = ["Leader", "Family Member", "Passenger"];
 
 function deriveAgeCategory(dob: string): string {
   if (!dob) return "";
@@ -29,37 +38,72 @@ function deriveAgeCategory(dob: string): string {
   let years = today.getFullYear() - birth.getFullYear();
   const m = today.getMonth() - birth.getMonth();
   if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) years--;
-   if (years < 2) return "Infant (0-2)";
+  if (years < 2) return "Infant (0-2)";
   if (years < 12) return "Child (2-12)";
   if (years < 15) return "Youth (12-15)";
   return "Adult (15+)";
 }
 
 function ageBadgeColor(cat: string) {
-  if (cat.startsWith("Infant"))  return "bg-pink-100 text-pink-700 border-pink-200";
-  if (cat.startsWith("Child"))   return "bg-blue-100 text-blue-700 border-blue-200";
-  if (cat.startsWith("Youth"))   return "bg-amber-100 text-amber-700 border-amber-200";
+  if (cat.startsWith("Infant"))
+    return "bg-pink-100 text-pink-700 border-pink-200";
+  if (cat.startsWith("Child"))
+    return "bg-blue-100 text-blue-700 border-blue-200";
+  if (cat.startsWith("Youth"))
+    return "bg-amber-100 text-amber-700 border-amber-200";
   return "bg-emerald-100 text-emerald-700 border-emerald-200";
 }
 
-function fmt(iso?: string | null) { return iso ? iso.substring(0, 10) : ""; }
+function fmt(iso?: string | null) {
+  return iso ? iso.substring(0, 10) : "";
+}
 
 // ─── Passport OCR helpers (identical logic to PassengerForm) ─────────────────
 
 const countryCodeMap: Record<string, string> = {
-  GBR: "United Kingdom", USA: "United States", CAN: "Canada",
-  AUS: "Australia", NZL: "New Zealand", IND: "India", PAK: "Pakistan",
-  BGD: "Bangladesh", LKA: "Sri Lanka", ZAF: "South Africa",
-  FRA: "France", DEU: "Germany", ITA: "Italy", ESP: "Spain",
-  PRT: "Portugal", NLD: "Netherlands", BEL: "Belgium", CHE: "Switzerland",
-  SWE: "Sweden", NOR: "Norway", DNK: "Denmark", FIN: "Finland",
-  IRL: "Ireland", POL: "Poland", TUR: "Turkey",
-  ARE: "United Arab Emirates", SAU: "Saudi Arabia",
-  SGP: "Singapore", MYS: "Malaysia", HKG: "Hong Kong",
-  CHN: "China", JPN: "Japan", KOR: "South Korea",
-  THA: "Thailand", VNM: "Vietnam", PHL: "Philippines", IDN: "Indonesia",
-  BRA: "Brazil", MEX: "Mexico", ARG: "Argentina",
-  EGY: "Egypt", NGA: "Nigeria", KEN: "Kenya",
+  GBR: "United Kingdom",
+  USA: "United States",
+  CAN: "Canada",
+  AUS: "Australia",
+  NZL: "New Zealand",
+  IND: "India",
+  PAK: "Pakistan",
+  BGD: "Bangladesh",
+  LKA: "Sri Lanka",
+  ZAF: "South Africa",
+  FRA: "France",
+  DEU: "Germany",
+  ITA: "Italy",
+  ESP: "Spain",
+  PRT: "Portugal",
+  NLD: "Netherlands",
+  BEL: "Belgium",
+  CHE: "Switzerland",
+  SWE: "Sweden",
+  NOR: "Norway",
+  DNK: "Denmark",
+  FIN: "Finland",
+  IRL: "Ireland",
+  POL: "Poland",
+  TUR: "Turkey",
+  ARE: "United Arab Emirates",
+  SAU: "Saudi Arabia",
+  SGP: "Singapore",
+  MYS: "Malaysia",
+  HKG: "Hong Kong",
+  CHN: "China",
+  JPN: "Japan",
+  KOR: "South Korea",
+  THA: "Thailand",
+  VNM: "Vietnam",
+  PHL: "Philippines",
+  IDN: "Indonesia",
+  BRA: "Brazil",
+  MEX: "Mexico",
+  ARG: "Argentina",
+  EGY: "Egypt",
+  NGA: "Nigeria",
+  KEN: "Kenya",
 };
 
 function cleanOcrDigits(str: string): string {
@@ -78,8 +122,23 @@ function parsePassportOcr(text: string) {
     if (!str) return null;
     const cleanStr = str.trim().toUpperCase();
 
-    const monthNames = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
-    const alphaMatch = cleanStr.match(/^(\d{1,2})\s*([A-Z]{3,9})(?:\s*\/[A-Z]{3,9})?\s*(\d{2,4})/);
+    const monthNames = [
+      "JAN",
+      "FEB",
+      "MAR",
+      "APR",
+      "MAY",
+      "JUN",
+      "JUL",
+      "AUG",
+      "SEP",
+      "OCT",
+      "NOV",
+      "DEC",
+    ];
+    const alphaMatch = cleanStr.match(
+      /^(\d{1,2})\s*([A-Z]{3,9})(?:\s*\/[A-Z]{3,9})?\s*(\d{2,4})/,
+    );
     if (alphaMatch) {
       const day = parseInt(alphaMatch[1], 10);
       const monthStr = alphaMatch[2].substring(0, 3);
@@ -94,13 +153,17 @@ function parsePassportOcr(text: string) {
       }
     }
 
-    const numericMatch = cleanStr.match(/^(\d{2,4})[./-]\s*(\d{1,2})[./-]\s*(\d{2,4})/);
+    const numericMatch = cleanStr.match(
+      /^(\d{2,4})[./-]\s*(\d{1,2})[./-]\s*(\d{2,4})/,
+    );
     if (numericMatch) {
       let p1 = parseInt(numericMatch[1], 10);
       let p2 = parseInt(numericMatch[2], 10);
       let p3 = parseInt(numericMatch[3], 10);
 
-      let year = 0, month = 0, day = 0;
+      let year = 0,
+        month = 0,
+        day = 0;
       if (p1 > 31) {
         year = p1;
         month = p2;
@@ -146,20 +209,32 @@ function parsePassportOcr(text: string) {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    
+
     // Normalize potential chevron misreads
-    let normalized = line.replace(/[{}[\]()|\\/*]/g, "<")
-                         .replace(/K{2,}/g, (match) => "<".repeat(match.length));
-                         
+    let normalized = line
+      .replace(/[{}[\]()|\\/*]/g, "<")
+      .replace(/K{2,}/g, (match) => "<".repeat(match.length));
+
     // Sometimes a single 'K' at index 1 is a misread chevron in 'P<'
-    if (normalized.startsWith("PK") || normalized.startsWith("PX") || normalized.startsWith("PC")) {
+    if (
+      normalized.startsWith("PK") ||
+      normalized.startsWith("PX") ||
+      normalized.startsWith("PC")
+    ) {
       normalized = "P<" + normalized.substring(2);
     }
-    
+
     const chevronCount = (normalized.match(/</g) || []).length;
-    const isPLine = normalized.startsWith("P<") || normalized.includes("P<") || /^[PIOQ<]/.test(normalized);
-    
-    if (normalized.length >= 30 && (chevronCount >= 5 || normalized.includes("P<")) && isPLine) {
+    const isPLine =
+      normalized.startsWith("P<") ||
+      normalized.includes("P<") ||
+      /^[PIOQ<]/.test(normalized);
+
+    if (
+      normalized.length >= 30 &&
+      (chevronCount >= 5 || normalized.includes("P<")) &&
+      isPLine
+    ) {
       let startIdx = normalized.indexOf("P<");
       if (startIdx === -1) {
         const matchP = normalized.match(/P[A-Z<]{10,}/);
@@ -169,16 +244,19 @@ function parsePassportOcr(text: string) {
           startIdx = 0;
         }
       }
-      
+
       mrzLine1 = normalized.substring(startIdx);
-      
+
       // Look for mrzLine2 in the next few lines
       for (let j = i + 1; j <= Math.min(i + 2, lines.length - 1); j++) {
         const nextLine = lines[j];
-        const normalizedNext = nextLine.replace(/[{}[\]()|\\/*]/g, "<")
-                                       .replace(/K{2,}/g, (match) => "<".repeat(match.length));
+        const normalizedNext = nextLine
+          .replace(/[{}[\]()|\\/*]/g, "<")
+          .replace(/K{2,}/g, (match) => "<".repeat(match.length));
         if (normalizedNext.length >= 30) {
-          mrzLine2 = normalizedNext.substring(Math.min(startIdx, normalizedNext.length - 1));
+          mrzLine2 = normalizedNext.substring(
+            Math.min(startIdx, normalizedNext.length - 1),
+          );
           break;
         }
       }
@@ -192,7 +270,8 @@ function parsePassportOcr(text: string) {
 
     try {
       const countryCode = mrzLine1.substring(2, 5).replace(/</g, "");
-      result.passportIssuingCountry = countryCodeMap[countryCode] || countryCode;
+      result.passportIssuingCountry =
+        countryCodeMap[countryCode] || countryCode;
       result.nationality = countryCodeMap[countryCode] || countryCode;
 
       const namePart = mrzLine1.substring(5);
@@ -238,14 +317,16 @@ function parsePassportOcr(text: string) {
   const cleanRawText = text.replace(/\s+/g, " ");
 
   if (!result.passportNumber) {
-    const pNoMatch = cleanRawText.match(/(?:passport|doc|document|passeport)\s*(?:no|number|num)?\s*[:.-]?\s*([A-Z0-9]{8,9})/i);
+    const pNoMatch = cleanRawText.match(
+      /(?:passport|doc|document|passeport)\s*(?:no|number|num)?\s*[:.-]?\s*([A-Z0-9]{8,9})/i,
+    );
     if (pNoMatch) {
       result.passportNumber = pNoMatch[1].toUpperCase();
     } else {
       // Find 9-digit passport number word (must contain at least one digit to avoid labels like "SIGNATURE")
       const words = text.split(/\s+/);
       for (const word of words) {
-        const cleanWord = word.replace(/[^A-Z0-9]/ig, "");
+        const cleanWord = word.replace(/[^A-Z0-9]/gi, "");
         if (/^[A-Z0-9]{9}$/i.test(cleanWord) && /\d/.test(cleanWord)) {
           result.passportNumber = cleanWord.toUpperCase();
           break;
@@ -258,34 +339,62 @@ function parsePassportOcr(text: string) {
   const rawLines = text.split("\n");
   for (let i = 0; i < rawLines.length; i++) {
     const line = rawLines[i].toUpperCase();
-    
+
     // A line is only a surname line if it doesn't contain given names descriptors to prevent overlap
-    const isSurnameLine = (line.includes("SURNAME") || line.includes("NOM") || line.includes("SURNAME/NOM")) &&
-                          !(line.includes("GIVEN") || line.includes("PRÉNOM") || line.includes("PRENOM") || line.includes("PRÉ-NOM"));
+    const isSurnameLine =
+      (line.includes("SURNAME") ||
+        line.includes("NOM") ||
+        line.includes("SURNAME/NOM")) &&
+      !(
+        line.includes("GIVEN") ||
+        line.includes("PRÉNOM") ||
+        line.includes("PRENOM") ||
+        line.includes("PRÉ-NOM")
+      );
 
     if (isSurnameLine) {
       if (i + 1 < rawLines.length) {
-        const cleanName = rawLines[i + 1].split(/\s+/)[0].replace(/[^A-Z]/ig, "");
+        const cleanName = rawLines[i + 1]
+          .split(/\s+/)[0]
+          .replace(/[^A-Z]/gi, "");
         if (cleanName.length > 2) {
           result.lastName = cleanName.toUpperCase();
         }
       }
     }
 
-    if (line.includes("GIVEN") || line.includes("PRÉNOM") || line.includes("PRENOM") || line.includes("GIVEN NAMES")) {
+    if (
+      line.includes("GIVEN") ||
+      line.includes("PRÉNOM") ||
+      line.includes("PRENOM") ||
+      line.includes("GIVEN NAMES")
+    ) {
       if (i + 1 < rawLines.length) {
-        const cleanName = rawLines[i + 1].split(/\s+/)[0].replace(/[^A-Z]/ig, "");
+        const cleanName = rawLines[i + 1]
+          .split(/\s+/)[0]
+          .replace(/[^A-Z]/gi, "");
         if (cleanName.length > 2) {
           result.firstName = cleanName.toUpperCase();
         }
       }
     }
 
-    if (line.includes("NATIONALITY") || line.includes("NATIONALITÉ") || line.includes("NATIONALITE")) {
+    if (
+      line.includes("NATIONALITY") ||
+      line.includes("NATIONALITÉ") ||
+      line.includes("NATIONALITE")
+    ) {
       if (i + 1 < rawLines.length) {
-        const cleanNat = rawLines[i + 1].split(/[|]/)[0].replace(/[^A-Z\s]/ig, "").trim();
+        const cleanNat = rawLines[i + 1]
+          .split(/[|]/)[0]
+          .replace(/[^A-Z\s]/gi, "")
+          .trim();
         if (cleanNat.length > 3) {
-          if (cleanNat.toUpperCase().includes("BRITISH") || cleanNat.toUpperCase().includes("UNITED KINGDOM") || cleanNat.toUpperCase().includes("GBR")) {
+          if (
+            cleanNat.toUpperCase().includes("BRITISH") ||
+            cleanNat.toUpperCase().includes("UNITED KINGDOM") ||
+            cleanNat.toUpperCase().includes("GBR")
+          ) {
             result.passportIssuingCountry = "United Kingdom";
             result.nationality = "United Kingdom";
           } else {
@@ -296,7 +405,11 @@ function parsePassportOcr(text: string) {
       }
     }
 
-    if (line.includes("DATE OF BIRTH") || line.includes("NAISSANCE") || line.includes("BIRTH")) {
+    if (
+      line.includes("DATE OF BIRTH") ||
+      line.includes("NAISSANCE") ||
+      line.includes("BIRTH")
+    ) {
       if (i + 1 < rawLines.length) {
         const dobDate = parseOcrDate(rawLines[i + 1]);
         if (dobDate) {
@@ -317,7 +430,10 @@ function parsePassportOcr(text: string) {
 
   // ParseDateFromText helper as additional fallback
   const parseDateFromText = (labelText: string): string | undefined => {
-    const regex = new RegExp(`(?:${labelText})\\s*[:.-]?\\s*(?:DATE\\s*OF\\s*)?\\s*(\\d{1,2}[/-]\\d{1,2}[/-]\\d{2,4}|\\d{1,2}\\s+[A-Z]{3,10}\\s+\\d{2,4}|\\d{4}[/-]\\d{1,2}[/-]\\d{1,2})`, 'i');
+    const regex = new RegExp(
+      `(?:${labelText})\\s*[:.-]?\\s*(?:DATE\\s*OF\\s*)?\\s*(\\d{1,2}[/-]\\d{1,2}[/-]\\d{2,4}|\\d{1,2}\\s+[A-Z]{3,10}\\s+\\d{2,4}|\\d{4}[/-]\\d{1,2}[/-]\\d{1,2})`,
+      "i",
+    );
     const match = cleanRawText.match(regex);
     if (match) {
       const dateStr = match[1];
@@ -330,7 +446,9 @@ function parsePassportOcr(text: string) {
   };
 
   if (!result.passportExpiryDate) {
-    result.passportExpiryDate = parseDateFromText("EXPIRY|EXP|VALID\\s+UNTIL|VAL");
+    result.passportExpiryDate = parseDateFromText(
+      "EXPIRY|EXP|VALID\\s+UNTIL|VAL",
+    );
   }
   if (!result.dateOfBirth) {
     result.dateOfBirth = parseDateFromText("BIRTH|DOB|BORN");
@@ -342,43 +460,47 @@ function parsePassportOcr(text: string) {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function PassengerModal({
-  isOpen, onClose, bookingId, onSuccess,
-  passengerToEdit = null, bookingPassengers = [],
+  isOpen,
+  onClose,
+  bookingId,
+  onSuccess,
+  passengerToEdit = null,
+  bookingPassengers = [],
 }: PassengerModalProps) {
   const isEdit = !!passengerToEdit;
 
   // Personal info
-  const [title,                  setTitle]                  = useState("Mr");
-  const [firstName,              setFirstName]              = useState("");
-  const [lastName,               setLastName]               = useState("");
-  const [dateOfBirth,            setDateOfBirth]            = useState("");
-  const [email,                  setEmail]                  = useState("");
-  const [phoneNumber,            setPhoneNumber]            = useState("");
-  const [nationality,            setNationality]            = useState("");
-  const [passportNumber,         setPassportNumber]         = useState("");
-  const [passportExpiryDate,     setPassportExpiryDate]     = useState("");
+  const [title, setTitle] = useState("Mr");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
+  const [email, setEmail] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [nationality, setNationality] = useState("");
+  const [passportNumber, setPassportNumber] = useState("");
+  const [passportExpiryDate, setPassportExpiryDate] = useState("");
   const [passportIssuingCountry, setPassportIssuingCountry] = useState("");
-  const [role,                   setRole]                   = useState("Passenger");
-  const [isSubmitting,           setIsSubmitting]           = useState(false);
-  const [linkCopied,             setLinkCopied]             = useState(false);
-  const [isSendingEmail,         setIsSendingEmail]         = useState(false);
-  const [addMode,                setAddMode]                = useState<"link" | "manual">("link");
-  const [collectPassport,        setCollectPassport]        = useState(true);
-  const [collectAdditional,      setCollectAdditional]      = useState(false);
+  const [role, setRole] = useState("Passenger");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [addMode, setAddMode] = useState<"link" | "manual">("link");
+  const [collectPassport, setCollectPassport] = useState(true);
+  const [collectAdditional, setCollectAdditional] = useState(false);
 
   // Passport scan state
-  const [passportScanKey,        setPassportScanKey]        = useState<string | null>(null);
-  const [isOcrRunning,           setIsOcrRunning]           = useState(false);
-  const [isUploadingPassport,    setIsUploadingPassport]    = useState(false);
-  const [isDeletingPassport,     setIsDeletingPassport]     = useState(false);
+  const [passportScanKey, setPassportScanKey] = useState<string | null>(null);
+  const [isOcrRunning, setIsOcrRunning] = useState(false);
+  const [isUploadingPassport, setIsUploadingPassport] = useState(false);
+  const [isDeletingPassport, setIsDeletingPassport] = useState(false);
   const passportFileRef = useRef<HTMLInputElement>(null);
 
   // Additional documents state
-  const [documents,              setDocuments]              = useState<any[]>([]);
-  const [docTitle,               setDocTitle]               = useState("");
-  const [docDesc,                setDocDesc]                = useState("");
-  const [docFile,                setDocFile]                = useState<File | null>(null);
-  const [isAddingDoc,            setIsAddingDoc]            = useState(false);
+  const [documents, setDocuments] = useState<any[]>([]);
+  const [docTitle, setDocTitle] = useState("");
+  const [docDesc, setDocDesc] = useState("");
+  const [docFile, setDocFile] = useState<File | null>(null);
+  const [isAddingDoc, setIsAddingDoc] = useState(false);
   const docFileRef = useRef<HTMLInputElement>(null);
 
   // Local files/docs state for creation mode
@@ -427,9 +549,17 @@ export default function PassengerModal({
         setLocalPassportFile(null);
         setLocalDocuments([]);
       } else {
-        setTitle("Mr"); setFirstName(""); setLastName(""); setDateOfBirth("");
-        setEmail(""); setPhoneNumber(""); setNationality(""); setPassportNumber("");
-        setPassportExpiryDate(""); setPassportIssuingCountry(""); setRole("Passenger");
+        setTitle("Mr");
+        setFirstName("");
+        setLastName("");
+        setDateOfBirth("");
+        setEmail("");
+        setPhoneNumber("");
+        setNationality("");
+        setPassportNumber("");
+        setPassportExpiryDate("");
+        setPassportIssuingCountry("");
+        setRole("Passenger");
         setAddMode("link");
         setCollectPassport(true);
         setCollectAdditional(false);
@@ -439,7 +569,9 @@ export default function PassengerModal({
         setLocalDocuments([]);
       }
       setLinkCopied(false);
-      setDocTitle(""); setDocDesc(""); setDocFile(null);
+      setDocTitle("");
+      setDocDesc("");
+      setDocFile(null);
       setIsPassportScanModalOpen(false);
       setIsDocsModalOpen(false);
     }
@@ -448,7 +580,10 @@ export default function PassengerModal({
   // Click outside search container listener
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
+      if (
+        searchContainerRef.current &&
+        !searchContainerRef.current.contains(event.target as Node)
+      ) {
         setShowSearchResults(false);
       }
     }
@@ -483,7 +618,9 @@ export default function PassengerModal({
     setIsSearching(true);
     setShowSearchResults(true);
     try {
-      const res = await apiClient.get(`/bookings/passengers/global-search?q=${encodeURIComponent(trimmed)}`);
+      const res = await apiClient.get(
+        `/bookings/passengers/global-search?q=${encodeURIComponent(trimmed)}`,
+      );
       setSearchResults(res.data.data || []);
     } catch (err) {
       console.error("Failed to search passengers:", err);
@@ -501,7 +638,9 @@ export default function PassengerModal({
     setPhoneNumber(p.phoneNumber || "");
     setNationality(p.nationality || "");
     setPassportNumber(p.passportNumber || "");
-    setPassportExpiryDate(p.passportExpiryDate ? fmt(p.passportExpiryDate) : "");
+    setPassportExpiryDate(
+      p.passportExpiryDate ? fmt(p.passportExpiryDate) : "",
+    );
     setPassportIssuingCountry(p.passportIssuingCountry || "");
 
     // Hide search results and query
@@ -514,18 +653,23 @@ export default function PassengerModal({
   // ─── OCR autofill ──────────────────────────────────────────────────────────
 
   const autofillFromOcr = (fields: Record<string, string>) => {
-    if (fields.firstName)              setFirstName(fields.firstName);
-    if (fields.lastName)               setLastName(fields.lastName);
-    if (fields.nationality)            setNationality(fields.nationality);
-    if (fields.passportNumber)         setPassportNumber(fields.passportNumber.toUpperCase());
-    if (fields.passportExpiryDate)     setPassportExpiryDate(fields.passportExpiryDate);
-    if (fields.passportIssuingCountry) setPassportIssuingCountry(fields.passportIssuingCountry);
-    if (fields.dateOfBirth)            setDateOfBirth(fields.dateOfBirth);
+    if (fields.firstName) setFirstName(fields.firstName);
+    if (fields.lastName) setLastName(fields.lastName);
+    if (fields.nationality) setNationality(fields.nationality);
+    if (fields.passportNumber)
+      setPassportNumber(fields.passportNumber.toUpperCase());
+    if (fields.passportExpiryDate)
+      setPassportExpiryDate(fields.passportExpiryDate);
+    if (fields.passportIssuingCountry)
+      setPassportIssuingCountry(fields.passportIssuingCountry);
+    if (fields.dateOfBirth) setDateOfBirth(fields.dateOfBirth);
   };
 
   const runOcr = async (file: File) => {
     if (file.type === "application/pdf") {
-      toast.info("OCR autofill works with image files (JPEG/PNG). PDF uploaded successfully but fields won't be auto-filled.");
+      toast.info(
+        "OCR autofill works with image files (JPEG/PNG). PDF uploaded successfully but fields won't be auto-filled.",
+      );
       return;
     }
     setIsOcrRunning(true);
@@ -534,20 +678,23 @@ export default function PassengerModal({
       const result = await Tesseract.recognize(file, "eng", {
         logger: (m) => {
           if (m.status === "recognizing text") {
-            toast.loading(`OCR scanning: ${Math.round(m.progress * 100)}%`, { id: toastId });
+            toast.loading(`OCR scanning: ${Math.round(m.progress * 100)}%`, {
+              id: toastId,
+            });
           }
         },
       });
       const rawText = result.data.text;
-      console.log("PassengerModal OCR raw text:", rawText);
       const parsed = parsePassportOcr(rawText);
-      console.log("PassengerModal OCR parsed fields:", parsed);
       const hasFields = Object.values(parsed).some((v) => v && v.trim() !== "");
       if (hasFields) {
         autofillFromOcr(parsed);
         toast.success("Passport fields autofilled from scan!", { id: toastId });
       } else {
-        toast.info("OCR completed but no fields detected. Please enter manually.", { id: toastId });
+        toast.info(
+          "OCR completed but no fields detected. Please enter manually.",
+          { id: toastId },
+        );
       }
     } catch (err) {
       console.error("OCR error:", err);
@@ -557,10 +704,11 @@ export default function PassengerModal({
     }
   };
 
-
   // ─── Passport scan upload ───────────────────────────────────────────────────
 
-  const handlePassportFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePassportFileChange = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const file = e.target.files?.[0];
     if (!file || !passengerToEdit?.id) return;
 
@@ -581,7 +729,9 @@ export default function PassengerModal({
         await runOcr(file);
       }
     } catch (err: any) {
-      toast.error(err.response?.data?.message || "Upload failed", { id: toastId });
+      toast.error(err.response?.data?.message || "Upload failed", {
+        id: toastId,
+      });
     } finally {
       setIsUploadingPassport(false);
       if (passportFileRef.current) passportFileRef.current.value = "";
@@ -598,10 +748,13 @@ export default function PassengerModal({
   };
 
   const handleDeletePassportScan = async () => {
-    if (!passengerToEdit?.id || !window.confirm("Remove passport scan?")) return;
+    if (!passengerToEdit?.id || !window.confirm("Remove passport scan?"))
+      return;
     setIsDeletingPassport(true);
     try {
-      await apiClient.delete(`/bookings/${bookingId}/passengers/${passengerToEdit.id}/passport-scan`);
+      await apiClient.delete(
+        `/bookings/${bookingId}/passengers/${passengerToEdit.id}/passport-scan`,
+      );
       setPassportScanKey(null);
       toast.success("Passport scan removed");
     } catch (err: any) {
@@ -614,8 +767,14 @@ export default function PassengerModal({
   // ─── Additional documents ───────────────────────────────────────────────────
 
   const handleAddDocument = async () => {
-    if (!docTitle.trim()) { toast.error("Document title is required"); return; }
-    if (!passengerToEdit?.id) { toast.error("Save the passenger first before adding documents"); return; }
+    if (!docTitle.trim()) {
+      toast.error("Document title is required");
+      return;
+    }
+    if (!passengerToEdit?.id) {
+      toast.error("Save the passenger first before adding documents");
+      return;
+    }
 
     setIsAddingDoc(true);
     const toastId = toast.loading("Adding document…");
@@ -631,11 +790,15 @@ export default function PassengerModal({
         { headers: { "Content-Type": "multipart/form-data" } },
       );
       setDocuments((prev) => [...prev, res.data.data]);
-      setDocTitle(""); setDocDesc(""); setDocFile(null);
+      setDocTitle("");
+      setDocDesc("");
+      setDocFile(null);
       if (docFileRef.current) docFileRef.current.value = "";
       toast.success("Document added!", { id: toastId });
     } catch (err: any) {
-      toast.error(err.response?.data?.message || "Failed to add document", { id: toastId });
+      toast.error(err.response?.data?.message || "Failed to add document", {
+        id: toastId,
+      });
     } finally {
       setIsAddingDoc(false);
     }
@@ -664,38 +827,77 @@ export default function PassengerModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!firstName.trim() || !lastName.trim()) { toast.error("First and last name are required"); return; }
-    if (!email.trim()) { toast.error("Email is required"); return; }
+    if (!firstName.trim() || !lastName.trim()) {
+      toast.error("First and last name are required");
+      return;
+    }
+    if (!email.trim()) {
+      toast.error("Email is required");
+      return;
+    }
     setIsSubmitting(true);
     try {
       if (isEdit) {
         const payload = {
-          title, firstName: firstName.trim(), lastName: lastName.trim(),
-          dateOfBirth: dateOfBirth || null, email: email.trim(),
-          phoneNumber: phoneNumber || null, nationality: nationality || null,
-          passportNumber: passportNumber || null, passportExpiryDate: passportExpiryDate || null,
+          title,
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          dateOfBirth: dateOfBirth || null,
+          email: email.trim(),
+          phoneNumber: phoneNumber || null,
+          nationality: nationality || null,
+          passportNumber: passportNumber || null,
+          passportExpiryDate: passportExpiryDate || null,
           passportIssuingCountry: passportIssuingCountry || null,
-          role, collectPassport, collectAdditional,
+          role,
+          collectPassport,
+          collectAdditional,
         };
-        await apiClient.patch(`/bookings/${bookingId}/passengers/${passengerToEdit.id}`, payload);
+        await apiClient.patch(
+          `/bookings/${bookingId}/passengers/${passengerToEdit.id}`,
+          payload,
+        );
         toast.success("Passenger updated");
       } else {
         if (addMode === "link") {
-          const payload = { title, firstName: firstName.trim(), lastName: lastName.trim(), email: email.trim(), role, collectPassport, collectAdditional };
-          const res = await apiClient.post(`/bookings/${bookingId}/passengers`, payload);
+          const payload = {
+            title,
+            firstName: firstName.trim(),
+            lastName: lastName.trim(),
+            email: email.trim(),
+            role,
+            collectPassport,
+            collectAdditional,
+          };
+          const res = await apiClient.post(
+            `/bookings/${bookingId}/passengers`,
+            payload,
+          );
           const newPassenger = res.data.data;
-          await apiClient.post(`/bookings/${bookingId}/passengers/${newPassenger.id}/send-link`);
+          await apiClient.post(
+            `/bookings/${bookingId}/passengers/${newPassenger.id}/send-link`,
+          );
           toast.success("Passenger added and request link emailed!");
         } else {
           const payload = {
-            title, firstName: firstName.trim(), lastName: lastName.trim(),
-            dateOfBirth: dateOfBirth || null, email: email.trim(),
-            phoneNumber: phoneNumber || null, nationality: nationality || null,
-            passportNumber: passportNumber || null, passportExpiryDate: passportExpiryDate || null,
+            title,
+            firstName: firstName.trim(),
+            lastName: lastName.trim(),
+            dateOfBirth: dateOfBirth || null,
+            email: email.trim(),
+            phoneNumber: phoneNumber || null,
+            nationality: nationality || null,
+            passportNumber: passportNumber || null,
+            passportExpiryDate: passportExpiryDate || null,
             passportIssuingCountry: passportIssuingCountry || null,
-            role, collectPassport, collectAdditional,
+            role,
+            collectPassport,
+            collectAdditional,
           };
-          const res = await apiClient.post(`/bookings/${bookingId}/passengers`, payload);
+          const res = await apiClient.post(
+            `/bookings/${bookingId}/passengers`,
+            payload,
+          );
           const newPassenger = res.data.data;
 
           // Upload passport scan if selected
@@ -706,11 +908,13 @@ export default function PassengerModal({
               await apiClient.post(
                 `/bookings/${bookingId}/passengers/${newPassenger.id}/passport-scan`,
                 form,
-                { headers: { "Content-Type": "multipart/form-data" } }
+                { headers: { "Content-Type": "multipart/form-data" } },
               );
             } catch (pErr) {
               console.error("Failed to upload passport scan:", pErr);
-              toast.error("Passenger added, but failed to upload passport scan.");
+              toast.error(
+                "Passenger added, but failed to upload passport scan.",
+              );
             }
           }
 
@@ -720,12 +924,13 @@ export default function PassengerModal({
               try {
                 const form = new FormData();
                 form.append("title", doc.title);
-                if (doc.description) form.append("description", doc.description);
+                if (doc.description)
+                  form.append("description", doc.description);
                 if (doc.file) form.append("file", doc.file);
                 await apiClient.post(
                   `/bookings/${bookingId}/passengers/${newPassenger.id}/documents`,
                   form,
-                  { headers: { "Content-Type": "multipart/form-data" } }
+                  { headers: { "Content-Type": "multipart/form-data" } },
                 );
               } catch (dErr) {
                 console.error("Failed to upload document:", doc.title, dErr);
@@ -737,43 +942,61 @@ export default function PassengerModal({
           toast.success("Passenger added manually");
         }
       }
-      onSuccess(); onClose();
+      onSuccess();
+      onClose();
     } catch (err: any) {
       toast.error(err.response?.data?.message || "Failed to save passenger");
-    } finally { setIsSubmitting(false); }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleCopyLink = () => {
     if (!passengerToEdit?.formToken) return;
     const link = `${window.location.origin}/passenger-form/${passengerToEdit.formToken}`;
     navigator.clipboard.writeText(link).then(() => {
-      setLinkCopied(true); toast.success("Form link copied!");
+      setLinkCopied(true);
+      toast.success("Form link copied!");
       setTimeout(() => setLinkCopied(false), 3000);
     });
   };
 
   const handleSendEmail = async () => {
     if (!passengerToEdit?.id) return;
-    if (!email.trim()) { toast.error("Please provide an email address first."); return; }
+    if (!email.trim()) {
+      toast.error("Please provide an email address first.");
+      return;
+    }
     setIsSendingEmail(true);
     try {
-      await apiClient.post(`/bookings/${bookingId}/passengers/${passengerToEdit.id}/send-link`);
+      await apiClient.post(
+        `/bookings/${bookingId}/passengers/${passengerToEdit.id}/send-link`,
+      );
       toast.success(`Request link email sent to ${email}`);
     } catch (err: any) {
       toast.error(err.response?.data?.message || "Failed to send email");
-    } finally { setIsSendingEmail(false); }
+    } finally {
+      setIsSendingEmail(false);
+    }
   };
 
-  const lbl = "text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-0.5";
-  const inp = "text-[12px] py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary w-full";
-  const sectionHeader = "text-[11px] font-bold uppercase tracking-wider text-primary mb-2 flex items-center gap-1.5";
+  const lbl =
+    "text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-0.5";
+  const inp =
+    "text-[12px] py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary w-full";
+  const sectionHeader =
+    "text-[11px] font-bold uppercase tracking-wider text-primary mb-2 flex items-center gap-1.5";
 
   const showPassportSection = isEdit || addMode === "manual";
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={isEdit ? "Edit Passenger" : "Add Passenger"} maxWidth="5xl">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={isEdit ? "Edit Passenger" : "Add Passenger"}
+      maxWidth="5xl"
+    >
       <form onSubmit={handleSubmit} className="space-y-4 font-sans">
-
         {/* Mode tabs */}
         {!isEdit && (
           <div className="flex bg-secondary/35 p-1 rounded-lg gap-1 border border-border/60 mb-2">
@@ -788,7 +1011,9 @@ export default function PassengerModal({
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                {mode === "link" ? "Request details via Link" : "Fill details Manually"}
+                {mode === "link"
+                  ? "Request details via Link"
+                  : "Fill details Manually"}
               </button>
             ))}
           </div>
@@ -801,16 +1026,36 @@ export default function PassengerModal({
             {/* Age badge */}
             {showPassportSection && dateOfBirth && ageCategory && (
               <div className="flex items-center gap-2 mb-2">
-                <span className={`px-2.5 py-0.5 rounded-full border text-[10px] font-bold ${ageBadgeColor(ageCategory)}`}>{ageCategory}</span>
-                <span className="text-[10px] text-muted-foreground">Auto-calculated from date of birth</span>
+                <span
+                  className={`px-2.5 py-0.5 rounded-full border text-[10px] font-bold ${ageBadgeColor(ageCategory)}`}
+                >
+                  {ageCategory}
+                </span>
+                <span className="text-[10px] text-muted-foreground">
+                  Auto-calculated from date of birth
+                </span>
               </div>
             )}
 
             {/* Passenger Database Search */}
             {showPassportSection && (
-              <div ref={searchContainerRef} className="relative bg-secondary/5 rounded-xl border border-border/40 p-4">
+              <div
+                ref={searchContainerRef}
+                className="relative bg-secondary/5 rounded-xl border border-border/40 p-4"
+              >
                 <p className={sectionHeader}>
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="mr-1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  <svg
+                    width="11"
+                    height="11"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    className="mr-1.5"
+                  >
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                  </svg>
                   Import Existing Passenger
                 </p>
                 <div className="relative">
@@ -828,7 +1073,10 @@ export default function PassengerModal({
                   />
                   {isSearching && (
                     <div className="absolute right-3 top-2.5">
-                      <Loader2 size={14} className="animate-spin text-muted-foreground" />
+                      <Loader2
+                        size={14}
+                        className="animate-spin text-muted-foreground"
+                      />
                     </div>
                   )}
                 </div>
@@ -838,7 +1086,9 @@ export default function PassengerModal({
                   <div className="absolute left-0 right-0 mt-1 bg-background border border-border rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
                     {searchResults.length === 0 ? (
                       <div className="p-3 text-center text-xs text-muted-foreground">
-                        {isSearching ? "Searching..." : "No matching passengers found"}
+                        {isSearching
+                          ? "Searching..."
+                          : "No matching passengers found"}
                       </div>
                     ) : (
                       <div className="divide-y divide-border">
@@ -851,7 +1101,8 @@ export default function PassengerModal({
                           >
                             <div className="flex justify-between items-center">
                               <span className="text-xs font-bold text-foreground">
-                                {p.title ? `${p.title} ` : ""}{p.firstName} {p.lastName}
+                                {p.title ? `${p.title} ` : ""}
+                                {p.firstName} {p.lastName}
                               </span>
                               {p.passportNumber && (
                                 <span className="text-[9px] bg-secondary px-1.5 py-0.5 rounded font-mono text-muted-foreground uppercase">
@@ -861,7 +1112,9 @@ export default function PassengerModal({
                             </div>
                             <div className="flex justify-between text-[10px] text-muted-foreground">
                               <span>{p.email}</span>
-                              {p.dateOfBirth && <span>DOB: {fmt(p.dateOfBirth)}</span>}
+                              {p.dateOfBirth && (
+                                <span>DOB: {fmt(p.dateOfBirth)}</span>
+                              )}
                             </div>
                           </button>
                         ))}
@@ -874,23 +1127,86 @@ export default function PassengerModal({
 
             {/* Personal Information */}
             <div className="bg-secondary/5 rounded-xl border border-border/40 p-4 space-y-3">
-              <p className={sectionHeader}><User size={11} /> Personal Information</p>
+              <p className={sectionHeader}>
+                <User size={11} /> Personal Information
+              </p>
               <div className="grid grid-cols-2 gap-3">
-                <div><label className={lbl}>Title</label><select value={title} onChange={e => setTitle(e.target.value)} className={inp}>{TITLES.map(t => <option key={t}>{t}</option>)}</select></div>
-                <div><label className={lbl}>Role</label><select value={role} onChange={e => setRole(e.target.value)} className={inp}>{ROLES.map(r => <option key={r}>{r}</option>)}</select></div>
-                <div><label className={lbl}>First Name *</label><input required type="text" placeholder="e.g. Faisal" value={firstName} onChange={e => setFirstName(e.target.value)} className={inp} /></div>
-                <div><label className={lbl}>Last Name *</label><input required type="text" placeholder="e.g. Chughtai" value={lastName} onChange={e => setLastName(e.target.value)} className={inp} /></div>
+                <div>
+                  <label className={lbl}>Title</label>
+                  <select
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    className={inp}
+                  >
+                    {TITLES.map((t) => (
+                      <option key={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={lbl}>Role</label>
+                  <select
+                    value={role}
+                    onChange={(e) => setRole(e.target.value)}
+                    className={inp}
+                  >
+                    {ROLES.map((r) => (
+                      <option key={r}>{r}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={lbl}>First Name *</label>
+                  <input
+                    required
+                    type="text"
+                    placeholder="e.g. Faisal"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    className={inp}
+                  />
+                </div>
+                <div>
+                  <label className={lbl}>Last Name *</label>
+                  <input
+                    required
+                    type="text"
+                    placeholder="e.g. Chughtai"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    className={inp}
+                  />
+                </div>
 
                 {showPassportSection && (
                   <>
-                    <div><label className={lbl}>Date of Birth</label><input type="date" value={dateOfBirth} onChange={e => setDateOfBirth(e.target.value)} className={inp} /></div>
-                    <div><label className={lbl}>Nationality</label><input type="text" placeholder="e.g. British" value={nationality} onChange={e => setNationality(e.target.value)} className={inp} /></div>
+                    <div>
+                      <label className={lbl}>Date of Birth</label>
+                      <input
+                        type="date"
+                        value={dateOfBirth}
+                        onChange={(e) => setDateOfBirth(e.target.value)}
+                        className={inp}
+                      />
+                    </div>
+                    <div>
+                      <label className={lbl}>Nationality</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. British"
+                        value={nationality}
+                        onChange={(e) => setNationality(e.target.value)}
+                        className={inp}
+                      />
+                    </div>
                   </>
                 )}
 
                 <div>
                   <div className="flex justify-between items-center mb-0.5">
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Email Address *</label>
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                      Email Address *
+                    </label>
                     {leaderEmail && (
                       <button
                         type="button"
@@ -901,13 +1217,22 @@ export default function PassengerModal({
                       </button>
                     )}
                   </div>
-                  <input required type="email" placeholder="passenger@email.com" value={email} onChange={e => setEmail(e.target.value)} className={inp} />
+                  <input
+                    required
+                    type="email"
+                    placeholder="passenger@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className={inp}
+                  />
                 </div>
 
                 {showPassportSection && (
                   <div>
                     <div className="flex justify-between items-center mb-0.5">
-                      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Phone Number</label>
+                      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                        Phone Number
+                      </label>
                       {leaderPhone && (
                         <button
                           type="button"
@@ -918,7 +1243,13 @@ export default function PassengerModal({
                         </button>
                       )}
                     </div>
-                    <input type="tel" placeholder="+44 7889 952013" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} className={inp} />
+                    <input
+                      type="tel"
+                      placeholder="+44 7889 952013"
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      className={inp}
+                    />
                   </div>
                 )}
               </div>
@@ -928,38 +1259,79 @@ export default function PassengerModal({
             {showPassportSection && (
               <div className="bg-secondary/5 rounded-xl border border-border/40 p-4 space-y-3">
                 <p className={sectionHeader}>
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="2" width="18" height="20" rx="2"/><path d="M8 10h8M8 14h5"/><circle cx="12" cy="7" r="2"/></svg>
+                  <svg
+                    width="11"
+                    height="11"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <rect x="3" y="2" width="18" height="20" rx="2" />
+                    <path d="M8 10h8M8 14h5" />
+                    <circle cx="12" cy="7" r="2" />
+                  </svg>
                   Passport Information
                 </p>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <div><label className={lbl}>Passport Number</label><input type="text" placeholder="e.g. GB123456" value={passportNumber} onChange={e => setPassportNumber(e.target.value.toUpperCase())} className={`${inp} font-mono uppercase`} /></div>
-                  <div><label className={lbl}>Issuing Country</label><input type="text" placeholder="e.g. United Kingdom" value={passportIssuingCountry} onChange={e => setPassportIssuingCountry(e.target.value)} className={inp} /></div>
+                  <div>
+                    <label className={lbl}>Passport Number</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. GB123456"
+                      value={passportNumber}
+                      onChange={(e) =>
+                        setPassportNumber(e.target.value.toUpperCase())
+                      }
+                      className={`${inp} font-mono uppercase`}
+                    />
+                  </div>
+                  <div>
+                    <label className={lbl}>Issuing Country</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. United Kingdom"
+                      value={passportIssuingCountry}
+                      onChange={(e) =>
+                        setPassportIssuingCountry(e.target.value)
+                      }
+                      className={inp}
+                    />
+                  </div>
                   <div className="col-span-2">
                     <label className={lbl}>Passport Expiry Date</label>
-                    <input type="date" value={passportExpiryDate} onChange={e => setPassportExpiryDate(e.target.value)} className={inp} />
-                    {passportExpiryDate && (() => {
-                      const expDate = new Date(passportExpiryDate);
-                      if (!isNaN(expDate.getTime())) {
-                        const today = new Date();
-                        const sixMonths = new Date();
-                        sixMonths.setMonth(today.getMonth() + 6);
-                        if (expDate < today) {
-                          return (
-                            <p className="text-[10px] text-rose-600 font-bold mt-1">
-                              ⚠️ Passport has already expired!
-                            </p>
-                          );
-                        } else if (expDate <= sixMonths) {
-                          return (
-                            <p className="text-[10px] text-amber-600 font-bold mt-1">
-                              ⚠️ Passport expires in less than 6 months (validity: {expDate.toLocaleDateString('en-GB')}).
-                            </p>
-                          );
+                    <input
+                      type="date"
+                      value={passportExpiryDate}
+                      onChange={(e) => setPassportExpiryDate(e.target.value)}
+                      className={inp}
+                    />
+                    {passportExpiryDate &&
+                      (() => {
+                        const expDate = new Date(passportExpiryDate);
+                        if (!isNaN(expDate.getTime())) {
+                          const today = new Date();
+                          const sixMonths = new Date();
+                          sixMonths.setMonth(today.getMonth() + 6);
+                          if (expDate < today) {
+                            return (
+                              <p className="text-[10px] text-rose-600 font-bold mt-1">
+                                ⚠️ Passport has already expired!
+                              </p>
+                            );
+                          } else if (expDate <= sixMonths) {
+                            return (
+                              <p className="text-[10px] text-amber-600 font-bold mt-1">
+                                ⚠️ Passport expires in less than 6 months
+                                (validity: {expDate.toLocaleDateString("en-GB")}
+                                ).
+                              </p>
+                            );
+                          }
                         }
-                      }
-                      return null;
-                    })()}
+                        return null;
+                      })()}
                   </div>
                 </div>
               </div>
@@ -972,16 +1344,36 @@ export default function PassengerModal({
               {/* Documents to Collect */}
               <div className="bg-secondary/5 rounded-xl border border-border/40 p-4 space-y-2.5">
                 <p className={sectionHeader}>
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                  <svg
+                    width="11"
+                    height="11"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                  </svg>
                   Documents to Collect
                 </p>
                 <div className="flex flex-col gap-2 bg-background p-2.5 rounded-lg border border-border/40">
                   <label className="flex items-center gap-2 cursor-pointer text-[11px] font-semibold text-foreground select-none">
-                    <input type="checkbox" checked={collectPassport} onChange={e => setCollectPassport(e.target.checked)} className="rounded border-border text-primary h-3.5 w-3.5" />
+                    <input
+                      type="checkbox"
+                      checked={collectPassport}
+                      onChange={(e) => setCollectPassport(e.target.checked)}
+                      className="rounded border-border text-primary h-3.5 w-3.5"
+                    />
                     Collect Passport details &amp; scan
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer text-[11px] font-semibold text-foreground select-none">
-                    <input type="checkbox" checked={collectAdditional} onChange={e => setCollectAdditional(e.target.checked)} className="rounded border-border text-primary h-3.5 w-3.5" />
+                    <input
+                      type="checkbox"
+                      checked={collectAdditional}
+                      onChange={(e) => setCollectAdditional(e.target.checked)}
+                      className="rounded border-border text-primary h-3.5 w-3.5"
+                    />
                     Collect Additional documents
                   </label>
                 </div>
@@ -991,7 +1383,18 @@ export default function PassengerModal({
               {(isEdit || addMode === "manual") && (
                 <div className="bg-secondary/5 rounded-xl border border-border/40 p-4 space-y-2.5">
                   <p className={sectionHeader}>
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="2" width="18" height="20" rx="2"/><circle cx="12" cy="11" r="3"/><path d="M12 2v2M12 18v2M2 12h2M18 12h2"/></svg>
+                    <svg
+                      width="11"
+                      height="11"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <rect x="3" y="2" width="18" height="20" rx="2" />
+                      <circle cx="12" cy="11" r="3" />
+                      <path d="M12 2v2M12 18v2M2 12h2M18 12h2" />
+                    </svg>
                     Passport Scan / Photo
                   </p>
                   <div className="mt-1">
@@ -999,7 +1402,11 @@ export default function PassengerModal({
                       passportScanKey ? (
                         <div className="flex items-center justify-between border border-emerald-200 bg-emerald-50 rounded-lg p-2.5">
                           <div className="flex items-center gap-2 text-emerald-700 text-[11px] font-semibold">
-                            <Check size={12} strokeWidth={3} className="shrink-0" />
+                            <Check
+                              size={12}
+                              strokeWidth={3}
+                              className="shrink-0"
+                            />
                             <span>Passport Scan Uploaded</span>
                           </div>
                           <div className="flex items-center gap-2">
@@ -1023,7 +1430,11 @@ export default function PassengerModal({
                               disabled={isDeletingPassport}
                               className="text-[10px] text-rose-600 hover:text-rose-700 font-bold flex items-center gap-1"
                             >
-                              {isDeletingPassport ? <Loader2 size={10} className="animate-spin" /> : <Trash2 size={10} />}
+                              {isDeletingPassport ? (
+                                <Loader2 size={10} className="animate-spin" />
+                              ) : (
+                                <Trash2 size={10} />
+                              )}
                               Remove
                             </button>
                           </div>
@@ -1038,51 +1449,58 @@ export default function PassengerModal({
                           Upload &amp; Scan Passport
                         </button>
                       )
-                    ) : (
-                      // Adding new passenger manually
-                      localPassportFile ? (
-                        <div className="flex items-center justify-between border border-blue-200 bg-blue-50 rounded-lg p-2.5">
-                          <div className="flex items-center gap-2 text-blue-700 text-[11px] font-semibold truncate max-w-[200px]">
-                            <Check size={12} strokeWidth={3} className="shrink-0" />
-                            <span className="truncate">Selected: {localPassportFile.name}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setIsPassportScanModalOpen(true)}
-                              className="text-[10px] text-blue-600 hover:text-blue-700 font-bold"
-                            >
-                              Manage Scan
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setLocalPassportFile(null);
-                                if (passportFileRef.current) passportFileRef.current.value = "";
-                              }}
-                              className="text-[10px] text-rose-600 hover:text-rose-700 font-bold flex items-center gap-1"
-                            >
-                              <Trash2 size={10} /> Remove
-                            </button>
-                          </div>
+                    ) : // Adding new passenger manually
+                    localPassportFile ? (
+                      <div className="flex items-center justify-between border border-blue-200 bg-blue-50 rounded-lg p-2.5">
+                        <div className="flex items-center gap-2 text-blue-700 text-[11px] font-semibold truncate max-w-[200px]">
+                          <Check
+                            size={12}
+                            strokeWidth={3}
+                            className="shrink-0"
+                          />
+                          <span className="truncate">
+                            Selected: {localPassportFile.name}
+                          </span>
                         </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => setIsPassportScanModalOpen(true)}
-                          className="w-full flex items-center justify-center gap-1.5 border border-dashed border-border rounded-lg p-2.5 hover:border-primary hover:bg-primary/5 transition-all text-[11px] font-bold text-foreground"
-                        >
-                          <Upload size={12} className="text-muted-foreground" />
-                          Upload &amp; Scan Passport
-                        </button>
-                      )
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setIsPassportScanModalOpen(true)}
+                            className="text-[10px] text-blue-600 hover:text-blue-700 font-bold"
+                          >
+                            Manage Scan
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setLocalPassportFile(null);
+                              if (passportFileRef.current)
+                                passportFileRef.current.value = "";
+                            }}
+                            className="text-[10px] text-rose-600 hover:text-rose-700 font-bold flex items-center gap-1"
+                          >
+                            <Trash2 size={10} /> Remove
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setIsPassportScanModalOpen(true)}
+                        className="w-full flex items-center justify-center gap-1.5 border border-dashed border-border rounded-lg p-2.5 hover:border-primary hover:bg-primary/5 transition-all text-[11px] font-bold text-foreground"
+                      >
+                        <Upload size={12} className="text-muted-foreground" />
+                        Upload &amp; Scan Passport
+                      </button>
                     )}
                   </div>
                 </div>
               )}
 
               {/* Additional Documents Trigger */}
-              {(collectAdditional || (isEdit && documents.length > 0) || (!isEdit && localDocuments.length > 0)) && (
+              {(collectAdditional ||
+                (isEdit && documents.length > 0) ||
+                (!isEdit && localDocuments.length > 0)) && (
                 <div className="bg-secondary/5 rounded-xl border border-border/40 p-4 space-y-2.5">
                   <p className={sectionHeader}>
                     <FileText size={11} /> Additional Documents
@@ -1092,9 +1510,13 @@ export default function PassengerModal({
                       <FileText size={13} className="text-muted-foreground" />
                       <div>
                         <p className="text-[11px] font-bold text-foreground">
-                          {isEdit ? `${documents.length} Document(s)` : `${localDocuments.length} Document(s)`}
+                          {isEdit
+                            ? `${documents.length} Document(s)`
+                            : `${localDocuments.length} Document(s)`}
                         </p>
-                        <p className="text-[10px] text-muted-foreground">Visas, vouchers, insurance, etc.</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          Visas, vouchers, insurance, etc.
+                        </p>
                       </div>
                     </div>
                     <button
@@ -1110,50 +1532,78 @@ export default function PassengerModal({
             </div>
 
             {/* Self-fill link (edit only, Leader only) */}
-            {isEdit && passengerToEdit?.formToken && passengerToEdit?.role === "Leader" && (
-              <div className="flex items-center justify-between border border-border bg-secondary/10 rounded-lg p-2.5 mt-auto">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Self-Fill Link</span>
-                  {passengerToEdit.formSubmittedAt && (
-                    <span className="text-[9px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-semibold whitespace-nowrap">
-                      ✓ Submitted
+            {isEdit &&
+              passengerToEdit?.formToken &&
+              passengerToEdit?.role === "Leader" && (
+                <div className="flex items-center justify-between border border-border bg-secondary/10 rounded-lg p-2.5 mt-auto">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                      Self-Fill Link
                     </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <button
-                    type="button"
-                    onClick={handleCopyLink}
-                    className="flex items-center gap-1 px-2.5 py-1 bg-white border border-border hover:bg-secondary text-foreground rounded text-[10px] font-bold transition-all shadow-sm"
-                  >
-                    {linkCopied ? <Check size={10} /> : <Copy size={10} />}
-                    {linkCopied ? "Copied!" : "Copy Link"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSendEmail}
-                    disabled={isSendingEmail || !email.trim()}
-                    className="flex items-center gap-1 px-2.5 py-1 bg-white border border-border hover:bg-secondary text-foreground rounded text-[10px] font-bold disabled:opacity-50 transition-all shadow-sm"
-                  >
-                    {isSendingEmail ? (
-                      <Loader2 size={10} className="animate-spin" />
-                    ) : (
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+                    {passengerToEdit.formSubmittedAt && (
+                      <span className="text-[9px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-semibold whitespace-nowrap">
+                        ✓ Submitted
+                      </span>
                     )}
-                    Email Link
-                  </button>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={handleCopyLink}
+                      className="flex items-center gap-1 px-2.5 py-1 bg-white border border-border hover:bg-secondary text-foreground rounded text-[10px] font-bold transition-all shadow-sm"
+                    >
+                      {linkCopied ? <Check size={10} /> : <Copy size={10} />}
+                      {linkCopied ? "Copied!" : "Copy Link"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSendEmail}
+                      disabled={isSendingEmail || !email.trim()}
+                      className="flex items-center gap-1 px-2.5 py-1 bg-white border border-border hover:bg-secondary text-foreground rounded text-[10px] font-bold disabled:opacity-50 transition-all shadow-sm"
+                    >
+                      {isSendingEmail ? (
+                        <Loader2 size={10} className="animate-spin" />
+                      ) : (
+                        <svg
+                          width="10"
+                          height="10"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
+                          <path d="m22 2-7 20-4-9-9-4Z" />
+                          <path d="M22 2 11 13" />
+                        </svg>
+                      )}
+                      Email Link
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
           </div>
         </div>
 
         {/* ── Actions ───────────────────────────────────────────────────── */}
-        <div className="flex justify-end gap-2 pt-4 border-t border-t-border/60">
-          <button type="button" onClick={onClose} className="px-4 py-1.5 bg-secondary text-foreground font-bold rounded-lg text-[11px] hover:bg-secondary/80 border border-border">Cancel</button>
-          <button type="submit" disabled={isSubmitting} className="flex items-center gap-1.5 px-5 py-1.5 bg-primary text-primary-foreground font-bold rounded-lg text-[11px] hover:bg-primary/95 disabled:opacity-50 shadow-md">
+        <div className="sticky -bottom-5 bg-card flex justify-end gap-2 py-3 px-5 border-t border-t-border/60 -mx-5 z-10">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-1.5 bg-secondary text-foreground font-bold rounded-lg text-[11px] hover:bg-secondary/80 border border-border"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="flex items-center gap-1.5 px-5 py-1.5 bg-primary text-primary-foreground font-bold rounded-lg text-[11px] hover:bg-primary/95 disabled:opacity-50 shadow-md"
+          >
             {isSubmitting && <Loader2 size={11} className="animate-spin" />}
-            {isEdit ? "Save Changes" : addMode === "link" ? "Add & Send Link" : "Add Passenger"}
+            {isEdit
+              ? "Save Changes"
+              : addMode === "link"
+                ? "Add & Send Link"
+                : "Add Passenger"}
           </button>
         </div>
       </form>
@@ -1167,7 +1617,9 @@ export default function PassengerModal({
       >
         <div className="space-y-4">
           <p className="text-xs text-muted-foreground">
-            Upload a high-quality scan or photo of the passport details page. The scanner will automatically extract personal information and fill out the fields.
+            Upload a high-quality scan or photo of the passport details page.
+            The scanner will automatically extract personal information and fill
+            out the fields.
           </p>
 
           {isEdit ? (
@@ -1178,7 +1630,9 @@ export default function PassengerModal({
                     <Check size={16} strokeWidth={3} className="shrink-0" />
                     <div>
                       <p className="text-xs font-bold">Passport Scan Active</p>
-                      <p className="text-[10px] text-emerald-600 font-normal">Successfully uploaded to secure storage</p>
+                      <p className="text-[10px] text-emerald-600 font-normal">
+                        Successfully uploaded to secure storage
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2.5">
@@ -1195,7 +1649,8 @@ export default function PassengerModal({
                         setPassportScanKey(null);
                         // Briefly defer triggering click so the input elements mount and register
                         setTimeout(() => {
-                          if (passportFileRef.current) passportFileRef.current.click();
+                          if (passportFileRef.current)
+                            passportFileRef.current.click();
                         }, 50);
                       }}
                       className="text-[11px] bg-white border border-border hover:bg-secondary text-foreground font-bold px-2.5 py-1.5 rounded-lg shadow-sm transition-all"
@@ -1208,7 +1663,11 @@ export default function PassengerModal({
                       disabled={isDeletingPassport}
                       className="text-[11px] bg-rose-50 border border-rose-200 hover:bg-rose-100 text-rose-600 font-bold px-2.5 py-1.5 rounded-lg shadow-sm transition-all flex items-center gap-1"
                     >
-                      {isDeletingPassport ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={12} />}
+                      {isDeletingPassport ? (
+                        <Loader2 size={11} className="animate-spin" />
+                      ) : (
+                        <Trash2 size={12} />
+                      )}
                       Remove
                     </button>
                   </div>
@@ -1234,105 +1693,139 @@ export default function PassengerModal({
                 >
                   {isUploadingPassport ? (
                     <>
-                      <Loader2 size={24} className="animate-spin text-orange-500 mb-2" />
-                      <span className="text-xs font-bold text-orange-600">Uploading to server...</span>
+                      <Loader2
+                        size={24}
+                        className="animate-spin text-orange-500 mb-2"
+                      />
+                      <span className="text-xs font-bold text-orange-600">
+                        Uploading to server...
+                      </span>
                     </>
                   ) : isOcrRunning ? (
                     <>
-                      <ScanLine size={24} className="text-orange-500 mb-2 animate-pulse" />
-                      <span className="text-xs font-bold text-orange-600">Running Tesseract OCR scan…</span>
+                      <ScanLine
+                        size={24}
+                        className="text-orange-500 mb-2 animate-pulse"
+                      />
+                      <span className="text-xs font-bold text-orange-600">
+                        Running Tesseract OCR scan…
+                      </span>
                     </>
                   ) : (
                     <>
-                      <Upload size={24} className="text-muted-foreground mb-2" />
-                      <span className="text-xs font-bold text-foreground">Click to Upload Passport Scan</span>
-                      <span className="text-[10px] text-muted-foreground mt-1">JPEG, PNG, or PDF · Max 5MB</span>
-                      <span className="text-[10px] text-primary/80 font-semibold mt-2 bg-primary/5 border border-primary/10 px-2 py-0.5 rounded-full">Automatic OCR Autofill</span>
+                      <Upload
+                        size={24}
+                        className="text-muted-foreground mb-2"
+                      />
+                      <span className="text-xs font-bold text-foreground">
+                        Click to Upload Passport Scan
+                      </span>
+                      <span className="text-[10px] text-muted-foreground mt-1">
+                        JPEG, PNG, or PDF · Max 5MB
+                      </span>
+                      <span className="text-[10px] text-primary/80 font-semibold mt-2 bg-primary/5 border border-primary/10 px-2 py-0.5 rounded-full">
+                        Automatic OCR Autofill
+                      </span>
                     </>
                   )}
                 </label>
               </div>
             )
-          ) : (
-            // Add Mode (New Passenger)
-            localPassportFile ? (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between border border-blue-200 bg-blue-50 rounded-lg p-4">
-                  <div className="flex items-center gap-2.5 text-blue-700 text-sm font-semibold">
-                    <Check size={16} strokeWidth={3} className="shrink-0" />
-                    <div>
-                      <p className="text-xs font-bold">Passport Scan Selected</p>
-                      <p className="text-[10px] text-blue-600 font-mono truncate max-w-[200px]">{localPassportFile.name}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2.5">
-                    {localPassportFile.type.startsWith("image/") && (
-                      <button
-                        type="button"
-                        onClick={() => runOcr(localPassportFile)}
-                        disabled={isOcrRunning}
-                        className="flex items-center gap-1 text-[11px] bg-white border border-orange-200 hover:bg-orange-50 text-orange-600 font-bold px-2.5 py-1.5 rounded-lg shadow-sm transition-all"
-                      >
-                        <ScanLine size={12} /> {isOcrRunning ? "Scanning..." : "Scan OCR"}
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setLocalPassportFile(null);
-                        if (passportFileRef.current) passportFileRef.current.value = "";
-                      }}
-                      className="text-[11px] bg-rose-50 border border-rose-200 hover:bg-rose-100 text-rose-600 font-bold px-2.5 py-1.5 rounded-lg shadow-sm transition-all flex items-center gap-1"
-                    >
-                      <Trash2 size={12} /> Remove
-                    </button>
+          ) : // Add Mode (New Passenger)
+          localPassportFile ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between border border-blue-200 bg-blue-50 rounded-lg p-4">
+                <div className="flex items-center gap-2.5 text-blue-700 text-sm font-semibold">
+                  <Check size={16} strokeWidth={3} className="shrink-0" />
+                  <div>
+                    <p className="text-xs font-bold">Passport Scan Selected</p>
+                    <p className="text-[10px] text-blue-600 font-mono truncate max-w-[200px]">
+                      {localPassportFile.name}
+                    </p>
                   </div>
                 </div>
-              </div>
-            ) : (
-              <div>
-                <input
-                  ref={passportFileRef}
-                  type="file"
-                  accept="image/jpeg,image/png,application/pdf"
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      setLocalPassportFile(file);
-                      if (file.type.startsWith("image/")) {
-                        await runOcr(file);
-                      } else {
-                        toast.info("OCR autofill works with image files (JPEG/PNG). PDF selected successfully but fields won't be auto-filled.");
-                      }
-                    }
-                  }}
-                  className="hidden"
-                  id="modal-passport-local-upload"
-                />
-                <label
-                  htmlFor="modal-passport-local-upload"
-                  className={`flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-8 cursor-pointer transition-all text-center ${
-                    isOcrRunning
-                      ? "border-orange-400 bg-orange-50/30 pointer-events-none"
-                      : "border-border hover:border-primary hover:bg-primary/5"
-                  }`}
-                >
-                  {isOcrRunning ? (
-                    <>
-                      <ScanLine size={24} className="text-orange-500 mb-2 animate-pulse" />
-                      <span className="text-xs font-bold text-orange-600">Running Tesseract OCR scan…</span>
-                    </>
-                  ) : (
-                    <>
-                      <Upload size={24} className="text-muted-foreground mb-2" />
-                      <span className="text-xs font-bold text-foreground">Click to Upload Passport Scan</span>
-                      <span className="text-[10px] text-muted-foreground mt-1">JPEG, PNG, or PDF · Max 5MB</span>
-                      <span className="text-[10px] text-primary/80 font-semibold mt-2 bg-primary/5 border border-primary/10 px-2 py-0.5 rounded-full">Automatic OCR Autofill</span>
-                    </>
+                <div className="flex items-center gap-2.5">
+                  {localPassportFile.type.startsWith("image/") && (
+                    <button
+                      type="button"
+                      onClick={() => runOcr(localPassportFile)}
+                      disabled={isOcrRunning}
+                      className="flex items-center gap-1 text-[11px] bg-white border border-orange-200 hover:bg-orange-50 text-orange-600 font-bold px-2.5 py-1.5 rounded-lg shadow-sm transition-all"
+                    >
+                      <ScanLine size={12} />{" "}
+                      {isOcrRunning ? "Scanning..." : "Scan OCR"}
+                    </button>
                   )}
-                </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLocalPassportFile(null);
+                      if (passportFileRef.current)
+                        passportFileRef.current.value = "";
+                    }}
+                    className="text-[11px] bg-rose-50 border border-rose-200 hover:bg-rose-100 text-rose-600 font-bold px-2.5 py-1.5 rounded-lg shadow-sm transition-all flex items-center gap-1"
+                  >
+                    <Trash2 size={12} /> Remove
+                  </button>
+                </div>
               </div>
-            )
+            </div>
+          ) : (
+            <div>
+              <input
+                ref={passportFileRef}
+                type="file"
+                accept="image/jpeg,image/png,application/pdf"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setLocalPassportFile(file);
+                    if (file.type.startsWith("image/")) {
+                      await runOcr(file);
+                    } else {
+                      toast.info(
+                        "OCR autofill works with image files (JPEG/PNG). PDF selected successfully but fields won't be auto-filled.",
+                      );
+                    }
+                  }
+                }}
+                className="hidden"
+                id="modal-passport-local-upload"
+              />
+              <label
+                htmlFor="modal-passport-local-upload"
+                className={`flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-8 cursor-pointer transition-all text-center ${
+                  isOcrRunning
+                    ? "border-orange-400 bg-orange-50/30 pointer-events-none"
+                    : "border-border hover:border-primary hover:bg-primary/5"
+                }`}
+              >
+                {isOcrRunning ? (
+                  <>
+                    <ScanLine
+                      size={24}
+                      className="text-orange-500 mb-2 animate-pulse"
+                    />
+                    <span className="text-xs font-bold text-orange-600">
+                      Running Tesseract OCR scan…
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <Upload size={24} className="text-muted-foreground mb-2" />
+                    <span className="text-xs font-bold text-foreground">
+                      Click to Upload Passport Scan
+                    </span>
+                    <span className="text-[10px] text-muted-foreground mt-1">
+                      JPEG, PNG, or PDF · Max 5MB
+                    </span>
+                    <span className="text-[10px] text-primary/80 font-semibold mt-2 bg-primary/5 border border-primary/10 px-2 py-0.5 rounded-full">
+                      Automatic OCR Autofill
+                    </span>
+                  </>
+                )}
+              </label>
+            </div>
           )}
 
           <div className="flex justify-end pt-3 border-t border-border">
@@ -1356,79 +1849,112 @@ export default function PassengerModal({
       >
         <div className="space-y-4">
           <p className="text-xs text-muted-foreground">
-            Upload and organize visa letters, hotel vouchers, insurance policy documents, vaccination records, etc., for this passenger.
+            Upload and organize visa letters, hotel vouchers, insurance policy
+            documents, vaccination records, etc., for this passenger.
           </p>
 
           {/* List of documents */}
-          {((isEdit && documents.length > 0) || (!isEdit && localDocuments.length > 0)) ? (
+          {(isEdit && documents.length > 0) ||
+          (!isEdit && localDocuments.length > 0) ? (
             <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-              {isEdit ? (
-                documents.map((doc) => (
-                  <div key={doc.id} className="flex items-center justify-between p-3 rounded-lg border border-border/55 bg-secondary/10">
-                    <div className="flex-1 min-w-0 pr-3">
-                      <p className="text-xs font-bold text-foreground truncate">{doc.title}</p>
-                      {doc.description && <p className="text-[10px] text-muted-foreground line-clamp-1 mt-0.5">{doc.description}</p>}
-                      {doc.fileName && <p className="text-[9px] text-primary/80 font-mono mt-0.5">📎 {doc.fileName}</p>}
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {doc.fileKey && (
+              {isEdit
+                ? documents.map((doc) => (
+                    <div
+                      key={doc.id}
+                      className="flex items-center justify-between p-3 rounded-lg border border-border/55 bg-secondary/10"
+                    >
+                      <div className="flex-1 min-w-0 pr-3">
+                        <p className="text-xs font-bold text-foreground truncate">
+                          {doc.title}
+                        </p>
+                        {doc.description && (
+                          <p className="text-[10px] text-muted-foreground line-clamp-1 mt-0.5">
+                            {doc.description}
+                          </p>
+                        )}
+                        {doc.fileName && (
+                          <p className="text-[9px] text-primary/80 font-mono mt-0.5">
+                            📎 {doc.fileName}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {doc.fileKey && (
+                          <button
+                            type="button"
+                            onClick={() => handleViewDocument(doc.id)}
+                            className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-primary/25 text-primary hover:bg-primary/5 rounded-lg text-[10px] font-bold shadow-sm"
+                          >
+                            <Eye size={12} /> View
+                          </button>
+                        )}
                         <button
                           type="button"
-                          onClick={() => handleViewDocument(doc.id)}
-                          className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-primary/25 text-primary hover:bg-primary/5 rounded-lg text-[10px] font-bold shadow-sm"
+                          onClick={() => handleDeleteDocument(doc.id)}
+                          className="flex items-center gap-1 px-2.5 py-1.5 bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100 rounded-lg text-[10px] font-bold shadow-sm"
                         >
-                          <Eye size={12} /> View
+                          <Trash2 size={12} /> Delete
                         </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteDocument(doc.id)}
-                        className="flex items-center gap-1 px-2.5 py-1.5 bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100 rounded-lg text-[10px] font-bold shadow-sm"
-                      >
-                        <Trash2 size={12} /> Delete
-                      </button>
+                      </div>
                     </div>
-                  </div>
-                ))
-              ) : (
-                localDocuments.map((doc) => (
-                  <div key={doc.id} className="flex items-center justify-between p-3 rounded-lg border border-border/55 bg-secondary/10">
-                    <div className="flex-1 min-w-0 pr-3">
-                      <p className="text-xs font-bold text-foreground truncate">{doc.title}</p>
-                      {doc.description && <p className="text-[10px] text-muted-foreground line-clamp-1 mt-0.5">{doc.description}</p>}
-                      {doc.file && <p className="text-[9px] text-primary/80 font-mono mt-0.5">📎 {doc.file.name}</p>}
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {doc.file && (
+                  ))
+                : localDocuments.map((doc) => (
+                    <div
+                      key={doc.id}
+                      className="flex items-center justify-between p-3 rounded-lg border border-border/55 bg-secondary/10"
+                    >
+                      <div className="flex-1 min-w-0 pr-3">
+                        <p className="text-xs font-bold text-foreground truncate">
+                          {doc.title}
+                        </p>
+                        {doc.description && (
+                          <p className="text-[10px] text-muted-foreground line-clamp-1 mt-0.5">
+                            {doc.description}
+                          </p>
+                        )}
+                        {doc.file && (
+                          <p className="text-[9px] text-primary/80 font-mono mt-0.5">
+                            📎 {doc.file.name}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {doc.file && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const url = URL.createObjectURL(doc.file!);
+                              window.open(url, "_blank");
+                            }}
+                            className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-primary/25 text-primary hover:bg-primary/5 rounded-lg text-[10px] font-bold shadow-sm"
+                          >
+                            <Eye size={12} /> View
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => {
-                            const url = URL.createObjectURL(doc.file!);
-                            window.open(url, "_blank");
+                            setLocalDocuments((prev) =>
+                              prev.filter((d) => d.id !== doc.id),
+                            );
                           }}
-                          className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-primary/25 text-primary hover:bg-primary/5 rounded-lg text-[10px] font-bold shadow-sm"
+                          className="flex items-center gap-1 px-2.5 py-1.5 bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100 rounded-lg text-[10px] font-bold shadow-sm"
                         >
-                          <Eye size={12} /> View
+                          <Trash2 size={12} /> Delete
                         </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setLocalDocuments((prev) => prev.filter((d) => d.id !== doc.id));
-                        }}
-                        className="flex items-center gap-1 px-2.5 py-1.5 bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100 rounded-lg text-[10px] font-bold shadow-sm"
-                      >
-                        <Trash2 size={12} /> Delete
-                      </button>
+                      </div>
                     </div>
-                  </div>
-                ))
-              )}
+                  ))}
             </div>
           ) : (
             <div className="text-center py-6 border border-dashed border-border rounded-xl bg-secondary/5">
-              <FileText className="mx-auto text-muted-foreground mb-1.5 opacity-60" size={24} />
-              <p className="text-xs font-semibold text-muted-foreground">No documents uploaded yet.</p>
+              <FileText
+                className="mx-auto text-muted-foreground mb-1.5 opacity-60"
+                size={24}
+              />
+              <p className="text-xs font-semibold text-muted-foreground">
+                No documents uploaded yet.
+              </p>
             </div>
           )}
 
@@ -1443,13 +1969,19 @@ export default function PassengerModal({
                 <input
                   type="text"
                   value={docTitle}
-                  onChange={e => setDocTitle(e.target.value)}
+                  onChange={(e) => setDocTitle(e.target.value)}
                   className={inp}
                   placeholder="e.g. E-visa, Hotel Voucher, Travel Insurance"
                 />
                 {/* Quick suggestions */}
                 <div className="flex flex-wrap gap-1.5 mt-2">
-                  {["E-visa", "Share Code", "Travel Insurance", "Hotel Voucher", "Vaccination Record"].map((s) => (
+                  {[
+                    "E-visa",
+                    "Share Code",
+                    "Travel Insurance",
+                    "Hotel Voucher",
+                    "Vaccination Record",
+                  ].map((s) => (
                     <button
                       key={s}
                       type="button"
@@ -1465,7 +1997,7 @@ export default function PassengerModal({
                 <label className={lbl}>Description / Details (Optional)</label>
                 <textarea
                   value={docDesc}
-                  onChange={e => setDocDesc(e.target.value)}
+                  onChange={(e) => setDocDesc(e.target.value)}
                   className={`${inp} min-h-[60px] resize-y`}
                   placeholder="e.g. Share code: S1234567G, policy number, notes…"
                 />
@@ -1476,20 +2008,33 @@ export default function PassengerModal({
                   ref={docFileRef}
                   type="file"
                   accept="image/jpeg,image/png,application/pdf"
-                  onChange={e => setDocFile(e.target.files?.[0] || null)}
+                  onChange={(e) => setDocFile(e.target.files?.[0] || null)}
                   className="hidden"
                   id="modal-doc-file"
                 />
                 {docFile ? (
                   <div className="flex items-center justify-between border border-border rounded-lg p-2.5 bg-background shadow-sm">
-                    <span className="text-xs text-foreground font-semibold truncate flex-1 mr-2">📎 {docFile.name}</span>
-                    <button type="button" onClick={() => { setDocFile(null); if (docFileRef.current) docFileRef.current.value = ""; }} className="text-rose-500 hover:text-rose-700 p-1">
+                    <span className="text-xs text-foreground font-semibold truncate flex-1 mr-2">
+                      📎 {docFile.name}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDocFile(null);
+                        if (docFileRef.current) docFileRef.current.value = "";
+                      }}
+                      className="text-rose-500 hover:text-rose-700 p-1"
+                    >
                       <X size={14} />
                     </button>
                   </div>
                 ) : (
-                  <label htmlFor="modal-doc-file" className="flex items-center justify-center gap-2 border border-dashed border-border rounded-lg p-3 cursor-pointer hover:border-primary hover:bg-primary/5 transition-all text-xs text-muted-foreground font-semibold">
-                    <Upload size={14} /> Attach a file (JPEG, PNG, PDF · Max 5MB)
+                  <label
+                    htmlFor="modal-doc-file"
+                    className="flex items-center justify-center gap-2 border border-dashed border-border rounded-lg p-3 cursor-pointer hover:border-primary hover:bg-primary/5 transition-all text-xs text-muted-foreground font-semibold"
+                  >
+                    <Upload size={14} /> Attach a file (JPEG, PNG, PDF · Max
+                    5MB)
                   </label>
                 )}
               </div>
@@ -1499,7 +2044,10 @@ export default function PassengerModal({
                   if (isEdit) {
                     handleAddDocument();
                   } else {
-                    if (!docTitle.trim()) { toast.error("Document title is required"); return; }
+                    if (!docTitle.trim()) {
+                      toast.error("Document title is required");
+                      return;
+                    }
                     const newDoc = {
                       id: "temp-" + Date.now(),
                       title: docTitle.trim(),
@@ -1517,7 +2065,11 @@ export default function PassengerModal({
                 disabled={!docTitle.trim() || isAddingDoc}
                 className="flex items-center justify-center gap-1.5 w-full py-2 bg-primary text-primary-foreground text-xs font-bold rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-all shadow-sm"
               >
-                {isAddingDoc ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
+                {isAddingDoc ? (
+                  <Loader2 size={13} className="animate-spin" />
+                ) : (
+                  <Plus size={13} />
+                )}
                 Add Document
               </button>
             </div>

@@ -26,6 +26,7 @@ enum PaymentStatus {
 enum PaymentProvider {
   STRIPE
   PAYPAL
+  MANUAL
 }
 
 enum BookingItemType {
@@ -51,7 +52,12 @@ model User {
   fileUploads             FileUpload[]
   auditLogs               AuditLog[]
   notifications           Notification[]
+  walletTransactions      VendorWalletTransaction[]
+  createdPayments         VendorPayment[]           @relation("CreatedPayments")
+  reversedPayments        VendorPayment[]           @relation("ReversedPayments")
+  vendorLedgers           VendorLedger[]
 }
+
 
 model Role {
   id              String           @id @default(uuid())
@@ -211,12 +217,16 @@ model Booking {
   // New Relations
   transactions        BookingTransaction[]
   passengers          Passenger[]
-  vendorPayments      VendorPayment[]
+  bookingVendorPayments    BookingVendorPayment[]
+  vendorPaymentAllocations VendorPaymentAllocation[]
+  vendorLedgers            VendorLedger[]
+
   accommodations      AccommodationService[]
   flightServices      FlightService[]
   flightReservations  FlightReservation[]
   transportServices   TransportService[]
   visaServices        VisaService[]
+  additionalServices  AdditionalService[]
 
   @@index([bookingReference])
 }
@@ -343,12 +353,17 @@ model Vendor {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  vendorPayments        VendorPayment[]
+  wallet                VendorWallet?
+  payments              VendorPayment[]
+  bookingVendorPayments BookingVendorPayment[]
+  vendorLedgerEntries   VendorLedger[]
+
   accommodations        AccommodationService[]
   flightServices        FlightService[]
   flightReservations    FlightReservation[]
   transportServices     TransportService[]
   visaServices          VisaService[]
+  additionalServices    AdditionalService[]
 }
 
 model BookingTransaction {
@@ -469,6 +484,7 @@ model FlightService {
   carryOnBaggage       String?
   checkedBaggage       String?
   flightClass          String?
+  notes                String?
 }
 
 model TransportService {
@@ -512,15 +528,120 @@ model VisaService {
   fineAmount     Float     @default(0.0)
 }
 
-model VendorPayment {
-  id          String   @id @default(uuid())
-  bookingId   String
-  booking     Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  vendorId    String
-  vendor      Vendor   @relation(fields: [vendorId], references: [id])
-  amount      Float
-  paymentDate DateTime @default(now())
-  reference   String?
-  status      String   @default("PAID")
+model VendorWallet {
+  id           String                    @id @default(uuid())
+  vendorId     String                    @unique
+  vendor       Vendor                    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  balance      Float                     @default(0.0)
+  createdAt    DateTime                  @default(now())
+  updatedAt    DateTime                  @updatedAt
+  transactions VendorWalletTransaction[]
 }
+
+model VendorWalletTransaction {
+  id          String       @id @default(uuid())
+  walletId    String
+  wallet      VendorWallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  amount      Float
+  type        String       // "CREDIT_OVERPAYMENT", "DEBIT_BOOKING_PAYMENT", "REVERSAL_CREDIT", "REVERSAL_DEBIT"
+  reference   String?
+  notes       String?
+  createdById String
+  createdBy   User         @relation(fields: [createdById], references: [id])
+  createdAt   DateTime     @default(now())
+}
+
+model VendorPayment {
+  id              String                    @id @default(uuid())
+  vendorId        String
+  vendor          Vendor                    @relation(fields: [vendorId], references: [id])
+  amount          Float
+  paymentMethod   String
+  bankAccount     String?
+  referenceNumber String                    @unique // VP-YYYYMMDD-000001
+  notes           String?
+  receiptUrl      String?
+  isReversed      Boolean                   @default(false)
+  reversedAt      DateTime?
+  reversedById    String?
+  reversedBy      User?                     @relation(name: "ReversedPayments", fields: [reversedById], references: [id])
+  createdById     String
+  createdBy       User                      @relation(name: "CreatedPayments", fields: [createdById], references: [id])
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+  allocations     VendorPaymentAllocation[]
+}
+
+model VendorPaymentAllocation {
+  id              String        @id @default(uuid())
+  vendorPaymentId String
+  vendorPayment   VendorPayment @relation(fields: [vendorPaymentId], references: [id], onDelete: Cascade)
+  bookingId       String
+  booking         Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  amount          Float
+  isReversed      Boolean       @default(false)
+  createdAt       DateTime      @default(now())
+}
+
+model BookingVendorPayment {
+  id               String   @id @default(uuid())
+  bookingId        String
+  booking          Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  vendorId         String
+  vendor           Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  originalCost     Float
+  amountPaid       Float    @default(0.0)
+  remainingBalance Float
+  status           String   @default("PENDING") // PENDING, PARTIAL, PAID
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([bookingId, vendorId])
+}
+
+model VendorLedger {
+  id               String   @id @default(uuid())
+  vendorId         String?
+  vendor           Vendor?  @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  bookingId        String?
+  booking          Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  bookingReference String?
+  eventType        String   // INVOICE_CREATED, VENDOR_PAYMENT, WALLET_CREDIT, WALLET_USAGE, REVERSAL
+  debit            Float    @default(0.0)
+  credit           Float    @default(0.0)
+  runningBalance   Float
+  notes            String?
+  referenceNumber  String?
+  createdById      String
+  createdBy        User     @relation(fields: [createdById], references: [id])
+  createdAt        DateTime @default(now())
+}
+
+model VendorAuditLog {
+  id        String   @id @default(uuid())
+  action    String
+  adminName String
+  adminId   String
+  ipAddress String?
+  oldValues Json?
+  newValues Json?
+  reason    String?
+  createdAt DateTime @default(now())
+}
+
+
+model AdditionalService {
+  id                 String   @id @default(uuid())
+  bookingId          String
+  booking            Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  vendorId           String?
+  vendor             Vendor?  @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  customVendorName   String?
+  serviceName        String
+  servicePrice       Float
+  serviceDescription String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
 

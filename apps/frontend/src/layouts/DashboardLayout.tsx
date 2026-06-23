@@ -42,6 +42,7 @@ export default function DashboardLayout() {
     { name: "Bookings", path: "/bookings", icon: CalendarRange },
     { name: "Agent", path: "/agent", icon: Users },
     { name: "Vendors", path: "/vendors", icon: Store },
+    { name: "Ledger", path: "/ledger", icon: BookOpen },
     // { name: "Flights", path: "/flights", icon: Plane },
     // { name: "Hotels", path: "/hotels", icon: Hotel },
     // { name: "Tours", path: "/tours", icon: Map },

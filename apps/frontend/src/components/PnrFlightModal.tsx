@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import Modal from './Modal';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Search, Check, PlaneTakeoff, Info } from 'lucide-react';
 
 interface PnrFlightModalProps {
   isOpen: boolean;
@@ -12,6 +12,7 @@ interface PnrFlightModalProps {
   bookingYear: number;
   onSuccess: () => void;
   flightToEdit?: any | null;
+  initialStep?: 'pnr' | 'form' | 'search';
 }
 
 interface ParsedFlight {
@@ -102,11 +103,17 @@ export default function PnrFlightModal({
   bookingId,
   bookingYear,
   onSuccess,
-  flightToEdit = null
+  flightToEdit = null,
+  initialStep = 'pnr'
 }: PnrFlightModalProps) {
-  const [step, setStep] = useState<'pnr' | 'form'>('pnr');
+  const [step, setStep] = useState<'pnr' | 'search' | 'form'>('pnr');
   const [pnrText, setPnrText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+
+  // Search by customer state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedSearchBooking, setSelectedSearchBooking] = useState<any | null>(null);
 
   // Form State
   const [vendorId, setVendorId] = useState('');
@@ -123,6 +130,7 @@ export default function PnrFlightModal({
   const [carryOnBaggage, setCarryOnBaggage] = useState('7 KG');
   const [checkedBaggage, setCheckedBaggage] = useState('');
   const [issueDate, setIssueDate] = useState('');
+  const [notes, setNotes] = useState('');
 
   // Handle open state reset & edit population
   useEffect(() => {
@@ -175,6 +183,7 @@ export default function PnrFlightModal({
         setBaggage(flightToEdit.baggage || '');
         setCarryOnBaggage(flightToEdit.carryOnBaggage || '');
         setCheckedBaggage(flightToEdit.checkedBaggage || '');
+        setNotes(flightToEdit.notes || '');
 
         let formattedIssueDate = '';
         if (flightToEdit.issueDate) {
@@ -186,7 +195,7 @@ export default function PnrFlightModal({
         }
         setIssueDate(formattedIssueDate);
       } else {
-        setStep('pnr');
+        setStep(initialStep);
         setPnrText('');
         setVendorId('');
         setFlightNo('');
@@ -202,9 +211,12 @@ export default function PnrFlightModal({
         setCarryOnBaggage('7 KG');
         setCheckedBaggage('');
         setIssueDate('');
+        setNotes('');
+        setSearchQuery('');
+        setSelectedSearchBooking(null);
       }
     }
-  }, [isOpen, flightToEdit]);
+  }, [isOpen, flightToEdit, initialStep]);
 
   // Fetch Vendors
   const { data: vendorsData, isLoading: isLoadingVendors } = useQuery({
@@ -217,6 +229,31 @@ export default function PnrFlightModal({
   });
 
   const flightVendors = vendorsData?.filter((v: any) => v.vendorType?.toLowerCase() === 'flight') || [];
+
+  // Fetch All Bookings for Import/Search by Customer
+  const { data: allBookings, isLoading: isAllBookingsLoading } = useQuery({
+    queryKey: ['bookings-search-modal'],
+    queryFn: async () => {
+      const res = await apiClient.get('/bookings?limit=1000');
+      return res.data.data.items || [];
+    },
+    enabled: isOpen && step === 'search'
+  });
+
+  // Filter Bookings locally
+  const filteredSearchBookings = useMemo(() => {
+    if (!allBookings || !searchQuery.trim()) return [];
+    const q = searchQuery.toLowerCase().trim();
+    return allBookings.filter((b: any) => {
+      const customerName = `${b.user?.firstName || ""} ${b.user?.lastName || ""}`.toLowerCase();
+      const matchesCustomer = customerName.includes(q);
+      const matchesPassenger = b.passengers?.some((p: any) =>
+        `${p.firstName || ""} ${p.lastName || ""}`.toLowerCase().includes(q)
+      );
+      const matchesRef = b.bookingReference?.toLowerCase().includes(q);
+      return matchesCustomer || matchesPassenger || matchesRef;
+    });
+  }, [allBookings, searchQuery]);
 
   const handleDepartedFromChange = async (val: string) => {
     setDepartedFrom(val);
@@ -291,6 +328,44 @@ export default function PnrFlightModal({
     setStep('form');
   };
 
+  const handleImportAllSegments = async () => {
+    if (!selectedSearchBooking || !selectedSearchBooking.flightServices || selectedSearchBooking.flightServices.length === 0) {
+      toast.error("No flight segments available to import.");
+      return;
+    }
+
+    setIsImporting(true);
+    try {
+      for (const fs of selectedSearchBooking.flightServices) {
+        const payload = {
+          vendorId: fs.vendorId,
+          flightNo: fs.flightNo,
+          pnr: fs.pnr,
+          departedFrom: fs.departedFrom,
+          arrivedAt: fs.arrivedAt,
+          departTime: fs.departTime,
+          arrivalTime: fs.arrivalTime,
+          date: fs.date,
+          flightClass: fs.flightClass || "Y",
+          price: fs.price || 0,
+          baggage: fs.baggage || "23 KG",
+          carryOnBaggage: fs.carryOnBaggage || "7 KG",
+          checkedBaggage: fs.checkedBaggage || "",
+          notes: fs.notes || null,
+          issueDate: fs.issueDate || null
+        };
+        await apiClient.post(`/bookings/${bookingId}/flights`, payload);
+      }
+      toast.success(`Successfully imported all ${selectedSearchBooking.flightServices.length} flight segments!`);
+      onSuccess();
+      onClose();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to import flight segments.");
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!vendorId) {
@@ -318,6 +393,7 @@ export default function PnrFlightModal({
         baggage: baggage || null,
         carryOnBaggage: carryOnBaggage || null,
         checkedBaggage: checkedBaggage || null,
+        notes: notes || null,
         issueDate: issueDate ? new Date(issueDate).toISOString() : null,
       };
 
@@ -349,6 +425,7 @@ export default function PnrFlightModal({
       setCarryOnBaggage('');
       setCheckedBaggage('');
       setIssueDate('');
+      setNotes('');
     } catch (err: any) {
       toast.error(err.response?.data?.message || "Failed to save flight service");
     } finally {
@@ -360,10 +437,44 @@ export default function PnrFlightModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={flightToEdit ? "Edit Flight Details" : "PNR Converter & Add Flight"}
+      title={flightToEdit ? "Edit Flight Details" : "Add Flight Service"}
       maxWidth="2xl"
     >
-      {step === 'pnr' ? (
+      {/* Step Navigation Tabs (Only visible when not editing) */}
+      {!flightToEdit && (
+        <div className="flex border-b border-border mb-4 font-sans text-xs">
+          <button
+            type="button"
+            onClick={() => setStep('form')}
+            className={`flex-1 py-2 text-center font-bold uppercase tracking-wider ${
+              step === 'form' ? "border-b-2 border-primary text-primary" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Manual Entry
+          </button>
+          <button
+            type="button"
+            onClick={() => setStep('pnr')}
+            className={`flex-1 py-2 text-center font-bold uppercase tracking-wider ${
+              step === 'pnr' ? "border-b-2 border-primary text-primary" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            PNR Converter
+          </button>
+          <button
+            type="button"
+            onClick={() => setStep('search')}
+            className={`flex-1 py-2 text-center font-bold uppercase tracking-wider ${
+              step === 'search' ? "border-b-2 border-primary text-primary" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Search by Customer
+          </button>
+        </div>
+      )}
+
+      {/* Step 1: PNR converter */}
+      {step === 'pnr' && !flightToEdit && (
         <div className="space-y-4 font-sans text-xs">
           <div className="bg-primary/5 border border-primary/20 rounded-lg p-3">
             <h4 className="font-bold text-foreground mb-1 uppercase tracking-wider text-[10px]">
@@ -380,23 +491,150 @@ export default function PnrFlightModal({
             />
           </div>
 
-          <div className="flex justify-between items-center gap-2 pt-2">
+          <div className="sticky -bottom-5 bg-card flex justify-between items-center gap-2 py-3 px-5 border-t border-border -mx-5 z-10">
             <button
               onClick={handleManualEntry}
-              className="px-4 py-1.5 bg-secondary text-foreground font-bold rounded-lg text-xs hover:bg-secondary/80 transition-all border border-border"
+              className="px-4 py-1.5 bg-secondary text-foreground font-bold rounded-lg text-xs hover:bg-secondary/80 transition-all border border-border cursor-pointer"
             >
               Enter Manually
             </button>
             <button
               onClick={handleConvert}
               disabled={!pnrText.trim()}
-              className="px-5 py-1.5 bg-primary text-primary-foreground font-bold rounded-lg text-xs hover:bg-primary/95 disabled:opacity-50 transition-all shadow-md"
+              className="px-5 py-1.5 bg-primary text-primary-foreground font-bold rounded-lg text-xs hover:bg-primary/95 disabled:opacity-50 transition-all shadow-md cursor-pointer"
             >
               Convert & Continue
             </button>
           </div>
         </div>
-      ) : (
+      )}
+
+      {/* Step 2: Search by Customer */}
+      {step === 'search' && !flightToEdit && (
+        <div className="space-y-4 font-sans text-xs">
+          <div className="bg-secondary/10 p-3 rounded-lg border border-border/80">
+            <label className="block text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-1.5">
+              Search Booking by Customer / Passenger Name
+            </label>
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 text-muted-foreground" size={14} />
+              <input
+                type="text"
+                placeholder="Type customer name, passenger name, or booking reference..."
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setSelectedSearchBooking(null);
+                }}
+                className="w-full pl-9 pr-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary w-full text-xs font-semibold"
+              />
+            </div>
+          </div>
+
+          {/* Search results & Import actions */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Left: Search matching list */}
+            <div className="border border-border rounded-lg overflow-hidden max-h-[220px] overflow-y-auto bg-card divide-y divide-border/60">
+              {isAllBookingsLoading ? (
+                <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground">
+                  <Loader2 size={14} className="animate-spin text-primary" />
+                  <span>Fetching bookings...</span>
+                </div>
+              ) : searchQuery.trim() === "" ? (
+                <div className="py-8 text-center text-muted-foreground italic">Type above to search bookings</div>
+              ) : filteredSearchBookings.length > 0 ? (
+                filteredSearchBookings.map((b: any) => (
+                  <div
+                    key={b.id}
+                    onClick={() => setSelectedSearchBooking(b)}
+                    className={`p-2.5 hover:bg-secondary/20 cursor-pointer transition-colors ${
+                      selectedSearchBooking?.id === b.id ? "bg-primary/5" : ""
+                    }`}
+                  >
+                    <div className="flex justify-between items-center">
+                      <span className="font-bold text-primary">{b.bookingReference}</span>
+                      {selectedSearchBooking?.id === b.id && <Check size={14} className="text-primary font-black" />}
+                    </div>
+                    <p className="text-[10px] text-foreground font-semibold mt-0.5">
+                      Client: {b.user?.firstName || ""} {b.user?.lastName || ""}
+                    </p>
+                    {(() => {
+                      const leader = b.passengers?.find((p: any) => p.role === "Leader");
+                      return leader ? (
+                        <p className="text-[10px] text-foreground font-semibold mt-0.5">
+                          Lead Passenger: {leader.firstName} {leader.lastName}
+                        </p>
+                      ) : null;
+                    })()}
+                    <p className="text-[9px] text-muted-foreground mt-0.5">
+                      Segments: {b.flightServices?.length || 0} flight(s)
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <div className="py-8 text-center text-muted-foreground">No bookings found matching query.</div>
+              )}
+            </div>
+
+            {/* Right: Selected booking preview & actions */}
+            <div className="border border-border rounded-lg p-3 bg-secondary/5 space-y-3">
+              <h5 className="font-black uppercase tracking-wider text-[9px] text-primary border-b border-border pb-1">
+                Flight Segments Preview
+              </h5>
+              
+              {selectedSearchBooking ? (
+                <div className="space-y-3">
+                  <div className="space-y-1.5 max-h-[140px] overflow-y-auto">
+                    {selectedSearchBooking.flightServices && selectedSearchBooking.flightServices.length > 0 ? (
+                      selectedSearchBooking.flightServices.map((fs: any) => (
+                        <div key={fs.id} className="flex gap-2 p-1.5 bg-card border border-border/40 rounded">
+                          <PlaneTakeoff size={14} className="text-primary mt-0.5" />
+                          <div className="flex-1 min-w-0 text-[10px]">
+                            <p className="font-bold truncate text-foreground">
+                              {fs.flightNo} — {fs.departedFrom} to {fs.arrivedAt}
+                            </p>
+                            <p className="text-[9px] text-muted-foreground">
+                              PNR: {fs.pnr || "N/A"} | Date: {new Date(fs.date).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-4 text-muted-foreground italic text-[10px]">
+                        No flights recorded in this booking.
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleImportAllSegments}
+                    disabled={isImporting || !selectedSearchBooking.flightServices || selectedSearchBooking.flightServices.length === 0}
+                    className="w-full py-1.5 bg-primary text-primary-foreground font-bold rounded-lg text-xs hover:bg-primary/90 disabled:opacity-50 transition-all flex items-center justify-center gap-1 cursor-pointer"
+                  >
+                    {isImporting ? (
+                      <>
+                        <Loader2 size={12} className="animate-spin" />
+                        <span>Importing flight segments...</span>
+                      </>
+                    ) : (
+                      <span>Import All Flight Segments</span>
+                    )}
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
+                  <Info size={18} className="text-muted-foreground/50 mb-1" />
+                  <p className="text-[10px] font-semibold">Select a booking from the search results to preview segments</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Step 3: Flight form input details */}
+      {step === 'form' && (
         <form onSubmit={handleSubmit} className="space-y-3.5 font-sans text-xs">
           {isLoadingVendors ? (
             <div className="flex flex-col items-center justify-center py-8 space-y-2">
@@ -442,7 +680,7 @@ export default function PnrFlightModal({
                   />
                 </div>
 
-                {/* PNR Code */}
+                {/* PNR */}
                 <div className="flex flex-col gap-1">
                   <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
                     PNR / Record Locator
@@ -451,8 +689,8 @@ export default function PnrFlightModal({
                     type="text"
                     placeholder="e.g. ABCD12"
                     value={pnr}
-                    onChange={(e) => setPnr(e.target.value)}
-                    className="text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                    onChange={(e) => setPnr(e.target.value.toUpperCase())}
+                    className="text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary font-mono uppercase"
                   />
                 </div>
 
@@ -567,7 +805,7 @@ export default function PnrFlightModal({
                     placeholder="0.00"
                     value={price}
                     onChange={(e) => setPrice(e.target.value)}
-                    className="text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary font-bold text-foreground w-full"
+                    className="text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary font-bold text-foreground w-full font-bold"
                   />
                 </div>
 
@@ -598,17 +836,31 @@ export default function PnrFlightModal({
                     className="text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                   />
                 </div>
+
+                {/* Notes */}
+                <div className="flex flex-col gap-1 col-span-2">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                    Notes
+                  </label>
+                  <textarea
+                    rows={2}
+                    placeholder="Enter additional flight notes or instructions..."
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    className="text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary w-full"
+                  />
+                </div>
               </div>
 
               {/* Action Buttons */}
-              <div className="flex justify-between items-center gap-2 pt-3 border-t border-border/60">
+              <div className="sticky -bottom-5 bg-card flex justify-between items-center gap-2 py-3 px-5 border-t border-border/60 -mx-5 z-10">
                 {!flightToEdit ? (
                   <button
                     type="button"
-                    onClick={() => setStep('pnr')}
-                    className="px-4 py-1.5 bg-secondary text-foreground font-bold rounded-lg text-xs hover:bg-secondary/80 transition-all border border-border"
+                    onClick={onClose}
+                    className="px-4 py-1.5 bg-secondary text-foreground font-bold rounded-lg text-xs hover:bg-secondary/80 transition-all border border-border cursor-pointer"
                   >
-                    Back to PNR
+                    Cancel
                   </button>
                 ) : (
                   <div />
@@ -616,7 +868,7 @@ export default function PnrFlightModal({
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="flex items-center gap-1.5 px-5 py-1.5 bg-primary text-primary-foreground font-bold rounded-lg text-xs hover:bg-primary/95 disabled:opacity-50 transition-all shadow-md"
+                  className="flex items-center gap-1.5 px-5 py-1.5 bg-primary text-primary-foreground font-bold rounded-lg text-xs hover:bg-primary/95 disabled:opacity-50 transition-all shadow-md cursor-pointer"
                 >
                   {isSubmitting && <Loader2 size={12} className="animate-spin" />}
                   {flightToEdit ? "Save Changes" : "Add Flight Service"}

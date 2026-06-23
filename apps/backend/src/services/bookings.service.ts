@@ -5,6 +5,7 @@ import { NotFoundException, BadRequestException } from '../middleware/error.midd
 import { emailService } from './email.service';
 import { randomUUID } from 'crypto';
 import { minioService } from './minio.service';
+import { vendorsService } from './vendors.service';
 
 export class BookingsService {
   async create(userId: string, data: any) {
@@ -90,17 +91,7 @@ export class BookingsService {
           }
         } : {}),
 
-        ...(Array.isArray(data.vendorPayments) && data.vendorPayments.length > 0 ? {
-          vendorPayments: {
-            create: data.vendorPayments.map((vp: any) => ({
-              vendorId: vp.vendorId,
-              amount: Number(vp.amount),
-              paymentDate: vp.paymentDate ? new Date(vp.paymentDate) : new Date(),
-              reference: vp.reference,
-              status: vp.status || 'PAID',
-            })),
-          }
-        } : {}),
+
 
         ...(Array.isArray(data.accommodations) && data.accommodations.length > 0 ? {
           accommodations: {
@@ -198,13 +189,16 @@ export class BookingsService {
         bookingItems: true,
         transactions: true,
         passengers: true,
-        vendorPayments: true,
+        bookingVendorPayments: { include: { vendor: true } },
+        vendorPaymentAllocations: { include: { vendorPayment: { include: { createdBy: true } } } },
         accommodations: true,
         flightServices: true,
         transportServices: true,
         visaServices: true,
       },
     });
+
+    await vendorsService.syncBookingVendorPayments(booking.id);
 
     await rabbitMQService.publish('booking.created', {
       bookingId: booking.id,
@@ -214,9 +208,8 @@ export class BookingsService {
 
     return booking;
   }
-
   async findAll(user: any, query: any) {
-    const limit = Number(query.limit) || 10;
+    const limit = Number(query.limit) || 1000;
     const offset = Number(query.offset) || 0;
     const where: any = {};
     
@@ -224,6 +217,143 @@ export class BookingsService {
       where.userId = user.id;
     }
 
+    // 1. ID Filter
+    if (query.id) {
+      if (query.idOp === 'equals') {
+        where.id = query.id;
+      } else {
+        where.id = { contains: query.id, mode: 'insensitive' };
+      }
+    }
+
+    // 2. Booking Date Range (createdAt) - supports both dateFrom/dateTo and createdAtFrom/createdAtTo
+    const createdAtFrom = query.dateFrom || query.createdAtFrom;
+    const createdAtTo = query.dateTo || query.createdAtTo;
+    if (createdAtFrom || createdAtTo) {
+      where.createdAt = {};
+      if (createdAtFrom) {
+        where.createdAt.gte = new Date(createdAtFrom);
+      }
+      if (createdAtTo) {
+        const toDate = new Date(createdAtTo);
+        toDate.setHours(23, 59, 59, 999);
+        where.createdAt.lte = toDate;
+      }
+    }
+
+    // 3. Departure Date Range (departureDate)
+    if (query.departureDateFrom || query.departureDateTo) {
+      where.departureDate = {};
+      if (query.departureDateFrom) {
+        where.departureDate.gte = new Date(query.departureDateFrom);
+      }
+      if (query.departureDateTo) {
+        const toDate = new Date(query.departureDateTo);
+        toDate.setHours(23, 59, 59, 999);
+        where.departureDate.lte = toDate;
+      }
+    }
+
+    // 4. Booking Reference Filter
+    if (query.bookingReference) {
+      if (query.bookingReferenceOp === 'equals') {
+        where.bookingReference = { equals: query.bookingReference, mode: 'insensitive' };
+      } else {
+        where.bookingReference = { contains: query.bookingReference, mode: 'insensitive' };
+      }
+    }
+
+    // 5. Agent Filter
+    if (query.agentId && query.agentId !== 'Any') {
+      where.agentId = query.agentId;
+    }
+
+    // 6. Status Filters
+    if (query.status && query.status !== 'Any') {
+      where.status = query.status;
+    }
+    if (query.lockedStatus && query.lockedStatus !== 'Any') {
+      where.lockedStatus = query.lockedStatus;
+    }
+    if (query.paymentStatus && query.paymentStatus !== 'Any') {
+      where.paymentStatus = query.paymentStatus;
+    }
+
+    // 7. Customer Name, Email, and Phone Filters
+    const andFilters: any[] = [];
+
+    if (query.customerName) {
+      const nameTerm = query.customerName.trim();
+      andFilters.push({
+        OR: [
+          // Match passenger firstName
+          {
+            passengers: {
+              some: {
+                firstName: { contains: nameTerm, mode: 'insensitive' }
+              }
+            }
+          },
+          // Match passenger lastName
+          {
+            passengers: {
+              some: {
+                lastName: { contains: nameTerm, mode: 'insensitive' }
+              }
+            }
+          },
+          // Match booking creator (user) firstName
+          {
+            user: {
+              firstName: { contains: nameTerm, mode: 'insensitive' }
+            }
+          },
+          // Match booking creator (user) lastName
+          {
+            user: {
+              lastName: { contains: nameTerm, mode: 'insensitive' }
+            }
+          },
+        ]
+      });
+    }
+
+    if (query.customerEmail) {
+      andFilters.push({
+        OR: [
+          {
+            passengers: {
+              some: {
+                email: { contains: query.customerEmail, mode: 'insensitive' }
+              }
+            }
+          },
+          {
+            user: {
+              email: { contains: query.customerEmail, mode: 'insensitive' }
+            }
+          }
+        ]
+      });
+    }
+
+    if (query.customerPhone) {
+      andFilters.push({
+        OR: [
+          {
+            passengers: {
+              some: {
+                phoneNumber: { contains: query.customerPhone, mode: 'insensitive' }
+              }
+            }
+          }
+        ]
+      });
+    }
+
+    if (andFilters.length > 0) {
+      where.AND = andFilters;
+    }
     const [total, items] = await Promise.all([
       prisma.booking.count({ where }),
       prisma.booking.findMany({
@@ -238,14 +368,17 @@ export class BookingsService {
           },
           payments: true,
           invoices: true,
+          user: { select: { id: true, firstName: true, lastName: true, email: true } },
           agent: { include: { slabs: { orderBy: { minSales: 'asc' } } } },
           transactions: true,
           passengers: { include: { agent: true } },
-          vendorPayments: { include: { vendor: true } },
+          bookingVendorPayments: { include: { vendor: true } },
+          vendorPaymentAllocations: { include: { vendorPayment: { include: { createdBy: true } } } },
           accommodations: { include: { vendor: true } },
           flightServices: { include: { vendor: true } },
           transportServices: { include: { vendor: true } },
           visaServices: { include: { vendor: true } },
+          additionalServices: { include: { vendor: true } },
         },
         orderBy: { createdAt: 'desc' },
         take: limit,
@@ -282,11 +415,13 @@ export class BookingsService {
         agent: { include: { slabs: { orderBy: { minSales: 'asc' } } } },
         transactions: true,
         passengers: { include: { agent: true, documents: true } },
-        vendorPayments: { include: { vendor: true } },
+        bookingVendorPayments: { include: { vendor: true } },
+        vendorPaymentAllocations: { include: { vendorPayment: { include: { createdBy: true } } } },
         accommodations: { include: { vendor: true } },
         flightServices: { include: { vendor: true } },
         transportServices: { include: { vendor: true } },
         visaServices: { include: { vendor: true } },
+        additionalServices: { include: { vendor: true } },
       },
     });
     if (!booking) throw new NotFoundException('Booking not found');
@@ -316,6 +451,27 @@ export class BookingsService {
     return booking;
   }
 
+  async toggleLock(id: string) {
+    const booking = await prisma.booking.findUnique({
+      where: { id },
+    });
+    if (!booking) throw new NotFoundException('Booking not found');
+
+    const nextStatus = booking.lockedStatus === 'LOCKED' ? 'UNLOCKED' : 'LOCKED';
+
+    const updated = await prisma.booking.update({
+      where: { id },
+      data: { lockedStatus: nextStatus },
+    });
+
+    await rabbitMQService.publish('booking.updated', {
+      bookingId: updated.id,
+      lockedStatus: updated.lockedStatus,
+    });
+
+    return updated;
+  }
+
   async delete(id: string) {
     const booking = await prisma.booking.update({
       where: { id },
@@ -330,9 +486,16 @@ export class BookingsService {
   }
 
   async finalizeMargin(bookingId: string, agentId: string) {
-    // 1. Fetch booking
+    // 1. Fetch booking with its cost-affecting relations
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
+      include: {
+        accommodations: true,
+        flightServices: true,
+        transportServices: true,
+        visaServices: true,
+        additionalServices: true,
+      },
     });
     if (!booking) throw new NotFoundException('Booking not found');
 
@@ -351,13 +514,33 @@ export class BookingsService {
     });
     if (!agent) throw new NotFoundException('Agent not found');
 
-    // 3. Compute commission rate based on slabs matching the booking's totalPrice
+    // 3. Compute raw profit and potential commission rate based on slabs matching the booking's totalPrice
     const price = booking.totalPrice;
+    
+    const accommodationsCost = booking.accommodations?.reduce((sum, item) => sum + item.price, 0) || 0;
+    const flightsCost = booking.flightServices?.reduce((sum, item) => sum + item.price, 0) || 0;
+    const transportsCost = booking.transportServices?.reduce((sum, item) => sum + item.price, 0) || 0;
+    const visasCost = booking.visaServices?.reduce((sum, item) => sum + item.price, 0) || 0;
+    const additionalCost = booking.additionalServices?.reduce((sum, item) => sum + item.servicePrice, 0) || 0;
+    
+    const totalVendorCost = accommodationsCost + flightsCost + transportsCost + visasCost + additionalCost;
+    const rawProfit = price - totalVendorCost;
+
     const slab = agent.slabs.find(
       (s) => price >= s.minSales && (s.maxSales === null || price <= s.maxSales)
     );
     const rate = slab ? slab.commissionRate : 0.0;
-    const margin = price * (rate / 100.0);
+    const potentialMargin = rawProfit * (rate / 100.0);
+
+    // Apply rule: if raw profit <= 0 or if deducting commission would make profit negative, then commission is 0
+    let margin = 0.0;
+    if (rawProfit > 0) {
+      if (rawProfit - potentialMargin <= 0) {
+        margin = 0.0;
+      } else {
+        margin = potentialMargin;
+      }
+    }
 
     // 4. Update booking and agent in a transaction
     const [updatedBooking, updatedAgent] = await prisma.$transaction([
@@ -406,6 +589,7 @@ export class BookingsService {
         baggage: data.baggage || null,
         carryOnBaggage: data.carryOnBaggage || null,
         checkedBaggage: data.checkedBaggage || null,
+        notes: data.notes || null,
         issueDate: data.issueDate ? new Date(data.issueDate) : null,
       },
       include: {
@@ -413,6 +597,7 @@ export class BookingsService {
       }
     });
 
+    await vendorsService.syncBookingVendorPayments(booking.id);
     await rabbitMQService.publish('booking.updated', {
       bookingId: booking.id,
     });
@@ -443,6 +628,7 @@ export class BookingsService {
         baggage: data.baggage !== undefined ? data.baggage : undefined,
         carryOnBaggage: data.carryOnBaggage !== undefined ? data.carryOnBaggage : undefined,
         checkedBaggage: data.checkedBaggage !== undefined ? data.checkedBaggage : undefined,
+        notes: data.notes !== undefined ? data.notes : undefined,
         issueDate: data.issueDate !== undefined ? (data.issueDate ? new Date(data.issueDate) : null) : undefined,
       },
       include: {
@@ -450,6 +636,7 @@ export class BookingsService {
       }
     });
 
+    await vendorsService.syncBookingVendorPayments(booking.id);
     await rabbitMQService.publish('booking.updated', {
       bookingId: booking.id,
     });
@@ -467,6 +654,7 @@ export class BookingsService {
       where: { id: flightServiceId, bookingId }
     });
 
+    await vendorsService.syncBookingVendorPayments(booking.id);
     await rabbitMQService.publish('booking.updated', {
       bookingId: booking.id,
     });
@@ -510,6 +698,7 @@ export class BookingsService {
       }
     });
 
+    await vendorsService.syncBookingVendorPayments(booking.id);
     await rabbitMQService.publish('booking.updated', {
       bookingId: booking.id,
     });
@@ -553,6 +742,7 @@ export class BookingsService {
       }
     });
 
+    await vendorsService.syncBookingVendorPayments(booking.id);
     await rabbitMQService.publish('booking.updated', {
       bookingId: booking.id,
     });
@@ -570,6 +760,7 @@ export class BookingsService {
       where: { id: accommodationId, bookingId }
     });
 
+    await vendorsService.syncBookingVendorPayments(booking.id);
     await rabbitMQService.publish('booking.updated', {
       bookingId: booking.id,
     });
@@ -607,6 +798,7 @@ export class BookingsService {
       }
     });
 
+    await vendorsService.syncBookingVendorPayments(booking.id);
     await rabbitMQService.publish('booking.updated', {
       bookingId: booking.id,
     });
@@ -644,6 +836,7 @@ export class BookingsService {
       }
     });
 
+    await vendorsService.syncBookingVendorPayments(booking.id);
     await rabbitMQService.publish('booking.updated', {
       bookingId: booking.id,
     });
@@ -661,6 +854,7 @@ export class BookingsService {
       where: { id: transportServiceId, bookingId }
     });
 
+    await vendorsService.syncBookingVendorPayments(booking.id);
     await rabbitMQService.publish('booking.updated', {
       bookingId: booking.id,
     });
@@ -1215,6 +1409,94 @@ export class BookingsService {
     return { success: true };
   }
 
+  async addVisaService(bookingId: string, data: any) {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId }
+    });
+    if (!booking) throw new NotFoundException('Booking not found');
+
+    const visa = await prisma.visaService.create({
+      data: {
+        bookingId,
+        vendorId: data.vendorId,
+        passportNumber: data.passportNumber,
+        visaType: data.visaType,
+        visaNumber: data.visaNumber || '',
+        issueDate: data.issueDate ? new Date(data.issueDate) : null,
+        expiryDate: data.expiryDate ? new Date(data.expiryDate) : null,
+        price: Number(data.price) || 0,
+        currency: data.currency || 'GBP',
+        otherCurrency: data.otherCurrency || null,
+        conversionRate: data.conversionRate ? Number(data.conversionRate) : null,
+        refundAmount: Number(data.refundAmount) || 0,
+        fineAmount: Number(data.fineAmount) || 0,
+      },
+      include: {
+        vendor: true
+      }
+    });
+
+    await vendorsService.syncBookingVendorPayments(booking.id);
+    await rabbitMQService.publish('booking.updated', {
+      bookingId: booking.id,
+    });
+
+    return visa;
+  }
+
+  async updateVisaService(bookingId: string, visaServiceId: string, data: any) {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId }
+    });
+    if (!booking) throw new NotFoundException('Booking not found');
+
+    const visa = await prisma.visaService.update({
+      where: { id: visaServiceId, bookingId },
+      data: {
+        vendorId: data.vendorId !== undefined ? data.vendorId : undefined,
+        passportNumber: data.passportNumber !== undefined ? data.passportNumber : undefined,
+        visaType: data.visaType !== undefined ? data.visaType : undefined,
+        visaNumber: data.visaNumber !== undefined ? data.visaNumber : undefined,
+        issueDate: data.issueDate !== undefined ? (data.issueDate ? new Date(data.issueDate) : null) : undefined,
+        expiryDate: data.expiryDate !== undefined ? (data.expiryDate ? new Date(data.expiryDate) : null) : undefined,
+        price: data.price !== undefined ? (Number(data.price) || 0) : undefined,
+        currency: data.currency !== undefined ? data.currency : undefined,
+        otherCurrency: data.otherCurrency !== undefined ? data.otherCurrency : undefined,
+        conversionRate: data.conversionRate !== undefined ? (data.conversionRate ? Number(data.conversionRate) : null) : undefined,
+        refundAmount: data.refundAmount !== undefined ? (Number(data.refundAmount) || 0) : undefined,
+        fineAmount: data.fineAmount !== undefined ? (Number(data.fineAmount) || 0) : undefined,
+      },
+      include: {
+        vendor: true
+      }
+    });
+
+    await vendorsService.syncBookingVendorPayments(booking.id);
+    await rabbitMQService.publish('booking.updated', {
+      bookingId: booking.id,
+    });
+
+    return visa;
+  }
+
+  async deleteVisaService(bookingId: string, visaServiceId: string) {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId }
+    });
+    if (!booking) throw new NotFoundException('Booking not found');
+
+    await prisma.visaService.delete({
+      where: { id: visaServiceId, bookingId }
+    });
+
+    await vendorsService.syncBookingVendorPayments(booking.id);
+    await rabbitMQService.publish('booking.updated', {
+      bookingId: booking.id,
+    });
+
+    return { success: true };
+  }
+
   async searchAllPassengers(query: string) {
     const q = query.trim();
     if (!q) return [];
@@ -1242,6 +1524,80 @@ export class BookingsService {
         passportIssuingCountry: true,
       },
     });
+  }
+
+  async addAdditionalService(bookingId: string, data: any) {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId }
+    });
+    if (!booking) throw new NotFoundException('Booking not found');
+
+    const service = await prisma.additionalService.create({
+      data: {
+        bookingId,
+        vendorId: data.vendorId || null,
+        customVendorName: data.customVendorName || null,
+        serviceName: data.serviceName,
+        servicePrice: Number(data.servicePrice) || 0,
+        serviceDescription: data.serviceDescription || null,
+      },
+      include: {
+        vendor: true
+      }
+    });
+
+    await vendorsService.syncBookingVendorPayments(booking.id);
+    await rabbitMQService.publish('booking.updated', {
+      bookingId: booking.id,
+    });
+
+    return service;
+  }
+
+  async updateAdditionalService(bookingId: string, serviceId: string, data: any) {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId }
+    });
+    if (!booking) throw new NotFoundException('Booking not found');
+
+    const service = await prisma.additionalService.update({
+      where: { id: serviceId, bookingId },
+      data: {
+        vendorId: data.vendorId !== undefined ? (data.vendorId || null) : undefined,
+        customVendorName: data.customVendorName !== undefined ? (data.customVendorName || null) : undefined,
+        serviceName: data.serviceName !== undefined ? data.serviceName : undefined,
+        servicePrice: data.servicePrice !== undefined ? (Number(data.servicePrice) || 0) : undefined,
+        serviceDescription: data.serviceDescription !== undefined ? data.serviceDescription : undefined,
+      },
+      include: {
+        vendor: true
+      }
+    });
+
+    await vendorsService.syncBookingVendorPayments(booking.id);
+    await rabbitMQService.publish('booking.updated', {
+      bookingId: booking.id,
+    });
+
+    return service;
+  }
+
+  async deleteAdditionalService(bookingId: string, serviceId: string) {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId }
+    });
+    if (!booking) throw new NotFoundException('Booking not found');
+
+    await prisma.additionalService.delete({
+      where: { id: serviceId, bookingId }
+    });
+
+    await vendorsService.syncBookingVendorPayments(booking.id);
+    await rabbitMQService.publish('booking.updated', {
+      bookingId: booking.id,
+    });
+
+    return { success: true };
   }
 }
 

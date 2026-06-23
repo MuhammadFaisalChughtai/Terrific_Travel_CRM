@@ -28,12 +28,16 @@ import {
   Pencil,
   Users,
   Trash2,
+  Search,
 } from "lucide-react";
 import Modal from "./Modal";
 import PnrFlightModal from "./PnrFlightModal";
 import PassengerModal from "./PassengerModal";
 import HotelReservationModal from "./HotelReservationModal";
 import TransportReservationModal from "./TransportReservationModal";
+import VisaReservationModal from "./VisaReservationModal";
+import AdditionalServiceModal from "./AdditionalServiceModal";
+import BookingTransactionModal from "./BookingTransactionModal";
 
 interface BookingManagerProps {
   isOpen: boolean;
@@ -50,17 +54,27 @@ export default function BookingManager({
 }: BookingManagerProps) {
   const queryClient = useQueryClient();
   const [isPnrModalOpen, setIsPnrModalOpen] = useState(false);
+  const [pnrModalStep, setPnrModalStep] = useState<'pnr' | 'form' | 'search'>('pnr');
   const [editingFlight, setEditingFlight] = useState<any | null>(null);
   const [isPassengerModalOpen, setIsPassengerModalOpen] = useState(false);
   const [editingPassenger, setEditingPassenger] = useState<any | null>(null);
   const [isHotelModalOpen, setIsHotelModalOpen] = useState(false);
-  const [editingAccommodation, setEditingAccommodation] = useState<any | null>(null);
+  const [editingAccommodation, setEditingAccommodation] = useState<any | null>(
+    null,
+  );
   const [isTransportModalOpen, setIsTransportModalOpen] = useState(false);
   const [editingTransport, setEditingTransport] = useState<any | null>(null);
+  const [isVisaModalOpen, setIsVisaModalOpen] = useState(false);
+  const [editingVisa, setEditingVisa] = useState<any | null>(null);
+  const [isAdditionalModalOpen, setIsAdditionalModalOpen] = useState(false);
+  const [editingAdditional, setEditingAdditional] = useState<any | null>(null);
+  const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
 
   const handleDeletePassenger = async (passengerId: string) => {
     if (!booking) return;
-    const passenger = booking.passengers?.find((p: any) => p.id === passengerId);
+    const passenger = booking.passengers?.find(
+      (p: any) => p.id === passengerId,
+    );
     if (!passenger) return;
 
     const isLeader = passenger.role === "Leader";
@@ -72,65 +86,138 @@ export default function BookingManager({
 
     const toastId = toast.loading("Deleting passenger...");
     try {
-      await apiClient.delete(`/bookings/${booking.id}/passengers/${passengerId}`);
+      await apiClient.delete(
+        `/bookings/${booking.id}/passengers/${passengerId}`,
+      );
       toast.success("Passenger deleted successfully", { id: toastId });
       queryClient.invalidateQueries({ queryKey: ["booking", booking.id] });
     } catch (err: any) {
-      toast.error(err.response?.data?.message || "Failed to delete passenger", { id: toastId });
+      toast.error(err.response?.data?.message || "Failed to delete passenger", {
+        id: toastId,
+      });
     }
   };
 
   const handleDeleteFlight = async (flightServiceId: string) => {
     if (!booking) return;
-    if (!window.confirm("Are you sure you want to delete this flight service segment?")) return;
+    if (
+      !window.confirm(
+        "Are you sure you want to delete this flight service segment?",
+      )
+    )
+      return;
 
     const toastId = toast.loading("Deleting flight service...");
     try {
-      await apiClient.delete(`/bookings/${booking.id}/flights/${flightServiceId}`);
+      await apiClient.delete(
+        `/bookings/${booking.id}/flights/${flightServiceId}`,
+      );
       toast.success("Flight service deleted successfully", { id: toastId });
       queryClient.invalidateQueries({ queryKey: ["booking", booking.id] });
     } catch (err: any) {
-      toast.error(err.response?.data?.message || "Failed to delete flight service", { id: toastId });
+      toast.error(
+        err.response?.data?.message || "Failed to delete flight service",
+        { id: toastId },
+      );
     }
   };
 
   const handleDeleteAccommodation = async (accommodationId: string) => {
     if (!booking) return;
-    if (!window.confirm("Are you sure you want to delete this hotel reservation?")) return;
+    if (
+      !window.confirm("Are you sure you want to delete this hotel reservation?")
+    )
+      return;
 
     const toastId = toast.loading("Deleting hotel reservation...");
     try {
-      await apiClient.delete(`/bookings/${booking.id}/accommodations/${accommodationId}`);
+      await apiClient.delete(
+        `/bookings/${booking.id}/accommodations/${accommodationId}`,
+      );
       toast.success("Hotel reservation deleted successfully", { id: toastId });
       queryClient.invalidateQueries({ queryKey: ["booking", booking.id] });
     } catch (err: any) {
-      toast.error(err.response?.data?.message || "Failed to delete hotel reservation", { id: toastId });
+      toast.error(
+        err.response?.data?.message || "Failed to delete hotel reservation",
+        { id: toastId },
+      );
     }
   };
 
   const handleDeleteTransport = async (transportId: string) => {
     if (!booking) return;
-    if (!window.confirm("Are you sure you want to delete this transport service?")) return;
+    if (
+      !window.confirm("Are you sure you want to delete this transport service?")
+    )
+      return;
 
     const toastId = toast.loading("Deleting transport service...");
     try {
-      await apiClient.delete(`/bookings/${booking.id}/transports/${transportId}`);
+      await apiClient.delete(
+        `/bookings/${booking.id}/transports/${transportId}`,
+      );
       toast.success("Transport service deleted successfully", { id: toastId });
       queryClient.invalidateQueries({ queryKey: ["booking", booking.id] });
     } catch (err: any) {
-      toast.error(err.response?.data?.message || "Failed to delete transport service", { id: toastId });
+      toast.error(
+        err.response?.data?.message || "Failed to delete transport service",
+        { id: toastId },
+      );
+    }
+  };
+
+  const handleDeleteVisa = async (visaServiceId: string) => {
+    if (!booking) return;
+    if (!window.confirm("Are you sure you want to delete this visa service?"))
+      return;
+
+    const toastId = toast.loading("Deleting visa service...");
+    try {
+      await apiClient.delete(`/bookings/${booking.id}/visas/${visaServiceId}`);
+      toast.success("Visa service deleted successfully", { id: toastId });
+      queryClient.invalidateQueries({ queryKey: ["booking", booking.id] });
+    } catch (err: any) {
+      toast.error(
+        err.response?.data?.message || "Failed to delete visa service",
+        { id: toastId },
+      );
+    }
+  };
+
+  const handleDeleteAdditional = async (serviceId: string) => {
+    if (!booking) return;
+    if (
+      !window.confirm(
+        "Are you sure you want to delete this additional service?",
+      )
+    )
+      return;
+
+    const toastId = toast.loading("Deleting additional service...");
+    try {
+      await apiClient.delete(
+        `/bookings/${booking.id}/additional-services/${serviceId}`,
+      );
+      toast.success("Additional service deleted successfully", { id: toastId });
+      queryClient.invalidateQueries({ queryKey: ["booking", booking.id] });
+    } catch (err: any) {
+      toast.error(
+        err.response?.data?.message || "Failed to delete additional service",
+        { id: toastId },
+      );
     }
   };
 
   const [openSections, setOpenSections] = useState({
     financial: true,
     transactions: true,
+    vendorPayments: true,
     flights: true,
     passengers: true,
     accommodation: true,
     transportation: true,
     visa: true,
-    special: true,
+    additional: true,
   });
 
   const toggle = (sec: keyof typeof openSections) =>
@@ -207,15 +294,15 @@ export default function BookingManager({
     return slab ? slab.commissionRate : 0;
   };
 
-  const calculateMargin = (price: number, slabs: any[]) => {
+  const calculateMargin = (price: number, profit: number, slabs: any[]) => {
     const rate = getCommissionRate(price, slabs);
-    return price * (rate / 100);
+    return profit * (rate / 100);
   };
 
   // Financial Calculations
   const totalPrice = booking.totalPrice || 0;
   const paidAmount = booking.paidAmount || 0;
-  const remainingAmount = booking.remainingAmount || 0;
+  const remainingAmount = Math.max(0, totalPrice - paidAmount);
 
   // Vendor Cost Calculations
   const accommodationsCost =
@@ -236,23 +323,44 @@ export default function BookingManager({
   const visasCost =
     booking.visaServices?.reduce((sum: number, vs: any) => sum + vs.price, 0) ||
     0;
+  const additionalServicesCost =
+    booking.additionalServices?.reduce(
+      (sum: number, as: any) => sum + as.servicePrice,
+      0,
+    ) || 0;
 
   const totalVendorCost =
-    accommodationsCost + flightsCost + transportsCost + visasCost;
+    accommodationsCost + flightsCost + transportsCost + visasCost + additionalServicesCost;
 
-  // Agent Margin
-  const agentMargin =
+  const rawProfit = totalPrice - totalVendorCost;
+
+  // Potential Margin
+  const potentialMargin =
     booking.agentId && booking.agent
-      ? calculateMargin(totalPrice, booking.agent.slabs)
+      ? calculateMargin(totalPrice, rawProfit, booking.agent.slabs)
       : 0;
 
-  const agentCommissionRate =
+  const potentialRate =
     booking.agentId && booking.agent
       ? getCommissionRate(totalPrice, booking.agent.slabs)
       : 0;
 
+  // Calculate Agent Margin: if rawProfit <= 0 or if deducting commission would make profit negative/zero, margin is 0
+  let agentMargin = 0;
+  let agentCommissionRate = 0;
+
+  if (rawProfit > 0) {
+    if (rawProfit - potentialMargin <= 0) {
+      agentMargin = 0;
+      agentCommissionRate = 0;
+    } else {
+      agentMargin = potentialMargin;
+      agentCommissionRate = potentialRate;
+    }
+  }
+
   // Total Profit
-  const profit = totalPrice - totalVendorCost - agentMargin;
+  const profit = rawProfit - agentMargin;
 
   return (
     <Modal
@@ -263,7 +371,7 @@ export default function BookingManager({
     >
       <div className="bg-secondary/15 text-foreground pb-6 font-sans -mx-5 -mb-5 -mt-5">
         {/* Header Actions */}
-        <div className="bg-card border-b border-border px-5 py-3 flex items-center justify-between sticky top-0 z-10 shadow-sm">
+        <div className="bg-card border-b border-border px-5 flex items-center justify-between sticky top-0 z-10 shadow-sm">
           <div>
             <p className="text-[13px] font-semibold text-muted-foreground">
               Booking Management Dashboard
@@ -305,91 +413,110 @@ export default function BookingManager({
             </div>
 
             {openSections.financial && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                {/* Total Payment */}
-                <div className="bg-card p-3.5 rounded-lg shadow-sm border border-border flex flex-col justify-between">
-                  <div className="flex items-center gap-1 text-muted-foreground mb-1">
-                    <Wallet size={12} />
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                      Total Payment
-                    </span>
-                  </div>
-                  <span className="text-[15px] font-bold text-foreground">
-                    {formatCurrency(totalPrice)}
-                  </span>
-                </div>
-
-                {/* Total Pending */}
-                <div className="bg-card p-3.5 rounded-lg shadow-sm border border-border flex flex-col justify-between">
-                  <div className="flex items-center gap-1 text-orange-500 mb-1">
-                    <Clock size={12} />
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-orange-500">
-                      Client Pending
-                    </span>
-                  </div>
-                  <span className="text-[15px] font-bold text-orange-600 dark:text-orange-400">
-                    {formatCurrency(remainingAmount)}
-                  </span>
-                </div>
-
-                {/* Total Received */}
-                <div className="bg-card p-3.5 rounded-lg shadow-sm border border-border flex flex-col justify-between">
-                  <div className="flex items-center gap-1 text-emerald-500 mb-1">
-                    <ArrowDownRight size={12} />
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-500">
-                      Client Received
-                    </span>
-                  </div>
-                  <span className="text-[15px] font-bold text-emerald-600 dark:text-emerald-400">
-                    {formatCurrency(paidAmount)}
-                  </span>
-                </div>
-
-                {/* Total Spent */}
-                <div className="bg-card p-3.5 rounded-lg shadow-sm border border-border flex flex-col justify-between">
-                  <div className="flex items-center gap-1 text-red-500 mb-1">
-                    <ArrowUpRight size={12} />
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-red-500">
-                      Vendor Cost
-                    </span>
-                  </div>
-                  <span className="text-[15px] font-bold text-red-600 dark:text-red-400">
-                    {formatCurrency(totalVendorCost)}
-                  </span>
-                </div>
-
-                {/* Agent Margin */}
-                <div className="bg-card p-3.5 rounded-lg shadow-sm border border-border flex flex-col justify-between">
-                  <div className="flex items-center gap-1 text-blue-500 mb-1">
-                    <BadgePercent size={12} />
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-blue-500">
-                      Agent Margin
-                    </span>
-                  </div>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-[15px] font-bold text-blue-600 dark:text-blue-400">
-                      {formatCurrency(agentMargin)}
-                    </span>
-                    {booking.agentId && booking.agent && (
-                      <span className="text-[12px] font-semibold text-blue-500/70">
-                        ({agentCommissionRate}%)
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                  {/* Total Payment */}
+                  <div className="bg-card p-3.5 rounded-lg shadow-sm border border-border flex flex-col justify-between">
+                    <div className="flex items-center gap-1 text-muted-foreground mb-1">
+                      <Wallet size={12} />
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        Total Payment
                       </span>
-                    )}
+                    </div>
+                    <span className="text-[15px] font-bold text-foreground">
+                      {formatCurrency(totalPrice)}
+                    </span>
+                  </div>
+
+                  {/* Total Pending */}
+                  <div className="bg-card p-3.5 rounded-lg shadow-sm border border-border flex flex-col justify-between">
+                    <div className="flex items-center gap-1 text-orange-500 mb-1">
+                      <Clock size={12} />
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-orange-500">
+                        Client Pending
+                      </span>
+                    </div>
+                    <span className="text-[15px] font-bold text-orange-600 dark:text-orange-400">
+                      {formatCurrency(remainingAmount)}
+                    </span>
+                  </div>
+
+                  {/* Total Received */}
+                  <div className="bg-card p-3.5 rounded-lg shadow-sm border border-border flex flex-col justify-between">
+                    <div className="flex items-center gap-1 text-emerald-500 mb-1">
+                      <ArrowDownRight size={12} />
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-500">
+                        Client Received
+                      </span>
+                    </div>
+                    <span className="text-[15px] font-bold text-emerald-600 dark:text-emerald-400">
+                      {formatCurrency(paidAmount)}
+                    </span>
+                  </div>
+
+                  {/* Total Spent */}
+                  <div className="bg-card p-3.5 rounded-lg shadow-sm border border-border flex flex-col justify-between">
+                    <div className="flex items-center gap-1 text-red-500 mb-1">
+                      <ArrowUpRight size={12} />
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-red-500">
+                        Vendor Cost
+                      </span>
+                    </div>
+                    <span className="text-[15px] font-bold text-red-600 dark:text-red-400">
+                      {formatCurrency(totalVendorCost)}
+                    </span>
+                  </div>
+
+                  {/* Agent Margin */}
+                  <div className="bg-card p-3.5 rounded-lg shadow-sm border border-border flex flex-col justify-between">
+                    <div className="flex items-center gap-1 text-blue-500 mb-1">
+                      <BadgePercent size={12} />
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-blue-500">
+                        Agent Margin
+                      </span>
+                    </div>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-[15px] font-bold text-blue-600 dark:text-blue-400">
+                        {formatCurrency(agentMargin)}
+                      </span>
+                      {booking.agentId && booking.agent && (
+                        <span className="text-[12px] font-semibold text-blue-500/70">
+                          ({agentCommissionRate}%)
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Total Profit */}
+                  <div className="bg-card p-3.5 rounded-lg shadow-sm border border-border flex flex-col justify-between">
+                    <div className="flex items-center gap-1 text-emerald-600 mb-1">
+                      <TrendingUp size={12} />
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">
+                        Total Profit
+                      </span>
+                    </div>
+                    <span className="text-[15px] font-bold text-emerald-700 dark:text-emerald-400">
+                      {formatCurrency(profit)}
+                    </span>
                   </div>
                 </div>
 
-                {/* Total Profit */}
-                <div className="bg-card p-3.5 rounded-lg shadow-sm border border-border flex flex-col justify-between">
-                  <div className="flex items-center gap-1 text-emerald-600 mb-1">
-                    <TrendingUp size={12} />
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">
-                      Total Profit
-                    </span>
-                  </div>
-                  <span className="text-[15px] font-bold text-emerald-700 dark:text-emerald-400">
-                    {formatCurrency(profit)}
-                  </span>
-                </div>
+                {/* Expected Margin Warning Banner */}
+                {booking.agentId && booking.agent && (() => {
+                  const agentSlabs = booking.agent.slabs || [];
+                  const sortedSlabs = [...agentSlabs].sort((a: any, b: any) => a.minSales - b.minSales);
+                  const tier1 = sortedSlabs[0];
+                  if (!tier1) return null;
+                  return (
+                    <div className="flex items-center gap-2 px-3 py-2 bg-amber-500/5 border border-amber-500/15 rounded-lg text-[10.5px] text-amber-700 dark:text-amber-300 shadow-sm">
+                      <AlertCircle size={13} className="shrink-0 text-amber-500" />
+                      <span>
+                        This is expected agent margin. If this month's total profit is less than{" "}
+                        <strong className="font-bold underline decoration-wavy decoration-amber-500/35">{formatCurrency(tier1.minSales)}</strong>, then this agent margin should be subject to void.
+                      </span>
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </section>
@@ -406,8 +533,11 @@ export default function BookingManager({
               </h2>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={(e) => e.stopPropagation()}
-                  className="flex items-center gap-0.5 px-2 py-0.5 bg-primary/10 text-primary hover:bg-primary/20 font-bold rounded text-[12px] transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsTransactionModalOpen(true);
+                  }}
+                  className="flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary hover:bg-primary/20 font-bold rounded text-[12px] transition-colors"
                 >
                   <Plus size={12} /> Add
                 </button>
@@ -453,7 +583,30 @@ export default function BookingManager({
                             {formatCurrency(tx.amount)}
                           </td>
                           <td className="px-4 py-2 text-muted-foreground">
-                            {tx.notes || "—"}
+                            {(() => {
+                              if (!tx.notes) return "—";
+                              const receiptMatch = tx.notes.match(/(.*)Receipt:\s*(https?:\/\/[^|]+)(.*)/i);
+                              if (receiptMatch) {
+                                const before = receiptMatch[1].trim();
+                                const url = encodeURI(receiptMatch[2].trim());
+                                const after = receiptMatch[3].trim();
+                                return (
+                                  <div className="flex flex-col gap-1">
+                                    <span>{[before, after].filter(Boolean).join(" ") || "No additional notes"}</span>
+                                    <a
+                                      href={url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1 text-orange-500 hover:text-orange-600 hover:underline font-semibold"
+                                    >
+                                      <FileText size={12} className="shrink-0" />
+                                      View Receipt
+                                    </a>
+                                  </div>
+                                );
+                              }
+                              return tx.notes;
+                            })()}
                           </td>
                         </tr>
                       ))
@@ -472,6 +625,138 @@ export default function BookingManager({
               </div>
             )}
           </section>
+
+          {/* 3. Vendor Payments & Status Section */}
+          <section className="bg-card rounded-lg shadow-sm border border-border overflow-hidden">
+            <div
+              className="px-4 py-3 border-b border-border flex justify-between items-center bg-card cursor-pointer hover:bg-secondary/20 transition-all"
+              onClick={() => toggle("vendorPayments")}
+            >
+              <h2 className="text-[13px] font-bold text-foreground flex items-center gap-1">
+                <Wallet className="text-primary" size={15} />
+                Vendor Payments & Balances
+              </h2>
+              <button className="text-muted-foreground">
+                {openSections.vendorPayments ? (
+                  <ChevronUp size={14} />
+                ) : (
+                  <ChevronDown size={14} />
+                )}
+              </button>
+            </div>
+
+            {openSections.vendorPayments && (
+              <div className="p-4 space-y-4">
+                {/* Vendor Outstanding summary per vendor on this booking */}
+                <div className="border border-border/80 rounded-xl overflow-hidden shadow-sm">
+                  <table className="w-full text-left border-collapse text-[11px]">
+                    <thead>
+                      <tr className="border-b border-border/60 text-[9px] uppercase tracking-wider text-muted-foreground font-bold bg-secondary/15">
+                        <th className="py-2 px-3">Vendor</th>
+                        <th className="py-2 px-3 text-right">Original Cost</th>
+                        <th className="py-2 px-3 text-right">Amount Paid</th>
+                        <th className="py-2 px-3 text-right">Remaining Balance</th>
+                        <th className="py-2 px-3 text-center">Payment Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/40 font-medium">
+                      {booking.bookingVendorPayments && booking.bookingVendorPayments.length > 0 ? (
+                        booking.bookingVendorPayments.map((vp: any) => (
+                          <tr key={vp.id} className="hover:bg-secondary/5">
+                            <td className="py-2.5 px-3 font-semibold text-primary">
+                              {vp.vendor.name}
+                            </td>
+                            <td className="py-2.5 px-3 text-right tabular-nums text-foreground/80">
+                              {formatCurrency(vp.originalCost)}
+                            </td>
+                            <td className="py-2.5 px-3 text-right tabular-nums text-emerald-600 dark:text-emerald-400">
+                              {formatCurrency(vp.amountPaid)}
+                            </td>
+                            <td className="py-2.5 px-3 text-right tabular-nums font-bold text-foreground">
+                              {formatCurrency(vp.remainingBalance)}
+                            </td>
+                            <td className="py-2.5 px-3 text-center">
+                              <span
+                                className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                                  vp.status === "PAID"
+                                    ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                                    : vp.status === "PARTIAL"
+                                      ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                                      : "bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20"
+                                }`}
+                              >
+                                {vp.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={5} className="py-4 text-center text-muted-foreground text-[11px]">
+                            No vendor payment allocations initialized. assignment services to vendors first.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Allocation Timeline / Payment History */}
+                <div className="space-y-2">
+                  <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                    Payment Allocation History
+                  </h3>
+                  <div className="space-y-2">
+                    {booking.vendorPaymentAllocations && booking.vendorPaymentAllocations.length > 0 ? (
+                      booking.vendorPaymentAllocations.map((alloc: any) => (
+                        <div
+                          key={alloc.id}
+                          className={`flex items-start justify-between gap-3 p-3 border rounded-lg text-[11px] ${
+                            alloc.isReversed
+                              ? "border-red-500/20 bg-red-500/5 text-red-700 dark:text-red-400"
+                              : "border-border bg-secondary/15 text-foreground"
+                          }`}
+                        >
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1.5 font-bold">
+                              <span className="text-primary font-mono">{alloc.vendorPayment.referenceNumber}</span>
+                              <span>•</span>
+                              <span className="text-muted-foreground">{alloc.vendorPayment.paymentMethod}</span>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground">
+                              Processed By: {alloc.vendorPayment.createdBy ? `${alloc.vendorPayment.createdBy.firstName} ${alloc.vendorPayment.createdBy.lastName}` : "System"} •{" "}
+                              {new Date(alloc.createdAt).toLocaleString()}
+                            </p>
+                            {alloc.vendorPayment.notes && (
+                              <p className="text-[10px] italic text-muted-foreground/80">
+                                Notes: {alloc.vendorPayment.notes}
+                              </p>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            <span className="block font-black text-xs">
+                              {alloc.isReversed ? "-" : "+"}
+                              {formatCurrency(alloc.amount)}
+                            </span>
+                            {alloc.isReversed && (
+                              <span className="block text-[8px] font-bold uppercase tracking-wider text-red-500 mt-0.5">
+                                Reversed
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="py-4 text-center text-muted-foreground text-[11px] border border-dashed rounded-lg">
+                        No payment allocations found for this booking.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
+
           {/* ── Passenger Details Section ──────────────────────── */}
           <section className="bg-card rounded-lg shadow-sm border border-border overflow-hidden">
             <div
@@ -494,7 +779,7 @@ export default function BookingManager({
                     setEditingPassenger(null);
                     setIsPassengerModalOpen(true);
                   }}
-                  className="flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary hover:bg-primary/20 font-bold rounded text-[10px] transition-colors"
+                  className="flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary hover:bg-primary/20 font-bold rounded text-[12px] transition-colors"
                 >
                   <Plus size={12} /> Add Passenger
                 </button>
@@ -650,13 +935,40 @@ export default function BookingManager({
               </h2>
               <div className="flex items-center gap-2">
                 <button
+                  type="button"
                   onClick={(e) => {
                     e.stopPropagation();
+                    setEditingFlight(null);
+                    setPnrModalStep("form");
                     setIsPnrModalOpen(true);
                   }}
                   className="flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary hover:bg-primary/20 font-bold rounded text-[12px] transition-colors"
                 >
-                  <Plus size={12} /> Open Converter
+                  <Plus size={12} /> Add Flight
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setEditingFlight(null);
+                    setPnrModalStep("pnr");
+                    setIsPnrModalOpen(true);
+                  }}
+                  className="flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary hover:bg-primary/20 font-bold rounded text-[12px] transition-colors"
+                >
+                  <Plus size={12} /> PNR Converter
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setEditingFlight(null);
+                    setPnrModalStep("search");
+                    setIsPnrModalOpen(true);
+                  }}
+                  className="flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary hover:bg-primary/20 font-bold rounded text-[12px] transition-colors"
+                >
+                  <Search size={12} /> Add Existing Flight
                 </button>
                 <button className="text-muted-foreground">
                   {openSections.flights ? (
@@ -763,6 +1075,7 @@ export default function BookingManager({
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setEditingFlight(fs);
+                                setPnrModalStep("form");
                                 setIsPnrModalOpen(true);
                               }}
                               className="p-1 hover:bg-secondary rounded text-muted-foreground hover:text-primary transition-all"
@@ -811,7 +1124,7 @@ export default function BookingManager({
                     setEditingAccommodation(null);
                     setIsHotelModalOpen(true);
                   }}
-                  className="flex items-center gap-1 px-2 py-0.5 bg-secondary/50 border border-border text-foreground hover:bg-secondary font-bold rounded text-[12px] transition-colors"
+                  className="flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary hover:bg-primary/20 font-bold rounded text-[12px] transition-colors"
                 >
                   <Plus size={12} /> Add
                 </button>
@@ -837,10 +1150,10 @@ export default function BookingManager({
                         <span className="absolute -top-2.5 left-2 bg-card px-1 text-[8px] font-bold text-emerald-600 border border-emerald-200 rounded uppercase">
                           Confirmed
                         </span>
-                        
+
                         <div className="flex justify-between items-start mt-0.5">
                           <h4 className="font-bold text-foreground">
-                            {acc.hotelName} {acc.city ? `(${acc.city})` : ''}
+                            {acc.hotelName} {acc.city ? `(${acc.city})` : ""}
                           </h4>
                           <div className="flex gap-1">
                             <button
@@ -882,7 +1195,8 @@ export default function BookingManager({
                                   day: "2-digit",
                                   year: "numeric",
                                 },
-                              )} {acc.checkInTime ? `@ ${acc.checkInTime}` : ''}
+                              )}{" "}
+                              {acc.checkInTime ? `@ ${acc.checkInTime}` : ""}
                             </span>
                           </div>
                           <div className="flex justify-between">
@@ -897,7 +1211,8 @@ export default function BookingManager({
                                   day: "2-digit",
                                   year: "numeric",
                                 },
-                              )} {acc.checkOutTime ? `@ ${acc.checkOutTime}` : ''}
+                              )}{" "}
+                              {acc.checkOutTime ? `@ ${acc.checkOutTime}` : ""}
                             </span>
                           </div>
                           <div className="flex justify-between">
@@ -905,7 +1220,8 @@ export default function BookingManager({
                               Room:
                             </span>
                             <span className="font-medium text-foreground text-[12px]">
-                              {acc.roomType} x {acc.qty || 1} ({acc.mealType || 'Room Only'})
+                              {acc.roomType} x {acc.qty || 1} (
+                              {acc.mealType || "Room Only"})
                             </span>
                           </div>
                           <div className="flex justify-between">
@@ -946,7 +1262,7 @@ export default function BookingManager({
                     setEditingTransport(null);
                     setIsTransportModalOpen(true);
                   }}
-                  className="flex items-center gap-1 px-2 py-0.5 bg-secondary/50 border border-border text-foreground hover:bg-secondary font-bold rounded text-[12px] transition-colors"
+                  className="flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary hover:bg-primary/20 font-bold rounded text-[12px] transition-colors"
                 >
                   <Plus size={12} /> Add
                 </button>
@@ -989,13 +1305,16 @@ export default function BookingManager({
                             </p>
                             <div className="flex flex-col gap-0.5 mt-0.5 text-[10px] text-muted-foreground">
                               <p>
-                                Date: {new Date(ts.date).toLocaleDateString("en-US", {
+                                Date:{" "}
+                                {new Date(ts.date).toLocaleDateString("en-US", {
                                   month: "short",
                                   day: "2-digit",
                                   year: "numeric",
                                 })}{" "}
-                                {ts.departureTime ? `at ${ts.departureTime}` : ''}
-                                {ts.arrivalTime ? ` - ${ts.arrivalTime}` : ''}
+                                {ts.departureTime
+                                  ? `at ${ts.departureTime}`
+                                  : ""}
+                                {ts.arrivalTime ? ` - ${ts.arrivalTime}` : ""}
                               </p>
                               {ts.flightNo && (
                                 <p className="text-primary font-medium">
@@ -1064,8 +1383,12 @@ export default function BookingManager({
               </h2>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={(e) => e.stopPropagation()}
-                  className="flex items-center gap-1 px-2 py-0.5 bg-secondary/50 border border-border text-foreground hover:bg-secondary font-bold rounded text-[12px] transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setEditingVisa(null);
+                    setIsVisaModalOpen(true);
+                  }}
+                  className="flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary hover:bg-primary/20 font-bold rounded text-[12px] transition-colors"
                 >
                   <Plus size={12} /> Add
                 </button>
@@ -1113,9 +1436,29 @@ export default function BookingManager({
                           </p>
                         </div>
                       </div>
-                      <div>
-                        <button className="flex items-center gap-1 px-2 py-0.5 border border-primary/20 text-primary hover:bg-primary/5 font-bold rounded text-[12px] transition-colors">
-                          <Upload size={10} /> Upload
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingVisa(vs);
+                            setIsVisaModalOpen(true);
+                          }}
+                          className="p-1 hover:bg-secondary rounded text-muted-foreground hover:text-primary transition-all"
+                          title="Edit Visa"
+                        >
+                          <Pencil size={11} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteVisa(vs.id);
+                          }}
+                          className="p-1 hover:bg-secondary rounded text-muted-foreground hover:text-rose-600 transition-all"
+                          title="Delete Visa"
+                        >
+                          <Trash2 size={11} />
                         </button>
                       </div>
                     </div>
@@ -1129,37 +1472,113 @@ export default function BookingManager({
             )}
           </section>
 
-          {/* 7. Special Services Section */}
+          {/* 7. Additional Services Section */}
           <section className="bg-card rounded-lg shadow-sm border border-border overflow-hidden">
             <div
               className="px-4 py-3 border-b border-border flex justify-between items-center bg-card cursor-pointer hover:bg-secondary/20 transition-all"
-              onClick={() => toggle("special")}
+              onClick={() => toggle("additional" as any)}
             >
               <h2 className="text-[13px] font-bold text-foreground flex items-center gap-1">
                 <HeartHandshake className="text-primary" size={15} />
-                Special Requests
+                Additional Services
               </h2>
-              <button className="text-muted-foreground">
-                {openSections.special ? (
-                  <ChevronUp size={14} />
-                ) : (
-                  <ChevronDown size={14} />
-                )}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setEditingAdditional(null);
+                    setIsAdditionalModalOpen(true);
+                  }}
+                  className="flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary hover:bg-primary/20 font-bold rounded text-[12px] transition-colors"
+                >
+                  <Plus size={12} /> Add
+                </button>
+                <button className="text-muted-foreground">
+                  {openSections.additional ? (
+                    <ChevronUp size={14} />
+                  ) : (
+                    <ChevronDown size={14} />
+                  )}
+                </button>
+              </div>
             </div>
 
-            {openSections.special && (
-              <div className="p-3">
-                <div className="flex items-start gap-2 p-2.5 border border-border rounded-lg bg-secondary/10 text-[13px]">
-                  <AlertCircle size={14} className="text-primary mt-0.5" />
-                  <div>
-                    <h4 className="font-bold text-foreground">Remarks</h4>
-                    <p className="text-muted-foreground mt-0.5 leading-relaxed text-[13px]">
-                      Status is {booking.status.toLowerCase()}. Created by user
-                      ID {booking.userId.substring(0, 8)}...
-                    </p>
-                  </div>
-                </div>
+            {openSections.additional && (
+              <div className="p-3 space-y-2">
+                {booking.additionalServices?.length > 0 ? (
+                  booking.additionalServices.map((as: any) => (
+                    <div
+                      key={as.id}
+                      className="border border-border rounded-lg p-2 flex items-center justify-between hover:bg-secondary/10 transition-colors text-[12px]"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div>
+                          <p className="text-[8px] text-muted-foreground font-bold uppercase mb-0.5">
+                            Vendor
+                          </p>
+                          <p className="font-semibold text-foreground text-[13px]">
+                            {as.vendor?.name || as.customVendorName || "—"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[8px] text-muted-foreground font-bold uppercase mb-0.5">
+                            Service Name
+                          </p>
+                          <p className="font-semibold text-foreground text-[13px]">
+                            {as.serviceName}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[8px] text-muted-foreground font-bold uppercase mb-0.5">
+                            Price
+                          </p>
+                          <p className="font-semibold text-foreground text-[13px]">
+                            {formatCurrency(as.servicePrice)}
+                          </p>
+                        </div>
+                        {as.serviceDescription && (
+                          <div className="hidden md:block">
+                            <p className="text-[8px] text-muted-foreground font-bold uppercase mb-0.5">
+                              Description
+                            </p>
+                            <p className="text-muted-foreground text-[12px] truncate max-w-[200px]">
+                              {as.serviceDescription}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingAdditional(as);
+                            setIsAdditionalModalOpen(true);
+                          }}
+                          className="p-1 hover:bg-secondary rounded text-muted-foreground hover:text-primary transition-all"
+                          title="Edit Service"
+                        >
+                          <Pencil size={11} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteAdditional(as.id);
+                          }}
+                          className="p-1 hover:bg-secondary rounded text-muted-foreground hover:text-rose-600 transition-all"
+                          title="Delete Service"
+                        >
+                          <Trash2 size={11} />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-center py-3 text-muted-foreground italic text-[12px]">
+                    No additional services registered.
+                  </p>
+                )}
               </div>
             )}
           </section>
@@ -1179,6 +1598,7 @@ export default function BookingManager({
             : new Date().getFullYear()
         }
         flightToEdit={editingFlight}
+        initialStep={pnrModalStep}
         onSuccess={() => {
           queryClient.invalidateQueries({ queryKey: ["booking", booking.id] });
         }}
@@ -1220,6 +1640,44 @@ export default function BookingManager({
         bookingId={booking.id}
         booking={booking}
         transportToEdit={editingTransport}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["booking", booking.id] });
+        }}
+      />
+
+      <VisaReservationModal
+        isOpen={isVisaModalOpen}
+        onClose={() => {
+          setIsVisaModalOpen(false);
+          setEditingVisa(null);
+        }}
+        bookingId={booking.id}
+        booking={booking}
+        visaToEdit={editingVisa}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["booking", booking.id] });
+        }}
+      />
+
+      <AdditionalServiceModal
+        isOpen={isAdditionalModalOpen}
+        onClose={() => {
+          setIsAdditionalModalOpen(false);
+          setEditingAdditional(null);
+        }}
+        bookingId={booking.id}
+        serviceToEdit={editingAdditional}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["booking", booking.id] });
+        }}
+      />
+
+      <BookingTransactionModal
+        isOpen={isTransactionModalOpen}
+        onClose={() => setIsTransactionModalOpen(false)}
+        bookingId={booking.id}
+        bookingReference={booking.bookingReference}
+        booking={booking}
         onSuccess={() => {
           queryClient.invalidateQueries({ queryKey: ["booking", booking.id] });
         }}

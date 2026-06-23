@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import multer from 'multer';
-import { create, findAll, findOne, updateStatus, cancel, finalizeMargin, addFlightService, updateFlightService, deleteFlightService, addAccommodationService, updateAccommodationService, deleteAccommodationService, addPassenger, updatePassenger, deletePassenger, getPassengerForm, submitPassengerForm, sendPassengerLink, uploadPassengerPassportScan, getPassengerPassportScan, deletePassengerPassportScan, addPassengerDocument, getPassengerDocumentFile, deletePassengerDocument, addPassengerByFormToken, deletePassengerByFormToken, adminUploadPassportScan, adminGetPassportScan, adminDeletePassportScan, adminAddPassengerDocument, adminGetPassengerDocumentFile, adminDeletePassengerDocument, searchAllPassengers, addTransportService, updateTransportService, deleteTransportService } from '../controllers/bookings.controller';
+import { create, findAll, findOne, updateStatus, toggleLock, cancel, finalizeMargin, addFlightService, updateFlightService, deleteFlightService, addAccommodationService, updateAccommodationService, deleteAccommodationService, addPassenger, updatePassenger, deletePassenger, getPassengerForm, submitPassengerForm, sendPassengerLink, uploadPassengerPassportScan, getPassengerPassportScan, deletePassengerPassportScan, addPassengerDocument, getPassengerDocumentFile, deletePassengerDocument, addPassengerByFormToken, deletePassengerByFormToken, adminUploadPassportScan, adminGetPassportScan, adminDeletePassportScan, adminAddPassengerDocument, adminGetPassengerDocumentFile, adminDeletePassengerDocument, searchAllPassengers, addTransportService, updateTransportService, deleteTransportService, addVisaService, updateVisaService, deleteVisaService, addAdditionalService, updateAdditionalService, deleteAdditionalService } from '../controllers/bookings.controller';
 import { authMiddleware } from '../middleware/auth.middleware';
 import { requireRoles } from '../middleware/rbac.middleware';
 
@@ -28,6 +28,7 @@ router.post('/', create);
 router.get('/', findAll);
 router.get('/:id', findOne);
 router.patch('/:id/status', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, updateStatus);
+router.patch('/:id/lock', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, toggleLock);
 router.patch('/:id/finalize-margin', requireRoles('SUPER_ADMIN', 'ADMIN') as any, finalizeMargin);
 router.post('/:id/flights', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, addFlightService);
 router.patch('/:id/flights/:flightServiceId', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, updateFlightService);
@@ -40,6 +41,14 @@ router.delete('/:id/accommodations/:accommodationId', requireRoles('SUPER_ADMIN'
 router.post('/:id/transports', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, addTransportService);
 router.patch('/:id/transports/:transportServiceId', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, updateTransportService);
 router.delete('/:id/transports/:transportServiceId', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, deleteTransportService);
+
+router.post('/:id/visas', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, addVisaService);
+router.patch('/:id/visas/:visaServiceId', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, updateVisaService);
+router.delete('/:id/visas/:visaServiceId', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, deleteVisaService);
+
+router.post('/:id/additional-services', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, addAdditionalService);
+router.patch('/:id/additional-services/:serviceId', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, updateAdditionalService);
+router.delete('/:id/additional-services/:serviceId', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, deleteAdditionalService);
 
 // Passenger CRUD
 router.post('/:id/passengers', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, addPassenger);

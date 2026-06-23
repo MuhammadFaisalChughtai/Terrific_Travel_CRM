@@ -20,6 +20,7 @@ import Notifications from "./pages/Notifications";
 import Settings from "./pages/Settings";
 import AgentPage from "./pages/Agent";
 import VendorPage from "./pages/Vendor";
+import LedgerPage from "./pages/Ledger";
 import PassengerForm from "./pages/PassengerForm";
 import { useAuthStore } from "./store/auth.store";
 
@@ -66,6 +67,7 @@ function AppRouter() {
           <Route path="settings" element={<Settings />} />
           <Route path="agent" element={<AgentPage />} />
           <Route path="vendors" element={<VendorPage />} />
+          <Route path="ledger" element={<LedgerPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" />} />

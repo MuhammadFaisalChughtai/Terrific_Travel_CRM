@@ -74,31 +74,31 @@ export default function CRMBookingModal({ isOpen, onClose, booking }: CRMBooking
                 </tr>
                 <tr className="hover:bg-secondary/10 bg-secondary/5">
                   <td className="py-3 px-4 font-semibold text-muted-foreground w-1/4 uppercase text-[10px] tracking-wide">Total Price</td>
-                  <td className="py-3 px-4 font-bold">{booking.totalPrice}</td>
+                  <td className="py-3 px-4 font-bold text-foreground">{formatCurrency(booking.totalPrice || 0)}</td>
                 </tr>
                 <tr className="hover:bg-secondary/10">
                   <td className="py-3 px-4 font-semibold text-muted-foreground w-1/4 uppercase text-[10px] tracking-wide">Status</td>
-                  <td className="py-3 px-4 uppercase font-semibold">{booking.status}</td>
+                  <td className="py-3 px-4 uppercase font-semibold text-foreground">{booking.status}</td>
                 </tr>
                 <tr className="hover:bg-secondary/10 bg-secondary/5">
                   <td className="py-3 px-4 font-semibold text-muted-foreground w-1/4 uppercase text-[10px] tracking-wide">Paid Amount</td>
-                  <td className="py-3 px-4 font-bold">{booking.paidAmount || 0}</td>
+                  <td className="py-3 px-4 font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(booking.paidAmount || 0)}</td>
                 </tr>
                 <tr className="hover:bg-secondary/10">
                   <td className="py-3 px-4 font-semibold text-muted-foreground w-1/4 uppercase text-[10px] tracking-wide">Refund Amount</td>
-                  <td className="py-3 px-4 text-muted-foreground">{booking.refundAmount || "EMPTY"}</td>
+                  <td className="py-3 px-4 text-rose-600 dark:text-rose-400 font-semibold">{formatCurrency(booking.refundAmount || 0)}</td>
                 </tr>
                 <tr className="hover:bg-secondary/10 bg-secondary/5">
                   <td className="py-3 px-4 font-semibold text-muted-foreground w-1/4 uppercase text-[10px] tracking-wide">Card Payment Charges</td>
-                  <td className="py-3 px-4 text-muted-foreground">{booking.cardPaymentCharges || "EMPTY"}</td>
+                  <td className="py-3 px-4 text-muted-foreground font-semibold">{formatCurrency(booking.cardPaymentCharges || 0)}</td>
                 </tr>
                 <tr className="hover:bg-secondary/10">
                   <td className="py-3 px-4 font-semibold text-muted-foreground w-1/4 uppercase text-[10px] tracking-wide">Cancellation Charges</td>
-                  <td className="py-3 px-4 text-muted-foreground">{booking.cancellationCharges || "EMPTY"}</td>
+                  <td className="py-3 px-4 text-rose-500 font-semibold">{formatCurrency(booking.cancellationCharges || 0)}</td>
                 </tr>
                 <tr className="hover:bg-secondary/10 bg-secondary/5">
                   <td className="py-3 px-4 font-semibold text-muted-foreground w-1/4 uppercase text-[10px] tracking-wide">Remaining Amount</td>
-                  <td className="py-3 px-4 font-bold">{booking.remainingAmount || booking.totalPrice}</td>
+                  <td className="py-3 px-4 font-bold text-foreground">{formatCurrency(Math.max(0, (booking.totalPrice || 0) - (booking.paidAmount || 0)))}</td>
                 </tr>
                 <tr className="hover:bg-secondary/10">
                   <td className="py-3 px-4 font-semibold text-muted-foreground w-1/4 uppercase text-[10px] tracking-wide">Payment Status</td>

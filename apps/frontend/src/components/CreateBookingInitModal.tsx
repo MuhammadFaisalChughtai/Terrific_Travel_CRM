@@ -136,7 +136,7 @@ export default function CreateBookingInitModal({
           </div>
         </div>
 
-        <div className="flex justify-end gap-2.5 pt-4 border-t border-border mt-1">
+        <div className="sticky -bottom-5 bg-card flex justify-end gap-2.5 py-3 px-5 border-t border-border -mx-5 z-10">
           <button
             type="button"
             onClick={onClose}
