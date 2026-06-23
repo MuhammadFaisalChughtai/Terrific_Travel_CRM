@@ -1,13 +1,13 @@
-import React from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
-import { X } from 'lucide-react';
+import React from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { X } from "lucide-react";
 
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
   title: string;
   children: React.ReactNode;
-  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '4xl' | '5xl' | '6xl' | '7xl';
+  maxWidth?: "sm" | "md" | "lg" | "xl" | "2xl" | "4xl" | "5xl" | "6xl" | "7xl";
 }
 
 export default function Modal({
@@ -15,24 +15,33 @@ export default function Modal({
   onClose,
   title,
   children,
-  maxWidth = 'md'
+  maxWidth = "md",
 }: ModalProps) {
-  const maxWClass = 
-    maxWidth === 'sm' ? 'max-w-sm' :
-    maxWidth === 'md' ? 'max-w-md' :
-    maxWidth === 'lg' ? 'max-w-lg' :
-    maxWidth === 'xl' ? 'max-w-xl' :
-    maxWidth === '2xl' ? 'max-w-2xl' :
-    maxWidth === '4xl' ? 'max-w-4xl' :
-    maxWidth === '5xl' ? 'max-w-5xl' :
-    maxWidth === '6xl' ? 'max-w-6xl' :
-    maxWidth === '7xl' ? 'max-w-7xl' :
-    'max-w-md';
+  const maxWClass =
+    maxWidth === "sm"
+      ? "max-w-sm"
+      : maxWidth === "md"
+        ? "max-w-md"
+        : maxWidth === "lg"
+          ? "max-w-lg"
+          : maxWidth === "xl"
+            ? "max-w-xl"
+            : maxWidth === "2xl"
+              ? "max-w-2xl"
+              : maxWidth === "4xl"
+                ? "max-w-4xl"
+                : maxWidth === "5xl"
+                  ? "max-w-5xl"
+                  : maxWidth === "6xl"
+                    ? "max-w-6xl"
+                    : maxWidth === "7xl"
+                      ? "max-w-7xl"
+                      : "max-w-md";
 
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 mt-16 margin__custom">
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
@@ -47,7 +56,7 @@ export default function Modal({
             initial={{ opacity: 0, scale: 0.95, y: 15 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 15 }}
-            transition={{ type: 'spring', duration: 0.4 }}
+            transition={{ type: "spring", duration: 0.4 }}
             className={`w-full ${maxWClass} max-h-[calc(100vh-2rem)] flex flex-col bg-card border border-border/80 rounded-xl shadow-xl overflow-hidden relative z-10`}
           >
             {/* Header */}

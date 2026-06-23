@@ -50,15 +50,32 @@ export default function LedgerPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearch, setShowSearch] = useState(false);
   const [typeFilter, setTypeFilter] = useState("all");
+  const [selectedVendorId, setSelectedVendorId] = useState("all");
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
 
-  const { data: globalLedger, isLoading } = useQuery({
-    queryKey: ["global-ledger"],
+  // Fetch vendors list
+  const { data: vendors } = useQuery({
+    queryKey: ["vendors"],
     queryFn: async () => {
-      const res = await apiClient.get("/vendors/ledger");
+      const res = await apiClient.get("/vendors");
+      return res.data.data.items as any[];
+    },
+  });
+
+  const { data: globalLedger, isLoading } = useQuery({
+    queryKey: ["global-ledger", selectedVendorId],
+    queryFn: async () => {
+      const url = selectedVendorId === "all" ? "/vendors/ledger" : `/vendors/${selectedVendorId}/ledger`;
+      const res = await apiClient.get(url);
       return res.data.data as any[];
     },
   });
+
+  const selectedVendor = useMemo(() => {
+    return vendors?.find((v: any) => v.id === selectedVendorId);
+  }, [vendors, selectedVendorId]);
+
+  const ledgerTitle = selectedVendor ? `${selectedVendor.name} Ledger` : "Global Financial Ledger";
 
   // Apply filters
   const filteredLedger = useMemo(() => {
@@ -95,24 +112,20 @@ export default function LedgerPage() {
   // Calculate opening balance = running balance of the record BEFORE our filtered window
   const openingBalance = useMemo(() => {
     if (!globalLedger || globalLedger.length === 0) return 0;
-    if (!dateFrom && !dateTo && typeFilter === "all" && !searchQuery) {
-      // No filter — use 0 as opening
+    if (!dateFrom) {
+      // No start date = starting from 0
       return 0;
     }
     // Find the last entry before our filtered set
     const sortedAll = [...globalLedger].sort(
       (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
     );
-    if (filteredLedger.length === 0) {
-      return sortedAll.at(-1)?.runningBalance ?? 0;
-    }
-    const firstFiltered = filteredLedger[0];
-    const firstFilteredTime = new Date(firstFiltered.timestamp).getTime();
+    const fromDate = new Date(dateFrom);
     const priorEntries = sortedAll.filter(
-      (e) => new Date(e.timestamp).getTime() < firstFilteredTime
+      (e) => new Date(e.timestamp) < fromDate
     );
     return priorEntries.at(-1)?.runningBalance ?? 0;
-  }, [globalLedger, filteredLedger, dateFrom, dateTo, typeFilter, searchQuery]);
+  }, [globalLedger, dateFrom]);
 
   // Period totals
   const periodTotalDebit = filteredLedger.reduce((s, e) => s + (e.debit || 0), 0);
@@ -125,7 +138,7 @@ export default function LedgerPage() {
     const win = window.open("", "_blank", "width=900,height=700");
     if (!win) return;
     win.document.write(`
-      <html><head><title>Financial Ledger</title>
+      <html><head><title>${ledgerTitle}</title>
       <style>
         body { font-family: Arial, sans-serif; font-size: 11px; color: #111; }
         table { width: 100%; border-collapse: collapse; }
@@ -142,7 +155,7 @@ export default function LedgerPage() {
         .subtitle { color: #6b7280; margin-bottom: 16px; font-size: 11px; }
       </style></head>
       <body>
-        <h2>Global Financial Ledger</h2>
+        <h2>${ledgerTitle}</h2>
         <p class="subtitle">Printed on ${new Date().toLocaleString()}</p>
         ${content}
       </body></html>
@@ -172,7 +185,10 @@ export default function LedgerPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `ledger_${new Date().toISOString().slice(0, 10)}.csv`;
+    const filename = selectedVendor
+      ? `${selectedVendor.name.toLowerCase().replace(/[^a-z0-9]+/g, "_")}_ledger_${new Date().toISOString().slice(0, 10)}.csv`
+      : `global_ledger_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -182,9 +198,10 @@ export default function LedgerPage() {
     setDateTo("");
     setSearchQuery("");
     setTypeFilter("all");
+    setSelectedVendorId("all");
   };
 
-  const hasFilters = dateFrom || dateTo || searchQuery || typeFilter !== "all";
+  const hasFilters = dateFrom || dateTo || searchQuery || typeFilter !== "all" || selectedVendorId !== "all";
 
   return (
     <div className="space-y-4 font-sans">
@@ -192,7 +209,7 @@ export default function LedgerPage() {
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h2 className="text-base font-bold tracking-tight text-foreground">
-            Global Financial Ledger
+            {ledgerTitle}
           </h2>
           <p className="text-[11px] text-muted-foreground">
             Complete audit trail — receipts, payments, refunds and agent payouts.
@@ -211,6 +228,23 @@ export default function LedgerPage() {
 
       {/* ── Toolbar: Filters + Export ── */}
       <div className="bg-card border border-border/80 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center gap-3 flex-wrap">
+        {/* Ledger/Vendor Selector */}
+        <div className="flex items-center gap-1.5">
+          <Filter size={11} className="text-muted-foreground" />
+          <select
+            value={selectedVendorId}
+            onChange={(e) => setSelectedVendorId(e.target.value)}
+            className="px-2 py-1.5 bg-secondary/20 border border-border rounded-lg text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary font-semibold"
+          >
+            <option value="all">Global Ledger</option>
+            {vendors?.map((v: any) => (
+              <option key={v.id} value={v.id}>
+                {v.name} Ledger
+              </option>
+            ))}
+          </select>
+        </div>
+
         {/* Date Range */}
         <div className="flex items-center gap-2 flex-wrap">
           <label className="text-[9px] font-black uppercase tracking-wider text-muted-foreground">From</label>
@@ -289,12 +323,6 @@ export default function LedgerPage() {
             title="Print"
           >
             <Printer size={11} /> Print
-          </button>
-          <button
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors"
-            title="Email"
-          >
-            <Mail size={11} /> Email
           </button>
         </div>
       </div>
