@@ -41,7 +41,7 @@ export default function Modal({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 mt-16 margin__custom">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4  margin__custom">
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
