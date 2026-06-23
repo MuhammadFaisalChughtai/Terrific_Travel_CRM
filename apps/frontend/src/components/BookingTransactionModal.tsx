@@ -37,11 +37,12 @@ export default function BookingTransactionModal({
 
   // Form State
   const [transactionType, setTransactionType] = useState<
-    "CUSTOMER_PAYMENT" | "VENDOR_REFUND" | "CUSTOMER_REFUND"
+    "CUSTOMER_PAYMENT" | "VENDOR_REFUND" | "CUSTOMER_REFUND" | "VENDOR_DISCOUNT"
   >("CUSTOMER_PAYMENT");
 
   const [paymentMethod, setPaymentMethod] = useState<string>("Bank Transfer");
   const [vendorId, setVendorId] = useState<string>("");
+  const [serviceIds, setServiceIds] = useState<string[]>([]);
   const [amount, setAmount] = useState<string>("");
   const [cardPaymentCharges, setCardPaymentCharges] = useState<string>("");
   const [bankAccount, setBankAccount] = useState<string>("");
@@ -75,12 +76,47 @@ export default function BookingTransactionModal({
     return Array.from(vendorsMap.entries()).map(([id, name]) => ({ id, name }));
   }, [booking]);
 
+  // Extract all services for service selection
+  const bookingServices = useMemo(() => {
+    if (!booking) return [];
+    const services: Array<{ id: string; name: string; type: string; vendorId?: string; vendorName?: string }> = [];
+
+    if (booking.accommodations) {
+      booking.accommodations.forEach((s: any) => {
+        services.push({ id: s.id, name: `${s.hotelName || 'Unknown Hotel'} (Hotel)`, type: 'Accommodation', vendorId: s.vendor?.id, vendorName: s.vendor?.name });
+      });
+    }
+    if (booking.flightServices) {
+      booking.flightServices.forEach((s: any) => {
+        services.push({ id: s.id, name: `${s.flightNo || 'Flight'} (${s.departedFrom || '?'} to ${s.arrivedAt || '?'})`, type: 'Flight', vendorId: s.vendor?.id, vendorName: s.vendor?.name });
+      });
+    }
+    if (booking.transportServices) {
+      booking.transportServices.forEach((s: any) => {
+        services.push({ id: s.id, name: `${s.vehicleType || 'Transport'} (${s.departureDestination || '?'} to ${s.arrivalDestination || '?'})`, type: 'Transport', vendorId: s.vendor?.id, vendorName: s.vendor?.name });
+      });
+    }
+    if (booking.visaServices) {
+      booking.visaServices.forEach((s: any) => {
+        services.push({ id: s.id, name: `${s.visaType || 'Visa'} (${s.passportNumber || 'No Passport'})`, type: 'Visa', vendorId: s.vendor?.id, vendorName: s.vendor?.name });
+      });
+    }
+    if (booking.additionalServices) {
+      booking.additionalServices.forEach((s: any) => {
+        services.push({ id: s.id, name: `${s.serviceName || 'Additional Service'}`, type: 'Additional', vendorId: s.vendor?.id, vendorName: s.vendor?.name });
+      });
+    }
+
+    return services;
+  }, [booking]);
+
   // Reset form when modal opens/closes
   useEffect(() => {
     if (!isOpen) {
       setTransactionType("CUSTOMER_PAYMENT");
       setPaymentMethod("Bank Transfer");
       setVendorId("");
+      setServiceIds([]);
       setAmount("");
       setCardPaymentCharges("");
       setBankAccount("");
@@ -147,8 +183,27 @@ export default function BookingTransactionModal({
       return;
     }
 
+    if ((transactionType === "VENDOR_REFUND" || transactionType === "VENDOR_DISCOUNT") && !vendorId) {
+      toast.error("Please select a vendor.");
+      return;
+    }
+
+    if ((transactionType === "VENDOR_REFUND" || transactionType === "VENDOR_DISCOUNT") && serviceIds.length === 0) {
+      toast.error("Please select at least one service.");
+      return;
+    }
+
+    let serviceNote = "";
+    if (serviceIds.length > 0) {
+      const selectedServices = bookingServices.filter(s => serviceIds.includes(s.id));
+      if (selectedServices.length > 0) {
+        serviceNote = `Services: ${selectedServices.map(s => s.name).join(", ")}`;
+      }
+    }
+
     const formattedNotes = [
       notes,
+      serviceNote,
       receiptUrl ? `Receipt: ${receiptUrl}` : ""
     ].filter(Boolean).join(". ");
 
@@ -165,11 +220,7 @@ export default function BookingTransactionModal({
       payload.cardPaymentCharges = Number(cardPaymentCharges) || 0;
     }
 
-    if (transactionType === "VENDOR_REFUND") {
-      if (!vendorId) {
-        toast.error("Please select a vendor.");
-        return;
-      }
+    if (transactionType === "VENDOR_REFUND" || transactionType === "VENDOR_DISCOUNT") {
       payload.vendorId = vendorId;
     }
 
@@ -199,12 +250,13 @@ export default function BookingTransactionModal({
             >
               <option value="CUSTOMER_PAYMENT">Payment received from the customer</option>
               <option value="VENDOR_REFUND">Refund from Vendor</option>
+              <option value="VENDOR_DISCOUNT">Discount from Vendor</option>
               <option value="CUSTOMER_REFUND">Refund to Customer</option>
             </select>
           </div>
 
-          {/* Vendor selector (Conditional for VENDOR_REFUND), otherwise Payment Method */}
-          {transactionType === "VENDOR_REFUND" ? (
+          {/* Vendor selector (Conditional for VENDOR_REFUND or VENDOR_DISCOUNT), otherwise Payment Method */}
+          {(transactionType === "VENDOR_REFUND" || transactionType === "VENDOR_DISCOUNT") ? (
             <div>
               <label className="block text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-1">
                 Select Vendor *
@@ -241,6 +293,49 @@ export default function BookingTransactionModal({
             </div>
           )}
 
+          {/* Service Selector (For refunds and discounts) */}
+          {(transactionType === "CUSTOMER_REFUND" || transactionType === "VENDOR_REFUND" || transactionType === "VENDOR_DISCOUNT") && (
+            <div className="col-span-1 md:col-span-2">
+              <label className="block text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-1 flex justify-between items-center">
+                <span>Select Services {transactionType === "CUSTOMER_REFUND" ? "(Optional)" : "*"}</span>
+                {serviceIds.length > 0 && (
+                  <button 
+                    type="button" 
+                    onClick={() => setServiceIds([])}
+                    className="text-[9px] text-primary hover:underline"
+                  >
+                    Clear selection
+                  </button>
+                )}
+              </label>
+              <div className="w-full max-h-32 overflow-y-auto px-3 py-2 bg-secondary/10 border border-border rounded-lg space-y-1.5 custom-scrollbar">
+                {bookingServices.filter(s => (transactionType === "CUSTOMER_REFUND" ? true : s.vendorId === vendorId)).length === 0 ? (
+                  <div className="text-xs text-muted-foreground italic py-1">No services available for this vendor.</div>
+                ) : (
+                  bookingServices.filter(s => (transactionType === "CUSTOMER_REFUND" ? true : s.vendorId === vendorId)).map(s => (
+                    <label key={s.id} className="flex items-start gap-2 cursor-pointer hover:bg-secondary/20 p-1 rounded-md transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={serviceIds.includes(s.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setServiceIds(prev => [...prev, s.id]);
+                          } else {
+                            setServiceIds(prev => prev.filter(id => id !== s.id));
+                          }
+                        }}
+                        className="mt-0.5 rounded border-border text-primary focus:ring-primary"
+                      />
+                      <span className="text-xs text-foreground font-medium">
+                        <span className="font-semibold text-muted-foreground">{s.type}:</span> {s.name}
+                      </span>
+                    </label>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Amount */}
           <div>
             <label className="block text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-1">
@@ -260,11 +355,11 @@ export default function BookingTransactionModal({
             </div>
           </div>
 
-          {/* Payment method selector for VENDOR_REFUND so all views can have bank/cc fields */}
-          {transactionType === "VENDOR_REFUND" ? (
+          {/* Payment method selector for VENDOR_REFUND and VENDOR_DISCOUNT so all views can have bank/cc fields */}
+          {(transactionType === "VENDOR_REFUND" || transactionType === "VENDOR_DISCOUNT") ? (
             <div>
               <label className="block text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-1">
-                Refund Method
+                {transactionType === "VENDOR_DISCOUNT" ? "Discount Method" : "Refund Method"}
               </label>
               <select
                 value={paymentMethod}
@@ -292,8 +387,8 @@ export default function BookingTransactionModal({
             </div>
           )}
 
-          {/* Row 3 helper: bank source input if vendor refund selected */}
-          {transactionType === "VENDOR_REFUND" && (
+          {/* Row 3 helper: bank source input if vendor refund/discount selected */}
+          {(transactionType === "VENDOR_REFUND" || transactionType === "VENDOR_DISCOUNT") && (
             <div>
               <label className="block text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-1">
                 Bank Source / Account

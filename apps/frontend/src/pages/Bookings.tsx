@@ -338,7 +338,9 @@ export default function Bookings() {
                     const firstPassenger = booking.passengers?.[0];
                     const passengerName = firstPassenger
                       ? `${firstPassenger.firstName} ${firstPassenger.lastName}`
-                      : "—";
+                      : booking.user
+                        ? `${booking.user.firstName} ${booking.user.lastName} (Account)`
+                        : "—";
 
                     const formatDate = (dateString: any) => {
                       if (!dateString) return "—";

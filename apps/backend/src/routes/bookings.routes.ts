@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import multer from 'multer';
-import { create, findAll, findOne, updateStatus, toggleLock, cancel, finalizeMargin, addFlightService, updateFlightService, deleteFlightService, addAccommodationService, updateAccommodationService, deleteAccommodationService, addPassenger, updatePassenger, deletePassenger, getPassengerForm, submitPassengerForm, sendPassengerLink, uploadPassengerPassportScan, getPassengerPassportScan, deletePassengerPassportScan, addPassengerDocument, getPassengerDocumentFile, deletePassengerDocument, addPassengerByFormToken, deletePassengerByFormToken, adminUploadPassportScan, adminGetPassportScan, adminDeletePassportScan, adminAddPassengerDocument, adminGetPassengerDocumentFile, adminDeletePassengerDocument, searchAllPassengers, addTransportService, updateTransportService, deleteTransportService, addVisaService, updateVisaService, deleteVisaService, addAdditionalService, updateAdditionalService, deleteAdditionalService } from '../controllers/bookings.controller';
+import { create, findAll, findOne, updateStatus, updateBookingDetails, toggleLock, cancel, finalizeMargin, addFlightService, updateFlightService, deleteFlightService, addAccommodationService, updateAccommodationService, deleteAccommodationService, addPassenger, updatePassenger, deletePassenger, getPassengerForm, submitPassengerForm, sendPassengerLink, uploadPassengerPassportScan, getPassengerPassportScan, deletePassengerPassportScan, addPassengerDocument, getPassengerDocumentFile, deletePassengerDocument, addPassengerByFormToken, deletePassengerByFormToken, adminUploadPassportScan, adminGetPassportScan, adminDeletePassportScan, adminAddPassengerDocument, adminGetPassengerDocumentFile, adminDeletePassengerDocument, searchAllPassengers, addTransportService, updateTransportService, deleteTransportService, addVisaService, updateVisaService, deleteVisaService, addAdditionalService, updateAdditionalService, deleteAdditionalService } from '../controllers/bookings.controller';
 import { authMiddleware } from '../middleware/auth.middleware';
 import { requireRoles } from '../middleware/rbac.middleware';
 
@@ -27,6 +27,7 @@ router.get('/passengers/global-search', requireRoles('SUPER_ADMIN', 'ADMIN', 'TR
 router.post('/', create);
 router.get('/', findAll);
 router.get('/:id', findOne);
+router.patch('/:id', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, updateBookingDetails);
 router.patch('/:id/status', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, updateStatus);
 router.patch('/:id/lock', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, toggleLock);
 router.patch('/:id/finalize-margin', requireRoles('SUPER_ADMIN', 'ADMIN') as any, finalizeMargin);

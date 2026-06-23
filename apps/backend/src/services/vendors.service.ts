@@ -1082,6 +1082,108 @@ export class VendorsService {
     });
   }
 
+  // Public Vendor Discount Handler
+  async processVendorDiscount(params: {
+    vendorId: string;
+    amount: number;
+    notes?: string;
+    createdById: string;
+    bookingId?: string;
+  }) {
+    return prisma.$transaction(async (tx) => {
+      const amount = Number(params.amount);
+      let bookingRef: string | null = null;
+      
+      if (params.bookingId) {
+        const bvp = await tx.bookingVendorPayment.findUnique({
+          where: {
+            bookingId_vendorId: {
+              bookingId: params.bookingId,
+              vendorId: params.vendorId
+            }
+          },
+          include: { booking: true }
+        });
+        
+        if (bvp) {
+          bookingRef = bvp.booking.bookingReference;
+          // Discount reduces the original cost we owe them
+          const newOriginalCost = Math.max(0, bvp.originalCost - amount);
+          const newRemaining = Math.max(0, newOriginalCost - bvp.amountPaid);
+          let status = 'PENDING';
+          if (bvp.amountPaid >= newOriginalCost) {
+            status = 'PAID';
+          } else if (bvp.amountPaid > 0) {
+            status = 'PARTIAL';
+          }
+          
+          await tx.bookingVendorPayment.update({
+            where: { id: bvp.id },
+            data: {
+              originalCost: newOriginalCost,
+              remainingBalance: newRemaining,
+              status
+            }
+          });
+
+          // Create BookingTransaction record
+          await tx.bookingTransaction.create({
+            data: {
+              bookingId: params.bookingId,
+              amount: 0, // A discount doesn't change cash flow from the customer immediately, but affects our cost.
+              paymentMethod: 'Discount',
+              notes: `Discount received from Vendor (Ref: ${params.vendorId}). ` + (params.notes || '')
+            }
+          });
+        }
+      }
+
+      // We might also add this discount to their wallet if it acts as credit, but 
+      // usually a discount just reduces what we owe. If we already overpaid, it becomes credit.
+      let wallet = await tx.vendorWallet.findUnique({
+        where: { vendorId: params.vendorId }
+      });
+      if (!wallet) {
+        wallet = await tx.vendorWallet.create({
+          data: { vendorId: params.vendorId, balance: 0 }
+        });
+      }
+      
+      const updatedWallet = await tx.vendorWallet.update({
+        where: { id: wallet.id },
+        data: { balance: { increment: amount } }
+      });
+
+      await tx.vendorWalletTransaction.create({
+        data: {
+          walletId: wallet.id,
+          amount,
+          type: 'CREDIT_DISCOUNT',
+          notes: params.notes || 'Vendor Discount',
+          createdById: params.createdById
+        }
+      });
+
+      await this.appendLedgerEntry(tx, {
+        vendorId: params.vendorId,
+        bookingId: params.bookingId,
+        bookingReference: bookingRef || undefined,
+        eventType: 'VENDOR_DISCOUNT',
+        debit: 0.0,
+        credit: amount, // A discount increases our balance/credit with them
+        notes: params.notes || 'Discount from Vendor',
+        createdById: params.createdById
+      });
+
+      await tx.vendor.update({
+        where: { id: params.vendorId },
+        data: { walletBalance: updatedWallet.balance }
+      });
+
+      return updatedWallet;
+    });
+  }
+
   // Public Ledger Append Helper
   public async appendLedgerEntry(tx: any, params: {
     vendorId?: string;

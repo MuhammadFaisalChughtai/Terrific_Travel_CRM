@@ -227,6 +227,16 @@ export class PaymentsService {
         });
       }
 
+      case "VENDOR_DISCOUNT": {
+        return vendorsService.processVendorDiscount({
+          vendorId: data.vendorId,
+          amount,
+          notes: data.notes,
+          createdById: userId,
+          bookingId: data.bookingId || undefined
+        });
+      }
+
       case "CUSTOMER_REFUND": {
         const booking = await prisma.booking.findUnique({
           where: { id: data.bookingId }

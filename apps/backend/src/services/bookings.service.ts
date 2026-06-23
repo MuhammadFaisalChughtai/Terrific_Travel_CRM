@@ -437,6 +437,43 @@ export class BookingsService {
     return booking;
   }
 
+  async updateBookingDetails(id: string, data: { totalPrice?: number; agentId?: string | null; departureDate?: string | null }) {
+    const booking = await prisma.booking.findUnique({ where: { id } });
+    if (!booking) throw new NotFoundException('Booking not found');
+
+    const updateData: any = {};
+
+    if (data.totalPrice !== undefined && data.totalPrice !== null) {
+      const newTotal = Number(data.totalPrice);
+      if (isNaN(newTotal) || newTotal < 0) {
+        throw new BadRequestException('Invalid total price value');
+      }
+      updateData.totalPrice = newTotal;
+      // Recalculate remaining amount based on what has already been paid
+      const paidAmount = booking.paidAmount || 0;
+      updateData.remainingAmount = Math.max(0, newTotal - paidAmount);
+    }
+
+    if (data.agentId !== undefined) {
+      updateData.agentId = data.agentId || null;
+    }
+
+    if (data.departureDate !== undefined) {
+      updateData.departureDate = data.departureDate ? new Date(data.departureDate) : null;
+    }
+
+    const updated = await prisma.booking.update({
+      where: { id },
+      data: updateData,
+    });
+
+    await rabbitMQService.publish('booking.updated', {
+      bookingId: updated.id,
+    });
+
+    return updated;
+  }
+
   async updateStatus(id: string, status: BookingStatus) {
     const booking = await prisma.booking.update({
       where: { id },

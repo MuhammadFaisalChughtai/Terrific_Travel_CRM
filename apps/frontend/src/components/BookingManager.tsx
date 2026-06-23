@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import React, { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../api/client";
 import { formatCurrency } from "@tms/shared-utils";
 import { toast } from "sonner";
@@ -28,7 +28,10 @@ import {
   Pencil,
   Users,
   Trash2,
+  Save,
   Search,
+  CalendarRange,
+  X,
 } from "lucide-react";
 import Modal from "./Modal";
 import PnrFlightModal from "./PnrFlightModal";
@@ -54,7 +57,9 @@ export default function BookingManager({
 }: BookingManagerProps) {
   const queryClient = useQueryClient();
   const [isPnrModalOpen, setIsPnrModalOpen] = useState(false);
-  const [pnrModalStep, setPnrModalStep] = useState<'pnr' | 'form' | 'search'>('pnr');
+  const [pnrModalStep, setPnrModalStep] = useState<"pnr" | "form" | "search">(
+    "pnr",
+  );
   const [editingFlight, setEditingFlight] = useState<any | null>(null);
   const [isPassengerModalOpen, setIsPassengerModalOpen] = useState(false);
   const [editingPassenger, setEditingPassenger] = useState<any | null>(null);
@@ -210,6 +215,7 @@ export default function BookingManager({
 
   const [openSections, setOpenSections] = useState({
     financial: true,
+    editDetails: true,
     transactions: true,
     vendorPayments: true,
     flights: true,
@@ -222,6 +228,39 @@ export default function BookingManager({
 
   const toggle = (sec: keyof typeof openSections) =>
     setOpenSections((prev) => ({ ...prev, [sec]: !prev[sec] }));
+
+  // Edit booking details state
+  const [isEditingDetails, setIsEditingDetails] = useState(false);
+  const [editTotalPrice, setEditTotalPrice] = useState("");
+  const [editAgentId, setEditAgentId] = useState("");
+  const [editDepartureDate, setEditDepartureDate] = useState("");
+
+  const startEditing = () => {
+    if (booking) {
+      setEditTotalPrice(String(booking.totalPrice ?? ""));
+      setEditAgentId(booking.agentId ?? "");
+      setEditDepartureDate(
+        booking.departureDate
+          ? new Date(booking.departureDate).toISOString().split("T")[0]
+          : "",
+      );
+    }
+    setIsEditingDetails(true);
+  };
+
+  const cancelEditing = () => {
+    setIsEditingDetails(false);
+  };
+
+  // Fetch agents for the agent selector
+  const { data: agentsList } = useQuery({
+    queryKey: ["agents"],
+    queryFn: async () => {
+      const res = await apiClient.get("/agents");
+      return res.data.data.items || [];
+    },
+    enabled: isOpen,
+  });
 
   // Fetch real booking information
   const {
@@ -236,6 +275,54 @@ export default function BookingManager({
       return res.data.data;
     },
     enabled: !!bookingId && isOpen,
+  });
+
+  // Sync edit state when booking loads
+  useEffect(() => {
+    if (booking) {
+      setEditTotalPrice(String(booking.totalPrice ?? ""));
+      setEditAgentId(booking.agentId ?? "");
+      setEditDepartureDate(
+        booking.departureDate
+          ? new Date(booking.departureDate).toISOString().split("T")[0]
+          : "",
+      );
+    }
+  }, [booking?.id]);
+
+  // Mutation: update booking details
+  const updateDetailsMutation = useMutation({
+    mutationFn: async () => {
+      const payload: any = {};
+      if (
+        editTotalPrice !== "" &&
+        editTotalPrice !== String(booking?.totalPrice)
+      ) {
+        payload.totalPrice = parseFloat(editTotalPrice);
+      }
+      if (editAgentId !== (booking?.agentId ?? "")) {
+        payload.agentId = editAgentId || null;
+      }
+      const originalDate = booking?.departureDate
+        ? new Date(booking.departureDate).toISOString().split("T")[0]
+        : "";
+      if (editDepartureDate !== originalDate) {
+        payload.departureDate = editDepartureDate || null;
+      }
+      const res = await apiClient.patch(`/bookings/${bookingId}`, payload);
+      return res.data;
+    },
+    onSuccess: () => {
+      toast.success("Booking details updated!");
+      setIsEditingDetails(false);
+      queryClient.invalidateQueries({ queryKey: ["booking", bookingId] });
+      queryClient.invalidateQueries({ queryKey: ["bookings"] });
+    },
+    onError: (err: any) => {
+      toast.error(
+        err.response?.data?.message || "Failed to update booking details.",
+      );
+    },
   });
 
   if (isLoading) {
@@ -330,7 +417,11 @@ export default function BookingManager({
     ) || 0;
 
   const totalVendorCost =
-    accommodationsCost + flightsCost + transportsCost + visasCost + additionalServicesCost;
+    accommodationsCost +
+    flightsCost +
+    transportsCost +
+    visasCost +
+    additionalServicesCost;
 
   const rawProfit = totalPrice - totalVendorCost;
 
@@ -371,7 +462,7 @@ export default function BookingManager({
     >
       <div className="bg-secondary/15 text-foreground pb-6 font-sans -mx-5 -mb-5 -mt-5">
         {/* Header Actions */}
-        <div className="bg-card border-b border-border px-5 flex items-center justify-between sticky top-0 z-10 shadow-sm">
+        {/* <div className="bg-card border-b border-border px-5 flex items-center justify-between sticky top-0 z-10 shadow-sm">
           <div>
             <p className="text-[13px] font-semibold text-muted-foreground">
               Booking Management Dashboard
@@ -382,18 +473,189 @@ export default function BookingManager({
               onClick={onClose}
               className="px-3.5 py-1.5 bg-secondary hover:bg-secondary/80 text-foreground font-bold rounded-lg text-[13px] border border-border shadow-sm transition-all"
             >
-              Cancel
-            </button>
-            <button
-              onClick={onClose}
-              className="px-4 py-1.5 bg-primary hover:bg-primary/95 text-primary-foreground font-bold rounded-lg text-[13px] shadow-md transition-all"
-            >
-              Save Changes
+              Close
             </button>
           </div>
-        </div>
+        </div> */}
 
         <div className="px-5 mt-4 space-y-4 w-full">
+          {/* 0. Booking Details — view / edit */}
+          <section>
+            <div className="relative overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+              {/* Left accent stripe */}
+              <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-gradient-to-b from-primary via-primary/50 to-transparent" />
+
+              {/* ── VIEW MODE ── */}
+              {!isEditingDetails && (
+                <div className="pl-5 pr-4 py-4 flex items-center justify-between gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-8 gap-y-3 flex-1">
+                    {/* Total Amount */}
+                    <div className="flex flex-col gap-0.5">
+                      <div className="flex items-center gap-1.5">
+                        <Wallet size={10} className="text-muted-foreground" />
+                        <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">
+                          Total Amount
+                        </span>
+                      </div>
+                      <span className="text-[15px] font-black text-foreground">
+                        {formatCurrency(booking.totalPrice)}
+                      </span>
+                    </div>
+
+                    {/* Agent */}
+                    <div className="flex flex-col gap-0.5">
+                      <div className="flex items-center gap-1.5">
+                        <Users size={10} className="text-muted-foreground" />
+                        <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">
+                          Assigned Agent
+                        </span>
+                      </div>
+                      <span className="text-[14px] font-bold text-foreground">
+                        {booking.agent?.name || (
+                          <span className="text-muted-foreground italic text-[12px] font-normal">
+                            No agent assigned
+                          </span>
+                        )}
+                      </span>
+                    </div>
+
+                    {/* Departure Date */}
+                    <div className="flex flex-col gap-0.5">
+                      <div className="flex items-center gap-1.5">
+                        <CalendarRange
+                          size={10}
+                          className="text-muted-foreground"
+                        />
+                        <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">
+                          Departure / Travel Date
+                        </span>
+                      </div>
+                      <span className="text-[14px] font-bold text-foreground">
+                        {booking.departureDate ? (
+                          new Date(booking.departureDate).toLocaleDateString(
+                            "en-GB",
+                            { day: "2-digit", month: "long", year: "numeric" },
+                          )
+                        ) : (
+                          <span className="text-muted-foreground italic text-[12px] font-normal">
+                            Not set
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Edit Button */}
+                  <button
+                    onClick={startEditing}
+                    className="shrink-0 flex items-center gap-1.5 px-3.5 py-2 bg-secondary hover:bg-primary/10 border border-border hover:border-primary/30 text-foreground hover:text-primary rounded-lg text-xs font-bold transition-all group/edit"
+                  >
+                    <Pencil
+                      size={12}
+                      className="group-hover/edit:scale-110 transition-transform"
+                    />
+                    Edit
+                  </button>
+                </div>
+              )}
+
+              {/* ── EDIT MODE ── */}
+              {isEditingDetails && (
+                <div className="pl-5 pr-4 pt-4 pb-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                    {/* Total Amount */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <Wallet size={10} className="text-primary" />
+                        <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">
+                          Total Amount
+                        </label>
+                      </div>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-primary font-black text-sm pointer-events-none">
+                          £
+                        </span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={editTotalPrice}
+                          onChange={(e) => setEditTotalPrice(e.target.value)}
+                          className="w-full pl-7 pr-3 py-2.5 bg-secondary/20 border border-border/60 rounded-lg text-sm font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 focus:bg-background transition-all"
+                          placeholder="0.00"
+                          autoFocus
+                        />
+                      </div>
+                    </div>
+
+                    {/* Agent */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <Users size={10} className="text-primary" />
+                        <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">
+                          Assigned Agent
+                        </label>
+                      </div>
+                      <select
+                        value={editAgentId}
+                        onChange={(e) => setEditAgentId(e.target.value)}
+                        className="w-full px-3 py-2.5 bg-secondary/20 border border-border/60 rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 focus:bg-background transition-all cursor-pointer"
+                      >
+                        <option value="">— No Agent —</option>
+                        {agentsList?.map((agent: any) => (
+                          <option key={agent.id} value={agent.id}>
+                            {agent.name} ({agent.client})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Departure / Travel Date */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <CalendarRange size={10} className="text-primary" />
+                        <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">
+                          Departure / Travel Date
+                        </label>
+                      </div>
+                      <input
+                        type="date"
+                        value={editDepartureDate}
+                        onChange={(e) => setEditDepartureDate(e.target.value)}
+                        className="w-full px-3 py-2.5 bg-secondary/20 border border-border/60 rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 focus:bg-background transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Edit Mode Footer */}
+                  <div className="mt-4 pt-3.5 border-t border-border/40 flex items-center justify-between">
+                    <button
+                      onClick={cancelEditing}
+                      className="flex items-center gap-1.5 px-4 py-2 bg-secondary hover:bg-secondary/70 border border-border text-foreground font-bold rounded-lg text-xs transition-all"
+                    >
+                      <X size={12} />
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => updateDetailsMutation.mutate()}
+                      disabled={updateDetailsMutation.isPending}
+                      className="flex items-center gap-1.5 px-5 py-2 bg-primary hover:bg-primary/90 active:scale-95 text-primary-foreground font-bold rounded-lg text-xs shadow-md shadow-primary/20 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      {updateDetailsMutation.isPending ? (
+                        <Loader2 size={12} className="animate-spin" />
+                      ) : (
+                        <Save size={12} />
+                      )}
+                      {updateDetailsMutation.isPending
+                        ? "Saving..."
+                        : "Save Changes"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+
           {/* 1. Financial Overview */}
           <section className="space-y-2">
             <div
@@ -502,21 +764,32 @@ export default function BookingManager({
                 </div>
 
                 {/* Expected Margin Warning Banner */}
-                {booking.agentId && booking.agent && (() => {
-                  const agentSlabs = booking.agent.slabs || [];
-                  const sortedSlabs = [...agentSlabs].sort((a: any, b: any) => a.minSales - b.minSales);
-                  const tier1 = sortedSlabs[0];
-                  if (!tier1) return null;
-                  return (
-                    <div className="flex items-center gap-2 px-3 py-2 bg-amber-500/5 border border-amber-500/15 rounded-lg text-[10.5px] text-amber-700 dark:text-amber-300 shadow-sm">
-                      <AlertCircle size={13} className="shrink-0 text-amber-500" />
-                      <span>
-                        This is expected agent margin. If this month's total profit is less than{" "}
-                        <strong className="font-bold underline decoration-wavy decoration-amber-500/35">{formatCurrency(tier1.minSales)}</strong>, then this agent margin should be subject to void.
-                      </span>
-                    </div>
-                  );
-                })()}
+                {booking.agentId &&
+                  booking.agent &&
+                  (() => {
+                    const agentSlabs = booking.agent.slabs || [];
+                    const sortedSlabs = [...agentSlabs].sort(
+                      (a: any, b: any) => a.minSales - b.minSales,
+                    );
+                    const tier1 = sortedSlabs[0];
+                    if (!tier1) return null;
+                    return (
+                      <div className="flex items-center gap-2 px-3 py-2 bg-amber-500/5 border border-amber-500/15 rounded-lg text-[10.5px] text-amber-700 dark:text-amber-300 shadow-sm">
+                        <AlertCircle
+                          size={13}
+                          className="shrink-0 text-amber-500"
+                        />
+                        <span>
+                          This is expected agent margin. If this month's total
+                          profit is less than{" "}
+                          <strong className="font-bold underline decoration-wavy decoration-amber-500/35">
+                            {formatCurrency(tier1.minSales)}
+                          </strong>
+                          , then this agent margin should be subject to void.
+                        </span>
+                      </div>
+                    );
+                  })()}
               </div>
             )}
           </section>
@@ -585,21 +858,30 @@ export default function BookingManager({
                           <td className="px-4 py-2 text-muted-foreground">
                             {(() => {
                               if (!tx.notes) return "—";
-                              const receiptMatch = tx.notes.match(/(.*)Receipt:\s*(https?:\/\/[^|]+)(.*)/i);
+                              const receiptMatch = tx.notes.match(
+                                /(.*)Receipt:\s*(https?:\/\/[^|]+)(.*)/i,
+                              );
                               if (receiptMatch) {
                                 const before = receiptMatch[1].trim();
                                 const url = encodeURI(receiptMatch[2].trim());
                                 const after = receiptMatch[3].trim();
                                 return (
                                   <div className="flex flex-col gap-1">
-                                    <span>{[before, after].filter(Boolean).join(" ") || "No additional notes"}</span>
+                                    <span>
+                                      {[before, after]
+                                        .filter(Boolean)
+                                        .join(" ") || "No additional notes"}
+                                    </span>
                                     <a
                                       href={url}
                                       target="_blank"
                                       rel="noopener noreferrer"
                                       className="inline-flex items-center gap-1 text-orange-500 hover:text-orange-600 hover:underline font-semibold"
                                     >
-                                      <FileText size={12} className="shrink-0" />
+                                      <FileText
+                                        size={12}
+                                        className="shrink-0"
+                                      />
                                       View Receipt
                                     </a>
                                   </div>
@@ -655,12 +937,17 @@ export default function BookingManager({
                         <th className="py-2 px-3">Vendor</th>
                         <th className="py-2 px-3 text-right">Original Cost</th>
                         <th className="py-2 px-3 text-right">Amount Paid</th>
-                        <th className="py-2 px-3 text-right">Remaining Balance</th>
-                        <th className="py-2 px-3 text-center">Payment Status</th>
+                        <th className="py-2 px-3 text-right">
+                          Remaining Balance
+                        </th>
+                        <th className="py-2 px-3 text-center">
+                          Payment Status
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/40 font-medium">
-                      {booking.bookingVendorPayments && booking.bookingVendorPayments.length > 0 ? (
+                      {booking.bookingVendorPayments &&
+                      booking.bookingVendorPayments.length > 0 ? (
                         booking.bookingVendorPayments.map((vp: any) => (
                           <tr key={vp.id} className="hover:bg-secondary/5">
                             <td className="py-2.5 px-3 font-semibold text-primary">
@@ -692,8 +979,12 @@ export default function BookingManager({
                         ))
                       ) : (
                         <tr>
-                          <td colSpan={5} className="py-4 text-center text-muted-foreground text-[11px]">
-                            No vendor payment allocations initialized. assignment services to vendors first.
+                          <td
+                            colSpan={5}
+                            className="py-4 text-center text-muted-foreground text-[11px]"
+                          >
+                            No vendor payment allocations initialized.
+                            assignment services to vendors first.
                           </td>
                         </tr>
                       )}
@@ -707,7 +998,8 @@ export default function BookingManager({
                     Payment Allocation History
                   </h3>
                   <div className="space-y-2">
-                    {booking.vendorPaymentAllocations && booking.vendorPaymentAllocations.length > 0 ? (
+                    {booking.vendorPaymentAllocations &&
+                    booking.vendorPaymentAllocations.length > 0 ? (
                       booking.vendorPaymentAllocations.map((alloc: any) => (
                         <div
                           key={alloc.id}
@@ -719,13 +1011,20 @@ export default function BookingManager({
                         >
                           <div className="space-y-1">
                             <div className="flex items-center gap-1.5 font-bold">
-                              <span className="text-primary font-mono">{alloc.vendorPayment.referenceNumber}</span>
+                              <span className="text-primary font-mono">
+                                {alloc.vendorPayment.referenceNumber}
+                              </span>
                               <span>•</span>
-                              <span className="text-muted-foreground">{alloc.vendorPayment.paymentMethod}</span>
+                              <span className="text-muted-foreground">
+                                {alloc.vendorPayment.paymentMethod}
+                              </span>
                             </div>
                             <p className="text-[10px] text-muted-foreground">
-                              Processed By: {alloc.vendorPayment.createdBy ? `${alloc.vendorPayment.createdBy.firstName} ${alloc.vendorPayment.createdBy.lastName}` : "System"} •{" "}
-                              {new Date(alloc.createdAt).toLocaleString()}
+                              Processed By:{" "}
+                              {alloc.vendorPayment.createdBy
+                                ? `${alloc.vendorPayment.createdBy.firstName} ${alloc.vendorPayment.createdBy.lastName}`
+                                : "System"}{" "}
+                              • {new Date(alloc.createdAt).toLocaleString()}
                             </p>
                             {alloc.vendorPayment.notes && (
                               <p className="text-[10px] italic text-muted-foreground/80">

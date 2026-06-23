@@ -67,6 +67,16 @@ export const finalizeMargin = asyncHandler(async (req: AuthenticatedRequest, res
   });
 });
 
+export const updateBookingDetails = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id } = req.params;
+  const { totalPrice, agentId, departureDate } = req.body;
+  const result = await bookingsService.updateBookingDetails(id, { totalPrice, agentId, departureDate });
+  res.status(200).json({
+    success: true,
+    data: result,
+  });
+});
+
 export const addFlightService = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
   const result = await bookingsService.addFlightService(id, req.body);
