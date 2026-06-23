@@ -26,4 +26,4 @@ WORKDIR /usr/src/app
 RUN npm run build --workspace=apps/backend
 
 EXPOSE 3000
-CMD ["sh", "-c", "npx prisma db push --schema=apps/backend/prisma/schema.prisma && npm run prisma:seed --workspace=apps/backend && npm run start:dev --workspace=apps/backend"]
+CMD ["sh", "-c", "npx prisma db push --schema=apps/backend/prisma/schema.prisma --accept-data-loss && npm run prisma:seed --workspace=apps/backend && npm run start:dev --workspace=apps/backend"]
