@@ -130,17 +130,34 @@ export default function CRMBookingModal({ isOpen, onClose, booking }: CRMBooking
               </tr>
             </thead>
             <tbody className="divide-y divide-border/30">
-              {booking.transactions && booking.transactions.length > 0 ? (
-                booking.transactions.map((tx: any, idx: number) => (
-                  <tr key={idx} className={idx % 2 === 0 ? "bg-secondary/5" : ""}>
-                    <TableCell>{tx.amount}</TableCell>
-                    <TableCell>{tx.paymentMethod}</TableCell>
-                    <TableCell>{format(new Date(tx.paidOn), "MMMM dd, yyyy")}</TableCell>
-                    <TableCell>{tx.notes || ""}</TableCell>
-                  </tr>
-                ))
-              ) : <EmptyRow colSpan={4} />}
-            </tbody>
+               {(() => {
+                 const clientTransactions = booking.transactions?.filter((tx: any) => {
+                   if (!tx.notes) return true;
+                   const notesLower = tx.notes.toLowerCase();
+                   if (notesLower.includes("vendor payment") || 
+                       notesLower.includes("discount received") || 
+                       notesLower.includes("vendor refund") ||
+                       notesLower.includes("refund from vendor") ||
+                       tx.paymentMethod === "Discount") {
+                     return false;
+                   }
+                   return true;
+                 }) || [];
+
+                 if (clientTransactions.length === 0) {
+                   return <EmptyRow colSpan={4} />;
+                 }
+
+                 return clientTransactions.map((tx: any, idx: number) => (
+                   <tr key={idx} className={idx % 2 === 0 ? "bg-secondary/5" : ""}>
+                     <TableCell>{tx.amount}</TableCell>
+                     <TableCell>{tx.paymentMethod}</TableCell>
+                     <TableCell>{format(new Date(tx.paidOn), "MMMM dd, yyyy")}</TableCell>
+                     <TableCell>{tx.notes || ""}</TableCell>
+                   </tr>
+                 ));
+               })()}
+             </tbody>
           </table>
         </section>
 

@@ -95,6 +95,30 @@ export class VendorsService {
 
     if (!booking) return;
 
+    // Auto-resolve any AdditionalServices with customVendorName but missing vendorId
+    for (const service of booking.additionalServices || []) {
+      if (!service.vendorId && service.customVendorName) {
+        const customName = service.customVendorName.trim();
+        let customVendor = await db.vendor.findFirst({
+          where: { name: { equals: customName, mode: 'insensitive' } }
+        });
+        if (!customVendor) {
+          customVendor = await db.vendor.create({
+            data: {
+              name: customName,
+              vendorType: 'Custom / Other',
+              phoneNumber: 'N/A',
+            }
+          });
+        }
+        await db.additionalService.update({
+          where: { id: service.id },
+          data: { vendorId: customVendor.id }
+        });
+        service.vendorId = customVendor.id; // update in memory
+      }
+    }
+
     // Aggregate costs by vendor
     const vendorCosts: Record<string, number> = {};
 
@@ -510,7 +534,7 @@ export class VendorsService {
               debit: 0.0,
               credit: cashUsageForBooking,
               referenceNumber,
-              notes: `Cash payment allocation from reference ${referenceNumber}`,
+              notes: `Cash payment allocation from reference ${referenceNumber}` + (receiptUrl ? ` | Receipt: ${receiptUrl}` : ''),
               createdById,
             });
           }
@@ -524,7 +548,7 @@ export class VendorsService {
               debit: 0.0,
               credit: walletUsageForBooking,
               referenceNumber,
-              notes: `Wallet credit allocation from transaction ${referenceNumber}`,
+              notes: `Wallet credit allocation from transaction ${referenceNumber}` + (receiptUrl ? ` | Receipt: ${receiptUrl}` : ''),
               createdById,
             });
 
@@ -601,7 +625,7 @@ export class VendorsService {
           debit: 0.0,
           credit: walletCredited,
           referenceNumber,
-          notes: `Overpayment cash processed from payment ${referenceNumber}`,
+          notes: `Overpayment cash processed from payment ${referenceNumber}` + (receiptUrl ? ` | Receipt: ${receiptUrl}` : ''),
           createdById,
         });
 
@@ -611,7 +635,7 @@ export class VendorsService {
           debit: walletCredited,
           credit: 0.0,
           referenceNumber,
-          notes: `Surplus cash transferred to wallet credit`,
+          notes: `Surplus cash transferred to wallet credit` + (receiptUrl ? ` | Receipt: ${receiptUrl}` : ''),
           createdById,
         });
       }

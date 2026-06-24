@@ -131,6 +131,9 @@ export default function PnrFlightModal({
   const [checkedBaggage, setCheckedBaggage] = useState('');
   const [issueDate, setIssueDate] = useState('');
   const [notes, setNotes] = useState('');
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [refundAmount, setRefundAmount] = useState('0.0');
+  const [fineAmount, setFineAmount] = useState('0.0');
 
   // Handle open state reset & edit population
   useEffect(() => {
@@ -180,10 +183,25 @@ export default function PnrFlightModal({
         
         setFlightClass(flightToEdit.flightClass || 'Y');
         setPrice(String(flightToEdit.price || '0'));
+        setRefundAmount(String(flightToEdit.refundAmount ?? '0.0'));
+        setFineAmount(String(flightToEdit.fineAmount ?? '0.0'));
         setBaggage(flightToEdit.baggage || '');
         setCarryOnBaggage(flightToEdit.carryOnBaggage || '');
         setCheckedBaggage(flightToEdit.checkedBaggage || '');
-        setNotes(flightToEdit.notes || '');
+
+        let initialIsConnecting = false;
+        let initialNotesText = flightToEdit.notes || '';
+        if (flightToEdit.notes) {
+          try {
+            const parsed = JSON.parse(flightToEdit.notes);
+            initialIsConnecting = !!parsed.isConnecting;
+            initialNotesText = parsed.actualNotes || '';
+          } catch (e) {
+            // normal string
+          }
+        }
+        setNotes(initialNotesText);
+        setIsConnecting(initialIsConnecting);
 
         let formattedIssueDate = '';
         if (flightToEdit.issueDate) {
@@ -212,6 +230,9 @@ export default function PnrFlightModal({
         setCheckedBaggage('');
         setIssueDate('');
         setNotes('');
+        setIsConnecting(false);
+        setRefundAmount('0.0');
+        setFineAmount('0.0');
         setSearchQuery('');
         setSelectedSearchBooking(null);
       }
@@ -379,6 +400,10 @@ export default function PnrFlightModal({
 
     setIsSubmitting(true);
     try {
+      const notesJson = JSON.stringify({
+        isConnecting,
+        actualNotes: notes || "",
+      });
       const payload = {
         vendorId,
         flightNo,
@@ -390,10 +415,12 @@ export default function PnrFlightModal({
         date: new Date(date).toISOString(),
         flightClass,
         price: Number(price) || 0,
+        refundAmount: Number(refundAmount) || 0,
+        fineAmount: Number(fineAmount) || 0,
         baggage: baggage || null,
         carryOnBaggage: carryOnBaggage || null,
         checkedBaggage: checkedBaggage || null,
-        notes: notes || null,
+        notes: notesJson,
         issueDate: issueDate ? new Date(issueDate).toISOString() : null,
       };
 
@@ -426,6 +453,8 @@ export default function PnrFlightModal({
       setCheckedBaggage('');
       setIssueDate('');
       setNotes('');
+      setRefundAmount('0.0');
+      setFineAmount('0.0');
     } catch (err: any) {
       toast.error(err.response?.data?.message || "Failed to save flight service");
     } finally {
@@ -809,6 +838,36 @@ export default function PnrFlightModal({
                   />
                 </div>
 
+                {/* Refund Amount */}
+                <div className="flex flex-col gap-1 col-span-1">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                    Refund Amount (GBP)
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    placeholder="0.00"
+                    value={refundAmount}
+                    onChange={(e) => setRefundAmount(e.target.value)}
+                    className="text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary w-full"
+                  />
+                </div>
+
+                {/* Fine Amount */}
+                <div className="flex flex-col gap-1 col-span-1">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                    Fine Amount (GBP)
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    placeholder="0.00"
+                    value={fineAmount}
+                    onChange={(e) => setFineAmount(e.target.value)}
+                    className="text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary w-full"
+                  />
+                </div>
+
                 {/* Checked-in Bag */}
                 <div className="flex flex-col gap-1">
                   <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
@@ -835,6 +894,35 @@ export default function PnrFlightModal({
                     onChange={(e) => setCarryOnBaggage(e.target.value)}
                     className="text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                   />
+                </div>
+
+                {/* Flight Type / Connecting Flight */}
+                <div className="flex flex-col gap-1 col-span-2 bg-primary/5 border border-primary/20 p-3 rounded-xl">
+                  <span className="text-[10px] font-bold text-primary uppercase tracking-wider mb-1">
+                    Flight Destination & Layover Type
+                  </span>
+                  <div className="flex items-center gap-4">
+                    <label className="inline-flex items-center gap-2 cursor-pointer text-xs font-semibold">
+                      <input
+                        type="radio"
+                        name="isConnecting"
+                        checked={!isConnecting}
+                        onChange={() => setIsConnecting(false)}
+                        className="accent-primary"
+                      />
+                      <span>Final Destination Flight (No Layover after this flight)</span>
+                    </label>
+                    <label className="inline-flex items-center gap-2 cursor-pointer text-xs font-semibold">
+                      <input
+                        type="radio"
+                        name="isConnecting"
+                        checked={isConnecting}
+                        onChange={() => setIsConnecting(true)}
+                        className="accent-primary"
+                      />
+                      <span>Connecting Flight (Layovers apply before next segment)</span>
+                    </label>
+                  </div>
                 </div>
 
                 {/* Notes */}

@@ -32,8 +32,11 @@ import {
   Search,
   CalendarRange,
   X,
+  Printer,
+  RotateCcw,
 } from "lucide-react";
 import Modal from "./Modal";
+import HtmlEditorModal from "./HtmlEditorModal";
 import PnrFlightModal from "./PnrFlightModal";
 import PassengerModal from "./PassengerModal";
 import HotelReservationModal from "./HotelReservationModal";
@@ -41,6 +44,21 @@ import TransportReservationModal from "./TransportReservationModal";
 import VisaReservationModal from "./VisaReservationModal";
 import AdditionalServiceModal from "./AdditionalServiceModal";
 import BookingTransactionModal from "./BookingTransactionModal";
+import {
+  printDocument,
+  generateBookingInvoiceHtml,
+  generateFlightTicketHtml,
+  generateHotelVoucherHtml,
+  generateVisaInvoiceHtml,
+  generateTransportVoucherHtml,
+  generateSpecialServiceInvoiceHtml,
+  renderBookingInvoice,
+  renderFlightTicket,
+  renderHotelVoucher,
+  renderTransportVoucher,
+  renderVisaInvoice,
+  renderSpecialServicesInvoice,
+} from "../utils/invoiceTemplates";
 
 interface BookingManagerProps {
   isOpen: boolean;
@@ -224,6 +242,7 @@ export default function BookingManager({
     transportation: true,
     visa: true,
     additional: true,
+    documents: true,
   });
 
   const toggle = (sec: keyof typeof openSections) =>
@@ -231,6 +250,15 @@ export default function BookingManager({
 
   // Edit booking details state
   const [isEditingDetails, setIsEditingDetails] = useState(false);
+  const [isPrintTicketModalOpen, setIsPrintTicketModalOpen] = useState(false);
+  const [printTicketSelectedFlight, setPrintTicketSelectedFlight] = useState<
+    any | null
+  >(null);
+  const [printTicketSelectedPassenger, setPrintTicketSelectedPassenger] = useState<string>("all");
+  const [expandedTx, setExpandedTx] = useState<Record<string, boolean>>({});
+  const [isHtmlEditorOpen, setIsHtmlEditorOpen] = useState(false);
+  const [htmlEditorContent, setHtmlEditorContent] = useState("");
+  const [htmlEditorTitle, setHtmlEditorTitle] = useState("");
   const [editTotalPrice, setEditTotalPrice] = useState("");
   const [editAgentId, setEditAgentId] = useState("");
   const [editDepartureDate, setEditDepartureDate] = useState("");
@@ -250,6 +278,21 @@ export default function BookingManager({
 
   const cancelEditing = () => {
     setIsEditingDetails(false);
+  };
+
+  // Fetch templates for print rendering
+  const { data: dbTemplates } = useQuery({
+    queryKey: ["templates"],
+    queryFn: async () => {
+      const res = await apiClient.get("/templates");
+      return res.data.data;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const getTemplateContent = (type: string) => {
+    const t = dbTemplates?.find((x: any) => x.templateType.toUpperCase() === type.toUpperCase());
+    return t?.htmlContent || "";
   };
 
   // Fetch agents for the agent selector
@@ -423,7 +466,34 @@ export default function BookingManager({
     visasCost +
     additionalServicesCost;
 
-  const rawProfit = totalPrice - totalVendorCost;
+  // Refund Calculations
+  const accommodationsRefund =
+    booking.accommodations?.reduce(
+      (sum: number, acc: any) => sum + (acc.refundAmount || 0),
+      0,
+    ) || 0;
+  const flightsRefund =
+    booking.flightServices?.reduce(
+      (sum: number, fs: any) => sum + (fs.refundAmount || 0),
+      0,
+    ) || 0;
+  const transportsRefund =
+    booking.transportServices?.reduce(
+      (sum: number, ts: any) => sum + (ts.refundAmount || 0),
+      0,
+    ) || 0;
+  const visasRefund =
+    booking.visaServices?.reduce(
+      (sum: number, vs: any) => sum + (vs.refundAmount || 0),
+      0,
+    ) || 0;
+
+  const totalVendorRefund =
+    accommodationsRefund + flightsRefund + transportsRefund + visasRefund;
+
+  const clientRefund = booking.refundAmount || 0;
+
+  const rawProfit = (totalPrice - clientRefund) - (totalVendorCost - totalVendorRefund);
 
   // Potential Margin
   const potentialMargin =
@@ -544,6 +614,21 @@ export default function BookingManager({
                       </span>
                     </div>
                   </div>
+
+                  {/* Print Invoice Button */}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      printDocument(
+                        renderBookingInvoice(getTemplateContent("BOOKING_INVOICE"), booking),
+                        `Booking_Invoice_${booking.bookingReference}`,
+                      )
+                    }
+                    className="shrink-0 flex items-center gap-1.5 px-3.5 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg text-xs font-bold transition-all"
+                  >
+                    <FileText size={12} />
+                    Print Invoice
+                  </button>
 
                   {/* Edit Button */}
                   <button
@@ -761,6 +846,32 @@ export default function BookingManager({
                       {formatCurrency(profit)}
                     </span>
                   </div>
+
+                  {/* Refund from Vendors */}
+                  <div className="bg-card p-3.5 rounded-lg shadow-sm border border-border flex flex-col justify-between">
+                    <div className="flex items-center gap-1 text-violet-500 mb-1">
+                      <RotateCcw size={12} />
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-violet-500">
+                        Refund from Vendors
+                      </span>
+                    </div>
+                    <span className="text-[15px] font-bold text-violet-600 dark:text-violet-400">
+                      {formatCurrency(totalVendorRefund)}
+                    </span>
+                  </div>
+
+                  {/* Refund to Client */}
+                  <div className="bg-card p-3.5 rounded-lg shadow-sm border border-border flex flex-col justify-between">
+                    <div className="flex items-center gap-1 text-rose-400 mb-1">
+                      <RotateCcw size={12} className="scale-x-[-1]" />
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-rose-400">
+                        Refund to Client
+                      </span>
+                    </div>
+                    <span className="text-[15px] font-bold text-rose-500 dark:text-rose-400">
+                      {formatCurrency(clientRefund)}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Expected Margin Warning Banner */}
@@ -836,8 +947,34 @@ export default function BookingManager({
                     </tr>
                   </thead>
                   <tbody className="text-foreground divide-y divide-border">
-                    {booking.transactions?.length > 0 ? (
-                      booking.transactions.map((tx: any) => (
+                    {(() => {
+                      const clientTransactions = booking.transactions?.filter((tx: any) => {
+                        if (!tx.notes) return true;
+                        const notesLower = tx.notes.toLowerCase();
+                        if (notesLower.includes("vendor payment") || 
+                            notesLower.includes("discount received") || 
+                            notesLower.includes("vendor refund") ||
+                            notesLower.includes("refund from vendor") ||
+                            tx.paymentMethod === "Discount") {
+                          return false;
+                        }
+                        return true;
+                      }) || [];
+
+                      if (clientTransactions.length === 0) {
+                        return (
+                          <tr>
+                            <td
+                              colSpan={4}
+                              className="text-center py-4 text-muted-foreground italic text-[12px]"
+                            >
+                              No transactions recorded.
+                            </td>
+                          </tr>
+                        );
+                      }
+
+                      return clientTransactions.map((tx: any) => (
                         <tr
                           key={tx.id}
                           className="hover:bg-secondary/5 transition-colors"
@@ -861,47 +998,57 @@ export default function BookingManager({
                               const receiptMatch = tx.notes.match(
                                 /(.*)Receipt:\s*(https?:\/\/[^|]+)(.*)/i,
                               );
+
+                              let mainText = tx.notes;
+                              let receiptLink: React.ReactNode = null;
+
                               if (receiptMatch) {
                                 const before = receiptMatch[1].trim();
                                 const url = encodeURI(receiptMatch[2].trim());
                                 const after = receiptMatch[3].trim();
-                                return (
-                                  <div className="flex flex-col gap-1">
-                                    <span>
-                                      {[before, after]
-                                        .filter(Boolean)
-                                        .join(" ") || "No additional notes"}
-                                    </span>
-                                    <a
-                                      href={url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="inline-flex items-center gap-1 text-orange-500 hover:text-orange-600 hover:underline font-semibold"
-                                    >
-                                      <FileText
-                                        size={12}
-                                        className="shrink-0"
-                                      />
-                                      View Receipt
-                                    </a>
-                                  </div>
+                                mainText = [before, after].filter(Boolean).join(" ") || "No additional notes";
+                                receiptLink = (
+                                  <a
+                                    href={url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 text-orange-500 hover:text-orange-600 hover:underline font-semibold"
+                                  >
+                                    <FileText size={12} className="shrink-0" />
+                                    View Receipt
+                                  </a>
                                 );
                               }
-                              return tx.notes;
+
+                              const isExpanded = expandedTx[tx.id] || false;
+                              const shouldTruncate = mainText.length > 100;
+                              const displayedText = (shouldTruncate && !isExpanded) 
+                                ? `${mainText.substring(0, 100)}...` 
+                                : mainText;
+
+                              return (
+                                <div className="flex flex-col gap-1 max-w-[500px]">
+                                  <span>{displayedText}</span>
+                                  {shouldTruncate && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setExpandedTx(prev => ({ ...prev, [tx.id]: !isExpanded }));
+                                      }}
+                                      className="text-primary hover:underline text-[10px] font-bold text-left self-start mt-0.5"
+                                    >
+                                      {isExpanded ? "Show Less" : "Show More"}
+                                    </button>
+                                  )}
+                                  {receiptLink}
+                                </div>
+                              );
                             })()}
                           </td>
                         </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td
-                          colSpan={4}
-                          className="text-center py-4 text-muted-foreground italic text-[12px]"
-                        >
-                          No transactions recorded.
-                        </td>
-                      </tr>
-                    )}
+                      ));
+                    })()}
                   </tbody>
                 </table>
               </div>
@@ -1269,6 +1416,40 @@ export default function BookingManager({
                 >
                   <Search size={12} /> Add Existing Flight
                 </button>
+                {/* <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (booking) {
+                      printDocument(generateBookingInvoiceHtml(booking), `Invoice_${booking.bookingReference || booking.id}`);
+                    }
+                  }}
+                  className="flex items-center gap-1 px-2 py-0.5 bg-emerald-600/10 text-emerald-600 hover:bg-emerald-600/20 font-bold rounded text-[12px] transition-colors"
+                >
+                  <FileText size={12} /> Print Invoice
+                </button> */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (
+                      booking &&
+                      booking.flightServices &&
+                      booking.flightServices.length > 0
+                    ) {
+                      setPrintTicketSelectedFlight(booking.flightServices[0]);
+                      setPrintTicketSelectedPassenger("all");
+                      setIsPrintTicketModalOpen(true);
+                    } else {
+                      toast.error(
+                        "No flights registered in this booking to print.",
+                      );
+                    }
+                  }}
+                  className="flex items-center gap-1 px-2 py-0.5 bg-sky-600/10 text-sky-600 hover:bg-sky-600/20 font-bold rounded text-[12px] transition-colors"
+                >
+                  <Printer size={12} /> Print Tickets
+                </button>
                 <button className="text-muted-foreground">
                   {openSections.flights ? (
                     <ChevronUp size={14} />
@@ -1373,6 +1554,19 @@ export default function BookingManager({
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
+                                setPrintTicketSelectedFlight(fs);
+                                setPrintTicketSelectedPassenger("all");
+                                setIsPrintTicketModalOpen(true);
+                              }}
+                              className="p-1 hover:bg-secondary rounded text-muted-foreground hover:text-emerald-600 transition-all"
+                              title="Print E-Ticket"
+                            >
+                              <FileText size={11} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 setEditingFlight(fs);
                                 setPnrModalStep("form");
                                 setIsPnrModalOpen(true);
@@ -1455,6 +1649,20 @@ export default function BookingManager({
                             {acc.hotelName} {acc.city ? `(${acc.city})` : ""}
                           </h4>
                           <div className="flex gap-1">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                printDocument(
+                                  renderHotelVoucher(getTemplateContent("HOTEL_VOUCHER"), booking, acc),
+                                  `Hotel_Voucher_${acc.hotelName.replace(/\s+/g, "_")}`,
+                                );
+                              }}
+                              className="p-1 hover:bg-secondary rounded text-muted-foreground hover:text-emerald-600 transition-all"
+                              title="Print Hotel Voucher"
+                            >
+                              <FileText size={11} />
+                            </button>
                             <button
                               type="button"
                               onClick={(e) => {
@@ -1565,6 +1773,21 @@ export default function BookingManager({
                 >
                   <Plus size={12} /> Add
                 </button>
+                {booking.transportServices?.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      printDocument(
+                        renderTransportVoucher(getTemplateContent("TRANSPORT_VOUCHER"), booking, "all"),
+                        `Combined_Transfers_${booking.bookingReference || booking.id.substring(0, 8)}`,
+                      );
+                    }}
+                    className="flex items-center gap-1 px-2 py-0.5 bg-emerald-600/10 text-emerald-600 hover:bg-emerald-600/20 font-bold rounded text-[12px] transition-colors"
+                  >
+                    <Printer size={12} /> Print All
+                  </button>
+                )}
                 <button className="text-muted-foreground">
                   {openSections.transportation ? (
                     <ChevronUp size={14} />
@@ -1631,6 +1854,20 @@ export default function BookingManager({
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  printDocument(
+                                    renderTransportVoucher(getTemplateContent("TRANSPORT_VOUCHER"), booking, ts),
+                                    `Transfer_Voucher_${ts.id.substring(0, 4)}`,
+                                  );
+                                }}
+                                className="p-1 hover:bg-secondary rounded text-muted-foreground hover:text-emerald-600 transition-all"
+                                title="Print Transport Voucher"
+                              >
+                                <FileText size={11} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   setEditingTransport(ts);
                                   setIsTransportModalOpen(true);
                                 }}
@@ -1691,6 +1928,21 @@ export default function BookingManager({
                 >
                   <Plus size={12} /> Add
                 </button>
+                {booking.visaServices?.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      printDocument(
+                        renderVisaInvoice(getTemplateContent("VISA_INVOICE"), booking, "all"),
+                        `Combined_Visa_Invoice_${booking.bookingReference || booking.id.substring(0, 8)}`,
+                      );
+                    }}
+                    className="flex items-center gap-1 px-2 py-0.5 bg-emerald-600/10 text-emerald-600 hover:bg-emerald-600/20 font-bold rounded text-[12px] transition-colors"
+                  >
+                    <Printer size={12} /> Print All
+                  </button>
+                )}
                 <button className="text-muted-foreground">
                   {openSections.visa ? (
                     <ChevronUp size={14} />
@@ -1736,6 +1988,20 @@ export default function BookingManager({
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            printDocument(
+                              renderVisaInvoice(getTemplateContent("VISA_INVOICE"), booking, vs),
+                              `Visa_Invoice_${vs.passportNumber}`,
+                            );
+                          }}
+                          className="p-1 hover:bg-secondary rounded text-muted-foreground hover:text-emerald-600 transition-all"
+                          title="Print Visa Invoice"
+                        >
+                          <FileText size={11} />
+                        </button>
                         <button
                           type="button"
                           onClick={(e) => {
@@ -1792,6 +2058,21 @@ export default function BookingManager({
                 >
                   <Plus size={12} /> Add
                 </button>
+                {booking.additionalServices?.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      printDocument(
+                        renderSpecialServicesInvoice(getTemplateContent("SPECIAL_SERVICES"), booking, "all"),
+                        `Combined_Special_Services_${booking.bookingReference || booking.id.substring(0, 8)}`,
+                      );
+                    }}
+                    className="flex items-center gap-1 px-2 py-0.5 bg-emerald-600/10 text-emerald-600 hover:bg-emerald-600/20 font-bold rounded text-[12px] transition-colors"
+                  >
+                    <Printer size={12} /> Print All
+                  </button>
+                )}
                 <button className="text-muted-foreground">
                   {openSections.additional ? (
                     <ChevronUp size={14} />
@@ -1847,6 +2128,20 @@ export default function BookingManager({
                         )}
                       </div>
                       <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            printDocument(
+                              renderSpecialServicesInvoice(getTemplateContent("SPECIAL_SERVICES"), booking, as),
+                              `Special_Service_${as.id.substring(0, 4)}`,
+                            );
+                          }}
+                          className="p-1 hover:bg-secondary rounded text-muted-foreground hover:text-emerald-600 transition-all"
+                          title="Print Service Invoice"
+                        >
+                          <FileText size={11} />
+                        </button>
                         <button
                           type="button"
                           onClick={(e) => {
@@ -1981,6 +2276,72 @@ export default function BookingManager({
           queryClient.invalidateQueries({ queryKey: ["booking", booking.id] });
         }}
       />
+
+      <Modal
+        isOpen={isPrintTicketModalOpen}
+        onClose={() => setIsPrintTicketModalOpen(false)}
+        title="Select Ticket Print Option"
+      >
+        <div className="p-4 flex flex-col gap-4 text-left font-sans">
+          <p className="text-xs text-muted-foreground">
+            Choose whether to print a consolidated ticket for all passengers or
+            select an individual passenger.
+          </p>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+              Select Passenger
+            </label>
+            <select
+              value={printTicketSelectedPassenger}
+              onChange={(e) => setPrintTicketSelectedPassenger(e.target.value)}
+              className="text-xs py-2 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary w-full"
+            >
+              <option value="all">
+                Full Family / All Passengers (One page per passenger)
+              </option>
+              {booking?.passengers?.map((p: any) => (
+                <option key={p.id} value={p.id}>
+                  {p.title || ""} {p.firstName} {p.lastName} (
+                  {p.role || "Passenger"})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex justify-end gap-2 mt-4 pt-3 border-t border-border/60">
+            <button
+              type="button"
+              onClick={() => setIsPrintTicketModalOpen(false)}
+              className="px-4 py-1.5 bg-secondary text-foreground font-bold rounded-lg text-xs hover:bg-secondary/80 transition-all border border-border cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (booking && printTicketSelectedFlight) {
+                  printDocument(
+                    renderFlightTicket(
+                      getTemplateContent("FLIGHT_TICKET"),
+                      booking,
+                      printTicketSelectedFlight,
+                      printTicketSelectedPassenger === "all"
+                        ? null
+                        : printTicketSelectedPassenger,
+                    ),
+                    `E-Ticket_${printTicketSelectedFlight.flightNo}`,
+                  );
+                }
+                setIsPrintTicketModalOpen(false);
+              }}
+              className="px-4 py-1.5 bg-primary text-white font-bold rounded-lg text-xs hover:bg-primary/90 transition-all cursor-pointer flex items-center gap-1.5"
+            >
+              Print Ticket
+            </button>
+          </div>
+        </div>
+      </Modal>
     </Modal>
   );
 }

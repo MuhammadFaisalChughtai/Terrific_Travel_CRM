@@ -107,7 +107,7 @@ export default function Login() {
           </button>
         </form>
 
-        <p className="mt-6 text-sm text-center text-muted-foreground relative z-10">
+        {/* <p className="mt-6 text-sm text-center text-muted-foreground relative z-10">
           Don't have an account?{" "}
           <Link
             to="/register"
@@ -115,7 +115,7 @@ export default function Login() {
           >
             Create account
           </Link>
-        </p>
+        </p> */}
       </div>
     </div>
   );

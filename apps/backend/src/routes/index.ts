@@ -11,6 +11,7 @@ import dashboardRoutes from './dashboard.routes';
 import agentsRoutes from './agents.routes';
 import slabsRoutes from './slabs.routes';
 import vendorsRoutes from './vendors.routes';
+import templatesRoutes from './templates.routes';
 
 const router = Router();
 
@@ -26,5 +27,6 @@ router.use('/dashboard', dashboardRoutes);
 router.use('/agents', agentsRoutes);
 router.use('/slabs', slabsRoutes);
 router.use('/vendors', vendorsRoutes);
+router.use('/templates', templatesRoutes);
 
 export default router;

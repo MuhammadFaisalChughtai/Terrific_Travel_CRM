@@ -644,4 +644,19 @@ model AdditionalService {
   updatedAt          DateTime @updatedAt
 }
 
+// ─────────────────────────────────────────────────────────────────
+// Document Templates — admin-editable HTML/CSS shells for printing
+// ─────────────────────────────────────────────────────────────────
+model DocumentTemplate {
+  id           String   @id @default(uuid())
+  /// One of: BOOKING_INVOICE | FLIGHT_TICKET | HOTEL_VOUCHER | TRANSPORT_VOUCHER | VISA_INVOICE | SPECIAL_SERVICES
+  templateType String   @unique
+  name         String
+  description  String?
+  htmlContent  String   @db.Text
+  updatedBy    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
 

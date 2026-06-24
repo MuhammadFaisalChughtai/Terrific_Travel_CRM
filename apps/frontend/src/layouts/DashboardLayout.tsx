@@ -21,6 +21,8 @@ import {
   Users,
   Store,
   BookOpen,
+  FileText,
+  Layers,
 } from "lucide-react";
 export default function DashboardLayout() {
   const location = useLocation();
@@ -43,6 +45,8 @@ export default function DashboardLayout() {
     { name: "Agent", path: "/agent", icon: Users },
     { name: "Vendors", path: "/vendors", icon: Store },
     { name: "Ledger", path: "/ledger", icon: BookOpen },
+    { name: "Invoices", path: "/invoices", icon: FileText },
+    { name: "Templates", path: "/invoice-templates", icon: Layers },
     // { name: "Flights", path: "/flights", icon: Plane },
     // { name: "Hotels", path: "/hotels", icon: Hotel },
     // { name: "Tours", path: "/tours", icon: Map },

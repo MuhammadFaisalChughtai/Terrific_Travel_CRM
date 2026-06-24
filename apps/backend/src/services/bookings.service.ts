@@ -45,7 +45,7 @@ export class BookingsService {
         refundAmount: Number(data.refundAmount) || 0,
         cardPaymentCharges: Number(data.cardPaymentCharges) || 0,
         cancellationCharges: Number(data.cancellationCharges) || 0,
-        remainingAmount: Number(data.remainingAmount) || 0,
+        remainingAmount: Math.max(0, (Number(data.totalPrice) || 0) - (Number(data.paidAmount) || 0)),
         paymentStatus: data.paymentStatus || 'UNPAID',
         lockedStatus: data.lockedStatus || 'UNLOCKED',
         
@@ -628,6 +628,8 @@ export class BookingsService {
         checkedBaggage: data.checkedBaggage || null,
         notes: data.notes || null,
         issueDate: data.issueDate ? new Date(data.issueDate) : null,
+        refundAmount: Number(data.refundAmount) || 0,
+        fineAmount: Number(data.fineAmount) || 0,
       },
       include: {
         vendor: true
@@ -667,6 +669,8 @@ export class BookingsService {
         checkedBaggage: data.checkedBaggage !== undefined ? data.checkedBaggage : undefined,
         notes: data.notes !== undefined ? data.notes : undefined,
         issueDate: data.issueDate !== undefined ? (data.issueDate ? new Date(data.issueDate) : null) : undefined,
+        refundAmount: data.refundAmount !== undefined ? (Number(data.refundAmount) || 0) : undefined,
+        fineAmount: data.fineAmount !== undefined ? (Number(data.fineAmount) || 0) : undefined,
       },
       include: {
         vendor: true
@@ -1569,11 +1573,29 @@ export class BookingsService {
     });
     if (!booking) throw new NotFoundException('Booking not found');
 
+    let vendorId = data.vendorId || null;
+    if (!vendorId && data.customVendorName) {
+      const customName = data.customVendorName.trim();
+      let customVendor = await prisma.vendor.findFirst({
+        where: { name: { equals: customName, mode: 'insensitive' } }
+      });
+      if (!customVendor) {
+        customVendor = await prisma.vendor.create({
+          data: {
+            name: customName,
+            vendorType: 'Custom / Other',
+            phoneNumber: 'N/A',
+          }
+        });
+      }
+      vendorId = customVendor.id;
+    }
+
     const service = await prisma.additionalService.create({
       data: {
         bookingId,
-        vendorId: data.vendorId || null,
-        customVendorName: data.customVendorName || null,
+        vendorId,
+        customVendorName: null,
         serviceName: data.serviceName,
         servicePrice: Number(data.servicePrice) || 0,
         serviceDescription: data.serviceDescription || null,
@@ -1597,15 +1619,36 @@ export class BookingsService {
     });
     if (!booking) throw new NotFoundException('Booking not found');
 
+    let vendorId = data.vendorId;
+    if (data.customVendorName) {
+      const customName = data.customVendorName.trim();
+      let customVendor = await prisma.vendor.findFirst({
+        where: { name: { equals: customName, mode: 'insensitive' } }
+      });
+      if (!customVendor) {
+        customVendor = await prisma.vendor.create({
+          data: {
+            name: customName,
+            vendorType: 'Custom / Other',
+            phoneNumber: 'N/A',
+          }
+        });
+      }
+      vendorId = customVendor.id;
+    }
+
+    const updateData: any = {};
+    if (vendorId !== undefined) {
+      updateData.vendorId = vendorId;
+      updateData.customVendorName = null;
+    }
+    if (data.serviceName !== undefined) updateData.serviceName = data.serviceName;
+    if (data.servicePrice !== undefined) updateData.servicePrice = Number(data.servicePrice) || 0;
+    if (data.serviceDescription !== undefined) updateData.serviceDescription = data.serviceDescription;
+
     const service = await prisma.additionalService.update({
       where: { id: serviceId, bookingId },
-      data: {
-        vendorId: data.vendorId !== undefined ? (data.vendorId || null) : undefined,
-        customVendorName: data.customVendorName !== undefined ? (data.customVendorName || null) : undefined,
-        serviceName: data.serviceName !== undefined ? data.serviceName : undefined,
-        servicePrice: data.servicePrice !== undefined ? (Number(data.servicePrice) || 0) : undefined,
-        serviceDescription: data.serviceDescription !== undefined ? data.serviceDescription : undefined,
-      },
+      data: updateData,
       include: {
         vendor: true
       }

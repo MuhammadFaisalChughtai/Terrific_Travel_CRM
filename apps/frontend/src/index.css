@@ -106,10 +106,10 @@
   background: hsl(var(--muted-foreground) / 0.6);
 }
 
-/* Fix sonner close button overlapping with the left icon */
+/* Fix sonner close button overlapping with the left icon and hanging outside */
 [data-sonner-toast] [data-close-button] {
   left: auto !important;
-  right: 6px !important;
-  top: 6px !important;
-  transform: none !important;
+  right: 12px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
 }

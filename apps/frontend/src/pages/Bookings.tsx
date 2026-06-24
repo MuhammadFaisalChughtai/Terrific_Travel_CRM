@@ -20,6 +20,8 @@ import {
   Eye,
   Edit,
   Filter,
+  Lock,
+  Unlock,
 } from "lucide-react";
 import { toast } from "sonner";
 import Modal from "../components/Modal";
@@ -32,6 +34,22 @@ export default function Bookings() {
 
   // Checkout cart Zustand state
   const { flight, hotel, room, tour, clearCart } = useBookingStore();
+
+  const toggleLockMutation = useMutation({
+    mutationFn: async (bookingId: string) => {
+      const res = await apiClient.patch(`/bookings/${bookingId}/lock`);
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["bookings"] });
+      toast.success("Booking lock status updated!");
+    },
+    onError: (err: any) => {
+      toast.error(
+        err.response?.data?.message || "Failed to update booking lock status",
+      );
+    },
+  });
 
   // Finalize Margin Modal states
   const [isFinalizeModalOpen, setIsFinalizeModalOpen] = useState(false);
@@ -48,19 +66,19 @@ export default function Bookings() {
   // Filters State
   const [filterDepartureDateFrom, setFilterDepartureDateFrom] = useState("");
   const [filterDepartureDateTo, setFilterDepartureDateTo] = useState("");
-  
+
   const [filterRefVal, setFilterRefVal] = useState("");
-  
+
   const [filterAgentId, setFilterAgentId] = useState("Any");
   const [filterCustomerName, setFilterCustomerName] = useState("");
   const [filterCustomerEmail, setFilterCustomerEmail] = useState("");
-  
+
   const [filterStatus, setFilterStatus] = useState("Any");
   const [filterLockedStatus, setFilterLockedStatus] = useState("Any");
   const [filterPaymentStatus, setFilterPaymentStatus] = useState("Any");
-  
+
   const [filterPhoneVal, setFilterPhoneVal] = useState("");
-  
+
   const [filterCreatedAtFrom, setFilterCreatedAtFrom] = useState("");
   const [filterCreatedAtTo, setFilterCreatedAtTo] = useState("");
 
@@ -72,8 +90,10 @@ export default function Bookings() {
     queryKey: ["bookings", JSON.stringify(appliedFilters)],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (appliedFilters.departureDateFrom) params.append("departureDateFrom", appliedFilters.departureDateFrom);
-      if (appliedFilters.departureDateTo) params.append("departureDateTo", appliedFilters.departureDateTo);
+      if (appliedFilters.departureDateFrom)
+        params.append("departureDateFrom", appliedFilters.departureDateFrom);
+      if (appliedFilters.departureDateTo)
+        params.append("departureDateTo", appliedFilters.departureDateTo);
       if (appliedFilters.bookingReference) {
         params.append("bookingReference", appliedFilters.bookingReference);
         params.append("bookingReferenceOp", "contains");
@@ -81,23 +101,33 @@ export default function Bookings() {
       if (appliedFilters.agentId && appliedFilters.agentId !== "Any") {
         params.append("agentId", appliedFilters.agentId);
       }
-      if (appliedFilters.customerName) params.append("customerName", appliedFilters.customerName);
-      if (appliedFilters.customerEmail) params.append("customerEmail", appliedFilters.customerEmail);
+      if (appliedFilters.customerName)
+        params.append("customerName", appliedFilters.customerName);
+      if (appliedFilters.customerEmail)
+        params.append("customerEmail", appliedFilters.customerEmail);
       if (appliedFilters.status && appliedFilters.status !== "Any") {
         params.append("status", appliedFilters.status);
       }
-      if (appliedFilters.lockedStatus && appliedFilters.lockedStatus !== "Any") {
+      if (
+        appliedFilters.lockedStatus &&
+        appliedFilters.lockedStatus !== "Any"
+      ) {
         params.append("lockedStatus", appliedFilters.lockedStatus);
       }
-      if (appliedFilters.paymentStatus && appliedFilters.paymentStatus !== "Any") {
+      if (
+        appliedFilters.paymentStatus &&
+        appliedFilters.paymentStatus !== "Any"
+      ) {
         params.append("paymentStatus", appliedFilters.paymentStatus);
       }
       if (appliedFilters.customerPhone) {
         params.append("customerPhone", appliedFilters.customerPhone);
       }
-      if (appliedFilters.createdAtFrom) params.append("createdAtFrom", appliedFilters.createdAtFrom);
-      if (appliedFilters.createdAtTo) params.append("createdAtTo", appliedFilters.createdAtTo);
-      
+      if (appliedFilters.createdAtFrom)
+        params.append("createdAtFrom", appliedFilters.createdAtFrom);
+      if (appliedFilters.createdAtTo)
+        params.append("createdAtTo", appliedFilters.createdAtTo);
+
       params.append("limit", "1000");
 
       const res = await apiClient.get(`/bookings?${params.toString()}`);
@@ -279,9 +309,15 @@ export default function Bookings() {
           >
             <Filter size={15} />
             Filter Bookings
-            {Object.keys(appliedFilters).filter(k => appliedFilters[k] && appliedFilters[k] !== "Any").length > 0 && (
+            {Object.keys(appliedFilters).filter(
+              (k) => appliedFilters[k] && appliedFilters[k] !== "Any",
+            ).length > 0 && (
               <span className="bg-primary text-primary-foreground text-[10px] px-1.5 py-0.5 rounded-full font-black ml-1">
-                {Object.keys(appliedFilters).filter(k => appliedFilters[k] && appliedFilters[k] !== "Any").length}
+                {
+                  Object.keys(appliedFilters).filter(
+                    (k) => appliedFilters[k] && appliedFilters[k] !== "Any",
+                  ).length
+                }
               </span>
             )}
           </button>
@@ -357,8 +393,7 @@ export default function Bookings() {
                     // Dynamic Vendor Payment calculations
                     const accommodationsCost =
                       booking.accommodations?.reduce(
-                        (sum: number, acc: any) =>
-                          sum + acc.price,
+                        (sum: number, acc: any) => sum + acc.price,
                         0,
                       ) || 0;
                     const flightsCost =
@@ -454,7 +489,13 @@ export default function Bookings() {
                           {formatCurrency(booking.paidAmount)}
                         </td>
                         <td className="px-4 py-3.5 whitespace-nowrap text-right font-semibold text-muted-foreground align-middle">
-                          {formatCurrency(booking.remainingAmount)}
+                          {formatCurrency(
+                            Math.max(
+                              0,
+                              (booking.totalPrice || 0) -
+                                (booking.paidAmount || 0),
+                            ),
+                          )}
                         </td>
                         <td className="px-4 py-3.5 whitespace-nowrap text-right font-semibold text-blue-600 dark:text-blue-400 align-middle">
                           {agentMargin !== null
@@ -501,6 +542,29 @@ export default function Bookings() {
                               title="Edit Booking"
                             >
                               <Edit size={15} />
+                            </button>
+                            <span className="text-muted-foreground/30">|</span>
+                            <button
+                              onClick={() =>
+                                toggleLockMutation.mutate(booking.id)
+                              }
+                              className={`${
+                                booking.lockedStatus === "LOCKED"
+                                  ? "text-rose-600 hover:text-rose-700"
+                                  : "text-emerald-600 hover:text-emerald-700"
+                              } p-1 rounded hover:bg-secondary/35 transition-all`}
+                              title={
+                                booking.lockedStatus === "LOCKED"
+                                  ? "Unlock Booking"
+                                  : "Lock Booking"
+                              }
+                              disabled={toggleLockMutation.isPending}
+                            >
+                              {booking.lockedStatus === "LOCKED" ? (
+                                <Lock size={15} />
+                              ) : (
+                                <Unlock size={15} />
+                              )}
                             </button>
                             {booking.status === "CONFIRMED" &&
                               !booking.agentId && (
@@ -734,11 +798,16 @@ export default function Bookings() {
         title="Filter Bookings"
         maxWidth="2xl"
       >
-        <form onSubmit={handleApplyFilters} className="space-y-5 text-xs text-muted-foreground p-1">
+        <form
+          onSubmit={handleApplyFilters}
+          className="space-y-5 text-xs text-muted-foreground p-1"
+        >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* BOOKING REFERENCE */}
             <div className="space-y-1">
-              <label className="font-bold text-muted-foreground uppercase tracking-wider block">BOOKING REFERENCE</label>
+              <label className="font-bold text-muted-foreground uppercase tracking-wider block">
+                BOOKING REFERENCE
+              </label>
               <input
                 type="text"
                 placeholder="Reference"
@@ -750,7 +819,9 @@ export default function Bookings() {
 
             {/* CUSTOMER NAME CONTAINS */}
             <div className="space-y-1">
-              <label className="font-bold text-muted-foreground uppercase tracking-wider block">CUSTOMER NAME CONTAINS</label>
+              <label className="font-bold text-muted-foreground uppercase tracking-wider block">
+                CUSTOMER NAME CONTAINS
+              </label>
               <input
                 type="text"
                 placeholder="Name pattern"
@@ -762,7 +833,9 @@ export default function Bookings() {
 
             {/* CUSTOMER EMAIL CONTAINS */}
             <div className="space-y-1">
-              <label className="font-bold text-muted-foreground uppercase tracking-wider block">CUSTOMER EMAIL CONTAINS</label>
+              <label className="font-bold text-muted-foreground uppercase tracking-wider block">
+                CUSTOMER EMAIL CONTAINS
+              </label>
               <input
                 type="text"
                 placeholder="Email pattern"
@@ -774,7 +847,9 @@ export default function Bookings() {
 
             {/* CUSTOMER PHONE NUMBER */}
             <div className="space-y-1">
-              <label className="font-bold text-muted-foreground uppercase tracking-wider block">CUSTOMER PHONE NUMBER</label>
+              <label className="font-bold text-muted-foreground uppercase tracking-wider block">
+                CUSTOMER PHONE NUMBER
+              </label>
               <input
                 type="text"
                 placeholder="Phone"
@@ -786,7 +861,9 @@ export default function Bookings() {
 
             {/* AGENT */}
             <div className="space-y-1">
-              <label className="font-bold text-muted-foreground uppercase tracking-wider block">AGENT</label>
+              <label className="font-bold text-muted-foreground uppercase tracking-wider block">
+                AGENT
+              </label>
               <select
                 value={filterAgentId}
                 onChange={(e) => setFilterAgentId(e.target.value)}
@@ -794,14 +871,18 @@ export default function Bookings() {
               >
                 <option value="Any">Any</option>
                 {agents?.map((a: any) => (
-                  <option key={a.id} value={a.id}>{a.name}</option>
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                  </option>
                 ))}
               </select>
             </div>
 
             {/* STATUS */}
             <div className="space-y-1">
-              <label className="font-bold text-muted-foreground uppercase tracking-wider block">STATUS</label>
+              <label className="font-bold text-muted-foreground uppercase tracking-wider block">
+                STATUS
+              </label>
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
@@ -817,7 +898,9 @@ export default function Bookings() {
 
             {/* LOCKED STATUS */}
             <div className="space-y-1">
-              <label className="font-bold text-muted-foreground uppercase tracking-wider block">LOCKED STATUS</label>
+              <label className="font-bold text-muted-foreground uppercase tracking-wider block">
+                LOCKED STATUS
+              </label>
               <select
                 value={filterLockedStatus}
                 onChange={(e) => setFilterLockedStatus(e.target.value)}
@@ -831,7 +914,9 @@ export default function Bookings() {
 
             {/* PAYMENT STATUS */}
             <div className="space-y-1">
-              <label className="font-bold text-muted-foreground uppercase tracking-wider block">PAYMENT STATUS</label>
+              <label className="font-bold text-muted-foreground uppercase tracking-wider block">
+                PAYMENT STATUS
+              </label>
               <select
                 value={filterPaymentStatus}
                 onChange={(e) => setFilterPaymentStatus(e.target.value)}
@@ -846,7 +931,9 @@ export default function Bookings() {
 
             {/* DEPARTURE DATE */}
             <div className="space-y-1">
-              <label className="font-bold text-muted-foreground uppercase tracking-wider block">DEPARTURE DATE (FROM / TO)</label>
+              <label className="font-bold text-muted-foreground uppercase tracking-wider block">
+                DEPARTURE DATE (FROM / TO)
+              </label>
               <div className="flex gap-2">
                 <input
                   type="date"
@@ -867,7 +954,9 @@ export default function Bookings() {
 
             {/* CREATED AT */}
             <div className="space-y-1">
-              <label className="font-bold text-muted-foreground uppercase tracking-wider block">CREATED AT (FROM / TO)</label>
+              <label className="font-bold text-muted-foreground uppercase tracking-wider block">
+                CREATED AT (FROM / TO)
+              </label>
               <div className="flex gap-2">
                 <input
                   type="date"
