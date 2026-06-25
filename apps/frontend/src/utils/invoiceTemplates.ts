@@ -258,6 +258,123 @@ export const SHARED_CSS = `
     align-items: center;
   }
 
+  /* Timeline component styles */
+  .timeline-container {
+    position: relative;
+    padding-left: 28px;
+    margin: 20px 0 20px 8px;
+    border-left: 2px solid #E2E8F0;
+  }
+  .timeline-item {
+    position: relative;
+    margin-bottom: 20px;
+  }
+  .timeline-item:last-child {
+    margin-bottom: 0;
+  }
+  .timeline-badge {
+    position: absolute;
+    left: -40px;
+    top: 2px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #FFFFFF;
+    border: 2px solid #64748B;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    z-index: 10;
+  }
+  .timeline-badge.flight { border-color: #0284C7; color: #0284C7; }
+  .timeline-badge.hotel { border-color: #10B981; color: #10B981; }
+  .timeline-badge.transfer { border-color: #F59E0B; color: #F59E0B; }
+  .timeline-badge.visa { border-color: #8B5CF6; color: #8B5CF6; }
+  .timeline-badge.special { border-color: #EC4899; color: #EC4899; }
+  .timeline-badge.layover { border-color: #D97706; color: #D97706; background: #FFFBEB; }
+  
+  .timeline-card {
+    background: #F8FAFC;
+    border: 1px solid #E2E8F0;
+    border-radius: 8px;
+    padding: 12px 16px;
+    text-align: left;
+  }
+  .timeline-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    border-bottom: 1px dashed #E2E8F0;
+    padding-bottom: 6px;
+  }
+  .timeline-title {
+    font-family: 'Outfit', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    color: #0F172A;
+  }
+  .timeline-date {
+    font-size: 9.5px;
+    color: #64748B;
+    font-weight: 600;
+  }
+  .timeline-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px 16px;
+    font-size: 10px;
+  }
+  .timeline-detail-item {
+    color: #475569;
+  }
+  .timeline-detail-item strong {
+    color: #0F172A;
+  }
+  .timeline-badge-status {
+    font-size: 8px;
+    font-weight: 800;
+    padding: 1px 6px;
+    border-radius: 99px;
+    text-transform: uppercase;
+  }
+  .timeline-badge-status.confirmed { background: #DCFCE7; color: #15803D; }
+  .timeline-badge-status.pending { background: #FEF3C7; color: #D97706; }
+  .timeline-badge-status.cancelled { background: #FEE2E2; color: #991B1B; }
+
+  /* Terms Grid styling */
+  .terms-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 24px;
+    font-size: 8.5px;
+    color: #64748B;
+    text-align: left;
+  }
+  .terms-card {
+    background: #F8FAFC;
+    border: 1px solid #E2E8F0;
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .terms-card h4 {
+    margin: 0 0 6px 0;
+    color: #0F172A;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 9px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .terms-card p {
+    margin: 0;
+    line-height: 1.4;
+  }
+
   .ticket-card-body {
     padding: 16px;
     display: grid;
@@ -310,19 +427,11 @@ export const SHARED_CSS = `
   }
 
   .layover-divider {
-    background: #FFFBEB;
-    border: 1px dashed #F59E0B;
-    border-radius: 6px;
-    padding: 8px 12px;
-    margin: 12px 0 6px 0;
-    text-align: center;
-    font-size: 11px;
-    font-weight: 700;
-    color: #B45309;
     display: flex;
-    justify-content: center;
     align-items: center;
-    gap: 8px;
+    justify-content: center;
+    margin: 16px 0;
+    position: relative;
     clear: both;
   }
 `;
@@ -368,6 +477,216 @@ function formatDate(d: any) {
   });
 }
 
+function formatNotes(notesString: string | null | undefined): string {
+  if (!notesString) return "";
+  const trimmed = notesString.trim();
+  if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (parsed && typeof parsed === "object") {
+        if ("actualNotes" in parsed) {
+          return parsed.actualNotes || "";
+        }
+      }
+    } catch (e) {
+      // Ignore
+    }
+  }
+  return notesString;
+}
+
+function generateTimelineHtml(booking: any): string {
+  const items: any[] = [];
+
+  const formatDate = (d: any) => {
+    if (!d) return "—";
+    const date = new Date(d);
+    return date.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  };
+
+  // Flights
+  if (booking.flightServices && booking.flightServices.length > 0) {
+    const sortedFlights = [...booking.flightServices].sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    sortedFlights.forEach((f: any, idx: number) => {
+      const nextFlight = sortedFlights[idx + 1];
+      const isConnecting = getIsConnecting(f, nextFlight);
+      const layoverStr = isConnecting && nextFlight ? calculateLayover(f, nextFlight) : "";
+      
+      const extractCode = (str: string) => {
+        const match = str.match(/\(([^)]+)\)/);
+        return match ? match[1].toUpperCase() : str.toUpperCase();
+      };
+      const transitHub = extractCode(f.arrivedAt || "");
+
+      items.push({
+        type: "FLIGHT",
+        date: f.date ? new Date(f.date) : new Date(booking.createdAt),
+        title: `Outbound Flight: ${f.departedFrom} to ${f.arrivedAt}`,
+        icon: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-1.1.1-1.4.5l-.3.3c-.4.4-.4 1.1 0 1.5L9 12l-5.5 5.5H2v2l2 2h2v-1.5L11.5 15l3.5 5.7c.4.4 1.1.4 1.5 0l.3-.3c.4-.3.6-.9.5-1.4Z"/></svg>`,
+        badgeClass: "flight",
+        details: `
+          <div class="timeline-detail-item">Flight: <strong>${f.flightNo}</strong> (PNR: ${f.pnr || "—"})</div>
+          <div class="timeline-detail-item">Departure: <strong>${f.departTime || "—"}</strong> | Arrival: <strong>${f.arrivalTime || "—"}</strong></div>
+          <div class="timeline-detail-item">Class: <strong>${f.flightClass || "Economy"}</strong> | Baggage: <strong>${f.baggage || "23 KG"}</strong></div>
+          <div class="timeline-detail-item">Supplier: <strong>${f.vendor?.name || "Terrific Travel Partner"}</strong></div>
+        `,
+        notes: f.notes
+      });
+
+      if (isConnecting && layoverStr) {
+        const layoverDate = f.date ? new Date(new Date(f.date).getTime() + 1000) : new Date(new Date(booking.createdAt).getTime() + 1000);
+        items.push({
+          type: "LAYOVER",
+          date: layoverDate,
+          title: `Transit Connection at ${transitHub}`,
+          icon: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="display:block; color:#D97706;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+          badgeClass: "layover",
+          details: `Connection layover of <strong>${layoverStr}</strong> before the next flight.`,
+          notes: "",
+          isLayoverCard: true
+        });
+      }
+    });
+  }
+
+  // Accommodations
+  if (booking.accommodations && booking.accommodations.length > 0) {
+    booking.accommodations.forEach((h: any) => {
+      const checkIn = h.checkInDate ? new Date(h.checkInDate) : new Date(booking.createdAt);
+      const checkOut = h.checkOutDate ? new Date(h.checkOutDate) : new Date(booking.createdAt);
+      const diffTime = Math.abs(checkOut.getTime() - checkIn.getTime());
+      const nights = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
+      
+      items.push({
+        type: "HOTEL",
+        date: checkIn,
+        title: `Hotel Check-In: ${h.hotelName}`,
+        icon: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M18 22V8a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v14"/><path d="M4 22h16"/><path d="M10 14a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v8H10Z"/><path d="M12 2v4"/><path d="M8 5h8"/></svg>`,
+        badgeClass: "hotel",
+        details: `
+          <div class="timeline-detail-item">Room: <strong>${h.roomType} x${h.qty || 1}</strong> (${h.mealType || "Room Only"})</div>
+          <div class="timeline-detail-item">Stay: <strong>${nights} Night(s)</strong> | Check-Out: <strong>${formatDate(checkOut)}</strong></div>
+          <div class="timeline-detail-item">City: <strong>${h.city || "—"}</strong> | Conf #: <strong>${h.hotelConfirmationNumber || "—"}</strong></div>
+          <div class="timeline-detail-item">Supplier: <strong>${h.vendor?.name || "Terrific Travel Partner"}</strong></div>
+        `,
+        notes: h.notes
+      });
+    });
+  }
+
+  // Transports
+  if (booking.transportServices && booking.transportServices.length > 0) {
+    booking.transportServices.forEach((t: any) => {
+      items.push({
+        type: "TRANSFER",
+        date: t.date ? new Date(t.date) : new Date(booking.createdAt),
+        title: `Ground Transfer: ${t.departureDestination} to ${t.arrivalDestination}`,
+        icon: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/><path d="M5 21h14"/><path d="M9 13h6"/></svg>`,
+        badgeClass: "transfer",
+        details: `
+          <div class="timeline-detail-item">Vehicle: <strong>${t.vehicleType}</strong> | Pickup Time: <strong>${t.departureTime || "—"}</strong></div>
+          <div class="timeline-detail-item">Flight Ref: <strong>${t.flightNo || "—"}</strong></div>
+          <div class="timeline-detail-item">Supplier: <strong>${t.vendor?.name || "Terrific Travel Partner"}</strong></div>
+        `,
+        notes: t.notes
+      });
+    });
+  }
+
+  // Visas
+  if (booking.visaServices && booking.visaServices.length > 0) {
+    booking.visaServices.forEach((v: any) => {
+      items.push({
+        type: "VISA",
+        date: v.issueDate ? new Date(v.issueDate) : new Date(booking.createdAt),
+        title: `Visa Application: ${v.visaType}`,
+        icon: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>`,
+        badgeClass: "visa",
+        details: `
+          <div class="timeline-detail-item">Status: <strong>Processed</strong></div>
+          <div class="timeline-detail-item">Supplier: <strong>${v.vendor?.name || "Terrific Travel Partner"}</strong></div>
+        `,
+        notes: v.notes
+      });
+    });
+  }
+
+  // Special/Additional Services
+  if (booking.additionalServices && booking.additionalServices.length > 0) {
+    booking.additionalServices.forEach((a: any) => {
+      items.push({
+        type: "SPECIAL_SERVICE",
+        date: a.createdAt ? new Date(a.createdAt) : new Date(booking.createdAt),
+        title: `Special Service: ${a.serviceName}`,
+        icon: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>`,
+        badgeClass: "special",
+        details: `
+          <div class="timeline-detail-item">Description: <strong>${a.serviceDescription || "—"}</strong></div>
+          <div class="timeline-detail-item">Supplier: <strong>${a.customVendorName || a.vendor?.name || "Terrific Travel Partner"}</strong></div>
+        `,
+        notes: a.notes
+      });
+    });
+  }
+
+  if (items.length === 0) {
+    return `<div class="text-center" style="color: #64748B; padding: 24px; background: #F8FAFC; border: 1px dashed #E2E8F0; border-radius: 8px;">No travel itinerary components registered.</div>`;
+  }
+
+  // Sort chronologically
+  items.sort((a, b) => a.date.getTime() - b.date.getTime());
+
+  return `
+    <div class="timeline-container">
+      ${items
+        .map(
+          (item) => {
+            if (item.isLayoverCard) {
+              return `
+              <div class="timeline-item">
+                <div class="timeline-badge layover">${item.icon}</div>
+                <div class="timeline-card" style="background: #FFFBEB; border: 1.5px solid #FDE68A; border-radius: 8px; padding: 8px 16px;">
+                  <div style="font-weight: 800; color: #78350F; font-size: 11px; display: flex; align-items: center; gap: 6px;">
+                    ${item.title}
+                  </div>
+                  <div style="margin-top: 4px; font-size: 10px; color: #B45309;">
+                    ${item.details}
+                  </div>
+                </div>
+              </div>
+              `;
+            }
+
+            const formattedNotesText = formatNotes(item.notes);
+
+            return `
+            <div class="timeline-item">
+              <div class="timeline-badge ${item.badgeClass}">${item.icon}</div>
+              <div class="timeline-card">
+                <div class="timeline-card-header">
+                  <div class="timeline-title">${item.title}</div>
+                  <div class="timeline-date">${formatDate(item.date)}</div>
+                </div>
+                <div class="timeline-grid">${item.details}</div>
+                ${
+                  formattedNotesText
+                    ? `<div style="margin-top: 8px; font-size: 9px; color: #64748B; font-style: italic; background: #FFFFFF; padding: 6px; border-radius: 4px; border: 1px solid #E2E8F0;">Notes: ${formattedNotesText}</div>`
+                    : ""
+                }
+              </div>
+            </div>
+            `;
+          }
+        )
+        .join("")}
+    </div>
+  `;
+}
+
 // 1. GENERATE BOOKING INVOICE
 export function generateBookingInvoiceHtml(booking: any) {
   const leader =
@@ -411,17 +730,26 @@ export function generateBookingInvoiceHtml(booking: any) {
 
   return `
     <div class="document-container">
-      <div class="doc-header">
+      <div class="doc-header" style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #E2E8F0; padding-bottom: 16px; margin-bottom: 24px;">
         <div class="brand-block">
           ${BRAND_LOGOS.companyLogo}
-          <p style="margin-top: 8px; margin-bottom: 0; font-size: 9px; color: #64748B;">
-            120 Baker Street, London, W1U 6TU, United Kingdom<br>
-            Phone: +44 20 7946 0958 | Email: accounts@terrifictravel.co.uk
+          <p style="margin-top: 8px; margin-bottom: 0; font-size: 9px; color: #64748B; line-height: 1.4;">
+            <strong>Terrific Travel &amp; Tours Ltd</strong><br>
+            Address: Office 1, 11 Walford Road, Birmingham, B11 1NP, UK<br>
+            Phone: 0121 529 1630 | Emergency: +44 77 0090 0077<br>
+            Email: office@terrifictravel.co.uk | Web: www.terrifictravel.co.uk<br>
+            ATOL: 11492 | IATA: 91263712 | Reg No: 09384812
           </p>
         </div>
-        <div class="logos-block">
-          ${BRAND_LOGOS.iataLogo}
-          ${BRAND_LOGOS.atolLogo}
+        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+          <div class="logos-block">
+            ${BRAND_LOGOS.iataLogo}
+            ${BRAND_LOGOS.atolLogo}
+          </div>
+          <svg width="50" height="50" viewBox="0 0 29 29" fill="none" xmlns="http://www.w3.org/2000/svg" style="border: 1px solid #E2E8F0; padding: 4px; border-radius: 4px; background: white; margin-top: 4px;">
+            <path d="M0 0h7v7H0V0zm1 1v5h5V1H1zm8 0h1v1H9V1zm1 1h1v1h-1V2zm-1 1h1v1H9V3zm3-3h7v7h-7V0zm1 1v5h5V1h-5zm-5 7h1v1H9V8zm1 1h1v1h-1V9zm-1 1h1v1H9v-1zm4-2h1v1h-1V8zm1 1h1v1h-1V9zm-1 1h1v1h-1v-1zm4-2h1v1h-1V8zm1 1h1v1h-1V9zm-1 1h1v1h-1v-1zm-9 3h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1z" fill="#0F172A"/>
+            <path d="M0 9h7v7H0V9zm1 1v5h5v-5H1zm8 0h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm3-3h7v7h-7V9zm1 1v5h5v-5h-5zm-5 7h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm-9 3h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1z" fill="#0F172A"/>
+          </svg>
         </div>
       </div>
 
@@ -438,19 +766,18 @@ export function generateBookingInvoiceHtml(booking: any) {
         </div>
       </div>
 
-      <div class="info-grid">
+      <div class="info-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 20px;">
         <div class="info-box">
           <h3>Lead Passenger / Client</h3>
           <p><strong>${leader ? `${leader.title || ""} ${leader.firstName} ${leader.lastName}` : "Valued Customer"}</strong></p>
           ${leader && leader.email ? `<p>Email: ${leader.email}</p>` : ""}
           ${leader && leader.phoneNumber ? `<p>Phone: ${leader.phoneNumber}</p>` : ""}
-          ${leader && leader.passportNumber ? `<p>Passport No: ${leader.passportNumber}</p>` : ""}
         </div>
         <div class="info-box">
           <h3>Agent / Account Executive</h3>
           <p><strong>${booking.agent?.name || "Terrific Travel Direct Office"}</strong></p>
-          <p>GDS System: ${booking.agent?.gdsSystem || "Amadeus/Sabre"}</p>
-          <p>Assigned PCC: ${booking.agent?.pcc || "Direct Customer Support"}</p>
+          ${booking.agent?.phoneNumber ? `<p>Phone: ${booking.agent.phoneNumber}</p>` : ""}
+          ${booking.agent?.email ? `<p>Email: ${booking.agent.email}</p>` : ""}
         </div>
       </div>
 
@@ -460,9 +787,7 @@ export function generateBookingInvoiceHtml(booking: any) {
           <tr>
             <th>Passenger Name</th>
             <th>Type/Age</th>
-            <th>Passport Number</th>
             <th>Nationality</th>
-            <th>Passport Expiry</th>
           </tr>
         </thead>
         <tbody>
@@ -474,149 +799,85 @@ export function generateBookingInvoiceHtml(booking: any) {
             <tr>
               <td><strong>${p.title || ""} ${p.firstName} ${p.lastName}</strong></td>
               <td>${p.age || "Adult"} (${p.role || "Passenger"})</td>
-              <td>${p.passportNumber || "—"}</td>
               <td>${p.nationality || "—"}</td>
-              <td>${p.passportExpiryDate ? formatDate(p.passportExpiryDate) : "—"}</td>
             </tr>
           `,
                   )
                   .join("")
               : `
             <tr>
-              <td colspan="5" class="text-center" style="color: #64748B;">No passenger info added.</td>
+              <td colspan="3" class="text-center" style="color: #64748B;">No passenger info added.</td>
             </tr>
           `
           }
         </tbody>
       </table>
 
-      <h3 style="font-family: 'Outfit', sans-serif; text-transform: uppercase; font-size: 11px; color: #0F172A; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px; margin-bottom: 12px;">Itemized Services & Booking Elements</h3>
-      <table class="data-table" style="margin-bottom: 16px;">
-        <thead>
-          <tr>
-            <th>Service Type</th>
-            <th>Description & Booking Details</th>
-            <th class="text-right">Price</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${
-            booking.flightServices
-              ?.map(
-                (f: any) => `
-            <tr>
-              <td><span style="font-weight: 700; color: #0284C7;">FLIGHT</span></td>
-              <td>Flight No: <strong>${f.flightNo}</strong> (PNR: ${f.pnr || "—"}) - ${f.departedFrom} to ${f.arrivedAt} on ${formatDate(f.date)}</td>
-              <td class="text-right">${formatCurrency(f.price)}</td>
-            </tr>
-          `,
-              )
-              .join("") || ""
-          }
-
-          ${
-            booking.accommodations
-              ?.map(
-                (h: any) => `
-            <tr>
-              <td><span style="font-weight: 700; color: #10B981;">HOTEL</span></td>
-              <td><strong>${h.hotelName}</strong> (${h.city || "—"}) - Room: ${h.roomType} x${h.qty} (${h.mealType || "Room Only"}), Confirmation #: ${h.hotelConfirmationNumber || "—"}</td>
-              <td class="text-right">${formatCurrency(h.price)}</td>
-            </tr>
-          `,
-              )
-              .join("") || ""
-          }
-
-          ${
-            booking.transportServices
-              ?.map(
-                (t: any) => `
-            <tr>
-              <td><span style="font-weight: 700; color: #F59E0B;">TRANSFER</span></td>
-              <td>${t.vehicleType} - From: ${t.departureDestination} to ${t.arrivalDestination} on ${formatDate(t.date)}</td>
-              <td class="text-right">${formatCurrency(t.price)}</td>
-            </tr>
-          `,
-              )
-              .join("") || ""
-          }
-
-          ${
-            booking.visaServices
-              ?.map(
-                (v: any) => `
-            <tr>
-              <td><span style="font-weight: 700; color: #8B5CF6;">VISA</span></td>
-              <td>Visa Type: ${v.visaType} (Passport: ${v.passportNumber}) - Visa Number: ${v.visaNumber || "—"}</td>
-              <td class="text-right">${formatCurrency(v.price)}</td>
-            </tr>
-          `,
-              )
-              .join("") || ""
-          }
-
-          ${
-            booking.additionalServices
-              ?.map(
-                (a: any) => `
-            <tr>
-              <td><span style="font-weight: 700; color: #EC4899;">SPECIAL SERVICE</span></td>
-              <td><strong>${a.serviceName}</strong> ${a.serviceDescription ? ` - ${a.serviceDescription}` : ""} ${a.customVendorName ? `(Vendor: ${a.customVendorName})` : ""}</td>
-              <td class="text-right">${formatCurrency(a.servicePrice)}</td>
-            </tr>
-          `,
-              )
-              .join("") || ""
-          }
-
-          ${
-            !booking.flightServices?.length &&
-            !booking.accommodations?.length &&
-            !booking.transportServices?.length &&
-            !booking.visaServices?.length &&
-            !booking.additionalServices?.length
-              ? `
-            <tr>
-              <td colspan="3" class="text-center" style="color: #64748B;">No service components registered.</td>
-            </tr>
-          `
-              : ""
-          }
-        </tbody>
-      </table>
+      <h3 style="font-family: 'Outfit', sans-serif; text-transform: uppercase; font-size: 11px; color: #0F172A; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px; margin-bottom: 16px;">Dynamic Trip Itinerary &amp; Timeline</h3>
+      ${generateTimelineHtml(booking)}
 
       <div class="financial-panel">
         <table class="financial-table">
           <tr>
-            <td>Subtotal Cost:</td>
-            <td class="text-right">${formatCurrency(totalCalculated)}</td>
-          </tr>
-          <tr>
-            <td>Adjusted Total Price:</td>
+            <td>Total Invoice Amount:</td>
             <td class="text-right"><strong>${formatCurrency(totalPrice)}</strong></td>
           </tr>
           <tr>
-            <td>Amount Received:</td>
+            <td>Total Amount Received:</td>
             <td class="text-right" style="color: #16A34A; font-weight: bold;">${formatCurrency(paidAmount)}</td>
           </tr>
           <tr class="due-row">
-            <td><strong>Outstanding Balance Due:</strong></td>
+            <td><strong>Remaining Balance Due:</strong></td>
             <td class="text-right"><strong>${formatCurrency(balanceDue)}</strong></td>
           </tr>
         </table>
       </div>
 
-      <div class="info-box" style="margin-top: 20px; font-size: 9px; line-height: 1.4; color: #64748B; border: 1.5px solid #E2E8F0; padding: 12px; border-radius: 8px;">
-        <p style="margin: 0 0 5px 0; font-weight: bold; color: #334155;">Important Travel Information & Booking Conditions</p>
-        <p style="margin: 0;">1. All flight ticket reservations are subject to GDS and airline rules. Cancellation charges or re-issue charges will be applied dynamically.</p>
-        <p style="margin: 0;">2. Your hotel booking status is secured. Present this document along with your check-in hotel vouchers and valid passenger identifications at the hotel desk.</p>
-        <p style="margin: 0;">3. Outstanding balances must be settled at least 7 days prior to departure. Unpaid bookings are subject to automatic release by GDS systems.</p>
-        <p style="margin: 0;">4. All flight ticket bookings are protected under the UK Civil Aviation Authority ATOL scheme (Reg 11492) and fully backed by our IATA credentials.</p>
+      <div class="terms-grid">
+        <div class="terms-card">
+          <h4>💼 General Booking Terms</h4>
+          <p>All bookings are subject to availability at the time of reservation. The client must ensure that all passenger names match their passport details exactly. Terrific Travel acts as an agent for respective service providers.</p>
+        </div>
+        <div class="terms-card">
+          <h4>💳 Payment Terms</h4>
+          <p>Deposits must be paid immediately to secure reservations. Final balances are due in full no later than 7 days prior to departure. Failure to complete payment may result in automated release of GDS bookings.</p>
+        </div>
+        <div class="terms-card">
+          <h4>⚠️ Cancellation Policy</h4>
+          <p>Cancellations must be requested in writing. All deposits are non-refundable. Additional airline, hotel, or GDS cancellation charges apply dynamically depending on supplier terms and time remaining before travel.</p>
+        </div>
+        <div class="terms-card">
+          <h4>✈️ Flight Conditions</h4>
+          <p>Flight times and schedules are subject to change by airlines. Baggage allowances are subject to carrier rules. Passengers should check in online 24 hours prior to departure and arrive at terminals 3 hours early.</p>
+        </div>
+        <div class="terms-card">
+          <h4>🏨 Hotel Conditions</h4>
+          <p>Hotel ratings are based on local standards. Check-in/check-out times must be respected. Special requests (bed type, high floors, views) are subject to availability and cannot be guaranteed by Terrific Travel.</p>
+        </div>
+        <div class="terms-card">
+          <h4>🛂 Visa Conditions</h4>
+          <p>It is the sole responsibility of the customer to obtain valid visa clearances. Visa approval remains at the absolute discretion of border authorities and national consulates. Visa fees are strictly non-refundable.</p>
+        </div>
+        <div class="terms-card">
+          <h4>🚗 Transportation Conditions</h4>
+          <p>Transfers are scheduled according to booking details. Drivers will wait up to 60 minutes after flight arrival. Customers must contact the emergency helpline immediately if they cannot locate their driver.</p>
+        </div>
+        <div class="terms-card">
+          <h4>🕋 Hajj &amp; Umrah Conditions</h4>
+          <p>Pilgrimage packages are subject to Saudi Ministry of Hajj &amp; Umrah regulations. E-visas and transportation booking are fully subject to local rules. Accommodation and transportation upgrades are subject to availability.</p>
+        </div>
+        <div class="terms-card">
+          <h4>ℹ️ Important Travel Information</h4>
+          <p>Flight bookings are protected under the UK Civil Aviation Authority ATOL scheme (Reg 11492) and fully backed by our IATA credentials. Travel insurance is highly recommended for all overseas bookings.</p>
+        </div>
+        <div class="terms-card">
+          <h4>⚖️ Disclaimer</h4>
+          <p>Terrific Travel acts as an intermediary agent and shall not be held liable for personal injury, property loss, delays, cancellations, or defaults caused by airlines, hotels, or other service providers.</p>
+        </div>
       </div>
 
       <div class="doc-footer">
-        <p>Terrific Travel & Tours Ltd | Registered in England & Wales: #09384812 | VAT Number: GB 129 3847 21</p>
+        <p>Terrific Travel &amp; Tours Ltd | Registered in England &amp; Wales: #09384812 | VAT Number: GB 129 3847 21</p>
         <p>Thank you for choosing Terrific Travel. We wish you an amazing journey!</p>
       </div>
     </div>
@@ -644,14 +905,55 @@ function getTicketNumber(passenger: any, flight: any): string {
   return `${prefix}${num}`;
 }
 
-function getIsConnecting(segment: any): boolean {
-  if (!segment.notes) return false;
-  try {
-    const parsed = JSON.parse(segment.notes);
-    return !!parsed.isConnecting;
-  } catch (e) {
-    return false;
+function getIsConnecting(currentFlight: any, nextFlight: any): boolean {
+  if (!nextFlight) return false;
+  
+  // 1. Explicit check: notes metadata
+  if (currentFlight.notes) {
+    try {
+      const parsed = JSON.parse(currentFlight.notes);
+      if (parsed.hasOwnProperty("isConnecting")) {
+        return !!parsed.isConnecting;
+      }
+    } catch (e) {
+      // Not JSON
+    }
   }
+
+  // 2. Implicit check: if arrival airport code matches next departure airport code
+  // and the departure is within 24 hours of arrival
+  const arrAirport = (currentFlight.arrivedAt || "").trim().toUpperCase();
+  const nextDepAirport = (nextFlight.departedFrom || "").trim().toUpperCase();
+  
+  // Extract airport code if it is in format "Name (Code)" or "Code"
+  const extractCode = (str: string) => {
+    const match = str.match(/\(([^)]+)\)/);
+    return match ? match[1].toUpperCase() : str.toUpperCase();
+  };
+
+  const codeA = extractCode(arrAirport);
+  const codeB = extractCode(nextDepAirport);
+  
+  if (codeA && codeB && codeA === codeB) {
+    try {
+      const arrDate = new Date(currentFlight.date);
+      const depDate = new Date(nextFlight.date);
+      
+      const [arrH, arrM] = (currentFlight.arrivalTime || "00:00").split(":").map(Number);
+      const [depH, depM] = (nextFlight.departTime || "00:00").split(":").map(Number);
+      
+      const arrTime = new Date(arrDate.getFullYear(), arrDate.getMonth(), arrDate.getDate(), arrH, arrM);
+      const depTime = new Date(depDate.getFullYear(), depDate.getMonth(), depDate.getDate(), depH, depM);
+      
+      const diffMs = depTime.getTime() - arrTime.getTime();
+      // If it's positive and under 24 hours, it's a layover!
+      return diffMs > 0 && diffMs <= 24 * 60 * 60 * 1000;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  return false;
 }
 
 function calculateLayover(arrivalSeg: any, departSeg: any): string {
@@ -765,180 +1067,194 @@ function generateIndividualTicketHtml(
   `;
 
   return `
-    <div class="document-container" style="max-width: 850px; border: 1.5px solid #888888; padding: 25px; font-family: Arial, sans-serif; line-height: 1.4; color: #000000; margin-bottom: 20px; box-shadow: none;">
-      <!-- Main Brand Header -->
-      <div style="text-align: center; margin-bottom: 15px;">
-        <h1 style="color: #9C1C24; font-family: 'Outfit', Arial, sans-serif; font-size: 24px; font-weight: 900; margin: 0 0 5px 0; letter-spacing: 0.5px;">TERRIFIC TRAVEL LTD</h1>
-        <p style="margin: 0; font-size: 9px; font-weight: bold; color: #444444; text-transform: uppercase;">
-          OFFICE 1, 11 WALFORD ROAD, BIRMINGHAM, B11 1NP, UNITED KINGDOM
-        </p>
-        <p style="margin: 3px 0 0 0; font-size: 10px; font-weight: bold; color: #444444;">
-          Phone: 01215291630 | Email: office@terrifictravel.co.uk
-        </p>
+    <div class="document-container">
+      <div class="doc-header" style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #E2E8F0; padding-bottom: 16px; margin-bottom: 24px;">
+        <div class="brand-block">
+          ${BRAND_LOGOS.companyLogo}
+          <p style="margin-top: 8px; margin-bottom: 0; font-size: 9px; color: #64748B; line-height: 1.4;">
+            <strong>Terrific Travel &amp; Tours Ltd</strong><br>
+            Address: Office 1, 11 Walford Road, Birmingham, B11 1NP, UK<br>
+            Phone: 0121 529 1630 | Emergency: +44 77 0090 0077<br>
+            Email: office@terrifictravel.co.uk | Web: www.terrifictravel.co.uk<br>
+            ATOL: 11492 | IATA: 91263712 | Reg No: 09384812
+          </p>
+        </div>
+        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+          <div class="logos-block">
+            ${BRAND_LOGOS.iataLogo}
+            ${BRAND_LOGOS.atolLogo}
+          </div>
+          <svg width="50" height="50" viewBox="0 0 29 29" fill="none" xmlns="http://www.w3.org/2000/svg" style="border: 1px solid #E2E8F0; padding: 4px; border-radius: 4px; background: white; margin-top: 4px;">
+            <path d="M0 0h7v7H0V0zm1 1v5h5V1H1zm8 0h1v1H9V1zm1 1h1v1h-1V2zm-1 1h1v1H9V3zm3-3h7v7h-7V0zm1 1v5h5V1h-5zm-5 7h1v1H9V8zm1 1h1v1h-1V9zm-1 1h1v1H9v-1zm4-2h1v1h-1V8zm1 1h1v1h-1V9zm-1 1h1v1h-1v-1zm4-2h1v1h-1V8zm1 1h1v1h-1V9zm-1 1h1v1h-1v-1zm-9 3h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1z" fill="#0F172A"/>
+            <path d="M0 9h7v7H0V9zm1 1v5h5v-5H1zm8 0h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm3-3h7v7h-7V9zm1 1v5h5v-5h-5zm-5 7h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm-9 3h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1z" fill="#0F172A"/>
+          </svg>
+        </div>
       </div>
 
-      <hr style="border: 0; border-top: 1.5px solid #000000; margin: 10px 0;" />
-
-      <!-- Booking Info / Barcode Header -->
-      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; font-size: 11px;">
-        <div style="line-height: 1.5;">
-          <div><strong>Email:</strong> office@terrifictravel.co.uk</div>
-          <div style="margin-top: 5px;">
-            <span style="margin-right: 15px;"><strong>Booking Date:</strong> ${formatDate(booking.createdAt)}</span>
-            <span style="margin-right: 15px;"><strong>Supplier Ref:</strong> ${pnr}</span>
-            <span><strong>Booking Ref:</strong> ${booking.bookingReference || "—"}</span>
-          </div>
+      <div class="doc-title-section">
+        <div>
+          <h1 class="doc-title">Flight Ticket / Itinerary</h1>
+          <span class="section-badge" style="background: #E0F2FE; color: #0369A1;">Status: Issued</span>
         </div>
-        <div style="text-align: right;">
+        <div class="doc-meta">
+          <p>Booking Ref: <strong>${booking.bookingReference || "—"}</strong></p>
+          <p>Supplier Ref (PNR): <strong style="font-family: monospace; font-size: 13px; color: #0EA5E9;">${pnr}</strong></p>
+          <p>Issue Date: <strong>${issueDate}</strong></p>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; background: #F8FAFC; padding: 12px; border-radius: 8px; border: 1px solid #E2E8F0;">
+        <div style="font-size: 11px; color: #475569;">
+          <strong>Consolidated E-Ticket Receipt</strong><br/>
+          Official document valid for airport entry and carrier check-in.
+        </div>
+        <div>
           ${barcode}
         </div>
       </div>
 
-      <!-- Passenger Details Block -->
-      <div style="background: #9C1C24; color: #FFFFFF; font-weight: bold; font-size: 13px; padding: 6px 12px; margin-bottom: 8px; text-transform: uppercase; font-family: 'Outfit', Arial, sans-serif; border-radius: 2px;">
-        Passenger Details
-      </div>
-      <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 11px;">
+      <h3 style="font-family: 'Outfit', sans-serif; text-transform: uppercase; font-size: 11px; color: #0F172A; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px; margin-bottom: 12px;">Passenger Details</h3>
+      <table class="data-table" style="margin-bottom: 24px;">
         <thead>
-          <tr style="text-align: left; font-weight: bold; color: #555555; border-bottom: 1px solid #E2E8F0;">
-            <th style="padding: 6px 8px; width: 15%;">PAX Type</th>
-            <th style="padding: 6px 8px; width: 25%;">Last Name</th>
-            <th style="padding: 6px 8px; width: 25%;">First Name</th>
-            <th style="padding: 6px 8px; width: 20%;">E-Ticket Number</th>
-            <th style="padding: 6px 8px; width: 15%;">Agency IATA Number</th>
+          <tr>
+            <th>PAX Type</th>
+            <th>Passenger Name</th>
+            <th>E-Ticket Number</th>
+            <th>Agency IATA</th>
           </tr>
         </thead>
         <tbody>
-          <tr style="font-weight: bold; color: #000000; font-size: 12px;">
-            <td style="padding: 8px 8px; text-transform: uppercase;">${passenger.role || deriveAgeCategory(passenger.dateOfBirth)}</td>
-            <td style="padding: 8px 8px; text-transform: uppercase;">${passenger.lastName}</td>
-            <td style="padding: 8px 8px; text-transform: uppercase;">${passenger.title || ""} ${passenger.firstName}</td>
-            <td style="padding: 8px 8px; color: #0284C7; font-family: monospace; font-size: 13px; font-weight: bold;">${ticketNo}</td>
-            <td style="padding: 8px 8px;">91263712</td>
-          </tr>
-          <tr style="font-size: 9px; color: #555555; border-top: 1px solid #F1F5F9;">
-            <td style="padding: 4px 8px;" colspan="3"><strong>Ticket Issue Date:</strong> ${issueDate}</td>
-            <td style="padding: 4px 8px;" colspan="2"><strong>Mileage Number:</strong> —</td>
+          <tr>
+            <td style="text-transform: uppercase; font-weight: bold;">${passenger.role || deriveAgeCategory(passenger.dateOfBirth)}</td>
+            <td><strong>${passenger.title || ""} ${passenger.firstName} ${passenger.lastName}</strong></td>
+            <td style="color: #0284C7; font-family: monospace; font-size: 12px; font-weight: bold;">${ticketNo}</td>
+            <td>91263712</td>
           </tr>
         </tbody>
       </table>
 
-      <!-- Flight Details Block -->
-      <div style="background: #9C1C24; color: #FFFFFF; font-weight: bold; font-size: 13px; padding: 6px 12px; margin-bottom: 8px; text-transform: uppercase; font-family: 'Outfit', Arial, sans-serif; border-radius: 2px;">
-        Flight Details
-      </div>
+      <h3 style="font-family: 'Outfit', sans-serif; text-transform: uppercase; font-size: 11px; color: #0F172A; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px; margin-bottom: 16px;">Flight Itinerary Segments</h3>
 
       ${flights
         .map((f: any, idx: number) => {
-          const isConnecting = getIsConnecting(f);
           const nextFlight = flights[idx + 1];
+          const isConnecting = getIsConnecting(f, nextFlight);
           const layoverStr =
             isConnecting && nextFlight ? calculateLayover(f, nextFlight) : "";
 
-          // Format dates neatly
           const depDateStr = formatDate(f.date);
           const arrDateStr = formatDate(f.date);
 
+          // Extract codes and names for professional layout
+          const extractCode = (str: string) => {
+            const match = str.match(/\(([^)]+)\)/);
+            return match ? match[1].toUpperCase() : str.toUpperCase();
+          };
+          const extractName = (str: string) => {
+            const match = str.match(/(.*?)\s*\(([^)]+)\)/);
+            return match ? match[1].trim() : str;
+          };
+
+          const depCode = extractCode(f.departedFrom || "");
+          const depName = extractName(f.departedFrom || "");
+          const arrCode = extractCode(f.arrivedAt || "");
+          const arrName = extractName(f.arrivedAt || "");
+          const transitHub = extractCode(f.arrivedAt || "");
+
           return `
-          <div style="border-bottom: 1px solid #CCCCCC; padding-bottom: 12px; margin-bottom: 12px; font-size: 11px;">
-            <!-- Segment Carrier Row -->
-            <table style="width: 100%; border-collapse: collapse; margin-bottom: 8px;">
-              <tr style="font-weight: bold; font-size: 10px; color: #666666; border-bottom: 1px solid #E2E8F0; text-transform: uppercase;">
-                <td style="padding: 4px 0; width: 30%;">Airline</td>
-                <td style="padding: 4px 0; width: 35%;">Departure</td>
-                <td style="padding: 4px 0; width: 35%;">Arrival</td>
-              </tr>
-              <tr>
-                <!-- Airline Info -->
-                <td style="vertical-align: top; padding: 6px 0;">
-                  <strong style="font-size: 12px; color: #000000;">${f.vendor?.name || "Airline Partner"}</strong><br/>
-                  <span style="font-weight: bold; font-size: 11px; color: #555555;">${f.flightNo}</span>
-                </td>
-                
-                <!-- Departure Station -->
-                <td style="vertical-align: top; padding: 6px 0; line-height: 1.3;">
-                  <strong style="color: #555555;">${depDateStr}</strong><br/>
-                  <span style="font-size: 13px; font-weight: bold; color: #000000;">${f.departTime || "—"}</span><br/>
-                  <span style="text-transform: uppercase; font-weight: bold;">${f.departedFrom}</span>
-                </td>
-
-                <!-- Arrival Station -->
-                <td style="vertical-align: top; padding: 6px 0; line-height: 1.3;">
-                  <strong style="color: #555555;">${arrDateStr}</strong><br/>
-                  <span style="font-size: 13px; font-weight: bold; color: #000000;">${f.arrivalTime || "—"}</span><br/>
-                  <span style="text-transform: uppercase; font-weight: bold;">${f.arrivedAt}</span>
-                </td>
-              </tr>
-            </table>
-
-            <!-- Segment Ticketing Details (3x3 grid matching ref style) -->
-            <div style="display: grid; grid-template-cols: 1fr 1fr 1fr; gap: 8px; background: #FDFDFD; border: 1px solid #E2E8F0; padding: 10px; border-radius: 4px; font-size: 10px;">
-              <div>
-                <span style="color: #666666; font-weight: bold; text-transform: uppercase;">Baggage:</span> 
-                <span style="font-weight: bold; color: #000000;">${f.baggage || "25 Kilograms"}</span>
+          <div class="ticket-card" style="border: 1px solid #E2E8F0; margin-bottom: 20px;">
+            <div class="ticket-card-header" style="background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%); padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px solid #0F172A;">
+              <div style="font-weight: 900; color: #FFFFFF; font-size: 12px; display: flex; align-items: center; gap: 6px;">
+                <span style="background: #0EA5E9; color: #FFFFFF; font-size: 9px; padding: 2px 6px; border-radius: 4px; font-weight: 900; text-transform: uppercase;">Segment #${idx + 1}</span>
+                <span>${f.flightNo}</span>
               </div>
-              <div>
-                <span style="color: #666666; font-weight: bold; text-transform: uppercase;">FareBasis:</span> 
-                <span style="font-weight: bold; color: #000000;">OLGBN1RE</span>
-              </div>
-              <div>
-                <span style="color: #666666; font-weight: bold; text-transform: uppercase;">SeatNumber:</span> 
-                <span style="font-weight: bold; color: #000000;">—</span>
-              </div>
-              <div>
-                <span style="color: #666666; font-weight: bold; text-transform: uppercase;">Status:</span> 
-                <span style="font-weight: bold; color: #16A34A;">Open</span>
-              </div>
-              <div>
-                <span style="color: #666666; font-weight: bold; text-transform: uppercase;">Not Valid Before:</span> 
-                <span style="font-weight: bold; color: #000000;">${depDateStr}</span>
-              </div>
-              <div>
-                <span style="color: #666666; font-weight: bold; text-transform: uppercase;">Not Valid After:</span> 
-                <span style="font-weight: bold; color: #000000;">${arrDateStr}</span>
-              </div>
-              <div>
-                <span style="color: #666666; font-weight: bold; text-transform: uppercase;">Meal Preference:</span> 
-                <span style="font-weight: bold; color: #000000;">—</span>
-              </div>
-              <div>
-                <span style="color: #666666; font-weight: bold; text-transform: uppercase;">Class:</span> 
-                <span style="font-weight: bold; color: #0EA5E9;">${f.flightClass || "Economy"}</span>
-              </div>
-              <div>
-                <span style="color: #666666; font-weight: bold; text-transform: uppercase;">Wheelchair(WCHR):</span> 
-                <span style="font-weight: bold; color: #000000;">—</span>
+              <div style="font-size: 11px; font-weight: 800; font-family: monospace; color: #38BDF8; background: rgba(56, 189, 248, 0.1); padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(56, 189, 248, 0.2);">
+                PNR: ${f.pnr || "—"}
               </div>
             </div>
-
-            <!-- Connecting Layover Alert if connecting -->
-            ${
-              layoverStr
-                ? `
-              <div class="layover-divider">
-                <span>⏱️ Layover Connection: <strong>${layoverStr}</strong> at transit airport <strong>${f.arrivedAt}</strong></span>
+            <div class="ticket-card-body" style="padding: 16px; display: grid; grid-template-cols: 2fr 1.2fr 2fr; align-items: center; gap: 15px;">
+              <div style="text-align: left;">
+                <p class="airport-code">${depCode}</p>
+                <p class="airport-name" style="font-size: 10px; font-weight: bold; color: #475569; margin-top: 2px;">${depName}</p>
+                <p style="font-size: 13px; font-weight: bold; color: #0F172A; margin-top: 4px;">${f.departTime || "—"}</p>
+                <p style="font-size: 9px; color: #64748B;">Date: ${depDateStr}</p>
               </div>
-            `
-                : ""
-            }
+              <div style="text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; min-width: 80px;">
+                <div style="font-size: 9px; text-transform: uppercase; color: #94A3B8; font-weight: 800; letter-spacing: 0.5px; margin-bottom: 2px;">NON-STOP</div>
+                <div style="width: 100%; display: flex; align-items: center; position: relative;">
+                  <div style="height: 1px; flex-grow: 1; border-top: 1.5px dashed #E2E8F0;"></div>
+                  <div style="color: #0EA5E9; font-size: 14px; transform: rotate(90deg); margin: 0 4px; line-height: 1;">✈</div>
+                  <div style="height: 1px; flex-grow: 1; border-top: 1.5px dashed #E2E8F0;"></div>
+                </div>
+              </div>
+              <div style="text-align: right;">
+                <p class="airport-code">${arrCode}</p>
+                <p class="airport-name" style="font-size: 10px; font-weight: bold; color: #475569; margin-top: 2px;">${arrName}</p>
+                <p style="font-size: 13px; font-weight: bold; color: #0F172A; margin-top: 4px;">${f.arrivalTime || "—"}</p>
+                <p style="font-size: 9px; color: #64748B;">Date: ${arrDateStr}</p>
+              </div>
+            </div>
+            
+            <div class="flight-meta-grid">
+              <div class="meta-item">
+                <h5>Airline Partner</h5>
+                <p>${f.vendor?.name || "Airline Partner"}</p>
+              </div>
+              <div class="meta-item">
+                <h5>Baggage Allowance</h5>
+                <p>${f.baggage || "23 KG"}</p>
+              </div>
+              <div class="meta-item">
+                <h5>Cabin Class</h5>
+                <p>${f.flightClass || "Economy"}</p>
+              </div>
+              <div class="meta-item">
+                <h5>Fare Basis</h5>
+                <p>OLGBN1RE</p>
+              </div>
+            </div>
           </div>
+
+          ${
+            layoverStr
+              ? `
+            <div class="layover-divider">
+              <div style="position: absolute; left: 0; right: 0; top: 50%; height: 2px; border-top: 2px dashed #E2E8F0; z-index: 1;"></div>
+              <div style="position: relative; z-index: 2; background: #FFFBEB; border: 1.5px solid #FCD34D; border-radius: 99px; padding: 6px 18px; font-size: 11px; font-weight: 700; color: #B45309; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                <span style="font-size: 12px;">⏱️</span>
+                <span>Transit Layover: <strong style="color: #92400E;">${layoverStr}</strong> at <strong>${transitHub}</strong></span>
+              </div>
+            </div>
+          `
+              : ""
+          }
         `;
         })
         .join("")}
 
+      <!-- Consolidator / Supplier Details -->
+      <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 16px; margin-top: 15px; font-size: 11px;">
+        <p style="margin: 0 0 8px 0; font-weight: bold; color: #0EA5E9; text-transform: uppercase; letter-spacing: 0.5px;">Fulfillment Supplier Details</p>
+        <div style="display: grid; grid-template-cols: 1fr 1fr; gap: 8px;">
+          <div><strong>Vendor Name:</strong> ${flights[0]?.vendor?.name || "Terrific Travel Partner"}</div>
+          <div><strong>Phone:</strong> ${flights[0]?.vendor?.phoneNumber || "—"}</div>
+          ${flights[0]?.vendor?.supportEmail ? `<div><strong>Email:</strong> ${flights[0].vendor.supportEmail}</div>` : ""}
+        </div>
+      </div>
+
       <!-- Bottom Notice matching ref style -->
-      <div style="font-size: 8px; line-height: 1.4; color: #666666; border-top: 1px dashed #888888; padding-top: 10px; margin-top: 20px;">
-        <p style="margin: 0 0 5px 0; font-weight: bold;">Foreign & Commonwealth Office Travel Advice:</p>
-        <p style="margin: 0 0 10px 0;">The Foreign & Commonwealth Office (FCO) issues travel advice on destinations, which includes information on passports, visas, health, safety, and security. For more information refer to link: https://www.gov.uk/foreign-travel-advice</p>
+      <div style="font-size: 8px; line-height: 1.4; color: #64748B; border-top: 1px dashed #E2E8F0; padding-top: 10px; margin-top: 20px;">
+        <p style="margin: 0 0 5px 0; font-weight: bold; color: #334155;">Foreign &amp; Commonwealth Office Travel Advice:</p>
+        <p style="margin: 0 0 10px 0;">The Foreign &amp; Commonwealth Office (FCO) issues travel advice on destinations, which includes information on passports, visas, health, safety, and security. For more information refer to link: https://www.gov.uk/foreign-travel-advice</p>
         
-        <p style="margin: 0 0 5px 0; font-weight: bold; color: #9C1C24;">NOTES :</p>
+        <p style="margin: 0 0 5px 0; font-weight: bold; color: #0F172A;">NOTES &amp; REGULATORY DISCLOSURES :</p>
         <p style="margin: 0;">1. Reconfirmation of any onward / return journey is passenger responsibility.</p>
         <p style="margin: 0;">2. Timings are subject to change. Please reconfirm with your airline operator before you fly.</p>
         <p style="margin: 0;">3. Present your e-ticket along with your original valid passport at check-in counter to obtain boarding passes.</p>
         <p style="margin: 0;">4. All flight ticket bookings are protected under the UK Civil Aviation Authority ATOL scheme (Reg 11492) and fully backed by our IATA credentials.</p>
       </div>
 
-      <div style="text-align: center; font-size: 9px; font-weight: bold; color: #888888; margin-top: 15px; border-top: 1px solid #E2E8F0; padding-top: 8px;">
+      <div style="text-align: center; font-size: 9px; font-weight: bold; color: #94A3B8; margin-top: 15px; border-top: 1px solid #E2E8F0; padding-top: 8px;">
         Thank you for booking with Terrific Travel. Have a safe and comfortable flight!
       </div>
     </div>
@@ -999,16 +1315,26 @@ export function generateHotelVoucherHtml(booking: any, hotel: any) {
 
   return `
     <div class="document-container">
-      <div class="doc-header">
+      <div class="doc-header" style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #E2E8F0; padding-bottom: 16px; margin-bottom: 24px;">
         <div class="brand-block">
           ${BRAND_LOGOS.companyLogo}
-          <p style="margin-top: 8px; margin-bottom: 0; font-size: 9px; color: #64748B;">
-            Accommodation & Hospitality | Terrific Travel & Tours
+          <p style="margin-top: 8px; margin-bottom: 0; font-size: 9px; color: #64748B; line-height: 1.4;">
+            <strong>Terrific Travel &amp; Tours Ltd</strong><br>
+            Address: Office 1, 11 Walford Road, Birmingham, B11 1NP, UK<br>
+            Phone: 0121 529 1630 | Emergency: +44 77 0090 0077<br>
+            Email: office@terrifictravel.co.uk | Web: www.terrifictravel.co.uk<br>
+            ATOL: 11492 | IATA: 91263712 | Reg No: 09384812
           </p>
         </div>
-        <div class="logos-block">
-          ${BRAND_LOGOS.iataLogo}
-          ${BRAND_LOGOS.atolLogo}
+        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+          <div class="logos-block">
+            ${BRAND_LOGOS.iataLogo}
+            ${BRAND_LOGOS.atolLogo}
+          </div>
+          <svg width="50" height="50" viewBox="0 0 29 29" fill="none" xmlns="http://www.w3.org/2000/svg" style="border: 1px solid #E2E8F0; padding: 4px; border-radius: 4px; background: white; margin-top: 4px;">
+            <path d="M0 0h7v7H0V0zm1 1v5h5V1H1zm8 0h1v1H9V1zm1 1h1v1h-1V2zm-1 1h1v1H9V3zm3-3h7v7h-7V0zm1 1v5h5V1h-5zm-5 7h1v1H9V8zm1 1h1v1h-1V9zm-1 1h1v1H9v-1zm4-2h1v1h-1V8zm1 1h1v1h-1V9zm-1 1h1v1h-1v-1zm4-2h1v1h-1V8zm1 1h1v1h-1V9zm-1 1h1v1h-1v-1zm-9 3h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1z" fill="#0F172A"/>
+            <path d="M0 9h7v7H0V9zm1 1v5h5v-5H1zm8 0h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm3-3h7v7h-7V9zm1 1v5h5v-5h-5zm-5 7h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm-9 3h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1z" fill="#0F172A"/>
+          </svg>
         </div>
       </div>
 
@@ -1035,10 +1361,15 @@ export function generateHotelVoucherHtml(booking: any, hotel: any) {
           <p>Total Guests: <strong>${booking.passengers?.length || 1} Person(s)</strong></p>
         </div>
         <div class="info-box">
-          <h3>Property Information</h3>
+          <h3>Property &amp; Vendor Information</h3>
           <p style="font-size: 13px; font-weight: 700; color: #0F172A;">${hotel.hotelName}</p>
           <p>City/Region: ${hotel.city || "—"}</p>
           <p>Address: ${hotel.hotelAddress || "—"}</p>
+          <hr style="border: 0; border-top: 1px solid #E2E8F0; margin: 8px 0;" />
+          <p style="font-size: 9px; font-weight: 700; color: #64748B; text-transform: uppercase; margin-bottom: 4px;">Fulfillment Vendor</p>
+          <p><strong>Vendor Name:</strong> ${hotel.vendor?.name || "Terrific Travel Partner"}</p>
+          <p><strong>Phone:</strong> ${hotel.vendor?.phoneNumber || "—"}</p>
+          ${hotel.vendor?.supportEmail ? `<p><strong>Email:</strong> ${hotel.vendor.supportEmail}</p>` : ""}
         </div>
       </div>
 
@@ -1145,16 +1476,26 @@ export function generateVisaInvoiceHtml(booking: any, visa: any) {
 
   return `
     <div class="document-container">
-      <div class="doc-header">
+      <div class="doc-header" style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #E2E8F0; padding-bottom: 16px; margin-bottom: 24px;">
         <div class="brand-block">
           ${BRAND_LOGOS.companyLogo}
-          <p style="margin-top: 8px; margin-bottom: 0; font-size: 9px; color: #64748B;">
-            Visa & Immigration Department | Terrific Travel
+          <p style="margin-top: 8px; margin-bottom: 0; font-size: 9px; color: #64748B; line-height: 1.4;">
+            <strong>Terrific Travel &amp; Tours Ltd</strong><br>
+            Address: Office 1, 11 Walford Road, Birmingham, B11 1NP, UK<br>
+            Phone: 0121 529 1630 | Emergency: +44 77 0090 0077<br>
+            Email: office@terrifictravel.co.uk | Web: www.terrifictravel.co.uk<br>
+            ATOL: 11492 | IATA: 91263712 | Reg No: 09384812
           </p>
         </div>
-        <div class="logos-block">
-          ${BRAND_LOGOS.iataLogo}
-          ${BRAND_LOGOS.atolLogo}
+        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+          <div class="logos-block">
+            ${BRAND_LOGOS.iataLogo}
+            ${BRAND_LOGOS.atolLogo}
+          </div>
+          <svg width="50" height="50" viewBox="0 0 29 29" fill="none" xmlns="http://www.w3.org/2000/svg" style="border: 1px solid #E2E8F0; padding: 4px; border-radius: 4px; background: white; margin-top: 4px;">
+            <path d="M0 0h7v7H0V0zm1 1v5h5V1H1zm8 0h1v1H9V1zm1 1h1v1h-1V2zm-1 1h1v1H9V3zm3-3h7v7h-7V0zm1 1v5h5V1h-5zm-5 7h1v1H9V8zm1 1h1v1h-1V9zm-1 1h1v1H9v-1zm4-2h1v1h-1V8zm1 1h1v1h-1V9zm-1 1h1v1h-1v-1zm4-2h1v1h-1V8zm1 1h1v1h-1V9zm-1 1h1v1h-1v-1zm-9 3h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1z" fill="#0F172A"/>
+            <path d="M0 9h7v7H0V9zm1 1v5h5v-5H1zm8 0h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm3-3h7v7h-7V9zm1 1v5h5v-5h-5zm-5 7h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm-9 3h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1z" fill="#0F172A"/>
+          </svg>
         </div>
       </div>
 
@@ -1170,7 +1511,7 @@ export function generateVisaInvoiceHtml(booking: any, visa: any) {
         </div>
       </div>
 
-      <div class="info-grid">
+      <div class="info-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px;">
         <div class="info-box">
           <h3>Applicant / Client Info</h3>
           <p><strong>${leader ? `${leader.title || ""} ${leader.firstName} ${leader.lastName}` : "Valued Applicant"}</strong></p>
@@ -1183,6 +1524,12 @@ export function generateVisaInvoiceHtml(booking: any, visa: any) {
           <p>Consular Desk Support</p>
           <p>Total Visa Applications: <strong>${visas.length}</strong></p>
         </div>
+        <div class="info-box">
+          <h3>Consular Fulfillment Vendor</h3>
+          <p><strong>Vendor Name:</strong> ${visas[0]?.vendor?.name || "Visa Consular Authority"}</p>
+          <p><strong>Phone:</strong> ${visas[0]?.vendor?.phoneNumber || "—"}</p>
+          ${visas[0]?.vendor?.supportEmail ? `<p><strong>Email:</strong> ${visas[0].vendor.supportEmail}</p>` : ""}
+        </div>
       </div>
 
       <h3 style="font-family: 'Outfit', sans-serif; text-transform: uppercase; font-size: 11px; color: #0F172A; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px; margin-bottom: 12px;">Consular & Processing Services Summary</h3>
@@ -1190,8 +1537,6 @@ export function generateVisaInvoiceHtml(booking: any, visa: any) {
         <thead>
           <tr>
             <th>Consular Visa Category</th>
-            <th>Passport Number</th>
-            <th>Visa Processing Number</th>
             <th>Issue Date</th>
             <th class="text-right">Visa Fee</th>
           </tr>
@@ -1202,8 +1547,6 @@ export function generateVisaInvoiceHtml(booking: any, visa: any) {
               (v: any) => `
             <tr>
               <td><strong>${v.visaType}</strong></td>
-              <td>${v.passportNumber}</td>
-              <td>${v.visaNumber || "—"}</td>
               <td>${v.issueDate ? formatDate(v.issueDate) : "—"}</td>
               <td class="text-right"><strong>${formatCurrency(v.price)}</strong></td>
             </tr>
@@ -1265,16 +1608,26 @@ export function generateTransportVoucherHtml(booking: any, transport: any) {
 
   return `
     <div class="document-container">
-      <div class="doc-header">
+      <div class="doc-header" style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #E2E8F0; padding-bottom: 16px; margin-bottom: 24px;">
         <div class="brand-block">
           ${BRAND_LOGOS.companyLogo}
-          <p style="margin-top: 8px; margin-bottom: 0; font-size: 9px; color: #64748B;">
-            Ground Transport & Transfers Desk | Terrific Travel
+          <p style="margin-top: 8px; margin-bottom: 0; font-size: 9px; color: #64748B; line-height: 1.4;">
+            <strong>Terrific Travel &amp; Tours Ltd</strong><br>
+            Address: Office 1, 11 Walford Road, Birmingham, B11 1NP, UK<br>
+            Phone: 0121 529 1630 | Emergency: +44 77 0090 0077<br>
+            Email: office@terrifictravel.co.uk | Web: www.terrifictravel.co.uk<br>
+            ATOL: 11492 | IATA: 91263712 | Reg No: 09384812
           </p>
         </div>
-        <div class="logos-block">
-          ${BRAND_LOGOS.iataLogo}
-          ${BRAND_LOGOS.atolLogo}
+        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+          <div class="logos-block">
+            ${BRAND_LOGOS.iataLogo}
+            ${BRAND_LOGOS.atolLogo}
+          </div>
+          <svg width="50" height="50" viewBox="0 0 29 29" fill="none" xmlns="http://www.w3.org/2000/svg" style="border: 1px solid #E2E8F0; padding: 4px; border-radius: 4px; background: white; margin-top: 4px;">
+            <path d="M0 0h7v7H0V0zm1 1v5h5V1H1zm8 0h1v1H9V1zm1 1h1v1h-1V2zm-1 1h1v1H9V3zm3-3h7v7h-7V0zm1 1v5h5V1h-5zm-5 7h1v1H9V8zm1 1h1v1h-1V9zm-1 1h1v1H9v-1zm4-2h1v1h-1V8zm1 1h1v1h-1V9zm-1 1h1v1h-1v-1zm4-2h1v1h-1V8zm1 1h1v1h-1V9zm-1 1h1v1h-1v-1zm-9 3h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1z" fill="#0F172A"/>
+            <path d="M0 9h7v7H0V9zm1 1v5h5v-5H1zm8 0h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm3-3h7v7h-7V9zm1 1v5h5v-5h-5zm-5 7h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm-9 3h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1z" fill="#0F172A"/>
+          </svg>
         </div>
       </div>
 
@@ -1290,7 +1643,7 @@ export function generateTransportVoucherHtml(booking: any, transport: any) {
         </div>
       </div>
 
-      <div class="info-grid">
+      <div class="info-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px;">
         <div class="info-box">
           <h3>Lead Passenger / Guest</h3>
           <p><strong>${leader ? `${leader.title || ""} ${leader.firstName} ${leader.lastName}` : "Valued Passenger"}</strong></p>
@@ -1300,7 +1653,13 @@ export function generateTransportVoucherHtml(booking: any, transport: any) {
         <div class="info-box">
           <h3>Booking Summary</h3>
           <p>Total Scheduled Transfers: <strong>${transfers.length} Leg(s)</strong></p>
-          <p>Ground Status: <strong>Confirmed & Secured</strong></p>
+          <p>Ground Status: <strong>Confirmed &amp; Secured</strong></p>
+        </div>
+        <div class="info-box">
+          <h3>Fulfillment Vendor Details</h3>
+          <p><strong>Vendor Name:</strong> ${transfers[0]?.vendor?.name || "Terrific Travel Ground Partner"}</p>
+          <p><strong>Phone:</strong> ${transfers[0]?.vendor?.phoneNumber || "—"}</p>
+          ${transfers[0]?.vendor?.supportEmail ? `<p><strong>Email:</strong> ${transfers[0].vendor.supportEmail}</p>` : ""}
         </div>
       </div>
 
@@ -1384,16 +1743,26 @@ export function generateSpecialServiceInvoiceHtml(booking: any, service: any) {
 
   return `
     <div class="document-container">
-      <div class="doc-header">
+      <div class="doc-header" style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #E2E8F0; padding-bottom: 16px; margin-bottom: 24px;">
         <div class="brand-block">
           ${BRAND_LOGOS.companyLogo}
-          <p style="margin-top: 8px; margin-bottom: 0; font-size: 9px; color: #64748B;">
-            Special Services & Tour Desks | Terrific Travel
+          <p style="margin-top: 8px; margin-bottom: 0; font-size: 9px; color: #64748B; line-height: 1.4;">
+            <strong>Terrific Travel &amp; Tours Ltd</strong><br>
+            Address: Office 1, 11 Walford Road, Birmingham, B11 1NP, UK<br>
+            Phone: 0121 529 1630 | Emergency: +44 77 0090 0077<br>
+            Email: office@terrifictravel.co.uk | Web: www.terrifictravel.co.uk<br>
+            ATOL: 11492 | IATA: 91263712 | Reg No: 09384812
           </p>
         </div>
-        <div class="logos-block">
-          ${BRAND_LOGOS.iataLogo}
-          ${BRAND_LOGOS.atolLogo}
+        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+          <div class="logos-block">
+            ${BRAND_LOGOS.iataLogo}
+            ${BRAND_LOGOS.atolLogo}
+          </div>
+          <svg width="50" height="50" viewBox="0 0 29 29" fill="none" xmlns="http://www.w3.org/2000/svg" style="border: 1px solid #E2E8F0; padding: 4px; border-radius: 4px; background: white; margin-top: 4px;">
+            <path d="M0 0h7v7H0V0zm1 1v5h5V1H1zm8 0h1v1H9V1zm1 1h1v1h-1V2zm-1 1h1v1H9V3zm3-3h7v7h-7V0zm1 1v5h5V1h-5zm-5 7h1v1H9V8zm1 1h1v1h-1V9zm-1 1h1v1H9v-1zm4-2h1v1h-1V8zm1 1h1v1h-1V9zm-1 1h1v1h-1v-1zm4-2h1v1h-1V8zm1 1h1v1h-1V9zm-1 1h1v1h-1v-1zm-9 3h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1z" fill="#0F172A"/>
+            <path d="M0 9h7v7H0V9zm1 1v5h5v-5H1zm8 0h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm3-3h7v7h-7V9zm1 1v5h5v-5h-5zm-5 7h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm-9 3h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1z" fill="#0F172A"/>
+          </svg>
         </div>
       </div>
 
@@ -1409,7 +1778,7 @@ export function generateSpecialServiceInvoiceHtml(booking: any, service: any) {
         </div>
       </div>
 
-      <div class="info-grid">
+      <div class="info-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px;">
         <div class="info-box">
           <h3>Lead Passenger / Guest</h3>
           <p><strong>${leader ? `${leader.title || ""} ${leader.firstName} ${leader.lastName}` : "Valued Passenger"}</strong></p>
@@ -1420,6 +1789,12 @@ export function generateSpecialServiceInvoiceHtml(booking: any, service: any) {
           <h3>Fulfillment Details</h3>
           <p>Special Service Type: Additional / Custom Element</p>
           <p>Total Items: <strong>${services.length}</strong></p>
+        </div>
+        <div class="info-box">
+          <h3>Fulfillment Vendor Details</h3>
+          <p><strong>Vendor Name:</strong> ${services[0]?.customVendorName || services[0]?.vendor?.name || "Terrific Travel Direct Office"}</p>
+          <p><strong>Phone:</strong> ${services[0]?.vendor?.phoneNumber || "—"}</p>
+          ${services[0]?.vendor?.supportEmail ? `<p><strong>Email:</strong> ${services[0].vendor.supportEmail}</p>` : ""}
         </div>
       </div>
 
@@ -1518,13 +1893,12 @@ export function renderBookingInvoice(
     <p><strong>${leader ? `${leader.title || ""} ${leader.firstName} ${leader.lastName}` : "Valued Customer"}</strong></p>
     ${leader && leader.email ? `<p>Email: ${leader.email}</p>` : ""}
     ${leader && leader.phoneNumber ? `<p>Phone: ${leader.phoneNumber}</p>` : ""}
-    ${leader && leader.passportNumber ? `<p>Passport No: ${leader.passportNumber}</p>` : ""}
   `;
 
   const agentBlock = `
     <p><strong>${booking.agent?.name || "Terrific Travel Direct Office"}</strong></p>
-    <p>GDS System: ${booking.agent?.gdsSystem || "Amadeus/Sabre"}</p>
-    <p>Assigned PCC: ${booking.agent?.pcc || "Direct Customer Support"}</p>
+    ${booking.agent?.phoneNumber ? `<p>Phone: ${booking.agent.phoneNumber}</p>` : ""}
+    ${booking.agent?.email ? `<p>Email: ${booking.agent.email}</p>` : ""}
   `;
 
   const passengersRows =
@@ -1535,16 +1909,14 @@ export function renderBookingInvoice(
     <tr>
       <td><strong>${p.title || ""} ${p.firstName} ${p.lastName}</strong></td>
       <td>${p.age || "Adult"} (${p.role || "Passenger"})</td>
-      <td>${p.passportNumber || "—"}</td>
       <td>${p.nationality || "—"}</td>
-      <td>${p.passportExpiryDate ? formatDate(p.passportExpiryDate) : "—"}</td>
     </tr>
   `,
           )
           .join("")
       : `
     <tr>
-      <td colspan="5" class="text-center" style="color: #64748B;">No passenger info added.</td>
+      <td colspan="3" class="text-center" style="color: #64748B;">No passenger info added.</td>
     </tr>
   `;
 
@@ -1554,7 +1926,6 @@ export function renderBookingInvoice(
       <tr>
         <td><span style="font-weight: 700; color: #0284C7;">FLIGHT</span></td>
         <td>Flight No: <strong>${f.flightNo}</strong> (PNR: ${f.pnr || "—"}) - ${f.departedFrom} to ${f.arrivedAt} on ${formatDate(f.date)}</td>
-        <td class="text-right">${formatCurrency(f.price)}</td>
       </tr>
     `,
     ) || []),
@@ -1563,7 +1934,6 @@ export function renderBookingInvoice(
       <tr>
         <td><span style="font-weight: 700; color: #10B981;">HOTEL</span></td>
         <td><strong>${h.hotelName}</strong> (${h.city || "—"}) - Room: ${h.roomType} x${h.qty} (${h.mealType || "Room Only"}), Confirmation #: ${h.hotelConfirmationNumber || "—"}</td>
-        <td class="text-right">${formatCurrency(h.price)}</td>
       </tr>
     `,
     ) || []),
@@ -1572,7 +1942,6 @@ export function renderBookingInvoice(
       <tr>
         <td><span style="font-weight: 700; color: #F59E0B;">TRANSFER</span></td>
         <td>${t.vehicleType} - From: ${t.departureDestination} to ${t.arrivalDestination} on ${formatDate(t.date)}</td>
-        <td class="text-right">${formatCurrency(t.price)}</td>
       </tr>
     `,
     ) || []),
@@ -1580,8 +1949,7 @@ export function renderBookingInvoice(
       (v: any) => `
       <tr>
         <td><span style="font-weight: 700; color: #8B5CF6;">VISA</span></td>
-        <td>Visa Type: ${v.visaType} (Passport: ${v.passportNumber}) - Visa Number: ${v.visaNumber || "—"}</td>
-        <td class="text-right">${formatCurrency(v.price)}</td>
+        <td>Visa Type: <strong>${v.visaType}</strong></td>
       </tr>
     `,
     ) || []),
@@ -1590,7 +1958,6 @@ export function renderBookingInvoice(
       <tr>
         <td><span style="font-weight: 700; color: #EC4899;">SPECIAL SERVICE</span></td>
         <td><strong>${a.serviceName}</strong> ${a.serviceDescription ? ` - ${a.serviceDescription}` : ""} ${a.customVendorName ? `(Vendor: ${a.customVendorName})` : ""}</td>
-        <td class="text-right">${formatCurrency(a.servicePrice)}</td>
       </tr>
     `,
     ) || []),
@@ -1600,7 +1967,7 @@ export function renderBookingInvoice(
     servicesRows ||
     `
     <tr>
-      <td colspan="3" class="text-center" style="color: #64748B;">No service components registered.</td>
+      <td colspan="2" class="text-center" style="color: #64748B;">No service components registered.</td>
     </tr>
   `;
 
@@ -1617,8 +1984,9 @@ export function renderBookingInvoice(
   html = html.replace(/{{LEAD_PASSENGER_BLOCK}}/g, leadPassengerBlock);
   html = html.replace(/{{AGENT_BLOCK}}/g, agentBlock);
   html = html.replace(/{{PASSENGERS_TABLE_ROWS}}/g, passengersRows);
+  html = html.replace(/{{SERVICES_TIMELINE}}/g, generateTimelineHtml(booking));
   html = html.replace(/{{SERVICES_TABLE_ROWS}}/g, safeServicesRows);
-  html = html.replace(/{{SUBTOTAL}}/g, formatCurrency(totalCalculated));
+  html = html.replace(/{{SUBTOTAL}}/g, formatCurrency(totalPrice));
   html = html.replace(/{{TOTAL_PRICE}}/g, formatCurrency(totalPrice));
   html = html.replace(/{{PAID_AMOUNT}}/g, formatCurrency(paidAmount));
   html = html.replace(/{{BALANCE_DUE}}/g, formatCurrency(balanceDue));
@@ -1685,7 +2053,7 @@ export function renderFlightTicket(
       /{{ARRIVE_CITY}}/g,
       mainFlight.arrivedAtCity || mainFlight.arrivedAt || "—",
     );
-    html = html.replace(/{{ARRIVE_TIME}}/g, mainFlight.arriveTime || "—");
+    html = html.replace(/{{ARRIVE_TIME}}/g, mainFlight.arrivalTime || "—");
     html = html.replace(
       /{{FLIGHT_DATE}}/g,
       mainFlight.date ? formatDate(mainFlight.date) : "—",
@@ -1697,13 +2065,17 @@ export function renderFlightTicket(
     html = html.replace(/{{BAGGAGE}}/g, mainFlight.baggage || "23 KG");
     html = html.replace(/{{CARRY_ON}}/g, mainFlight.carryOn || "7 KG");
 
+    html = html.replace(/{{VENDOR_NAME}}/g, mainFlight.vendor?.name || "Terrific Travel Partner");
+    html = html.replace(/{{VENDOR_PHONE}}/g, mainFlight.vendor?.phoneNumber || "—");
+    html = html.replace(/{{VENDOR_EMAIL}}/g, mainFlight.vendor?.supportEmail || "—");
+
     html = html.replace(
       /{{PASSENGER_NAME}}/g,
       `${p.title || ""} ${p.firstName} ${p.lastName}`,
     );
     html = html.replace(
       /{{PASSENGER_DETAILS}}/g,
-      `${p.age || "Adult"} · Passport: ${p.passportNumber || "—"}`,
+      `${p.age || "Adult"}`,
     );
     html = html.replace(/{{SEAT}}/g, p.seat || "—");
 
@@ -1712,7 +2084,7 @@ export function renderFlightTicket(
         (pass: any) => `
       <div class="passenger-row">
         <span><strong>${pass.title || ""} ${pass.firstName} ${pass.lastName}</strong></span>
-        <span>${pass.age || "Adult"} · Passport: ${pass.passportNumber || "—"}</span>
+        <span>${pass.age || "Adult"}</span>
         <span>Seat: ${pass.seat || "—"}</span>
       </div>
     `,
@@ -1814,6 +2186,9 @@ export function renderHotelVoucher(
   html = html.replace(/{{HOTEL_NAME}}/g, hotel.hotelName || "—");
   html = html.replace(/{{HOTEL_CITY}}/g, hotel.city || "—");
   html = html.replace(/{{HOTEL_ADDRESS}}/g, hotel.hotelAddress || "—");
+  html = html.replace(/{{VENDOR_NAME}}/g, hotel.vendor?.name || "Terrific Travel Partner");
+  html = html.replace(/{{VENDOR_PHONE}}/g, hotel.vendor?.phoneNumber || "—");
+  html = html.replace(/{{VENDOR_EMAIL}}/g, hotel.vendor?.supportEmail || "—");
   html = html.replace(/{{HOTEL_STAY_ROW}}/g, hotelStayRow);
   html = html.replace(/{{GUESTS_TABLE_ROWS}}/g, guestsRows);
 
@@ -1889,6 +2264,9 @@ export function renderTransportVoucher(
   html = html.replace(/{{TOTAL_TRANSFERS}}/g, String(transfers.length));
   html = html.replace(/{{TRANSFERS_TABLE_ROWS}}/g, transfersRows);
   html = html.replace(/{{TOTAL_GROUND_COST}}/g, formatCurrency(totalCost));
+  html = html.replace(/{{VENDOR_NAME}}/g, transfers[0]?.vendor?.name || "Terrific Travel Ground Partner");
+  html = html.replace(/{{VENDOR_PHONE}}/g, transfers[0]?.vendor?.phoneNumber || "—");
+  html = html.replace(/{{VENDOR_EMAIL}}/g, transfers[0]?.vendor?.supportEmail || "—");
 
   return html;
 }
@@ -1932,8 +2310,6 @@ export function renderVisaInvoice(
       (v: any) => `
     <tr>
       <td><strong>${v.visaType}</strong></td>
-      <td>${v.passportNumber}</td>
-      <td>${v.visaNumber || "—"}</td>
       <td>${v.issueDate ? formatDate(v.issueDate) : "—"}</td>
       <td class="text-right"><strong>${formatCurrency(v.price)}</strong></td>
     </tr>
@@ -1953,6 +2329,9 @@ export function renderVisaInvoice(
   html = html.replace(/{{TOTAL_VISAS}}/g, String(visas.length));
   html = html.replace(/{{VISAS_TABLE_ROWS}}/g, visasRows);
   html = html.replace(/{{TOTAL_VISA_COST}}/g, formatCurrency(totalCost));
+  html = html.replace(/{{VENDOR_NAME}}/g, visas[0]?.vendor?.name || "Visa Consular Authority");
+  html = html.replace(/{{VENDOR_PHONE}}/g, visas[0]?.vendor?.phoneNumber || "—");
+  html = html.replace(/{{VENDOR_EMAIL}}/g, visas[0]?.vendor?.supportEmail || "—");
 
   return html;
 }
@@ -2013,6 +2392,9 @@ export function renderSpecialServicesInvoice(
   html = html.replace(/{{TOTAL_SERVICES}}/g, String(services.length));
   html = html.replace(/{{SERVICES_TABLE_ROWS}}/g, servicesRows);
   html = html.replace(/{{TOTAL_COST}}/g, formatCurrency(totalCost));
+  html = html.replace(/{{VENDOR_NAME}}/g, services[0]?.customVendorName || services[0]?.vendor?.name || "Terrific Travel Direct Office");
+  html = html.replace(/{{VENDOR_PHONE}}/g, services[0]?.vendor?.phoneNumber || "—");
+  html = html.replace(/{{VENDOR_EMAIL}}/g, services[0]?.vendor?.supportEmail || "—");
 
   return html;
 }

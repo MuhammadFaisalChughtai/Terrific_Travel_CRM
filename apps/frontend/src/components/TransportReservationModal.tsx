@@ -202,7 +202,7 @@ export default function TransportReservationModal({
       isOpen={isOpen}
       onClose={onClose}
       title={transportToEdit ? 'Edit Transport Service' : 'Add Transport Service'}
-      maxWidth="2xl"
+      maxWidth="4xl"
     >
       {isLoadingVendors ? (
         <div className="flex flex-col items-center justify-center py-12 space-y-2">

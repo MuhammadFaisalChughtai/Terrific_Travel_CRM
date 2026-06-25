@@ -1014,10 +1014,12 @@ export class VendorsService {
     notes?: string;
     createdById: string;
     bookingId?: string;
+    transactionDate?: string;
   }) {
     return prisma.$transaction(async (tx) => {
       const amount = Number(params.amount);
       let bookingRef: string | null = null;
+      const transactionDate = params.transactionDate ? new Date(params.transactionDate) : undefined;
       
       if (params.bookingId) {
         const bvp = await tx.bookingVendorPayment.findUnique({
@@ -1056,7 +1058,8 @@ export class VendorsService {
               bookingId: params.bookingId,
               amount: -amount, // vendor refund reduces total vendor payment allocated
               paymentMethod: 'Refund',
-              notes: `Vendor Refund from Vendor (Ref: ${params.vendorId}). ` + (params.notes || '')
+              notes: `Vendor Refund from Vendor (Ref: ${params.vendorId}). ` + (params.notes || ''),
+              ...(transactionDate ? { paidOn: transactionDate } : {})
             }
           });
         }
@@ -1082,7 +1085,8 @@ export class VendorsService {
           amount,
           type: 'CREDIT_OVERPAYMENT',
           notes: params.notes || 'Vendor Refund',
-          createdById: params.createdById
+          createdById: params.createdById,
+          ...(transactionDate ? { createdAt: transactionDate } : {})
         }
       });
 
@@ -1094,7 +1098,8 @@ export class VendorsService {
         debit: 0.0,
         credit: amount,
         notes: params.notes || 'Refund from Vendor',
-        createdById: params.createdById
+        createdById: params.createdById,
+        createdAt: transactionDate
       });
 
       await tx.vendor.update({
@@ -1113,10 +1118,12 @@ export class VendorsService {
     notes?: string;
     createdById: string;
     bookingId?: string;
+    transactionDate?: string;
   }) {
     return prisma.$transaction(async (tx) => {
       const amount = Number(params.amount);
       let bookingRef: string | null = null;
+      const transactionDate = params.transactionDate ? new Date(params.transactionDate) : undefined;
       
       if (params.bookingId) {
         const bvp = await tx.bookingVendorPayment.findUnique({
@@ -1156,7 +1163,8 @@ export class VendorsService {
               bookingId: params.bookingId,
               amount: 0, // A discount doesn't change cash flow from the customer immediately, but affects our cost.
               paymentMethod: 'Discount',
-              notes: `Discount received from Vendor (Ref: ${params.vendorId}). ` + (params.notes || '')
+              notes: `Discount received from Vendor (Ref: ${params.vendorId}). ` + (params.notes || ''),
+              ...(transactionDate ? { paidOn: transactionDate } : {})
             }
           });
         }
@@ -1184,7 +1192,8 @@ export class VendorsService {
           amount,
           type: 'CREDIT_DISCOUNT',
           notes: params.notes || 'Vendor Discount',
-          createdById: params.createdById
+          createdById: params.createdById,
+          ...(transactionDate ? { createdAt: transactionDate } : {})
         }
       });
 
@@ -1196,7 +1205,8 @@ export class VendorsService {
         debit: 0.0,
         credit: amount, // A discount increases our balance/credit with them
         notes: params.notes || 'Discount from Vendor',
-        createdById: params.createdById
+        createdById: params.createdById,
+        createdAt: transactionDate
       });
 
       await tx.vendor.update({
@@ -1219,6 +1229,7 @@ export class VendorsService {
     referenceNumber?: string;
     notes?: string;
     createdById: string;
+    createdAt?: Date;
   }) {
     if (params.debit === 0 && params.credit === 0) {
       return null;
@@ -1243,6 +1254,7 @@ export class VendorsService {
         referenceNumber: params.referenceNumber || null,
         notes: params.notes || null,
         createdById: params.createdById,
+        ...(params.createdAt ? { createdAt: params.createdAt } : {})
       }
     });
   }

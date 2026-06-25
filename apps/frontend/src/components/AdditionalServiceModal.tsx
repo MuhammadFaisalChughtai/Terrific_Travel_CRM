@@ -116,7 +116,7 @@ export default function AdditionalServiceModal({
       isOpen={isOpen}
       onClose={onClose}
       title={serviceToEdit ? 'Edit Additional Service' : 'Add Additional Service'}
-      maxWidth="lg"
+      maxWidth="2xl"
     >
       {isLoadingVendors ? (
         <div className="flex justify-center py-8">

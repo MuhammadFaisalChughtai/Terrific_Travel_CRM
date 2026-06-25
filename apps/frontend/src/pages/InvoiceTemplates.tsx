@@ -593,6 +593,84 @@ const TEMPLATES = [
 // ─────────────────────────────────────────────
 // Single template editor panel
 // ─────────────────────────────────────────────
+// PLACEHOLDERS LEGEND BY TEMPLATE TYPE
+// ─────────────────────────────────────────────
+const PLACEHOLDERS_BY_TYPE: Record<string, Array<{ key: string; description: string }>> = {
+  booking_invoice: [
+    { key: "{{BOOKING_REF}}", description: "Booking unique reference" },
+    { key: "{{INVOICE_NO}}", description: "Invoice number" },
+    { key: "{{TODAY}}", description: "Current date formatted" },
+    { key: "{{DEPARTURE_DATE}}", description: "Date of first departure" },
+    { key: "{{PAYMENT_STATUS}}", description: "Booking payment status" },
+    { key: "{{LEAD_PASSENGER_BLOCK}}", description: "HTML card of lead passenger details" },
+    { key: "{{AGENT_BLOCK}}", description: "HTML card of agent details" },
+    { key: "{{PASSENGERS_TABLE_ROWS}}", description: "HTML rows of passengers list" },
+    { key: "{{SERVICES_TABLE_ROWS}}", description: "HTML rows of itemized booking services" },
+    { key: "{{SUBTOTAL}}", description: "Sum cost of all service items" },
+    { key: "{{TOTAL_PRICE}}", description: "Total price of the booking" },
+    { key: "{{PAID_AMOUNT}}", description: "Total client payments received" },
+    { key: "{{BALANCE_DUE}}", description: "Remaining balance client owes" }
+  ],
+  flight_ticket: [
+    { key: "{{BOOKING_REF}}", description: "Booking unique reference" },
+    { key: "{{DATE}}", description: "Date ticket generated" },
+    { key: "{{FLIGHT_NO}}", description: "Flight segment flight number" },
+    { key: "{{PNR}}", description: "GDS Passenger Name Record code" },
+    { key: "{{DEPART_CODE}}", description: "Airport code departed from" },
+    { key: "{{DEPART_CITY}}", description: "Departure city/region" },
+    { key: "{{DEPART_TIME}}", description: "Scheduled departure date/time" },
+    { key: "{{ARRIVE_CODE}}", description: "Airport code arrived at" },
+    { key: "{{ARRIVE_CITY}}", description: "Arrival city/region" },
+    { key: "{{ARRIVE_TIME}}", description: "Scheduled arrival date/time" },
+    { key: "{{FLIGHT_DATE}}", description: "Date of flight segment" },
+    { key: "{{FLIGHT_CLASS}}", description: "Class code (e.g. Economy)" },
+    { key: "{{BAGGAGE}}", description: "Checked baggage allowance limit" },
+    { key: "{{CARRY_ON}}", description: "Carry-on cabin baggage allowance" },
+    { key: "{{PASSENGER_NAME}}", description: "Full passenger name" },
+    { key: "{{PASSENGER_DETAILS}}", description: "Age class and passport number" },
+    { key: "{{SEAT}}", description: "Assigned seat number" }
+  ],
+  hotel_voucher: [
+    { key: "{{BOOKING_REF}}", description: "Booking unique reference" },
+    { key: "{{HOTEL_NAME}}", description: "Name of hotel accommodation" },
+    { key: "{{HOTEL_CONFIRMATION_NO}}", description: "Hotel confirmation code" },
+    { key: "{{GDS_CODE}}", description: "GDS reservation code" },
+    { key: "{{LEAD_PASSENGER_BLOCK}}", description: "HTML snippet of lead guest info" },
+    { key: "{{TOTAL_GUESTS}}", description: "Count of all checked-in guests" },
+    { key: "{{HOTEL_CITY}}", description: "City or destination region" },
+    { key: "{{HOTEL_ADDRESS}}", description: "Exact property address" },
+    { key: "{{HOTEL_STAY_ROW}}", description: "HTML layout row of stay details" },
+    { key: "{{GUESTS_TABLE_ROWS}}", description: "HTML table rows of registered guests" }
+  ],
+  transport_voucher: [
+    { key: "{{BOOKING_REF}}", description: "Booking unique reference" },
+    { key: "{{VOUCHER_NO}}", description: "Unique transport voucher ID" },
+    { key: "{{ISSUE_DATE}}", description: "Date voucher generated" },
+    { key: "{{LEAD_PASSENGER_BLOCK}}", description: "HTML snippet of lead passenger info" },
+    { key: "{{TOTAL_TRANSFERS}}", description: "Count of transfer legs" },
+    { key: "{{TRANSFERS_TABLE_ROWS}}", description: "HTML table rows of pick-up and drop-off" },
+    { key: "{{TOTAL_GROUND_COST}}", description: "Total ground cost price" }
+  ],
+  visa_invoice: [
+    { key: "{{BOOKING_REF}}", description: "Booking unique reference" },
+    { key: "{{INVOICE_NO}}", description: "Unique visa invoice ID" },
+    { key: "{{ISSUE_DATE}}", description: "Date visa processed" },
+    { key: "{{LEAD_PASSENGER_BLOCK}}", description: "HTML snippet of lead passenger info" },
+    { key: "{{TOTAL_VISAS}}", description: "Count of visas in list" },
+    { key: "{{VISAS_TABLE_ROWS}}", description: "HTML table rows of applicant visas" },
+    { key: "{{TOTAL_VISA_COST}}", description: "Sum of visa fees" }
+  ],
+  special_services: [
+    { key: "{{BOOKING_REF}}", description: "Booking unique reference" },
+    { key: "{{INVOICE_NO}}", description: "Unique services invoice ID" },
+    { key: "{{TODAY}}", description: "Current date formatted" },
+    { key: "{{LEAD_PASSENGER_BLOCK}}", description: "HTML snippet of lead guest info" },
+    { key: "{{TOTAL_SERVICES}}", description: "Count of special service items" },
+    { key: "{{SERVICES_TABLE_ROWS}}", description: "HTML table rows of custom service details" },
+    { key: "{{TOTAL_COST}}", description: "Total price of special services" }
+  ]
+};
+
 interface TemplateEditorPanelProps {
   template: (typeof TEMPLATES)[0];
   isAdmin: boolean;
@@ -614,6 +692,25 @@ function TemplateEditorPanel({
   const [activeTab, setActiveTab] = useState<"editor" | "preview">("editor");
   const [isSaved, setIsSaved] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const insertPlaceholder = (key: string) => {
+    const el = textareaRef.current;
+    if (!el) return;
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const text = el.value;
+    const before = text.substring(0, start);
+    const after = text.substring(end, text.length);
+    const newHtml = before + key + after;
+    handleChange(newHtml);
+    
+    // Put focus back and place cursor after inserted text
+    setTimeout(() => {
+      el.focus();
+      el.selectionStart = el.selectionEnd = start + key.length;
+    }, 0);
+  };
 
   // Sync with initialHtml from parent query state
   useEffect(() => {
@@ -786,28 +883,62 @@ function TemplateEditorPanel({
           </div>
 
           {/* Editor / Preview */}
-          <div className="h-[500px] flex">
+          <div className="h-[600px] flex">
             {activeTab === "editor" ? (
-              <div className="flex-1 relative">
-                {!isAdmin && (
-                  <div className="absolute inset-0 bg-background/70 backdrop-blur-sm z-10 flex items-center justify-center">
-                    <div className="flex items-center gap-2 text-sm font-bold text-muted-foreground">
-                      <ShieldAlert size={16} className="text-amber-500" />
-                      Admin access required to edit templates.
+              <div className="flex-1 flex divide-x divide-border">
+                {/* Editor Textarea */}
+                <div className="flex-1 relative">
+                  {!isAdmin && (
+                    <div className="absolute inset-0 bg-background/70 backdrop-blur-sm z-10 flex items-center justify-center">
+                      <div className="flex items-center gap-2 text-sm font-bold text-muted-foreground">
+                        <ShieldAlert size={16} className="text-amber-500" />
+                        Admin access required to edit templates.
+                      </div>
                     </div>
+                  )}
+                  <textarea
+                    ref={textareaRef}
+                    value={html}
+                    onChange={(e) => handleChange(e.target.value)}
+                    readOnly={!isAdmin}
+                    spellCheck={false}
+                    className="w-full h-full p-4 font-mono text-[11px] bg-background border-0 focus:outline-none resize-none text-foreground leading-relaxed"
+                    style={{
+                      fontFamily:
+                        "'Cascadia Code', 'Fira Code', 'Consolas', monospace",
+                    }}
+                  />
+                </div>
+
+                {/* Placeholders Legend Sidebar */}
+                <div className="w-80 bg-secondary/15 p-4 overflow-y-auto flex flex-col gap-3 select-none">
+                  <div>
+                    <h4 className="font-bold text-[10px] uppercase tracking-wider text-foreground">Available Placeholders</h4>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">Use these tags inside your HTML layout to dynamically render booking data:</p>
                   </div>
-                )}
-                <textarea
-                  value={html}
-                  onChange={(e) => handleChange(e.target.value)}
-                  readOnly={!isAdmin}
-                  spellCheck={false}
-                  className="w-full h-full p-4 font-mono text-[11px] bg-background border-0 focus:outline-none resize-none text-foreground leading-relaxed"
-                  style={{
-                    fontFamily:
-                      "'Cascadia Code', 'Fira Code', 'Consolas', monospace",
-                  }}
-                />
+                  <div className="divide-y divide-border/50">
+                    {(PLACEHOLDERS_BY_TYPE[template.id] || []).map((placeholder) => (
+                      <button
+                        type="button"
+                        key={placeholder.key}
+                        onClick={() => insertPlaceholder(placeholder.key)}
+                        disabled={!isAdmin}
+                        className="py-2 text-left w-full hover:bg-secondary/35 rounded px-1.5 transition-all flex flex-col gap-0.5 group focus:outline-none focus:bg-secondary/45 border-0 bg-transparent cursor-pointer disabled:cursor-default"
+                        title={isAdmin ? `Click to insert ${placeholder.key} at cursor` : ""}
+                      >
+                        <span className="font-mono text-[10px] text-primary font-bold transition-colors flex items-center justify-between w-full">
+                          <span>{placeholder.key}</span>
+                          {isAdmin && (
+                            <span className="text-[8px] bg-primary/10 text-primary px-1 rounded opacity-0 group-hover:opacity-100 transition-opacity uppercase font-bold tracking-wider">
+                              + Insert
+                            </span>
+                          )}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">{placeholder.description}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             ) : (
               <div className="flex-1 bg-white overflow-hidden">

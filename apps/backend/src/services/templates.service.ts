@@ -251,6 +251,122 @@ const SHARED_CSS = `
     overflow: hidden;
     margin-bottom: 20px;
   }
+
+  /* Timeline component styles */
+  .timeline-container {
+    position: relative;
+    padding-left: 28px;
+    margin: 20px 0 20px 8px;
+    border-left: 2px solid #E2E8F0;
+  }
+  .timeline-item {
+    position: relative;
+    margin-bottom: 20px;
+  }
+  .timeline-item:last-child {
+    margin-bottom: 0;
+  }
+  .timeline-badge {
+    position: absolute;
+    left: -40px;
+    top: 2px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #FFFFFF;
+    border: 2px solid #64748B;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    z-index: 10;
+  }
+  .timeline-badge.flight { border-color: #0284C7; color: #0284C7; }
+  .timeline-badge.hotel { border-color: #10B981; color: #10B981; }
+  .timeline-badge.transfer { border-color: #F59E0B; color: #F59E0B; }
+  .timeline-badge.visa { border-color: #8B5CF6; color: #8B5CF6; }
+  .timeline-badge.special { border-color: #EC4899; color: #EC4899; }
+  
+  .timeline-card {
+    background: #F8FAFC;
+    border: 1px solid #E2E8F0;
+    border-radius: 8px;
+    padding: 12px 16px;
+    text-align: left;
+  }
+  .timeline-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    border-bottom: 1px dashed #E2E8F0;
+    padding-bottom: 6px;
+  }
+  .timeline-title {
+    font-family: 'Outfit', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    color: #0F172A;
+  }
+  .timeline-date {
+    font-size: 9.5px;
+    color: #64748B;
+    font-weight: 600;
+  }
+  .timeline-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px 16px;
+    font-size: 10px;
+  }
+  .timeline-detail-item {
+    color: #475569;
+  }
+  .timeline-detail-item strong {
+    color: #0F172A;
+  }
+  .timeline-badge-status {
+    font-size: 8px;
+    font-weight: 800;
+    padding: 1px 6px;
+    border-radius: 99px;
+    text-transform: uppercase;
+  }
+  .timeline-badge-status.confirmed { background: #DCFCE7; color: #15803D; }
+  .timeline-badge-status.pending { background: #FEF3C7; color: #D97706; }
+  .timeline-badge-status.cancelled { background: #FEE2E2; color: #991B1B; }
+
+  /* Terms Grid styling */
+  .terms-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 24px;
+    font-size: 8.5px;
+    color: #64748B;
+    text-align: left;
+  }
+  .terms-card {
+    background: #F8FAFC;
+    border: 1px solid #E2E8F0;
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .terms-card h4 {
+    margin: 0 0 6px 0;
+    color: #0F172A;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 9px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .terms-card p {
+    margin: 0;
+    line-height: 1.4;
+  }
 `;
 
 export const TEMPLATE_DEFAULTS: Record<string, { name: string; description: string; html: string }> = {
@@ -287,17 +403,26 @@ tbody tr:nth-child(even) { background: #F8FAFC; }
 </head>
 <body>
 <div class="document-container">
-  <div class="doc-header">
+  <div class="doc-header" style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #E2E8F0; padding-bottom: 16px; margin-bottom: 24px;">
     <div class="brand-block">
       ${BRAND_LOGOS.companyLogo}
-      <p style="margin-top: 8px; margin-bottom: 0; font-size: 9px; color: #64748B;">
-        120 Baker Street, London, W1U 6TU, United Kingdom<br>
-        Phone: +44 20 7946 0958 | Email: accounts@terrifictravel.co.uk
+      <p style="margin-top: 8px; margin-bottom: 0; font-size: 9px; color: #64748B; line-height: 1.4;">
+        <strong>Terrific Travel &amp; Tours Ltd</strong><br>
+        Address: Office 1, 11 Walford Road, Birmingham, B11 1NP, UK<br>
+        Phone: 0121 529 1630 | Emergency: +44 77 0090 0077<br>
+        Email: office@terrifictravel.co.uk | Web: www.terrifictravel.co.uk<br>
+        ATOL: 11492 | IATA: 91263712 | Reg No: 09384812
       </p>
     </div>
-    <div class="logos-block">
-      ${BRAND_LOGOS.iataLogo}
-      ${BRAND_LOGOS.atolLogo}
+    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+      <div class="logos-block">
+        ${BRAND_LOGOS.iataLogo}
+        ${BRAND_LOGOS.atolLogo}
+      </div>
+      <svg width="50" height="50" viewBox="0 0 29 29" fill="none" xmlns="http://www.w3.org/2000/svg" style="border: 1px solid #E2E8F0; padding: 4px; border-radius: 4px; background: white; margin-top: 4px;">
+        <path d="M0 0h7v7H0V0zm1 1v5h5V1H1zm8 0h1v1H9V1zm1 1h1v1h-1V2zm-1 1h1v1H9V3zm3-3h7v7h-7V0zm1 1v5h5V1h-5zm-5 7h1v1H9V8zm1 1h1v1h-1V9zm-1 1h1v1H9v-1zm4-2h1v1h-1V8zm1 1h1v1h-1V9zm-1 1h1v1h-1v-1zm4-2h1v1h-1V8zm1 1h1v1h-1V9zm-1 1h1v1h-1v-1zm-9 3h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1z" fill="#0F172A"/>
+        <path d="M0 9h7v7H0V9zm1 1v5h5v-5H1zm8 0h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm3-3h7v7h-7V9zm1 1v5h5v-5h-5zm-5 7h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm-9 3h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1z" fill="#0F172A"/>
+      </svg>
     </div>
   </div>
 
@@ -314,7 +439,7 @@ tbody tr:nth-child(even) { background: #F8FAFC; }
     </div>
   </div>
 
-  <div class="info-grid">
+  <div class="info-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 20px;">
     <div class="info-box">
       <h3>Lead Passenger / Client</h3>
       {{LEAD_PASSENGER_BLOCK}}
@@ -331,9 +456,7 @@ tbody tr:nth-child(even) { background: #F8FAFC; }
       <tr>
         <th>Passenger Name</th>
         <th>Type/Age</th>
-        <th>Passport Number</th>
         <th>Nationality</th>
-        <th>Passport Expiry</th>
       </tr>
     </thead>
     <tbody>
@@ -341,27 +464,58 @@ tbody tr:nth-child(even) { background: #F8FAFC; }
     </tbody>
   </table>
 
-  <h3 style="font-family: 'Outfit', sans-serif; text-transform: uppercase; font-size: 11px; color: #0F172A; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px; margin-bottom: 12px;">Itemized Services &amp; Booking Elements</h3>
-  <table class="data-table" style="margin-bottom: 16px;">
-    <thead>
-      <tr>
-        <th>Service Type</th>
-        <th>Description &amp; Booking Details</th>
-        <th class="text-right">Price</th>
-      </tr>
-    </thead>
-    <tbody>
-      {{SERVICES_TABLE_ROWS}}
-    </tbody>
-  </table>
+  <h3 style="font-family: 'Outfit', sans-serif; text-transform: uppercase; font-size: 11px; color: #0F172A; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px; margin-bottom: 16px;">Dynamic Trip Itinerary &amp; Timeline</h3>
+  {{SERVICES_TIMELINE}}
 
   <div class="financial-panel">
     <table class="financial-table">
-      <tr><td>Subtotal Cost:</td><td class="text-right">{{SUBTOTAL}}</td></tr>
-      <tr><td>Adjusted Total Price:</td><td class="text-right"><strong>{{TOTAL_PRICE}}</strong></td></tr>
-      <tr><td>Amount Received:</td><td class="text-right" style="color: #16A34A; font-weight: bold;">{{PAID_AMOUNT}}</td></tr>
-      <tr class="due-row"><td><strong>Outstanding Balance Due:</strong></td><td class="text-right"><strong>{{BALANCE_DUE}}</strong></td></tr>
+      <tr><td>Total Invoice Amount:</td><td class="text-right"><strong>{{TOTAL_PRICE}}</strong></td></tr>
+      <tr><td>Total Amount Received:</td><td class="text-right" style="color: #16A34A; font-weight: bold;">{{PAID_AMOUNT}}</td></tr>
+      <tr class="due-row"><td><strong>Remaining Balance Due:</strong></td><td class="text-right"><strong>{{BALANCE_DUE}}</strong></td></tr>
     </table>
+  </div>
+
+  <div class="terms-grid">
+    <div class="terms-card">
+      <h4>💼 General Booking Terms</h4>
+      <p>All bookings are subject to availability at the time of reservation. The client must ensure that all passenger names match their passport details exactly. Terrific Travel acts as an agent for respective service providers.</p>
+    </div>
+    <div class="terms-card">
+      <h4>💳 Payment Terms</h4>
+      <p>Deposits must be paid immediately to secure reservations. Final balances are due in full no later than 7 days prior to departure. Failure to complete payment may result in automated release of GDS bookings.</p>
+    </div>
+    <div class="terms-card">
+      <h4>⚠️ Cancellation Policy</h4>
+      <p>Cancellations must be requested in writing. All deposits are non-refundable. Additional airline, hotel, or GDS cancellation charges apply dynamically depending on supplier terms and time remaining before travel.</p>
+    </div>
+    <div class="terms-card">
+      <h4>✈️ Flight Conditions</h4>
+      <p>Flight times and schedules are subject to change by airlines. Baggage allowances are subject to carrier rules. Passengers should check in online 24 hours prior to departure and arrive at terminals 3 hours early.</p>
+    </div>
+    <div class="terms-card">
+      <h4>🏨 Hotel Conditions</h4>
+      <p>Hotel ratings are based on local standards. Check-in/check-out times must be respected. Special requests (bed type, high floors, views) are subject to availability and cannot be guaranteed by Terrific Travel.</p>
+    </div>
+    <div class="terms-card">
+      <h4>🛂 Visa Conditions</h4>
+      <p>It is the sole responsibility of the customer to obtain valid visa clearances. Visa approval remains at the absolute discretion of border authorities and national consulates. Visa fees are strictly non-refundable.</p>
+    </div>
+    <div class="terms-card">
+      <h4>🚗 Transportation Conditions</h4>
+      <p>Transfers are scheduled according to booking details. Drivers will wait up to 60 minutes after flight arrival. Customers must contact the emergency helpline immediately if they cannot locate their driver.</p>
+    </div>
+    <div class="terms-card">
+      <h4>🕋 Hajj &amp; Umrah Conditions</h4>
+      <p>Pilgrimage packages are subject to Saudi Ministry of Hajj &amp; Umrah regulations. E-visas and transportation booking are fully subject to local rules. Accommodation and transportation upgrades are subject to availability.</p>
+    </div>
+    <div class="terms-card">
+      <h4>ℹ️ Important Travel Information</h4>
+      <p>Flight bookings are protected under the UK Civil Aviation Authority ATOL scheme (Reg 11492) and fully backed by our IATA credentials. Travel insurance is highly recommended for all overseas bookings.</p>
+    </div>
+    <div class="terms-card">
+      <h4>⚖️ Disclaimer</h4>
+      <p>Terrific Travel acts as an intermediary agent and shall not be held liable for personal injury, property loss, delays, cancellations, or defaults caused by airlines, hotels, or other service providers.</p>
+    </div>
   </div>
 
   <div class="doc-footer">
@@ -376,103 +530,7 @@ tbody tr:nth-child(even) { background: #F8FAFC; }
   FLIGHT_TICKET: {
     name: 'Flight Ticket',
     description: 'E-ticket itinerary with route, PNR, baggage and passenger details — one ticket per passenger.',
-    html: `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8" />
-<title>Flight Ticket Template</title>
-<style>
-${SHARED_CSS}
-.ticket-wrapper { max-width: 780px; margin: 0 auto; }
-.ticket-card { background: linear-gradient(135deg, #0F172A 0%, #1E3A5F 100%); color: #FFFFFF; border-radius: 16px; padding: 24px 28px; margin-bottom: 16px; position: relative; overflow: hidden; }
-.ticket-card::before { content: ''; position: absolute; top: -30px; right: -30px; width: 140px; height: 140px; background: rgba(255,255,255,0.04); border-radius: 50%; }
-.airline-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
-.airline-name { font-size: 18px; font-weight: 900; letter-spacing: 0.5px; }
-.pnr-badge { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; padding: 6px 14px; text-align: center; }
-.pnr-label { font-size: 8px; font-weight: 700; opacity: 0.7; text-transform: uppercase; letter-spacing: 1px; }
-.pnr-value { font-size: 16px; font-weight: 900; letter-spacing: 2px; font-family: monospace; }
-.route-row { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
-.airport-code { font-size: 36px; font-weight: 900; letter-spacing: -1px; }
-.airport-city { font-size: 10px; opacity: 0.7; margin-top: 2px; }
-.route-line { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
-.route-dashes { width: 100%; height: 1px; border-top: 2px dashed rgba(255,255,255,0.25); }
-.flight-details-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; background: rgba(255,255,255,0.06); border-radius: 10px; padding: 12px 16px; }
-.detail-item label { font-size: 8px; font-weight: 700; opacity: 0.6; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 4px; }
-.detail-item span { font-size: 12px; font-weight: 700; }
-.passenger-section { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 14px 18px; margin-top: 14px; }
-.passenger-section h3 { font-size: 10px; font-weight: 800; color: #0EA5E9; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 8px; }
-.passenger-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #F1F5F9; font-size: 10px; }
-.baggage-strip { display: flex; gap: 12px; margin-top: 12px; }
-.baggage-item { background: rgba(255,255,255,0.1); border-radius: 8px; padding: 8px 14px; font-size: 10px; text-align: center; }
-.baggage-item span { display: block; font-size: 8px; opacity: 0.7; margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
-.footer-bar { font-size: 9px; color: #94A3B8; text-align: center; margin-top: 16px; padding-top: 12px; border-top: 1px solid #E2E8F0; }
-</style>
-</head>
-<body>
-<div class="document-container ticket-wrapper">
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">
-    ${BRAND_LOGOS.companyLogo}
-    <div style="text-align:right;">
-      <div style="font-size:9px;color:#64748B;">Booking Reference</div>
-      <div style="font-size:14px;font-weight:900;color:#0F172A;">{{BOOKING_REF}}</div>
-      <div style="font-size:9px;color:#94A3B8;margin-top:2px;">Issued: {{DATE}}</div>
-    </div>
-  </div>
-
-  <div class="ticket-card">
-    <div class="airline-row">
-      <div>
-        <div class="airline-name">✈ Terrific Travel — Flight Itinerary</div>
-        <div style="font-size:10px;opacity:0.7;margin-top:2px;">Economy Class · {{FLIGHT_NO}}</div>
-      </div>
-      <div class="pnr-badge">
-        <div class="pnr-label">PNR</div>
-        <div class="pnr-value">{{PNR}}</div>
-      </div>
-    </div>
-
-    <div class="route-row">
-      <div style="text-align:center;">
-        <div class="airport-code">{{DEPART_CODE}}</div>
-        <div class="airport-city">{{DEPART_CITY}}</div>
-        <div style="font-size:12px;font-weight:700;margin-top:6px;">{{DEPART_TIME}}</div>
-      </div>
-      <div class="route-line">
-        <div style="font-size:9px;opacity:0.6;text-transform:uppercase;letter-spacing:1px;">Direct</div>
-        <div class="route-dashes"></div>
-        <div style="font-size:11px;opacity:0.7;">→</div>
-      </div>
-      <div style="text-align:center;">
-        <div class="airport-code">{{ARRIVE_CODE}}</div>
-        <div class="airport-city">{{ARRIVE_CITY}}</div>
-        <div style="font-size:12px;font-weight:700;margin-top:6px;">{{ARRIVE_TIME}}</div>
-      </div>
-    </div>
-
-    <div class="flight-details-grid">
-      <div class="detail-item"><label>Date</label><span>{{FLIGHT_DATE}}</span></div>
-      <div class="detail-item"><label>Flight Class</label><span>{{FLIGHT_CLASS}}</span></div>
-      <div class="detail-item"><label>Baggage</label><span>{{BAGGAGE}}</span></div>
-      <div class="detail-item"><label>Carry-On</label><span>{{CARRY_ON}}</span></div>
-    </div>
-  </div>
-
-  <div class="passenger-section">
-    <h3>Passenger Details</h3>
-    <div class="passenger-row">
-      <span><strong>{{PASSENGER_NAME}}</strong></span>
-      <span>{{PASSENGER_DETAILS}}</span>
-      <span>Seat: {{SEAT}}</span>
-    </div>
-  </div>
-
-  <div class="footer-bar">
-    Terrific Travel &amp; Tours Ltd | ATOL No: 11492 | accounts@terrifictravel.co.uk | +44 20 7946 0958<br>
-    This is an e-ticket. Please present this document along with a valid passport at check-in.
-  </div>
-</div>
-</body>
-</html>`,
+    html: '{{FLIGHT_TICKET_PAGES}}',
   },
 
   HOTEL_VOUCHER: {
@@ -506,20 +564,45 @@ ${SHARED_CSS}
 </style>
 </head>
 <body>
-<div class="document-container" style="padding:0;overflow:hidden;">
-  <div class="voucher-header">
-    <div>
-      <div style="font-size: 10px; font-weight: 700; opacity: 0.7; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">Hotel Accommodation Voucher</div>
-      <div class="hotel-name">{{HOTEL_NAME}}</div>
-      <span class="badge">Confirmed · Ref: {{BOOKING_REF}}</span>
+<div class="document-container">
+  <div class="doc-header" style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #E2E8F0; padding-bottom: 16px; margin-bottom: 24px;">
+    <div class="brand-block">
+      ${BRAND_LOGOS.companyLogo}
+      <p style="margin-top: 8px; margin-bottom: 0; font-size: 9px; color: #64748B; line-height: 1.4;">
+        <strong>Terrific Travel &amp; Tours Ltd</strong><br>
+        Address: Office 1, 11 Walford Road, Birmingham, B11 1NP, UK<br>
+        Phone: 0121 529 1630 | Emergency: +44 77 0090 0077<br>
+        Email: office@terrifictravel.co.uk | Web: www.terrifictravel.co.uk<br>
+        ATOL: 11492 | IATA: 91263712 | Reg No: 09384812
+      </p>
     </div>
-    <div style="text-align: right;">
-      ${BRAND_LOGOS.companyLogo.replace('height: 60px', 'height: 40px')}
-      <div style="font-size: 8px; opacity: 0.7; margin-top: 4px;">accounts@terrifictravel.co.uk</div>
+    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+      <div class="logos-block">
+        ${BRAND_LOGOS.iataLogo}
+        ${BRAND_LOGOS.atolLogo}
+      </div>
+      <svg width="50" height="50" viewBox="0 0 29 29" fill="none" xmlns="http://www.w3.org/2000/svg" style="border: 1px solid #E2E8F0; padding: 4px; border-radius: 4px; background: white; margin-top: 4px;">
+        <path d="M0 0h7v7H0V0zm1 1v5h5V1H1zm8 0h1v1H9V1zm1 1h1v1h-1V2zm-1 1h1v1H9V3zm3-3h7v7h-7V0zm1 1v5h5V1h-5zm-5 7h1v1H9V8zm1 1h1v1h-1V9zm-1 1h1v1H9v-1zm4-2h1v1h-1V8zm1 1h1v1h-1V9zm-1 1h1v1h-1v-1zm4-2h1v1h-1V8zm1 1h1v1h-1V9zm-1 1h1v1h-1v-1zm-9 3h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1z" fill="#0F172A"/>
+        <path d="M0 9h7v7H0V9zm1 1v5h5v-5H1zm8 0h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm3-3h7v7h-7V9zm1 1v5h5v-5h-5zm-5 7h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm-9 3h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1z" fill="#0F172A"/>
+      </svg>
     </div>
   </div>
 
-  <div class="voucher-body">
+  <div class="doc-title-section">
+    <div>
+      <h1 class="doc-title">Hotel Booking Voucher</h1>
+      <span class="section-badge" style="background: #DCFCE7; color: #15803D;">Status: Confirmed</span>
+    </div>
+    <div class="doc-meta">
+      <p>Voucher No: <strong>{{VOUCHER_NO}}</strong></p>
+      <p>Issue Date: <strong>{{ISSUE_DATE}}</strong></p>
+      <p>Booking Reference: <strong>{{BOOKING_REF}}</strong></p>
+      <p>Hotel Confirmation #: <strong style="font-size: 12px; color: #10B981;">{{HOTEL_CONFIRMATION_NO}}</strong></p>
+      <p>GDS Reservation Code: <strong>{{GDS_CODE}}</strong></p>
+    </div>
+  </div>
+
+  <div class="voucher-body" style="border:none; padding:0;">
     <div class="checkin-row">
       {{HOTEL_STAY_ROW}}
     </div>
@@ -529,7 +612,13 @@ ${SHARED_CSS}
       <div class="info-cell"><label>GDS Reservation Code</label><span>{{GDS_CODE}}</span></div>
       <div class="info-cell"><label>Guest / Lead Client Details</label><span>{{LEAD_PASSENGER_BLOCK}}</span></div>
       <div class="info-cell"><label>Total Guests</label><span>{{TOTAL_GUESTS}} Guest(s)</span></div>
-      <div class="info-cell" style="grid-column: span 2;"><label>Property Information</label><span>City/Region: {{HOTEL_CITY}}<br>Address: {{HOTEL_ADDRESS}}</span></div>
+      <div class="info-cell" style="grid-column: span 2;">
+        <label>Property &amp; Vendor Information</label>
+        <span>City/Region: {{HOTEL_CITY}}<br>Address: {{HOTEL_ADDRESS}}</span>
+        <hr style="border: 0; border-top: 1px solid #E2E8F0; margin: 8px 0;" />
+        <label>Fulfillment Vendor</label>
+        <span><strong>{{VENDOR_NAME}}</strong><br>Phone: {{VENDOR_PHONE}}<br>Email: {{VENDOR_EMAIL}}</span>
+      </div>
     </div>
 
     <h3 style="font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; margin: 16px 0 6px;">Guest List</h3>
@@ -549,7 +638,7 @@ ${SHARED_CSS}
     </div>
 
     <div class="footer-bar">
-      Terrific Travel &amp; Tours Ltd · ATOL Protected · Reg No: 11492 · accounts@terrifictravel.co.uk<br>
+      Terrific Travel &amp; Tours Ltd · ATOL Protected · Reg No: 11492 · office@terrifictravel.co.uk<br>
       Please present this voucher at check-in. All special requests are subject to availability.
     </div>
   </div>
@@ -586,23 +675,44 @@ ${SHARED_CSS}
 </style>
 </head>
 <body>
-<div class="document-container" style="padding:0;overflow:hidden;">
-  <div class="transport-header">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-      <div>
-        <div style="font-size:10px;font-weight:700;opacity:0.7;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Transport / Transfer Voucher</div>
-        <div style="font-size:20px;font-weight:900;">Transfer Service</div>
-        <span style="font-size:8px;font-weight:800;background:rgba(255,255,255,0.15);padding:3px 10px;border-radius:99px;text-transform:uppercase;">Confirmed · Ref: {{BOOKING_REF}}</span>
+<div class="document-container">
+  <div class="doc-header" style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #E2E8F0; padding-bottom: 16px; margin-bottom: 24px;">
+    <div class="brand-block">
+      ${BRAND_LOGOS.companyLogo}
+      <p style="margin-top: 8px; margin-bottom: 0; font-size: 9px; color: #64748B; line-height: 1.4;">
+        <strong>Terrific Travel &amp; Tours Ltd</strong><br>
+        Address: Office 1, 11 Walford Road, Birmingham, B11 1NP, UK<br>
+        Phone: 0121 529 1630 | Emergency: +44 77 0090 0077<br>
+        Email: office@terrifictravel.co.uk | Web: www.terrifictravel.co.uk<br>
+        ATOL: 11492 | IATA: 91263712 | Reg No: 09384812
+      </p>
+    </div>
+    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+      <div class="logos-block">
+        ${BRAND_LOGOS.iataLogo}
+        ${BRAND_LOGOS.atolLogo}
       </div>
-      <div style="text-align:right;font-size:9px;opacity:0.8;">
-        Terrific Travel &amp; Tours Ltd<br>
-        accounts@terrifictravel.co.uk
-      </div>
+      <svg width="50" height="50" viewBox="0 0 29 29" fill="none" xmlns="http://www.w3.org/2000/svg" style="border: 1px solid #E2E8F0; padding: 4px; border-radius: 4px; background: white; margin-top: 4px;">
+        <path d="M0 0h7v7H0V0zm1 1v5h5V1H1zm8 0h1v1H9V1zm1 1h1v1h-1V2zm-1 1h1v1H9V3zm3-3h7v7h-7V0zm1 1v5h5V1h-5zm-5 7h1v1H9V8zm1 1h1v1h-1V9zm-1 1h1v1H9v-1zm4-2h1v1h-1V8zm1 1h1v1h-1V9zm-1 1h1v1h-1v-1zm4-2h1v1h-1V8zm1 1h1v1h-1V9zm-1 1h1v1h-1v-1zm-9 3h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1z" fill="#0F172A"/>
+        <path d="M0 9h7v7H0V9zm1 1v5h5v-5H1zm8 0h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm3-3h7v7h-7V9zm1 1v5h5v-5h-5zm-5 7h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm-9 3h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1z" fill="#0F172A"/>
+      </svg>
     </div>
   </div>
 
-  <div class="transport-body">
-    <div class="info-grid">
+  <div class="doc-title-section">
+    <div>
+      <h1 class="doc-title">Transfer Voucher</h1>
+      <span class="section-badge" style="background: #FEF3C7; color: #D97706;">Service: Scheduled</span>
+    </div>
+    <div class="doc-meta">
+      <p>Voucher No: <strong>{{VOUCHER_NO}}</strong></p>
+      <p>Issue Date: <strong>{{ISSUE_DATE}}</strong></p>
+      <p>Booking Reference: <strong>{{BOOKING_REF}}</strong></p>
+    </div>
+  </div>
+
+  <div class="transport-body" style="border:none; padding:0;">
+    <div class="info-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px;">
       <div class="info-box">
         <h3>Lead Passenger / Guest</h3>
         {{LEAD_PASSENGER_BLOCK}}
@@ -611,6 +721,12 @@ ${SHARED_CSS}
         <h3>Booking Summary</h3>
         <p>Total Scheduled Transfers: <strong>{{TOTAL_TRANSFERS}} Leg(s)</strong></p>
         <p>Ground Status: <strong>Confirmed &amp; Secured</strong></p>
+      </div>
+      <div class="info-box">
+        <h3>Fulfillment Vendor Details</h3>
+        <p><strong>Vendor Name:</strong> {{VENDOR_NAME}}</p>
+        <p><strong>Phone:</strong> {{VENDOR_PHONE}}</p>
+        <p><strong>Email:</strong> {{VENDOR_EMAIL}}</p>
       </div>
     </div>
 
@@ -678,22 +794,44 @@ tbody tr:nth-child(even) { background: #F8FAFC; }
 </style>
 </head>
 <body>
-<div class="document-container" style="padding:0;overflow:hidden;">
-  <div class="visa-header">
-    <div>
-      <div style="font-size:10px;font-weight:700;opacity:0.7;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Visa Processing Invoice</div>
-      <div style="font-size:20px;font-weight:900;">MOFA / Embassy Services</div>
-      <span style="font-size:8px;font-weight:800;background:rgba(255,255,255,0.15);padding:3px 10px;border-radius:99px;text-transform:uppercase;">Ref: {{BOOKING_REF}}</span>
+<div class="document-container">
+  <div class="doc-header" style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #E2E8F0; padding-bottom: 16px; margin-bottom: 24px;">
+    <div class="brand-block">
+      ${BRAND_LOGOS.companyLogo}
+      <p style="margin-top: 8px; margin-bottom: 0; font-size: 9px; color: #64748B; line-height: 1.4;">
+        <strong>Terrific Travel &amp; Tours Ltd</strong><br>
+        Address: Office 1, 11 Walford Road, Birmingham, B11 1NP, UK<br>
+        Phone: 0121 529 1630 | Emergency: +44 77 0090 0077<br>
+        Email: office@terrifictravel.co.uk | Web: www.terrifictravel.co.uk<br>
+        ATOL: 11492 | IATA: 91263712 | Reg No: 09384812
+      </p>
     </div>
-    <div style="text-align:right;font-size:9px;opacity:0.8;">
-      Terrific Travel &amp; Tours Ltd<br>
-      accounts@terrifictravel.co.uk<br>
-      Date: {{ISSUE_DATE}}
+    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+      <div class="logos-block">
+        ${BRAND_LOGOS.iataLogo}
+        ${BRAND_LOGOS.atolLogo}
+      </div>
+      <svg width="50" height="50" viewBox="0 0 29 29" fill="none" xmlns="http://www.w3.org/2000/svg" style="border: 1px solid #E2E8F0; padding: 4px; border-radius: 4px; background: white; margin-top: 4px;">
+        <path d="M0 0h7v7H0V0zm1 1v5h5V1H1zm8 0h1v1H9V1zm1 1h1v1h-1V2zm-1 1h1v1H9V3zm3-3h7v7h-7V0zm1 1v5h5V1h-5zm-5 7h1v1H9V8zm1 1h1v1h-1V9zm-1 1h1v1H9v-1zm4-2h1v1h-1V8zm1 1h1v1h-1V9zm-1 1h1v1h-1v-1zm4-2h1v1h-1V8zm1 1h1v1h-1V9zm-1 1h1v1h-1v-1zm-9 3h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1z" fill="#0F172A"/>
+        <path d="M0 9h7v7H0V9zm1 1v5h5v-5H1zm8 0h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm3-3h7v7h-7V9zm1 1v5h5v-5h-5zm-5 7h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm-9 3h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1z" fill="#0F172A"/>
+      </svg>
     </div>
   </div>
 
-  <div class="visa-body">
-    <div class="info-grid">
+  <div class="doc-title-section">
+    <div>
+      <h1 class="doc-title">Visa Services Invoice</h1>
+      <span class="section-badge" style="background: #DCFCE7; color: #15803D;">Status: Completed</span>
+    </div>
+    <div class="doc-meta">
+      <p>Invoice No: <strong>{{INVOICE_NO}}</strong></p>
+      <p>Issue Date: <strong>{{ISSUE_DATE}}</strong></p>
+      <p>Booking Reference: <strong>{{BOOKING_REF}}</strong></p>
+    </div>
+  </div>
+
+  <div class="visa-body" style="border:none; padding:0;">
+    <div class="info-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px;">
       <div class="info-box">
         <h3>Applicant / Client Info</h3>
         {{LEAD_PASSENGER_BLOCK}}
@@ -704,6 +842,12 @@ tbody tr:nth-child(even) { background: #F8FAFC; }
         <p>Consular Desk Support</p>
         <p>Total Visa Applications: <strong>{{TOTAL_VISAS}}</strong></p>
       </div>
+      <div class="info-box">
+        <h3>Consular Fulfillment Vendor</h3>
+        <p><strong>Vendor Name:</strong> {{VENDOR_NAME}}</p>
+        <p><strong>Phone:</strong> {{VENDOR_PHONE}}</p>
+        <p><strong>Email:</strong> {{VENDOR_EMAIL}}</p>
+      </div>
     </div>
 
     <h3 style="font-family: 'Outfit', sans-serif; text-transform: uppercase; font-size: 11px; color: #0F172A; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px; margin-bottom: 12px;">Consular &amp; Processing Services Summary</h3>
@@ -711,8 +855,6 @@ tbody tr:nth-child(even) { background: #F8FAFC; }
       <thead>
         <tr>
           <th>Consular Visa Category</th>
-          <th>Passport Number</th>
-          <th>Visa Processing Number</th>
           <th>Issue Date</th>
           <th class="text-right">Visa Fee</th>
         </tr>
@@ -739,7 +881,7 @@ tbody tr:nth-child(even) { background: #F8FAFC; }
     </div>
 
     <div class="footer-bar">
-      Terrific Travel &amp; Tours Ltd · ATOL Protected · Reg No: 11492 · accounts@terrifictravel.co.uk
+      Terrific Travel &amp; Tours Ltd · ATOL Protected · Reg No: 11492 · office@terrifictravel.co.uk
     </div>
   </div>
 </div>
@@ -769,22 +911,44 @@ tbody tr:nth-child(even) { background: #FFF7F0; }
 </style>
 </head>
 <body>
-<div class="document-container" style="padding:0;overflow:hidden;">
-  <div class="special-header">
-    <div>
-      <div style="font-size:10px;font-weight:700;opacity:0.7;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Additional / Special Services Invoice</div>
-      <div style="font-size:20px;font-weight:900;">Ancillary Services</div>
-      <span style="font-size:8px;font-weight:800;background:rgba(255,255,255,0.15);padding:3px 10px;border-radius:99px;text-transform:uppercase;">Ref: {{BOOKING_REF}}</span>
+<div class="document-container">
+  <div class="doc-header" style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #E2E8F0; padding-bottom: 16px; margin-bottom: 24px;">
+    <div class="brand-block">
+      ${BRAND_LOGOS.companyLogo}
+      <p style="margin-top: 8px; margin-bottom: 0; font-size: 9px; color: #64748B; line-height: 1.4;">
+        <strong>Terrific Travel &amp; Tours Ltd</strong><br>
+        Address: Office 1, 11 Walford Road, Birmingham, B11 1NP, UK<br>
+        Phone: 0121 529 1630 | Emergency: +44 77 0090 0077<br>
+        Email: office@terrifictravel.co.uk | Web: www.terrifictravel.co.uk<br>
+        ATOL: 11492 | IATA: 91263712 | Reg No: 09384812
+      </p>
     </div>
-    <div style="text-align:right;font-size:9px;opacity:0.8;">
-      Terrific Travel &amp; Tours Ltd<br>
-      accounts@terrifictravel.co.uk<br>
-      Date: {{TODAY}}
+    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+      <div class="logos-block">
+        ${BRAND_LOGOS.iataLogo}
+        ${BRAND_LOGOS.atolLogo}
+      </div>
+      <svg width="50" height="50" viewBox="0 0 29 29" fill="none" xmlns="http://www.w3.org/2000/svg" style="border: 1px solid #E2E8F0; padding: 4px; border-radius: 4px; background: white; margin-top: 4px;">
+        <path d="M0 0h7v7H0V0zm1 1v5h5V1H1zm8 0h1v1H9V1zm1 1h1v1h-1V2zm-1 1h1v1H9V3zm3-3h7v7h-7V0zm1 1v5h5V1h-5zm-5 7h1v1H9V8zm1 1h1v1h-1V9zm-1 1h1v1H9v-1zm4-2h1v1h-1V8zm1 1h1v1h-1V9zm-1 1h1v1h-1v-1zm4-2h1v1h-1V8zm1 1h1v1h-1V9zm-1 1h1v1h-1v-1zm-9 3h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1z" fill="#0F172A"/>
+        <path d="M0 9h7v7H0V9zm1 1v5h5v-5H1zm8 0h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm3-3h7v7h-7V9zm1 1v5h5v-5h-5zm-5 7h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm-9 3h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1z" fill="#0F172A"/>
+      </svg>
     </div>
   </div>
 
-  <div class="special-body">
-    <div class="info-grid">
+  <div class="doc-title-section">
+    <div>
+      <h1 class="doc-title">Special Service Invoice</h1>
+      <span class="section-badge" style="background: #FCE7F3; color: #BE185D;">Status: Confirmed</span>
+    </div>
+    <div class="doc-meta">
+      <p>Invoice No: <strong>{{INVOICE_NO}}</strong></p>
+      <p>Date: <strong>{{TODAY}}</strong></p>
+      <p>Booking Reference: <strong>{{BOOKING_REF}}</strong></p>
+    </div>
+  </div>
+
+  <div class="special-body" style="border:none; padding:0;">
+    <div class="info-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px;">
       <div class="info-box">
         <h3>Lead Passenger / Guest</h3>
         {{LEAD_PASSENGER_BLOCK}}
@@ -793,6 +957,12 @@ tbody tr:nth-child(even) { background: #FFF7F0; }
         <h3>Fulfillment Details</h3>
         <p>Special Service Type: Additional / Custom Element</p>
         <p>Total Items: <strong>{{TOTAL_SERVICES}}</strong></p>
+      </div>
+      <div class="info-box">
+        <h3>Fulfillment Vendor Details</h3>
+        <p><strong>Vendor Name:</strong> {{VENDOR_NAME}}</p>
+        <p><strong>Phone:</strong> {{VENDOR_PHONE}}</p>
+        <p><strong>Email:</strong> {{VENDOR_EMAIL}}</p>
       </div>
     </div>
 
@@ -821,7 +991,7 @@ tbody tr:nth-child(even) { background: #FFF7F0; }
     </div>
 
     <div class="footer-bar">
-      Terrific Travel &amp; Tours Ltd · accounts@terrifictravel.co.uk<br>
+      Terrific Travel &amp; Tours Ltd · office@terrifictravel.co.uk<br>
       All special service requests are subject to vendor availability and confirmation.
     </div>
   </div>

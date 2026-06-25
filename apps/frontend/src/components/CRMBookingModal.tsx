@@ -148,14 +148,22 @@ export default function CRMBookingModal({ isOpen, onClose, booking }: CRMBooking
                    return <EmptyRow colSpan={4} />;
                  }
 
-                 return clientTransactions.map((tx: any, idx: number) => (
-                   <tr key={idx} className={idx % 2 === 0 ? "bg-secondary/5" : ""}>
-                     <TableCell>{tx.amount}</TableCell>
-                     <TableCell>{tx.paymentMethod}</TableCell>
-                     <TableCell>{format(new Date(tx.paidOn), "MMMM dd, yyyy")}</TableCell>
-                     <TableCell>{tx.notes || ""}</TableCell>
-                   </tr>
-                 ));
+                 return clientTransactions.map((tx: any, idx: number) => {
+                   const isCcCharge = tx.notes?.toLowerCase().includes("credit card charges");
+                   const isNegative = tx.amount < 0;
+                   return (
+                     <tr key={idx} className={idx % 2 === 0 ? "bg-secondary/5" : ""}>
+                       <TableCell>
+                         <span className={isNegative ? "text-red-600 dark:text-red-400 font-bold" : "text-emerald-600 dark:text-emerald-400 font-bold"}>
+                           {isNegative ? "-" : (isCcCharge ? "+" : "")}{Math.abs(tx.amount)}
+                         </span>
+                       </TableCell>
+                       <TableCell>{tx.paymentMethod}</TableCell>
+                       <TableCell>{format(new Date(tx.paidOn), "MMMM dd, yyyy")}</TableCell>
+                       <TableCell>{tx.notes || ""}</TableCell>
+                     </tr>
+                   );
+                 });
                })()}
              </tbody>
           </table>

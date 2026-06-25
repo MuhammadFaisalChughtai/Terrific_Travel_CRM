@@ -95,6 +95,7 @@ export class PaymentsService {
 
   async recordTransaction(data: any, userId: string, adminName: string = 'Admin') {
     const amount = Number(data.amount);
+    const transactionDate = data.transactionDate ? new Date(data.transactionDate) : undefined;
     
     switch (data.type) {
       case "CUSTOMER_PAYMENT": {
@@ -111,6 +112,7 @@ export class PaymentsService {
               provider: 'MANUAL',
               status: PaymentStatus.SUCCESS,
               transactionId: `manual_tx_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+              ...(transactionDate ? { createdAt: transactionDate } : {})
             }
           });
 
@@ -140,7 +142,8 @@ export class PaymentsService {
               bookingId: data.bookingId,
               amount,
               paymentMethod: data.paymentMethod || 'Bank Transfer',
-              notes: data.notes || 'Customer payment received'
+              notes: data.notes || 'Customer payment received',
+              ...(transactionDate ? { paidOn: transactionDate } : {})
             }
           });
 
@@ -153,35 +156,43 @@ export class PaymentsService {
             credit: 0.0,
             notes: data.notes || 'Customer payment received',
             createdById: userId,
-            referenceNumber: payment.transactionId ?? undefined
+            referenceNumber: payment.transactionId ?? undefined,
+            createdAt: transactionDate
           });
 
           // If credit card charges are provided, update booking and create a separate transaction entry
           if (data.paymentMethod === 'Credit Card' && data.cardPaymentCharges && Number(data.cardPaymentCharges) > 0) {
             const ccCharges = Number(data.cardPaymentCharges);
+            const isPaidByCompany = data.isPaidByCompany === true;
+
             await tx.booking.update({
               where: { id: data.bookingId },
               data: {
-                cardPaymentCharges: { increment: ccCharges }
+                cardPaymentCharges: { increment: ccCharges },
+                ...(isPaidByCompany ? { totalPrice: { decrement: ccCharges } } : { totalPrice: { increment: ccCharges } })
               }
             });
+
             await tx.bookingTransaction.create({
               data: {
                 bookingId: data.bookingId,
-                amount: ccCharges,
+                amount: isPaidByCompany ? -ccCharges : ccCharges,
                 paymentMethod: 'Credit Card',
-                notes: `Credit Card Charges for customer payment`
+                notes: `Credit Card Charges for customer payment` + (isPaidByCompany ? " (Paid by Company)" : " (Paid by Customer)"),
+                ...(transactionDate ? { paidOn: transactionDate } : {})
               }
             });
+
             await vendorsService.appendLedgerEntry(tx, {
               bookingId: data.bookingId,
               bookingReference: booking.bookingReference ?? undefined,
               eventType: 'CUSTOMER_PAYMENT',
-              debit: ccCharges,
-              credit: 0.0,
-              notes: `Credit Card Charges for customer payment`,
+              debit: isPaidByCompany ? 0.0 : ccCharges,
+              credit: isPaidByCompany ? ccCharges : 0.0,
+              notes: `Credit Card Charges for customer payment` + (isPaidByCompany ? " (Paid by Company)" : " (Paid by Customer)"),
               createdById: userId,
-              referenceNumber: `${payment.transactionId}-cc`
+              referenceNumber: `${payment.transactionId}-cc`,
+              createdAt: transactionDate
             });
           }
 
@@ -193,6 +204,7 @@ export class PaymentsService {
               invoiceNumber,
               amount,
               pdfUrl: `/storage/invoices/${invoiceNumber}.pdf`,
+              ...(transactionDate ? { createdAt: transactionDate } : {})
             }
           });
 
@@ -223,7 +235,8 @@ export class PaymentsService {
           amount,
           notes: data.notes,
           createdById: userId,
-          bookingId: data.bookingId || undefined
+          bookingId: data.bookingId || undefined,
+          transactionDate: data.transactionDate
         });
       }
 
@@ -233,7 +246,8 @@ export class PaymentsService {
           amount,
           notes: data.notes,
           createdById: userId,
-          bookingId: data.bookingId || undefined
+          bookingId: data.bookingId || undefined,
+          transactionDate: data.transactionDate
         });
       }
 
@@ -251,6 +265,7 @@ export class PaymentsService {
               provider: 'MANUAL',
               status: PaymentStatus.SUCCESS,
               transactionId: `refund_tx_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+              ...(transactionDate ? { createdAt: transactionDate } : {})
             }
           });
 
@@ -279,7 +294,8 @@ export class PaymentsService {
               bookingId: data.bookingId,
               amount: -amount,
               paymentMethod: data.paymentMethod || 'Bank Transfer',
-              notes: data.notes || 'Customer Refund'
+              notes: data.notes || 'Customer Refund',
+              ...(transactionDate ? { paidOn: transactionDate } : {})
             }
           });
 
@@ -292,7 +308,8 @@ export class PaymentsService {
             credit: amount,
             notes: data.notes || 'Customer Refund',
             createdById: userId,
-            referenceNumber: payment.transactionId ?? undefined
+            referenceNumber: payment.transactionId ?? undefined,
+            createdAt: transactionDate
           });
 
           return payment;

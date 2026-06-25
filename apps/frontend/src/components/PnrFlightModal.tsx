@@ -467,7 +467,7 @@ export default function PnrFlightModal({
       isOpen={isOpen}
       onClose={onClose}
       title={flightToEdit ? "Edit Flight Details" : "Add Flight Service"}
-      maxWidth="2xl"
+      maxWidth="4xl"
     >
       {/* Step Navigation Tabs (Only visible when not editing) */}
       {!flightToEdit && (

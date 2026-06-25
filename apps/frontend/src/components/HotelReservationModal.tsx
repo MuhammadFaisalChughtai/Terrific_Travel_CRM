@@ -16,6 +16,116 @@ interface HotelReservationModalProps {
   accommodationToEdit?: any | null;
 }
 
+export interface ParsedHotel {
+  hotelName?: string;
+  hotelAddress?: string;
+  checkInDate?: string;
+  checkOutDate?: string;
+  roomType?: string;
+  mealType?: string;
+  price?: string;
+  currency?: string;
+  confirmationNumber?: string;
+  city?: string;
+}
+
+export function parseHotelPNRText(text: string, defaultYear: number): ParsedHotel | null {
+  if (!text) return null;
+
+  const result: ParsedHotel = {};
+
+  // Hotel Name: HN-
+  const hnMatch = text.match(/\/HN-([^/]+)/i);
+  if (hnMatch) {
+    result.hotelName = hnMatch[1].trim();
+  }
+
+  // Hotel Address: AD-
+  const adMatch = text.match(/\/AD-([^/]+)/i);
+  if (adMatch) {
+    result.hotelAddress = adMatch[1].trim();
+  }
+
+  // Room Type: RT-
+  const rtMatch = text.match(/\/RT-([^/]+)/i);
+  if (rtMatch) {
+    result.roomType = rtMatch[1].trim();
+  }
+
+  // Rate/Price: RQ-
+  const rqMatch = text.match(/\/RQ-([^/]+)/i);
+  if (rqMatch) {
+    const rawRate = rqMatch[1].trim();
+    const priceMatch = rawRate.match(/([$£€A-Z]+)?\s*([0-9.]+)/i);
+    if (priceMatch) {
+      const curSymbol = priceMatch[1] ? priceMatch[1].toUpperCase() : '';
+      if (curSymbol.includes('$') || curSymbol.includes('USD')) result.currency = 'USD';
+      else if (curSymbol.includes('£') || curSymbol.includes('GBP')) result.currency = 'GBP';
+      else if (curSymbol.includes('€') || curSymbol.includes('EUR')) result.currency = 'EUR';
+      else if (curSymbol) result.currency = curSymbol;
+      
+      result.price = priceMatch[2];
+    }
+  }
+
+  // Confirmation: CF-
+  const cfMatch = text.match(/\/CF-([^/]+)/i);
+  if (cfMatch) {
+    result.confirmationNumber = cfMatch[1].trim();
+  }
+
+  // City: HC-
+  const hcMatch = text.match(/\/HC-([^/]+)/i);
+  if (hcMatch) {
+    result.city = hcMatch[1].trim();
+  }
+
+  // Dates: e.g. 11JUL-14JUL
+  const dateRangeMatch = text.match(/\b([0-9]{1,2})([A-Z]{3})-([0-9]{1,2})([A-Z]{3})\b/i);
+  if (dateRangeMatch) {
+    const monthNames = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+    
+    const checkInDay = parseInt(dateRangeMatch[1], 10);
+    const checkInMonthStr = dateRangeMatch[2].toUpperCase();
+    const checkOutDay = parseInt(dateRangeMatch[3], 10);
+    const checkOutMonthStr = dateRangeMatch[4].toUpperCase();
+
+    const checkInMonthIndex = monthNames.indexOf(checkInMonthStr);
+    const checkOutMonthIndex = monthNames.indexOf(checkOutMonthStr);
+
+    const formatDateStr = (day: number, monthIndex: number) => {
+      const d = new Date(defaultYear, monthIndex, day);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    };
+
+    if (checkInMonthIndex !== -1) {
+      result.checkInDate = formatDateStr(checkInDay, checkInMonthIndex);
+    }
+    if (checkOutMonthIndex !== -1) {
+      const checkOutYear = checkOutMonthIndex < checkInMonthIndex ? defaultYear + 1 : defaultYear;
+      const d = new Date(checkOutYear, checkOutMonthIndex, checkOutDay);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      result.checkOutDate = `${yyyy}-${mm}-${dd}`;
+    }
+  }
+
+  // SI-TBO or similar for Supplier / Vendor (if we match existing vendor list, e.g. TBO)
+  const siMatch = text.match(/\/SI-([^/]+)/i);
+  if (siMatch) {
+    const supplierCode = siMatch[1].trim().toLowerCase();
+    if (supplierCode.includes("tbo")) {
+      result.mealType = "Room Only";
+    }
+  }
+
+  return result;
+}
+
 export default function HotelReservationModal({
   isOpen,
   onClose,
@@ -24,6 +134,7 @@ export default function HotelReservationModal({
   accommodationToEdit = null
 }: HotelReservationModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pnrText, setPnrText] = useState('');
 
   // Form States
   const [vendorId, setVendorId] = useState('');
@@ -59,6 +170,7 @@ export default function HotelReservationModal({
   // Handle open state reset & edit population
   useEffect(() => {
     if (isOpen) {
+      setPnrText('');
       if (accommodationToEdit) {
         setVendorId(accommodationToEdit.vendorId || '');
         setHotelName(accommodationToEdit.hotelName || '');
@@ -267,8 +379,43 @@ export default function HotelReservationModal({
       onClose();
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to save hotel reservation');
-    } finally {
+} finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleParsePNR = () => {
+    if (!pnrText.trim()) return;
+
+    const currentYear = new Date().getFullYear();
+    const parsed = parseHotelPNRText(pnrText, currentYear);
+
+    if (parsed) {
+      if (parsed.hotelName) setHotelName(parsed.hotelName);
+      if (parsed.hotelAddress) setHotelAddress(parsed.hotelAddress);
+      if (parsed.city) setCity(parsed.city);
+      if (parsed.checkInDate) setCheckInDate(parsed.checkInDate);
+      if (parsed.checkOutDate) setCheckOutDate(parsed.checkOutDate);
+      if (parsed.confirmationNumber) setHotelConfirmationNumber(parsed.confirmationNumber);
+      
+      if (parsed.roomType) {
+        const standardRoomTypes = ['Single Room', 'Double Room', 'Triple Room', 'Quad Room'];
+        const matched = standardRoomTypes.find(r => r.toLowerCase() === parsed.roomType?.toLowerCase() || parsed.roomType?.toLowerCase().includes(r.toLowerCase()));
+        if (matched) {
+          setRoomTypeSelect(matched);
+          setCustomRoomType('');
+        } else {
+          setRoomTypeSelect('Custom');
+          setCustomRoomType(parsed.roomType);
+        }
+      }
+
+      if (parsed.price) setPrice(parsed.price);
+      if (parsed.currency) setCurrency(parsed.currency);
+
+      toast.success("Hotel PNR segment successfully parsed and loaded!");
+    } else {
+      toast.error("Could not parse hotel PNR segment. Please check format.");
     }
   };
 
@@ -276,8 +423,8 @@ export default function HotelReservationModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={accommodationToEdit ? 'Edit Hotel Reservation' : 'Add Hotel Reservation'}
-      maxWidth="2xl"
+      title={accommodationToEdit ? "Edit Accommodation Booking" : "Add Accommodation Booking"}
+      maxWidth="4xl"
     >
       {isLoadingVendors ? (
         <div className="flex flex-col items-center justify-center py-12 space-y-2">
@@ -286,6 +433,32 @@ export default function HotelReservationModal({
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-6 font-sans text-xs">
+          
+          {/* GDS PNR / Segment Auto-Fill */}
+          <div className="bg-secondary/15 p-4 rounded-xl border border-border space-y-2">
+            <label className="text-[10px] font-bold text-primary uppercase tracking-wider block">
+              GDS PNR / Segment Auto-Fill
+            </label>
+            <p className="text-[10px] text-muted-foreground">
+              Paste the raw hotel PNR segment line here (e.g. from GDS) to automatically parse and fill the details.
+            </p>
+            <div className="flex gap-2">
+              <textarea
+                placeholder="e.g. HU 1A HK1 DXB 11JUL-14JUL/SI-TBO/HC-Dubai/HN-Howard Johnson by Wyndham Bur Dubai/AD-Khalid Bin Waleed Rd Bur Dubai Dubai United Arab Em/RT-Standard Queen Room-Non-Smoking/RQ-$72.13/CF-SA6U73"
+                value={pnrText}
+                onChange={(e) => setPnrText(e.target.value)}
+                rows={2}
+                className="flex-1 text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary resize-none font-mono"
+              />
+              <button
+                type="button"
+                onClick={handleParsePNR}
+                className="bg-primary text-primary-foreground px-4 py-2 rounded-lg font-semibold hover:bg-primary/95 transition-all text-xs flex items-center justify-center self-end"
+              >
+                Auto-Fill
+              </button>
+            </div>
+          </div>
           
           {/* Section 1: Accommodation Service Details */}
           <div className="space-y-4">

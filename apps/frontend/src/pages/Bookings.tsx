@@ -22,11 +22,17 @@ import {
   Filter,
   Lock,
   Unlock,
+  RotateCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import Modal from "../components/Modal";
 import BookingManager from "../components/BookingManager";
 import CreateBookingInitModal from "../components/CreateBookingInitModal";
+import {
+  printDocument,
+  renderBookingInvoice,
+  generateBookingInvoiceHtml,
+} from "../utils/invoiceTemplates";
 
 export default function Bookings() {
   const queryClient = useQueryClient();
@@ -143,6 +149,23 @@ export default function Bookings() {
       return res.data.data.items || [];
     },
   });
+
+  // Fetch templates for print rendering
+  const { data: dbTemplates } = useQuery({
+    queryKey: ["templates"],
+    queryFn: async () => {
+      const res = await apiClient.get("/templates");
+      return res.data.data;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const getTemplateContent = (type: string) => {
+    const t = dbTemplates?.find(
+      (x: any) => x.templateType.toUpperCase() === type.toUpperCase()
+    );
+    return t?.htmlContent || "";
+  };
 
   const createBookingMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -303,6 +326,17 @@ export default function Bookings() {
           Bookings Management
         </h2>
         <div className="flex items-center gap-2.5">
+          <button
+            onClick={() => {
+              queryClient.invalidateQueries({ queryKey: ["bookings"] });
+              queryClient.invalidateQueries({ queryKey: ["templates"] });
+              toast.success("Booking list refreshed!");
+            }}
+            className="bg-card text-foreground border border-border p-2.5 rounded-lg text-sm font-bold shadow-sm transition-all flex items-center justify-center hover:bg-secondary/40"
+            title="Refresh Bookings"
+          >
+            <RotateCw size={15} />
+          </button>
           <button
             onClick={() => setIsFilterModalOpen(true)}
             className="bg-card text-foreground border border-border px-4 py-2.5 rounded-lg text-sm font-bold shadow-sm transition-all flex items-center gap-1.5 hover:bg-secondary/40"
@@ -586,24 +620,30 @@ export default function Bookings() {
                                 </>
                               )}
 
-                            {booking.status === "CONFIRMED" &&
-                              booking.invoices?.length > 0 && (
-                                <>
-                                  <span className="text-muted-foreground/30">
-                                    |
-                                  </span>
-                                  <a
-                                    href={booking.invoices[0].pdfUrl || "#"}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="text-muted-foreground hover:text-foreground font-bold text-xs inline-flex items-center gap-1 hover:underline"
-                                    title="View Invoice"
-                                  >
-                                    <FileText size={14} />
-                                    <span>Invoice</span>
-                                  </a>
-                                </>
-                              )}
+                            {booking.status === "CONFIRMED" && (
+                              <>
+                                <span className="text-muted-foreground/30">
+                                  |
+                                </span>
+                                <button
+                                  onClick={() => {
+                                    const template = getTemplateContent("BOOKING_INVOICE");
+                                    const html = template
+                                      ? renderBookingInvoice(template, booking)
+                                      : generateBookingInvoiceHtml(booking);
+                                    printDocument(
+                                      html,
+                                      `Booking_Invoice_${booking.bookingReference || booking.id.substring(0, 8)}`
+                                    );
+                                  }}
+                                  className="text-muted-foreground hover:text-foreground font-bold text-xs inline-flex items-center gap-1 hover:underline"
+                                  title="Print Invoice"
+                                >
+                                  <FileText size={14} />
+                                  <span>Invoice</span>
+                                </button>
+                              </>
+                            )}
                           </div>
                         </td>
                       </tr>

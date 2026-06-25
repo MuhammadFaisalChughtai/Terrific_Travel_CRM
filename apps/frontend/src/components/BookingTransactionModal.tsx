@@ -35,16 +35,26 @@ export default function BookingTransactionModal({
 }: BookingTransactionModalProps) {
   const queryClient = useQueryClient();
 
+  const getTodayString = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   // Form State
   const [transactionType, setTransactionType] = useState<
     "CUSTOMER_PAYMENT" | "VENDOR_REFUND" | "CUSTOMER_REFUND" | "VENDOR_DISCOUNT"
   >("CUSTOMER_PAYMENT");
 
+  const [transactionDate, setTransactionDate] = useState<string>(getTodayString());
   const [paymentMethod, setPaymentMethod] = useState<string>("Bank Transfer");
   const [vendorId, setVendorId] = useState<string>("");
   const [serviceIds, setServiceIds] = useState<string[]>([]);
   const [amount, setAmount] = useState<string>("");
   const [cardPaymentCharges, setCardPaymentCharges] = useState<string>("");
+  const [isPaidByCompany, setIsPaidByCompany] = useState<boolean>(true);
   const [bankAccount, setBankAccount] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
 
@@ -114,6 +124,7 @@ export default function BookingTransactionModal({
   useEffect(() => {
     if (!isOpen) {
       setTransactionType("CUSTOMER_PAYMENT");
+      setTransactionDate(getTodayString());
       setPaymentMethod("Bank Transfer");
       setVendorId("");
       setServiceIds([]);
@@ -125,6 +136,17 @@ export default function BookingTransactionModal({
       setReceiptFilename("");
     }
   }, [isOpen]);
+
+  // Automatically calculate credit card charges as 1% of the transaction amount
+  useEffect(() => {
+    if (paymentMethod === "Credit Card") {
+      const baseAmount = Number(amount) || 0;
+      const charges = (baseAmount * 0.01).toFixed(2);
+      setCardPaymentCharges(charges);
+    } else {
+      setCardPaymentCharges("");
+    }
+  }, [paymentMethod, amount]);
 
   // Handle receipt upload
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -213,11 +235,13 @@ export default function BookingTransactionModal({
       bookingId,
       notes: formattedNotes,
       paymentMethod,
-      bankAccount
+      bankAccount,
+      transactionDate: transactionDate ? new Date(transactionDate).toISOString() : undefined
     };
 
     if (transactionType === "CUSTOMER_PAYMENT" && paymentMethod === "Credit Card") {
       payload.cardPaymentCharges = Number(cardPaymentCharges) || 0;
+      payload.isPaidByCompany = isPaidByCompany;
     }
 
     if (transactionType === "VENDOR_REFUND" || transactionType === "VENDOR_DISCOUNT") {
@@ -253,6 +277,20 @@ export default function BookingTransactionModal({
               <option value="VENDOR_DISCOUNT">Discount from Vendor</option>
               <option value="CUSTOMER_REFUND">Refund to Customer</option>
             </select>
+          </div>
+
+          {/* Transaction Date */}
+          <div>
+            <label className="block text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-1">
+              Transaction Date *
+            </label>
+            <input
+              type="date"
+              required
+              value={transactionDate}
+              onChange={(e) => setTransactionDate(e.target.value)}
+              className="w-full px-3 py-2 bg-secondary/10 border border-border rounded-lg text-foreground font-semibold focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary min-h-[36px]"
+            />
           </div>
 
           {/* Vendor selector (Conditional for VENDOR_REFUND or VENDOR_DISCOUNT), otherwise Payment Method */}
@@ -429,6 +467,19 @@ export default function BookingTransactionModal({
               <p className="text-[9px] text-muted-foreground mt-1">
                 Charges will be recorded separately inside this booking.
               </p>
+            </div>
+            
+            <div className="flex items-center gap-2 select-none">
+              <input
+                type="checkbox"
+                id="isPaidByCompany"
+                checked={isPaidByCompany}
+                onChange={(e) => setIsPaidByCompany(e.target.checked)}
+                className="w-3.5 h-3.5 text-primary border-border rounded focus:ring-primary cursor-pointer"
+              />
+              <label htmlFor="isPaidByCompany" className="text-[10px] font-bold text-foreground cursor-pointer">
+                Paid by the Company (expense deduction)
+              </label>
             </div>
           </div>
         )}

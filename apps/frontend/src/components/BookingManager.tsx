@@ -60,6 +60,82 @@ import {
   renderSpecialServicesInvoice,
 } from "../utils/invoiceTemplates";
 
+const getIsConnectingFlight = (currentFlight: any, nextFlight: any): boolean => {
+  if (!nextFlight) return false;
+
+  // 1. Explicit check: notes metadata
+  if (currentFlight.notes) {
+    try {
+      const parsed = JSON.parse(currentFlight.notes);
+      if (parsed.hasOwnProperty("isConnecting")) {
+        return !!parsed.isConnecting;
+      }
+    } catch (e) {
+      // not JSON
+    }
+  }
+
+  // 2. Implicit check: if arrivedAt code matches next departedFrom code
+  const arrAirport = (currentFlight.arrivedAt || "").trim().toUpperCase();
+  const nextDepAirport = (nextFlight.departedFrom || "").trim().toUpperCase();
+
+  // Extract airport code if it is in format "Name (Code)" or "Code"
+  const extractCode = (str: string) => {
+    const match = str.match(/\(([^)]+)\)/);
+    return match ? match[1].toUpperCase() : str.toUpperCase();
+  };
+
+  const codeA = extractCode(arrAirport);
+  const codeB = extractCode(nextDepAirport);
+
+  if (codeA && codeB && codeA === codeB) {
+    try {
+      const arrDate = new Date(currentFlight.date);
+      const depDate = new Date(nextFlight.date);
+
+      const [arrH, arrM] = (currentFlight.arrivalTime || "00:00").split(":").map(Number);
+      const [depH, depM] = (nextFlight.departTime || "00:00").split(":").map(Number);
+
+      const arrTime = new Date(arrDate.getFullYear(), arrDate.getMonth(), arrDate.getDate(), arrH, arrM);
+      const depTime = new Date(depDate.getFullYear(), depDate.getMonth(), depDate.getDate(), depH, depM);
+
+      const diffMs = depTime.getTime() - arrTime.getTime();
+      return diffMs > 0 && diffMs <= 24 * 60 * 60 * 1000;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  return false;
+};
+
+const calculateLayoverTime = (currentFlight: any, nextFlight: any): string => {
+  try {
+    const arrDate = new Date(currentFlight.date);
+    const depDate = new Date(nextFlight.date);
+
+    const [arrH, arrM] = (currentFlight.arrivalTime || "00:00").split(":").map(Number);
+    const [depH, depM] = (nextFlight.departTime || "00:00").split(":").map(Number);
+
+    const arrTime = new Date(arrDate.getFullYear(), arrDate.getMonth(), arrDate.getDate(), arrH, arrM);
+    const depTime = new Date(depDate.getFullYear(), depDate.getMonth(), depDate.getDate(), depH, depM);
+
+    const diffMs = depTime.getTime() - arrTime.getTime();
+    if (diffMs <= 0) return "";
+
+    const totalMins = Math.floor(diffMs / 60000);
+    const hrs = Math.floor(totalMins / 60);
+    const mins = totalMins % 60;
+
+    if (hrs === 0) {
+      return `${mins}m`;
+    }
+    return `${hrs}h ${mins}m`;
+  } catch (e) {
+    return "";
+  }
+};
+
 interface BookingManagerProps {
   isOpen: boolean;
   bookingId?: string | null;
@@ -492,8 +568,9 @@ export default function BookingManager({
     accommodationsRefund + flightsRefund + transportsRefund + visasRefund;
 
   const clientRefund = booking.refundAmount || 0;
+  const cardPaymentCharges = booking.cardPaymentCharges || 0;
 
-  const rawProfit = (totalPrice - clientRefund) - (totalVendorCost - totalVendorRefund);
+  const rawProfit = (totalPrice - clientRefund) - (totalVendorCost - totalVendorRefund) - cardPaymentCharges;
 
   // Potential Margin
   const potentialMargin =
@@ -989,8 +1066,13 @@ export default function BookingManager({
                           <td className="px-4 py-2 font-semibold uppercase">
                             {tx.paymentMethod}
                           </td>
-                          <td className="px-4 py-2 text-right font-bold text-emerald-600">
-                            {formatCurrency(tx.amount)}
+                          <td className={`px-4 py-2 text-right font-bold ${
+                            tx.amount < 0 
+                              ? "text-red-600 dark:text-red-400" 
+                              : "text-emerald-600 dark:text-emerald-400"
+                          }`}>
+                            {tx.amount < 0 ? "-" : (tx.notes?.toLowerCase().includes("credit card charges") ? "+" : "")}
+                            {formatCurrency(Math.abs(tx.amount))}
                           </td>
                           <td className="px-4 py-2 text-muted-foreground">
                             {(() => {
@@ -1464,132 +1546,169 @@ export default function BookingManager({
               <div className="px-4 py-3 bg-card space-y-3">
                 <div className="space-y-2">
                   {booking.flightServices?.length > 0 ? (
-                    [...booking.flightServices]
-                      .sort(
+                    (() => {
+                      const sortedFlights = [...booking.flightServices].sort(
                         (a: any, b: any) =>
                           new Date(a.date).getTime() -
                           new Date(b.date).getTime(),
-                      )
-                      .map((fs: any) => (
-                        <div
-                          key={fs.id}
-                          className="border border-border rounded-lg p-2.5 flex justify-between items-center gap-2 hover:border-primary/20 transition-all text-[12px]"
-                        >
-                          <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 bg-secondary rounded flex items-center justify-center font-bold text-muted-foreground text-[10px]">
-                              FLT
-                            </div>
-                            <div>
-                              <h4 className="font-bold text-foreground text-[13px]">
-                                {fs.flightNo}
-                              </h4>
-                              <p className="text-[10px] text-muted-foreground uppercase font-semibold">
-                                PNR: {fs.pnr || "—"}
-                              </p>
-                              {fs.date && (
-                                <p className="text-[10px] text-muted-foreground mt-0.5">
-                                  Date:{" "}
-                                  {new Date(fs.date).toLocaleDateString(
-                                    "en-US",
-                                    {
-                                      month: "short",
-                                      day: "2-digit",
-                                      year: "numeric",
-                                    },
-                                  )}
-                                </p>
-                              )}
-                              {fs.issueDate && (
-                                <p className="text-[10px] text-muted-foreground">
-                                  Issued:{" "}
-                                  {new Date(fs.issueDate).toLocaleDateString(
-                                    "en-US",
-                                    {
-                                      month: "short",
-                                      day: "2-digit",
-                                      year: "numeric",
-                                    },
-                                  )}
-                                </p>
-                              )}
-                            </div>
-                          </div>
+                      );
+                      return sortedFlights.map((fs: any, idx: number) => {
+                        const nextFlight = sortedFlights[idx + 1];
+                        const isConnecting = getIsConnectingFlight(fs, nextFlight);
+                        const layoverTime = isConnecting ? calculateLayoverTime(fs, nextFlight) : "";
+                        
+                        // Extract codes for simple display in layover text
+                        const extractCode = (str: string) => {
+                          const match = str.match(/\(([^)]+)\)/);
+                          return match ? match[1].toUpperCase() : str.toUpperCase();
+                        };
+                        const transitHub = extractCode(fs.arrivedAt || "");
 
-                          <div className="flex items-center gap-3 flex-1 justify-center">
-                            <div className="text-right">
-                              <p className="font-semibold text-foreground text-[13px]">
-                                {fs.departTime || "—"}
-                              </p>
-                              <p className="text-[10px] text-muted-foreground font-bold">
-                                {fs.departedFrom}
-                              </p>
-                            </div>
-                            <div className="flex flex-col items-center w-12 relative">
-                              <div className="h-[1px] w-full bg-border absolute top-1/2 -translate-y-1/2"></div>
-                              <PlaneTakeoff
-                                size={10}
-                                className="text-primary absolute top-1/2 -translate-y-1/2 bg-card px-0.5"
-                              />
-                            </div>
-                            <div className="text-left">
-                              <p className="font-semibold text-foreground text-[13px]">
-                                {fs.arrivalTime || "—"}
-                              </p>
-                              <p className="text-[10px] text-muted-foreground font-bold">
-                                {fs.arrivedAt}
-                              </p>
-                            </div>
-                          </div>
+                        return (
+                          <React.Fragment key={fs.id}>
+                            {/* Improved Flight Card */}
+                            <div className="border border-border bg-gradient-to-r from-card to-secondary/10 rounded-xl p-3.5 flex justify-between items-center gap-3 hover:border-primary/30 transition-all text-[12px] shadow-sm relative overflow-hidden group">
+                              {/* Left Accent line if it is part of a connection */}
+                              {isConnecting && (
+                                <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-500"></div>
+                              )}
+                              {idx > 0 && getIsConnectingFlight(sortedFlights[idx - 1], fs) && (
+                                <div className="absolute left-0 top-0 bottom-0 w-1 bg-sky-500"></div>
+                              )}
 
-                          <div className="text-right flex items-center gap-2">
-                            <div className="text-right">
-                              <p className="font-bold text-foreground text-[13px]">
-                                {formatCurrency(fs.price)}
-                              </p>
-                              <p className="text-[10px] text-muted-foreground uppercase">
-                                {fs.flightClass || "Y"}
-                              </p>
+                              <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 bg-primary/5 text-primary border border-primary/10 rounded-xl flex items-center justify-center font-bold text-[11px] shadow-inner">
+                                  <Plane size={14} className="text-primary group-hover:rotate-12 transition-transform" />
+                                </div>
+                                <div>
+                                  <div className="flex items-center gap-1.5">
+                                    <h4 className="font-extrabold text-foreground text-[14px] tracking-tight">
+                                      {fs.flightNo}
+                                    </h4>
+                                    <span className="text-[9px] bg-secondary px-1.5 py-0.5 rounded font-extrabold text-muted-foreground uppercase border border-border">
+                                      {fs.flightClass || "Y"}
+                                    </span>
+                                    {isConnecting && (
+                                      <span className="text-[9px] bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded font-black uppercase">
+                                        Connecting
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-[10px] text-muted-foreground mt-0.5 font-mono">
+                                    PNR: <strong className="text-foreground font-bold">{fs.pnr || "—"}</strong>
+                                  </p>
+                                  {fs.date && (
+                                    <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1 font-medium">
+                                      <span>Date:</span> 
+                                      <strong className="text-foreground">
+                                        {new Date(fs.date).toLocaleDateString("en-US", {
+                                          month: "short",
+                                          day: "2-digit",
+                                          year: "numeric",
+                                        })}
+                                      </strong>
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Flight route & schedule segment */}
+                              <div className="flex items-center gap-4 flex-1 justify-center max-w-md">
+                                <div className="text-right flex-1">
+                                  <p className="font-extrabold text-foreground text-[14px]">
+                                    {fs.departTime || "—"}
+                                  </p>
+                                  <p className="text-[10px] text-muted-foreground font-extrabold tracking-wide uppercase truncate max-w-[150px]" title={fs.departedFrom}>
+                                    {fs.departedFrom}
+                                  </p>
+                                </div>
+                                <div className="flex flex-col items-center w-16 relative">
+                                  <div className="h-[2px] w-full bg-gradient-to-r from-primary/10 via-primary/30 to-primary/10 absolute top-1/2 -translate-y-1/2"></div>
+                                  <PlaneTakeoff
+                                    size={12}
+                                    className="text-primary absolute top-1/2 -translate-y-1/2 bg-card p-0.5 rounded-full border border-border shadow-sm group-hover:translate-x-1 transition-transform"
+                                  />
+                                </div>
+                                <div className="text-left flex-1">
+                                  <p className="font-extrabold text-foreground text-[14px]">
+                                    {fs.arrivalTime || "—"}
+                                  </p>
+                                  <p className="text-[10px] text-muted-foreground font-extrabold tracking-wide uppercase truncate max-w-[150px]" title={fs.arrivedAt}>
+                                    {fs.arrivedAt}
+                                  </p>
+                                </div>
+                              </div>
+
+                              {/* Price & Actions */}
+                              <div className="text-right flex items-center gap-3">
+                                <div className="text-right">
+                                  <p className="font-black text-foreground text-[15px] tracking-tight">
+                                    {formatCurrency(fs.price)}
+                                  </p>
+                                  {fs.baggage && (
+                                    <p className="text-[9px] text-muted-foreground font-bold uppercase mt-0.5">
+                                      🎒 {fs.baggage}
+                                    </p>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1 border-l border-border/80 pl-2">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setPrintTicketSelectedFlight(fs);
+                                      setPrintTicketSelectedPassenger("all");
+                                      setIsPrintTicketModalOpen(true);
+                                    }}
+                                    className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-emerald-600 transition-all cursor-pointer"
+                                    title="Print E-Ticket"
+                                  >
+                                    <Printer size={13} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setEditingFlight(fs);
+                                      setPnrModalStep("form");
+                                      setIsPnrModalOpen(true);
+                                    }}
+                                    className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-primary transition-all cursor-pointer"
+                                    title="Edit Flight"
+                                  >
+                                    <Pencil size={13} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteFlight(fs.id);
+                                    }}
+                                    className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-rose-600 transition-all cursor-pointer"
+                                    title="Delete Flight"
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                </div>
+                              </div>
                             </div>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setPrintTicketSelectedFlight(fs);
-                                setPrintTicketSelectedPassenger("all");
-                                setIsPrintTicketModalOpen(true);
-                              }}
-                              className="p-1 hover:bg-secondary rounded text-muted-foreground hover:text-emerald-600 transition-all"
-                              title="Print E-Ticket"
-                            >
-                              <FileText size={11} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setEditingFlight(fs);
-                                setPnrModalStep("form");
-                                setIsPnrModalOpen(true);
-                              }}
-                              className="p-1 hover:bg-secondary rounded text-muted-foreground hover:text-primary transition-all"
-                              title="Edit Flight"
-                            >
-                              <Pencil size={11} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteFlight(fs.id);
-                              }}
-                              className="p-1 hover:bg-secondary rounded text-muted-foreground hover:text-rose-600 transition-all"
-                              title="Delete Flight"
-                            >
-                              <Trash2 size={11} />
-                            </button>
-                          </div>
-                        </div>
-                      ))
+
+                            {/* Layover Connector Strip if next segment exists */}
+                            {isConnecting && (
+                              <div className="flex items-center justify-center py-2 relative my-1">
+                                <div className="absolute left-1/2 -translate-x-1/2 top-0 bottom-0 w-[2px] bg-gradient-to-b from-amber-500 to-sky-500 opacity-30 z-0"></div>
+                                <div className="flex items-center gap-1.5 px-4 py-1.5 bg-amber-50/90 border border-amber-200/80 rounded-full text-amber-800 text-[10.5px] font-bold shadow-sm relative z-10 hover:scale-[1.02] transition-transform backdrop-blur-sm">
+                                  <Clock size={12} className="text-amber-600 animate-pulse" />
+                                  <span>
+                                    Layover: <strong className="text-amber-950 font-black">{layoverTime}</strong> in transit at <strong className="text-amber-950 font-black">{transitHub}</strong>
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+                          </React.Fragment>
+                        );
+                      });
+                    })()
                   ) : (
                     <p className="text-center py-3 text-muted-foreground italic text-[12px]">
                       No flights registered.
