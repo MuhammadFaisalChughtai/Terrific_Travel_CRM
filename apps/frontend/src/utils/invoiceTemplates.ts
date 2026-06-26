@@ -538,6 +538,8 @@ function generateTimelineHtml(booking: any): string {
           <div class="timeline-detail-item">Class: <strong>${f.flightClass || "Economy"}</strong> | Baggage: <strong>${f.baggage || "23 KG"}</strong></div>
         `,
         notes: f.notes,
+        // Tag each flight with its sorted index so layovers can reference it
+        flightIdx: idx,
       });
 
       if (isConnecting && layoverStr) {
@@ -553,6 +555,8 @@ function generateTimelineHtml(booking: any): string {
           details: `Connection layover of <strong>${layoverStr}</strong> before the next flight.`,
           notes: "",
           isLayoverCard: true,
+          // Remember which flight index this layover follows
+          afterFlightIdx: idx,
         });
       }
     });
@@ -651,27 +655,19 @@ function generateTimelineHtml(booking: any): string {
   regularItems.sort((a, b) => a.date.getTime() - b.date.getTime());
 
   // Re-insert each layover card immediately AFTER the flight it belongs to.
-  // Use a mutable copy so each layover is consumed once and cannot be placed twice.
+  // Each layover card carries `afterFlightIdx` — the sorted index of the flight
+  // it should follow — so matching is purely by index, immune to same-day dates.
   const orderedItems: any[] = [];
-  const remainingLayovers = [...layoverCards];
+  let orderedFlightCount = 0;
   regularItems.forEach((item) => {
     orderedItems.push(item);
-    // Find the first unconsumed layover that should follow this item
-    const layoverIdx = remainingLayovers.findIndex(
-      (lc) =>
-        lc.date.getTime() > item.date.getTime() &&
-        // Make sure no other regular item sits between this item and the layover
-        !regularItems.some(
-          (ri) =>
-            ri !== item &&
-            ri.date.getTime() > item.date.getTime() &&
-            ri.date.getTime() < lc.date.getTime(),
-        ),
-    );
-    if (layoverIdx !== -1) {
-      orderedItems.push(remainingLayovers[layoverIdx]);
-      // Remove from pool so it cannot be matched again for the next flight
-      remainingLayovers.splice(layoverIdx, 1);
+    if (item.type === "FLIGHT") {
+      const currentFlightIdx = orderedFlightCount;
+      orderedFlightCount++;
+      // Insert any layover card whose `afterFlightIdx` matches this flight
+      layoverCards
+        .filter((lc) => lc.afterFlightIdx === currentFlightIdx)
+        .forEach((lc) => orderedItems.push(lc));
     }
   });
 
