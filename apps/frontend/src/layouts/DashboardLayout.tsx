@@ -1,5 +1,7 @@
+import { useEffect } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/auth.store";
+import { apiClient } from "../api/client";
 import { useThemeStore } from "../store/theme.store";
 import { useDashboardStore } from "../store/dashboard.store";
 import { useNotificationStore } from "../store/notification.store";
@@ -30,6 +32,27 @@ export default function DashboardLayout() {
   const user = useAuthStore((state) => state.user);
   const clearAuth = useAuthStore((state) => state.clearAuth);
 
+  useEffect(() => {
+    if (user?.id) {
+      apiClient.get(`/users/${user.id}`)
+        .then((res) => {
+          if (res.data?.success && res.data?.data) {
+            // Merge so we never wipe out permissions or other token-only fields
+            useAuthStore.setState((state) => ({
+              user: state.user
+                ? { ...state.user, ...res.data.data }
+                : res.data.data,
+            }));
+          }
+        })
+        .catch((err) => {
+          console.error("Failed to sync user profile:", err);
+        });
+    }
+  // Re-run whenever agentId is missing so stale sessions heal without logout
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, user?.agentId === null || user?.agentId === undefined]);
+
   const theme = useThemeStore((state) => state.theme);
   const toggleTheme = useThemeStore((state) => state.toggleTheme);
 
@@ -39,21 +62,32 @@ export default function DashboardLayout() {
   const notifications = useNotificationStore((state) => state.notifications);
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
+  const userHasRole = (allowed: string[]) => {
+    if (!user?.roles) return false;
+    return user.roles.some(r => {
+      const up = r.toUpperCase();
+      if (up === "SUPER_ADMIN" || up === "ADMIN") return allowed.includes("Admin");
+      if (up === "TRAVEL_AGENT" || up === "AGENT") return allowed.includes("Agent");
+      if (up === "MANAGER") return allowed.includes("Manager");
+      return allowed.includes(r);
+    });
+  };
+
   const menuItems = [
     { name: "Dashboard", path: "/", icon: LayoutDashboard },
     { name: "Bookings", path: "/bookings", icon: CalendarRange },
-    { name: "Agent", path: "/agent", icon: Users },
-    { name: "Vendors", path: "/vendors", icon: Store },
-    { name: "Ledger", path: "/ledger", icon: BookOpen },
     { name: "Invoices", path: "/invoices", icon: FileText },
-    { name: "Templates", path: "/invoice-templates", icon: Layers },
-    // { name: "Flights", path: "/flights", icon: Plane },
-    // { name: "Hotels", path: "/hotels", icon: Hotel },
-    // { name: "Tours", path: "/tours", icon: Map },
-    // { name: "Payments", path: "/payments", icon: CreditCard },
-    // { name: "Reports", path: "/reports", icon: BarChart3 },
-    // { name: "Settings", path: "/settings", icon: Settings },
+    { name: "Agent", path: "/agent", icon: Users, roles: ["Admin", "Manager"] },
+    { name: "Vendors", path: "/vendors", icon: Store, roles: ["Admin", "Manager"] },
+    { name: "Ledger", path: "/ledger", icon: BookOpen, roles: ["Admin", "Manager"] },
+    { name: "Templates", path: "/invoice-templates", icon: Layers, roles: ["Admin", "Manager"] },
+    { name: "Users", path: "/users", icon: User, roles: ["Admin"] },
+    { name: "Settings", path: "/settings", icon: Settings, roles: ["Admin"] },
   ];
+
+  const filteredMenuItems = menuItems.filter(item => 
+    item.roles ? userHasRole(item.roles) : true
+  );
 
   const handleLogout = () => {
     clearAuth();
@@ -78,7 +112,7 @@ export default function DashboardLayout() {
         </div>
 
         <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
-          {menuItems.map((item) => {
+          {filteredMenuItems.map((item) => {
             const isActive = location.pathname === item.path;
             const Icon = item.icon;
             return (
@@ -142,7 +176,7 @@ export default function DashboardLayout() {
               <Menu size={20} />
             </button>
             <h1 className="text-lg font-bold">
-              {menuItems.find((m) => m.path === location.pathname)?.name ||
+              {filteredMenuItems.find((m) => m.path === location.pathname)?.name ||
                 "Terrific Travel"}
             </h1>
           </div>

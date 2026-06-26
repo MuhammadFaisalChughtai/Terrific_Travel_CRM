@@ -37,6 +37,11 @@ import {
 export default function Bookings() {
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
+  // True when the logged-in user is an agent (not admin/manager)
+  const isAgent = !!user?.roles?.length &&
+    !["Admin", "SUPER_ADMIN", "Manager", "BRANCH_MANAGER"].some(
+      (r) => user?.roles?.includes(r)
+    );
 
   // Checkout cart Zustand state
   const { flight, hotel, room, tour, clearCart } = useBookingStore();
@@ -264,11 +269,19 @@ export default function Bookings() {
 
   // Helper functions for matching slabs and calculating margins
   const getCommissionRate = (price: number, slabs: any[]) => {
-    const slab = slabs?.find(
+    if (!slabs || slabs.length === 0) return 0;
+    const slab = slabs.find(
       (s: any) =>
         price >= s.minSales && (s.maxSales === null || price <= s.maxSales),
     );
-    return slab ? slab.commissionRate : 0;
+    if (slab) return slab.commissionRate;
+
+    // Fallback: if price exceeds the highest slab's maxSales, use the rate of the slab with the highest minSales
+    const highestSlab = slabs.reduce((prev: any, current: any) => (prev.minSales > current.minSales) ? prev : current);
+    if (price > highestSlab.minSales) {
+      return highestSlab.commissionRate;
+    }
+    return 0;
   };
 
   const calculateMargin = (price: number, slabs: any[]) => {
@@ -395,8 +408,8 @@ export default function Bookings() {
                     <th className="px-4 py-3 text-right">Total Price</th>
                     <th className="px-4 py-3 text-right">Paid</th>
                     <th className="px-4 py-3 text-right">Remaining</th>
-                    <th className="px-4 py-3 text-right">Agent Margin</th>
-                    <th className="px-4 py-3 text-right">Vendor Due</th>
+                    {!isAgent && <th className="px-4 py-3 text-right">Agent Margin</th>}
+                    {!isAgent && <th className="px-4 py-3 text-right">Vendor Due</th>}
                     <th className="px-4 py-3 text-center">Lock</th>
                     <th className="px-4 py-3 text-center">Payment</th>
                     <th className="px-4 py-3 text-center">Status</th>
@@ -492,6 +505,26 @@ export default function Bookings() {
                           ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 font-bold px-2.5 py-0.5 rounded-full text-[10px]"
                           : "bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20 font-bold px-2.5 py-0.5 rounded-full text-[10px]";
 
+                    const userFullName = [user?.firstName, user?.lastName]
+                      .filter(Boolean)
+                      .join(" ");
+                    const isOwner =
+                      // Admin / manager roles always have full access
+                      ["Admin", "SUPER_ADMIN", "Manager", "BRANCH_MANAGER"].some(
+                        (r) => user?.roles?.includes(r)
+                      ) ||
+                      // Created or owns this booking by user-id
+                      booking.createdById === user?.id ||
+                      booking.userId === user?.id ||
+                      // Agent matched by linked agentId (preferred path)
+                      (!!user?.agentId && booking.agentId === user?.agentId) ||
+                      // Fallback: agent name matches user's full name (covers un-linked accounts)
+                      (!user?.agentId &&
+                        !!userFullName &&
+                        !!booking.agent?.name &&
+                        booking.agent.name.trim().toLowerCase() ===
+                          userFullName.trim().toLowerCase());
+
                     return (
                       <tr
                         key={booking.id}
@@ -531,14 +564,18 @@ export default function Bookings() {
                             ),
                           )}
                         </td>
-                        <td className="px-4 py-3.5 whitespace-nowrap text-right font-semibold text-blue-600 dark:text-blue-400 align-middle">
-                          {agentMargin !== null
-                            ? formatCurrency(agentMargin)
-                            : "—"}
-                        </td>
-                        <td className="px-4 py-3.5 whitespace-nowrap text-right font-semibold text-rose-600 dark:text-rose-400 align-middle">
-                          {formatCurrency(vendorRemaining)}
-                        </td>
+                        {!isAgent && (
+                          <td className="px-4 py-3.5 whitespace-nowrap text-right font-semibold text-blue-600 dark:text-blue-400 align-middle">
+                            {isOwner && agentMargin !== null
+                              ? formatCurrency(agentMargin)
+                              : "—"}
+                          </td>
+                        )}
+                        {!isAgent && (
+                          <td className="px-4 py-3.5 whitespace-nowrap text-right font-semibold text-rose-600 dark:text-rose-400 align-middle">
+                            {isOwner ? formatCurrency(vendorRemaining) : "—"}
+                          </td>
+                        )}
                         <td className="px-4 py-3.5 whitespace-nowrap text-center align-middle">
                           <span
                             className={`inline-block text-[9px] uppercase tracking-wider ${lockBadge}`}
@@ -562,45 +599,72 @@ export default function Bookings() {
                         </td>
                         <td className="px-4 py-3.5 whitespace-nowrap text-right align-middle pr-6">
                           <div className="inline-flex items-center gap-2 justify-end w-full">
-                            <button
-                              onClick={() => setSelectedBookingId(booking.id)}
-                              className="text-primary hover:text-primary-hover p-1 rounded hover:bg-secondary/35 transition-all"
-                              title="View Booking"
-                            >
-                              <Eye size={15} />
-                            </button>
-                            <span className="text-muted-foreground/30">|</span>
-                            <button
-                              onClick={() => setSelectedBookingId(booking.id)}
-                              className="text-foreground hover:text-foreground/80 p-1 rounded hover:bg-secondary/35 transition-all"
-                              title="Edit Booking"
-                            >
-                              <Edit size={15} />
-                            </button>
-                            <span className="text-muted-foreground/30">|</span>
-                            <button
-                              onClick={() =>
-                                toggleLockMutation.mutate(booking.id)
-                              }
-                              className={`${
-                                booking.lockedStatus === "LOCKED"
-                                  ? "text-rose-600 hover:text-rose-700"
-                                  : "text-emerald-600 hover:text-emerald-700"
-                              } p-1 rounded hover:bg-secondary/35 transition-all`}
-                              title={
-                                booking.lockedStatus === "LOCKED"
-                                  ? "Unlock Booking"
-                                  : "Lock Booking"
-                              }
-                              disabled={toggleLockMutation.isPending}
-                            >
-                              {booking.lockedStatus === "LOCKED" ? (
+                            {/* View button — agents cannot open LOCKED bookings */}
+                            {isAgent && booking.lockedStatus === "LOCKED" ? (
+                              <button
+                                onClick={() =>
+                                  toast.error(
+                                    "This booking is locked by the administrator and cannot be accessed.",
+                                    { duration: 4000 }
+                                  )
+                                }
+                                className="text-rose-400 cursor-not-allowed p-1 rounded opacity-60"
+                                title="Booking Locked — Access Denied"
+                              >
                                 <Lock size={15} />
-                              ) : (
-                                <Unlock size={15} />
-                              )}
-                            </button>
-                            {booking.status === "CONFIRMED" &&
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => setSelectedBookingId(booking.id)}
+                                className="text-primary hover:text-primary-hover p-1 rounded hover:bg-secondary/35 transition-all"
+                                title="View Booking"
+                              >
+                                <Eye size={15} />
+                              </button>
+                            )}
+                            {/* Edit + Lock toggle — only for owners of non-locked bookings */}
+                            {isOwner && !(isAgent && booking.lockedStatus === "LOCKED") && (
+                              <>
+                                <span className="text-muted-foreground/30">|</span>
+                                <button
+                                  onClick={() => setSelectedBookingId(booking.id)}
+                                  className="text-foreground hover:text-foreground/80 p-1 rounded hover:bg-secondary/35 transition-all"
+                                  title="Edit Booking"
+                                >
+                                  <Edit size={15} />
+                                </button>
+                                {/* Lock/Unlock toggle — Admin/Manager only */}
+                                {!isAgent && (
+                                  <>
+                                    <span className="text-muted-foreground/30">|</span>
+                                    <button
+                                      onClick={() =>
+                                        toggleLockMutation.mutate(booking.id)
+                                      }
+                                      className={`${
+                                        booking.lockedStatus === "LOCKED"
+                                          ? "text-rose-600 hover:text-rose-700"
+                                          : "text-emerald-600 hover:text-emerald-700"
+                                      } p-1 rounded hover:bg-secondary/35 transition-all`}
+                                      title={
+                                        booking.lockedStatus === "LOCKED"
+                                          ? "Unlock Booking"
+                                          : "Lock Booking"
+                                      }
+                                      disabled={toggleLockMutation.isPending}
+                                    >
+                                      {booking.lockedStatus === "LOCKED" ? (
+                                        <Lock size={15} />
+                                      ) : (
+                                        <Unlock size={15} />
+                                      )}
+                                    </button>
+                                  </>
+                                )}
+                              </>
+                            )}
+
+                            {isOwner && booking.status === "CONFIRMED" &&
                               !booking.agentId && (
                                 <>
                                   <span className="text-muted-foreground/30">

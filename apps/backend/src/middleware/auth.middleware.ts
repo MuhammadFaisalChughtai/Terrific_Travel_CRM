@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import * as jwt from 'jsonwebtoken';
 import { config, prisma } from '../config';
-import { UnauthorizedException } from './error.middleware';
+import { UnauthorizedException, ForbiddenException } from './error.middleware';
 
 export interface AuthenticatedRequest extends Request {
   user?: {
@@ -56,6 +56,10 @@ export async function authMiddleware(
 
     if (!user) {
       return next(new UnauthorizedException('User not found.'));
+    }
+
+    if (!user.isActive) {
+      return next(new ForbiddenException('Your account has been deactivated.'));
     }
 
     const roles = user.userRoles.map((ur) => ur.role.name);

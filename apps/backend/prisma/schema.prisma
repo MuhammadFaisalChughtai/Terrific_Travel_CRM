@@ -44,10 +44,13 @@ model User {
   isEmailVerified         Boolean        @default(false)
   emailVerificationToken  String?
   forgotPasswordToken     String?
+  isActive                Boolean        @default(true)
   createdAt               DateTime       @default(now())
   updatedAt               DateTime       @updatedAt
   userRoles               UserRole[]
   bookings                Booking[]
+  createdBookings         Booking[]      @relation("CreatedBookings")
+  assignedBookings        Booking[]      @relation("AssignedBookings")
   refreshTokens           RefreshToken[]
   fileUploads             FileUpload[]
   auditLogs               AuditLog[]
@@ -56,6 +59,8 @@ model User {
   createdPayments         VendorPayment[]           @relation("CreatedPayments")
   reversedPayments        VendorPayment[]           @relation("ReversedPayments")
   vendorLedgers           VendorLedger[]
+  agentId                 String?
+  agent                   Agent?         @relation(fields: [agentId], references: [id], onDelete: SetNull)
 }
 
 
@@ -197,6 +202,10 @@ model Booking {
   totalPrice          Float
   agentId             String?
   agent               Agent?                 @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  createdById         String?
+  createdBy           User?                  @relation(name: "CreatedBookings", fields: [createdById], references: [id])
+  assignedToId        String?
+  assignedTo          User?                  @relation(name: "AssignedBookings", fields: [assignedToId], references: [id])
   createdAt           DateTime               @default(now())
   updatedAt           DateTime               @updatedAt
   bookingItems        BookingItem[]
@@ -285,8 +294,11 @@ model AuditLog {
   id        String   @id @default(uuid())
   userId    String?
   user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  action    String
-  details   Json
+  action    String   // "Create", "Update", "Archive"
+  module    String   // "Bookings", "Invoices", "Customers", "Users", "Settings"
+  recordId  String?
+  oldValue  Json?
+  newValue  Json?
   ipAddress String?
   createdAt DateTime @default(now())
 }
@@ -329,6 +341,7 @@ model Agent {
   slabs         AgentSlab[]
   bookings      Booking[]
   passengers    Passenger[]
+  users         User[]
 }
 
 model AgentSlab {

@@ -124,7 +124,7 @@ export class VendorsService {
 
     booking.accommodations?.forEach((x: any) => {
       if (x.vendorId) {
-        vendorCosts[x.vendorId] = (vendorCosts[x.vendorId] || 0) + (x.price * (x.qty || 1));
+        vendorCosts[x.vendorId] = (vendorCosts[x.vendorId] || 0) + x.price;
       }
     });
     booking.flightServices?.forEach((x: any) => {

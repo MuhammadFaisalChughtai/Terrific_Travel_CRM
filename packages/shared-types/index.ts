@@ -7,6 +7,7 @@ export interface UserDTO {
   permissions: string[];
   isEmailVerified: boolean;
   createdAt: string;
+  agentId?: string | null;
 }
 
 export interface AuthResponse {

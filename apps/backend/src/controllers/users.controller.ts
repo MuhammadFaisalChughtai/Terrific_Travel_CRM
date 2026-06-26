@@ -20,11 +20,56 @@ export const findOne = asyncHandler(async (req: AuthenticatedRequest, res: Respo
   });
 });
 
+export const create = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const result = await usersService.create(req.body, req.user!.id);
+  res.status(201).json({
+    success: true,
+    data: result,
+  });
+});
+
 export const update = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
-  const result = await usersService.update(id, req.body);
+  const result = await usersService.update(id, req.body, req.user!.id);
   res.status(200).json({
     success: true,
     data: result,
   });
 });
+
+export const resetPassword = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id } = req.params;
+  const { password } = req.body;
+  const result = await usersService.resetPassword(id, password, req.user!.id);
+  res.status(200).json({
+    success: true,
+    data: result,
+  });
+});
+
+export const getRoles = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const result = await usersService.getRoles();
+  res.status(200).json({
+    success: true,
+    data: result,
+  });
+});
+
+export const getPermissions = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const result = await usersService.getPermissions();
+  res.status(200).json({
+    success: true,
+    data: result,
+  });
+});
+
+export const updateRolePermissions = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { roleId } = req.params;
+  const { permissionIds } = req.body;
+  const result = await usersService.updateRolePermissions(roleId, permissionIds, req.user!.id);
+  res.status(200).json({
+    success: true,
+    data: result,
+  });
+});
+

@@ -97,6 +97,7 @@ export class AuthService {
         roles,
         permissions,
         isEmailVerified: user.isEmailVerified,
+        agentId: user.agentId,
         createdAt: user.createdAt.toISOString(),
       },
     };

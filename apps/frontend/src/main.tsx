@@ -24,6 +24,7 @@ import LedgerPage from "./pages/Ledger";
 import InvoicesPage from "./pages/Invoices";
 import InvoiceTemplatesPage from "./pages/InvoiceTemplates";
 import PassengerForm from "./pages/PassengerForm";
+import UsersPage from "./pages/Users";
 import { useAuthStore } from "./store/auth.store";
 
 const queryClient = new QueryClient({
@@ -72,6 +73,7 @@ function AppRouter() {
           <Route path="ledger" element={<LedgerPage />} />
           <Route path="invoices" element={<InvoicesPage />} />
           <Route path="invoice-templates" element={<InvoiceTemplatesPage />} />
+          <Route path="users" element={<UsersPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" />} />

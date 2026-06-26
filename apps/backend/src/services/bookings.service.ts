@@ -6,6 +6,7 @@ import { emailService } from './email.service';
 import { randomUUID } from 'crypto';
 import { minioService } from './minio.service';
 import { vendorsService } from './vendors.service';
+import { auditLogService } from './audit.service';
 
 export class BookingsService {
   async create(userId: string, data: any) {
@@ -37,6 +38,8 @@ export class BookingsService {
       data: {
         bookingReference: nextRef,
         userId,
+        createdById: userId,
+        assignedToId: data.assignedToId || userId,
         totalPrice: Number(data.totalPrice) || 0,
         status: data.status || BookingStatus.PENDING,
         agentId: data.agentId || null,
@@ -206,6 +209,15 @@ export class BookingsService {
       totalPrice: booking.totalPrice,
     });
 
+    // Write structured audit log
+    await auditLogService.log({
+      userId,
+      action: 'Create',
+      module: 'Bookings',
+      recordId: booking.id,
+      newValue: booking,
+    });
+
     return booking;
   }
   async findAll(user: any, query: any) {
@@ -213,7 +225,10 @@ export class BookingsService {
     const offset = Number(query.offset) || 0;
     const where: any = {};
     
-    if (!user.roles.includes('SUPER_ADMIN') && !user.roles.includes('ADMIN') && !user.roles.includes('TRAVEL_AGENT')) {
+    const isOperator = user.roles.some((role: string) => 
+      ['SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT', 'Admin', 'Manager', 'Agent'].includes(role)
+    );
+    if (!isOperator) {
       where.userId = user.id;
     }
 
@@ -437,7 +452,7 @@ export class BookingsService {
     return booking;
   }
 
-  async updateBookingDetails(id: string, data: { totalPrice?: number; agentId?: string | null; departureDate?: string | null }) {
+  async updateBookingDetails(id: string, data: { totalPrice?: number; agentId?: string | null; departureDate?: string | null }, actorId?: string) {
     const booking = await prisma.booking.findUnique({ where: { id } });
     if (!booking) throw new NotFoundException('Booking not found');
 
@@ -471,10 +486,22 @@ export class BookingsService {
       bookingId: updated.id,
     });
 
+    await auditLogService.log({
+      userId: actorId || null,
+      action: 'Update',
+      module: 'Bookings',
+      recordId: id,
+      oldValue: booking,
+      newValue: updated,
+    });
+
     return updated;
   }
 
-  async updateStatus(id: string, status: BookingStatus) {
+  async updateStatus(id: string, status: BookingStatus, actorId?: string) {
+    const bookingBefore = await prisma.booking.findUnique({ where: { id } });
+    if (!bookingBefore) throw new NotFoundException('Booking not found');
+
     const booking = await prisma.booking.update({
       where: { id },
       data: { status },
@@ -485,10 +512,19 @@ export class BookingsService {
       status: booking.status,
     });
 
+    await auditLogService.log({
+      userId: actorId || null,
+      action: status === BookingStatus.CANCELLED ? 'Archive' : 'Update',
+      module: 'Bookings',
+      recordId: id,
+      oldValue: bookingBefore,
+      newValue: booking,
+    });
+
     return booking;
   }
 
-  async toggleLock(id: string) {
+  async toggleLock(id: string, actorId?: string) {
     const booking = await prisma.booking.findUnique({
       where: { id },
     });
@@ -506,10 +542,22 @@ export class BookingsService {
       lockedStatus: updated.lockedStatus,
     });
 
+    await auditLogService.log({
+      userId: actorId || null,
+      action: 'Update',
+      module: 'Bookings',
+      recordId: id,
+      oldValue: booking,
+      newValue: updated,
+    });
+
     return updated;
   }
 
-  async delete(id: string) {
+  async delete(id: string, actorId?: string) {
+    const bookingBefore = await prisma.booking.findUnique({ where: { id } });
+    if (!bookingBefore) throw new NotFoundException('Booking not found');
+
     const booking = await prisma.booking.update({
       where: { id },
       data: { status: BookingStatus.CANCELLED },
@@ -517,6 +565,15 @@ export class BookingsService {
 
     await rabbitMQService.publish('booking.cancelled', {
       bookingId: booking.id,
+    });
+
+    await auditLogService.log({
+      userId: actorId || null,
+      action: 'Archive',
+      module: 'Bookings',
+      recordId: id,
+      oldValue: bookingBefore,
+      newValue: booking,
     });
 
     return { success: true };
@@ -563,9 +620,15 @@ export class BookingsService {
     const totalVendorCost = accommodationsCost + flightsCost + transportsCost + visasCost + additionalCost;
     const rawProfit = price - totalVendorCost;
 
-    const slab = agent.slabs.find(
+    let slab = agent.slabs.find(
       (s) => price >= s.minSales && (s.maxSales === null || price <= s.maxSales)
     );
+    if (!slab && agent.slabs.length > 0) {
+      const highestSlab = agent.slabs.reduce((prev, current) => (prev.minSales > current.minSales) ? prev : current);
+      if (price > highestSlab.minSales) {
+        slab = highestSlab;
+      }
+    }
     const rate = slab ? slab.commissionRate : 0.0;
     const potentialMargin = rawProfit * (rate / 100.0);
 

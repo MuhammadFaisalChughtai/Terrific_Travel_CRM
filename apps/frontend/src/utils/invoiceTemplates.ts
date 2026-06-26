@@ -510,12 +510,16 @@ function generateTimelineHtml(booking: any): string {
 
   // Flights
   if (booking.flightServices && booking.flightServices.length > 0) {
-    const sortedFlights = [...booking.flightServices].sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const sortedFlights = [...booking.flightServices].sort(
+      (a: any, b: any) =>
+        new Date(a.date).getTime() - new Date(b.date).getTime(),
+    );
     sortedFlights.forEach((f: any, idx: number) => {
       const nextFlight = sortedFlights[idx + 1];
       const isConnecting = getIsConnecting(f, nextFlight);
-      const layoverStr = isConnecting && nextFlight ? calculateLayover(f, nextFlight) : "";
-      
+      const layoverStr =
+        isConnecting && nextFlight ? calculateLayover(f, nextFlight) : "";
+
       const extractCode = (str: string) => {
         const match = str.match(/\(([^)]+)\)/);
         return match ? match[1].toUpperCase() : str.toUpperCase();
@@ -534,11 +538,13 @@ function generateTimelineHtml(booking: any): string {
           <div class="timeline-detail-item">Class: <strong>${f.flightClass || "Economy"}</strong> | Baggage: <strong>${f.baggage || "23 KG"}</strong></div>
           <div class="timeline-detail-item">Supplier: <strong>${f.vendor?.name || "Terrific Travel Partner"}</strong></div>
         `,
-        notes: f.notes
+        notes: f.notes,
       });
 
       if (isConnecting && layoverStr) {
-        const layoverDate = f.date ? new Date(new Date(f.date).getTime() + 1000) : new Date(new Date(booking.createdAt).getTime() + 1000);
+        const layoverDate = f.date
+          ? new Date(new Date(f.date).getTime() + 1000)
+          : new Date(new Date(booking.createdAt).getTime() + 1000);
         items.push({
           type: "LAYOVER",
           date: layoverDate,
@@ -547,7 +553,7 @@ function generateTimelineHtml(booking: any): string {
           badgeClass: "layover",
           details: `Connection layover of <strong>${layoverStr}</strong> before the next flight.`,
           notes: "",
-          isLayoverCard: true
+          isLayoverCard: true,
         });
       }
     });
@@ -556,11 +562,15 @@ function generateTimelineHtml(booking: any): string {
   // Accommodations
   if (booking.accommodations && booking.accommodations.length > 0) {
     booking.accommodations.forEach((h: any) => {
-      const checkIn = h.checkInDate ? new Date(h.checkInDate) : new Date(booking.createdAt);
-      const checkOut = h.checkOutDate ? new Date(h.checkOutDate) : new Date(booking.createdAt);
+      const checkIn = h.checkInDate
+        ? new Date(h.checkInDate)
+        : new Date(booking.createdAt);
+      const checkOut = h.checkOutDate
+        ? new Date(h.checkOutDate)
+        : new Date(booking.createdAt);
       const diffTime = Math.abs(checkOut.getTime() - checkIn.getTime());
       const nights = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
-      
+
       items.push({
         type: "HOTEL",
         date: checkIn,
@@ -573,7 +583,7 @@ function generateTimelineHtml(booking: any): string {
           <div class="timeline-detail-item">City: <strong>${h.city || "—"}</strong> | Conf #: <strong>${h.hotelConfirmationNumber || "—"}</strong></div>
           <div class="timeline-detail-item">Supplier: <strong>${h.vendor?.name || "Terrific Travel Partner"}</strong></div>
         `,
-        notes: h.notes
+        notes: h.notes,
       });
     });
   }
@@ -592,7 +602,7 @@ function generateTimelineHtml(booking: any): string {
           <div class="timeline-detail-item">Flight Ref: <strong>${t.flightNo || "—"}</strong></div>
           <div class="timeline-detail-item">Supplier: <strong>${t.vendor?.name || "Terrific Travel Partner"}</strong></div>
         `,
-        notes: t.notes
+        notes: t.notes,
       });
     });
   }
@@ -610,7 +620,7 @@ function generateTimelineHtml(booking: any): string {
           <div class="timeline-detail-item">Status: <strong>Processed</strong></div>
           <div class="timeline-detail-item">Supplier: <strong>${v.vendor?.name || "Terrific Travel Partner"}</strong></div>
         `,
-        notes: v.notes
+        notes: v.notes,
       });
     });
   }
@@ -628,7 +638,7 @@ function generateTimelineHtml(booking: any): string {
           <div class="timeline-detail-item">Description: <strong>${a.serviceDescription || "—"}</strong></div>
           <div class="timeline-detail-item">Supplier: <strong>${a.customVendorName || a.vendor?.name || "Terrific Travel Partner"}</strong></div>
         `,
-        notes: a.notes
+        notes: a.notes,
       });
     });
   }
@@ -643,10 +653,9 @@ function generateTimelineHtml(booking: any): string {
   return `
     <div class="timeline-container">
       ${items
-        .map(
-          (item) => {
-            if (item.isLayoverCard) {
-              return `
+        .map((item) => {
+          if (item.isLayoverCard) {
+            return `
               <div class="timeline-item">
                 <div class="timeline-badge layover">${item.icon}</div>
                 <div class="timeline-card" style="background: #FFFBEB; border: 1.5px solid #FDE68A; border-radius: 8px; padding: 8px 16px;">
@@ -659,11 +668,11 @@ function generateTimelineHtml(booking: any): string {
                 </div>
               </div>
               `;
-            }
+          }
 
-            const formattedNotesText = formatNotes(item.notes);
+          const formattedNotesText = formatNotes(item.notes);
 
-            return `
+          return `
             <div class="timeline-item">
               <div class="timeline-badge ${item.badgeClass}">${item.icon}</div>
               <div class="timeline-card">
@@ -680,8 +689,7 @@ function generateTimelineHtml(booking: any): string {
               </div>
             </div>
             `;
-          }
-        )
+        })
         .join("")}
     </div>
   `;
@@ -907,7 +915,7 @@ function getTicketNumber(passenger: any, flight: any): string {
 
 function getIsConnecting(currentFlight: any, nextFlight: any): boolean {
   if (!nextFlight) return false;
-  
+
   // 1. Explicit check: notes metadata
   if (currentFlight.notes) {
     try {
@@ -924,7 +932,7 @@ function getIsConnecting(currentFlight: any, nextFlight: any): boolean {
   // and the departure is within 24 hours of arrival
   const arrAirport = (currentFlight.arrivedAt || "").trim().toUpperCase();
   const nextDepAirport = (nextFlight.departedFrom || "").trim().toUpperCase();
-  
+
   // Extract airport code if it is in format "Name (Code)" or "Code"
   const extractCode = (str: string) => {
     const match = str.match(/\(([^)]+)\)/);
@@ -933,18 +941,34 @@ function getIsConnecting(currentFlight: any, nextFlight: any): boolean {
 
   const codeA = extractCode(arrAirport);
   const codeB = extractCode(nextDepAirport);
-  
+
   if (codeA && codeB && codeA === codeB) {
     try {
       const arrDate = new Date(currentFlight.date);
       const depDate = new Date(nextFlight.date);
-      
-      const [arrH, arrM] = (currentFlight.arrivalTime || "00:00").split(":").map(Number);
-      const [depH, depM] = (nextFlight.departTime || "00:00").split(":").map(Number);
-      
-      const arrTime = new Date(arrDate.getFullYear(), arrDate.getMonth(), arrDate.getDate(), arrH, arrM);
-      const depTime = new Date(depDate.getFullYear(), depDate.getMonth(), depDate.getDate(), depH, depM);
-      
+
+      const [arrH, arrM] = (currentFlight.arrivalTime || "00:00")
+        .split(":")
+        .map(Number);
+      const [depH, depM] = (nextFlight.departTime || "00:00")
+        .split(":")
+        .map(Number);
+
+      const arrTime = new Date(
+        arrDate.getFullYear(),
+        arrDate.getMonth(),
+        arrDate.getDate(),
+        arrH,
+        arrM,
+      );
+      const depTime = new Date(
+        depDate.getFullYear(),
+        depDate.getMonth(),
+        depDate.getDate(),
+        depH,
+        depM,
+      );
+
       const diffMs = depTime.getTime() - arrTime.getTime();
       // If it's positive and under 24 hours, it's a layover!
       return diffMs > 0 && diffMs <= 24 * 60 * 60 * 1000;
@@ -1013,6 +1037,32 @@ function deriveAgeCategory(dob: string): string {
   return "ADULT";
 }
 
+function getAirlineName(flightNo: string): string {
+  if (!flightNo) return "Airline Partner";
+  const code = flightNo.trim().substring(0, 2).toUpperCase();
+  const airlines: Record<string, string> = {
+    TK: "Turkish Airlines",
+    SV: "Saudi Arabian Airlines",
+    EK: "Emirates",
+    QR: "Qatar Airways",
+    EY: "Etihad Airways",
+    WY: "Oman Air",
+    GF: "Gulf Air",
+    BA: "British Airways",
+    KU: "Kuwait Airways",
+    MS: "EgyptAir",
+    PK: "Pakistan International Airlines",
+    AI: "Air India",
+    FZ: "Flydubai",
+    G9: "Air Arabia",
+    XY: "Flynas",
+    PA: "Airblue",
+    ER: "Serene Air",
+    NL: "Shaheen Air",
+  };
+  return airlines[code] || `${code} Air`;
+}
+
 function generateIndividualTicketHtml(
   booking: any,
   passenger: any,
@@ -1025,46 +1075,6 @@ function generateIndividualTicketHtml(
   const issueDate = flights[0]?.issueDate
     ? formatDate(flights[0].issueDate)
     : formatDate(booking.createdAt || new Date());
-
-  // SVG Barcode
-  const barcode = `
-    <svg width="150" height="30" viewBox="0 0 150 30" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect width="150" height="30" fill="transparent"/>
-      <rect x="5" y="2" width="2" height="26" fill="#000000"/>
-      <rect x="9" y="2" width="1" height="26" fill="#000000"/>
-      <rect x="12" y="2" width="3" height="26" fill="#000000"/>
-      <rect x="17" y="2" width="1" height="26" fill="#000000"/>
-      <rect x="20" y="2" width="2" height="26" fill="#000000"/>
-      <rect x="24" y="2" width="4" height="26" fill="#000000"/>
-      <rect x="30" y="2" width="1" height="26" fill="#000000"/>
-      <rect x="33" y="2" width="2" height="26" fill="#000000"/>
-      <rect x="37" y="2" width="3" height="26" fill="#000000"/>
-      <rect x="42" y="2" width="1" height="26" fill="#000000"/>
-      <rect x="45" y="2" width="4" height="26" fill="#000000"/>
-      <rect x="51" y="2" width="2" height="26" fill="#000000"/>
-      <rect x="55" y="2" width="1" height="26" fill="#000000"/>
-      <rect x="58" y="2" width="3" height="26" fill="#000000"/>
-      <rect x="63" y="2" width="2" height="26" fill="#000000"/>
-      <rect x="67" y="2" width="4" height="26" fill="#000000"/>
-      <rect x="73" y="2" width="1" height="26" fill="#000000"/>
-      <rect x="76" y="2" width="3" height="26" fill="#000000"/>
-      <rect x="81" y="2" width="2" height="26" fill="#000000"/>
-      <rect x="85" y="2" width="1" height="26" fill="#000000"/>
-      <rect x="88" y="2" width="4" height="26" fill="#000000"/>
-      <rect x="94" y="2" width="2" height="26" fill="#000000"/>
-      <rect x="98" y="2" width="3" height="26" fill="#000000"/>
-      <rect x="103" y="2" width="1" height="26" fill="#000000"/>
-      <rect x="106" y="2" width="4" height="26" fill="#000000"/>
-      <rect x="112" y="2" width="2" height="26" fill="#000000"/>
-      <rect x="116" y="2" width="1" height="26" fill="#000000"/>
-      <rect x="119" y="2" width="3" height="26" fill="#000000"/>
-      <rect x="124" y="2" width="2" height="26" fill="#000000"/>
-      <rect x="128" y="2" width="4" height="26" fill="#000000"/>
-      <rect x="134" y="2" width="1" height="26" fill="#000000"/>
-      <rect x="137" y="2" width="3" height="26" fill="#000000"/>
-      <rect x="142" y="2" width="2" height="26" fill="#000000"/>
-    </svg>
-  `;
 
   return `
     <div class="document-container">
@@ -1084,10 +1094,6 @@ function generateIndividualTicketHtml(
             ${BRAND_LOGOS.iataLogo}
             ${BRAND_LOGOS.atolLogo}
           </div>
-          <svg width="50" height="50" viewBox="0 0 29 29" fill="none" xmlns="http://www.w3.org/2000/svg" style="border: 1px solid #E2E8F0; padding: 4px; border-radius: 4px; background: white; margin-top: 4px;">
-            <path d="M0 0h7v7H0V0zm1 1v5h5V1H1zm8 0h1v1H9V1zm1 1h1v1h-1V2zm-1 1h1v1H9V3zm3-3h7v7h-7V0zm1 1v5h5V1h-5zm-5 7h1v1H9V8zm1 1h1v1h-1V9zm-1 1h1v1H9v-1zm4-2h1v1h-1V8zm1 1h1v1h-1V9zm-1 1h1v1h-1v-1zm4-2h1v1h-1V8zm1 1h1v1h-1V9zm-1 1h1v1h-1v-1zm-9 3h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1z" fill="#0F172A"/>
-            <path d="M0 9h7v7H0V9zm1 1v5h5v-5H1zm8 0h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm3-3h7v7h-7V9zm1 1v5h5v-5h-5zm-5 7h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm-9 3h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1z" fill="#0F172A"/>
-          </svg>
         </div>
       </div>
 
@@ -1100,16 +1106,6 @@ function generateIndividualTicketHtml(
           <p>Booking Ref: <strong>${booking.bookingReference || "—"}</strong></p>
           <p>Supplier Ref (PNR): <strong style="font-family: monospace; font-size: 13px; color: #0EA5E9;">${pnr}</strong></p>
           <p>Issue Date: <strong>${issueDate}</strong></p>
-        </div>
-      </div>
-
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; background: #F8FAFC; padding: 12px; border-radius: 8px; border: 1px solid #E2E8F0;">
-        <div style="font-size: 11px; color: #475569;">
-          <strong>Consolidated E-Ticket Receipt</strong><br/>
-          Official document valid for airport entry and carrier check-in.
-        </div>
-        <div>
-          ${barcode}
         </div>
       </div>
 
@@ -1161,6 +1157,18 @@ function generateIndividualTicketHtml(
           const arrName = extractName(f.arrivedAt || "");
           const transitHub = extractCode(f.arrivedAt || "");
 
+          let depTerminal = "";
+          let arrTerminal = "";
+          if (f.notes) {
+            try {
+              const parsed = JSON.parse(f.notes);
+              depTerminal = parsed.depTerminal || "";
+              arrTerminal = parsed.arrTerminal || "";
+            } catch (e) {
+              // ignore
+            }
+          }
+
           return `
           <div class="ticket-card" style="border: 1px solid #E2E8F0; margin-bottom: 20px;">
             <div class="ticket-card-header" style="background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%); padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px solid #0F172A;">
@@ -1176,6 +1184,7 @@ function generateIndividualTicketHtml(
               <div style="text-align: left;">
                 <p class="airport-code">${depCode}</p>
                 <p class="airport-name" style="font-size: 10px; font-weight: bold; color: #475569; margin-top: 2px;">${depName}</p>
+                ${depTerminal ? `<p style="font-size: 9px; font-weight: bold; color: #E11D48; margin-top: 2px;">Terminal: ${depTerminal}</p>` : ""}
                 <p style="font-size: 13px; font-weight: bold; color: #0F172A; margin-top: 4px;">${f.departTime || "—"}</p>
                 <p style="font-size: 9px; color: #64748B;">Date: ${depDateStr}</p>
               </div>
@@ -1190,6 +1199,7 @@ function generateIndividualTicketHtml(
               <div style="text-align: right;">
                 <p class="airport-code">${arrCode}</p>
                 <p class="airport-name" style="font-size: 10px; font-weight: bold; color: #475569; margin-top: 2px;">${arrName}</p>
+                ${arrTerminal ? `<p style="font-size: 9px; font-weight: bold; color: #E11D48; margin-top: 2px;">Terminal: ${arrTerminal}</p>` : ""}
                 <p style="font-size: 13px; font-weight: bold; color: #0F172A; margin-top: 4px;">${f.arrivalTime || "—"}</p>
                 <p style="font-size: 9px; color: #64748B;">Date: ${arrDateStr}</p>
               </div>
@@ -1197,8 +1207,8 @@ function generateIndividualTicketHtml(
             
             <div class="flight-meta-grid">
               <div class="meta-item">
-                <h5>Airline Partner</h5>
-                <p>${f.vendor?.name || "Airline Partner"}</p>
+                <h5>Operating Carrier</h5>
+                <p>${getAirlineName(f.flightNo)}</p>
               </div>
               <div class="meta-item">
                 <h5>Baggage Allowance</h5>
@@ -1231,16 +1241,6 @@ function generateIndividualTicketHtml(
         `;
         })
         .join("")}
-
-      <!-- Consolidator / Supplier Details -->
-      <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 16px; margin-top: 15px; font-size: 11px;">
-        <p style="margin: 0 0 8px 0; font-weight: bold; color: #0EA5E9; text-transform: uppercase; letter-spacing: 0.5px;">Fulfillment Supplier Details</p>
-        <div style="display: grid; grid-template-cols: 1fr 1fr; gap: 8px;">
-          <div><strong>Vendor Name:</strong> ${flights[0]?.vendor?.name || "Terrific Travel Partner"}</div>
-          <div><strong>Phone:</strong> ${flights[0]?.vendor?.phoneNumber || "—"}</div>
-          ${flights[0]?.vendor?.supportEmail ? `<div><strong>Email:</strong> ${flights[0].vendor.supportEmail}</div>` : ""}
-        </div>
-      </div>
 
       <!-- Bottom Notice matching ref style -->
       <div style="font-size: 8px; line-height: 1.4; color: #64748B; border-top: 1px dashed #E2E8F0; padding-top: 10px; margin-top: 20px;">
@@ -2065,18 +2065,24 @@ export function renderFlightTicket(
     html = html.replace(/{{BAGGAGE}}/g, mainFlight.baggage || "23 KG");
     html = html.replace(/{{CARRY_ON}}/g, mainFlight.carryOn || "7 KG");
 
-    html = html.replace(/{{VENDOR_NAME}}/g, mainFlight.vendor?.name || "Terrific Travel Partner");
-    html = html.replace(/{{VENDOR_PHONE}}/g, mainFlight.vendor?.phoneNumber || "—");
-    html = html.replace(/{{VENDOR_EMAIL}}/g, mainFlight.vendor?.supportEmail || "—");
+    html = html.replace(
+      /{{VENDOR_NAME}}/g,
+      mainFlight.vendor?.name || "Terrific Travel Partner",
+    );
+    html = html.replace(
+      /{{VENDOR_PHONE}}/g,
+      mainFlight.vendor?.phoneNumber || "—",
+    );
+    html = html.replace(
+      /{{VENDOR_EMAIL}}/g,
+      mainFlight.vendor?.supportEmail || "—",
+    );
 
     html = html.replace(
       /{{PASSENGER_NAME}}/g,
       `${p.title || ""} ${p.firstName} ${p.lastName}`,
     );
-    html = html.replace(
-      /{{PASSENGER_DETAILS}}/g,
-      `${p.age || "Adult"}`,
-    );
+    html = html.replace(/{{PASSENGER_DETAILS}}/g, `${p.age || "Adult"}`);
     html = html.replace(/{{SEAT}}/g, p.seat || "—");
 
     const passengerListHtml = passengers
@@ -2186,7 +2192,10 @@ export function renderHotelVoucher(
   html = html.replace(/{{HOTEL_NAME}}/g, hotel.hotelName || "—");
   html = html.replace(/{{HOTEL_CITY}}/g, hotel.city || "—");
   html = html.replace(/{{HOTEL_ADDRESS}}/g, hotel.hotelAddress || "—");
-  html = html.replace(/{{VENDOR_NAME}}/g, hotel.vendor?.name || "Terrific Travel Partner");
+  html = html.replace(
+    /{{VENDOR_NAME}}/g,
+    hotel.vendor?.name || "Terrific Travel Partner",
+  );
   html = html.replace(/{{VENDOR_PHONE}}/g, hotel.vendor?.phoneNumber || "—");
   html = html.replace(/{{VENDOR_EMAIL}}/g, hotel.vendor?.supportEmail || "—");
   html = html.replace(/{{HOTEL_STAY_ROW}}/g, hotelStayRow);
@@ -2264,9 +2273,18 @@ export function renderTransportVoucher(
   html = html.replace(/{{TOTAL_TRANSFERS}}/g, String(transfers.length));
   html = html.replace(/{{TRANSFERS_TABLE_ROWS}}/g, transfersRows);
   html = html.replace(/{{TOTAL_GROUND_COST}}/g, formatCurrency(totalCost));
-  html = html.replace(/{{VENDOR_NAME}}/g, transfers[0]?.vendor?.name || "Terrific Travel Ground Partner");
-  html = html.replace(/{{VENDOR_PHONE}}/g, transfers[0]?.vendor?.phoneNumber || "—");
-  html = html.replace(/{{VENDOR_EMAIL}}/g, transfers[0]?.vendor?.supportEmail || "—");
+  html = html.replace(
+    /{{VENDOR_NAME}}/g,
+    transfers[0]?.vendor?.name || "Terrific Travel Ground Partner",
+  );
+  html = html.replace(
+    /{{VENDOR_PHONE}}/g,
+    transfers[0]?.vendor?.phoneNumber || "—",
+  );
+  html = html.replace(
+    /{{VENDOR_EMAIL}}/g,
+    transfers[0]?.vendor?.supportEmail || "—",
+  );
 
   return html;
 }
@@ -2329,9 +2347,18 @@ export function renderVisaInvoice(
   html = html.replace(/{{TOTAL_VISAS}}/g, String(visas.length));
   html = html.replace(/{{VISAS_TABLE_ROWS}}/g, visasRows);
   html = html.replace(/{{TOTAL_VISA_COST}}/g, formatCurrency(totalCost));
-  html = html.replace(/{{VENDOR_NAME}}/g, visas[0]?.vendor?.name || "Visa Consular Authority");
-  html = html.replace(/{{VENDOR_PHONE}}/g, visas[0]?.vendor?.phoneNumber || "—");
-  html = html.replace(/{{VENDOR_EMAIL}}/g, visas[0]?.vendor?.supportEmail || "—");
+  html = html.replace(
+    /{{VENDOR_NAME}}/g,
+    visas[0]?.vendor?.name || "Visa Consular Authority",
+  );
+  html = html.replace(
+    /{{VENDOR_PHONE}}/g,
+    visas[0]?.vendor?.phoneNumber || "—",
+  );
+  html = html.replace(
+    /{{VENDOR_EMAIL}}/g,
+    visas[0]?.vendor?.supportEmail || "—",
+  );
 
   return html;
 }
@@ -2392,9 +2419,20 @@ export function renderSpecialServicesInvoice(
   html = html.replace(/{{TOTAL_SERVICES}}/g, String(services.length));
   html = html.replace(/{{SERVICES_TABLE_ROWS}}/g, servicesRows);
   html = html.replace(/{{TOTAL_COST}}/g, formatCurrency(totalCost));
-  html = html.replace(/{{VENDOR_NAME}}/g, services[0]?.customVendorName || services[0]?.vendor?.name || "Terrific Travel Direct Office");
-  html = html.replace(/{{VENDOR_PHONE}}/g, services[0]?.vendor?.phoneNumber || "—");
-  html = html.replace(/{{VENDOR_EMAIL}}/g, services[0]?.vendor?.supportEmail || "—");
+  html = html.replace(
+    /{{VENDOR_NAME}}/g,
+    services[0]?.customVendorName ||
+      services[0]?.vendor?.name ||
+      "Terrific Travel Direct Office",
+  );
+  html = html.replace(
+    /{{VENDOR_PHONE}}/g,
+    services[0]?.vendor?.phoneNumber || "—",
+  );
+  html = html.replace(
+    /{{VENDOR_EMAIL}}/g,
+    services[0]?.vendor?.supportEmail || "—",
+  );
 
   return html;
 }

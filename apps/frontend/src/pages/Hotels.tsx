@@ -32,7 +32,7 @@ export default function Hotels() {
   const [roomPrice, setRoomPrice] = useState('');
   const [maxOccupancy, setMaxOccupancy] = useState('');
 
-  const isAdminOrAgent = user?.roles?.some(r => ['SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT'].includes(r));
+  const isAdminOrAgent = user?.roles?.some(r => ['Admin', 'Manager', 'Agent', 'SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT'].includes(r));
 
   // Query hotels
   const { data: hotelsResult, isLoading } = useQuery({

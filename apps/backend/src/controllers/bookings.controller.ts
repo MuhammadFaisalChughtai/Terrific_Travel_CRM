@@ -32,7 +32,7 @@ export const findOne = asyncHandler(async (req: AuthenticatedRequest, res: Respo
 export const updateStatus = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
   const { status } = req.body;
-  const result = await bookingsService.updateStatus(id, status);
+  const result = await bookingsService.updateStatus(id, status, req.user!.id);
   res.status(200).json({
     success: true,
     data: result,
@@ -41,7 +41,7 @@ export const updateStatus = asyncHandler(async (req: AuthenticatedRequest, res: 
 
 export const toggleLock = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
-  const result = await bookingsService.toggleLock(id);
+  const result = await bookingsService.toggleLock(id, req.user!.id);
   res.status(200).json({
     success: true,
     data: result,
@@ -50,7 +50,7 @@ export const toggleLock = asyncHandler(async (req: AuthenticatedRequest, res: Re
 
 export const cancel = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
-  const result = await bookingsService.delete(id);
+  const result = await bookingsService.delete(id, req.user!.id);
   res.status(200).json({
     success: true,
     data: result,
@@ -70,7 +70,7 @@ export const finalizeMargin = asyncHandler(async (req: AuthenticatedRequest, res
 export const updateBookingDetails = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
   const { totalPrice, agentId, departureDate } = req.body;
-  const result = await bookingsService.updateBookingDetails(id, { totalPrice, agentId, departureDate });
+  const result = await bookingsService.updateBookingDetails(id, { totalPrice, agentId, departureDate }, req.user!.id);
   res.status(200).json({
     success: true,
     data: result,

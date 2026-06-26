@@ -15,91 +15,233 @@ async function main() {
   });
 
   const adminRole = await prisma.role.upsert({
-    where: { name: 'ADMIN' },
+    where: { name: 'Admin' },
     update: {},
-    create: { name: 'ADMIN', description: 'Enterprise Admin' },
+    create: { name: 'Admin', description: 'System Administrator' },
+  });
+
+  const managerRole = await prisma.role.upsert({
+    where: { name: 'Manager' },
+    update: {},
+    create: { name: 'Manager', description: 'Operations Manager' },
   });
 
   const agentRole = await prisma.role.upsert({
-    where: { name: 'TRAVEL_AGENT' },
+    where: { name: 'Agent' },
     update: {},
-    create: { name: 'TRAVEL_AGENT', description: 'Travel Booking Agent' },
+    create: { name: 'Agent', description: 'Booking Agent' },
   });
 
   const customerRole = await prisma.role.upsert({
+    where: { name: 'Customer' },
+    update: {},
+    create: { name: 'Customer', description: 'Client Account' },
+  });
+
+  const legacyAdminRole = await prisma.role.upsert({
+    where: { name: 'ADMIN' },
+    update: {},
+    create: { name: 'ADMIN', description: 'Enterprise Admin (Legacy)' },
+  });
+
+  const legacyAgentRole = await prisma.role.upsert({
+    where: { name: 'TRAVEL_AGENT' },
+    update: {},
+    create: { name: 'TRAVEL_AGENT', description: 'Travel Agent (Legacy)' },
+  });
+
+  const legacyCustomerRole = await prisma.role.upsert({
     where: { name: 'CUSTOMER' },
     update: {},
-    create: { name: 'CUSTOMER', description: 'Client Account' },
+    create: { name: 'CUSTOMER', description: 'Customer (Legacy)' },
   });
 
   const permissionsList = [
-    { name: 'users:read', description: 'Read users' },
-    { name: 'users:write', description: 'Manage users' },
-    { name: 'flights:read', description: 'View flights' },
-    { name: 'flights:write', description: 'Manage flights' },
-    { name: 'hotels:read', description: 'View hotels' },
-    { name: 'hotels:write', description: 'Manage hotels' },
-    { name: 'tours:read', description: 'View tours' },
-    { name: 'tours:write', description: 'Manage tours' },
-    { name: 'bookings:read', description: 'View bookings' },
-    { name: 'bookings:write', description: 'Create bookings' },
-    { name: 'payments:read', description: 'View transactions' },
-    { name: 'payments:write', description: 'Checkout bookings' },
-    { name: 'reports:read', description: 'View analytics' },
+    // Bookings
+    { name: 'bookings:read', description: 'View all bookings' },
+    { name: 'bookings:create', description: 'Create bookings' },
+    { name: 'bookings:edit_any', description: 'Edit any booking' },
+    { name: 'bookings:edit_own', description: 'Edit own booking' },
+    { name: 'bookings:delete', description: 'Delete booking (soft-delete/archive)' },
+    // Invoices
+    { name: 'invoices:read', description: 'View all invoices' },
+    { name: 'invoices:edit', description: 'Edit invoices' },
+    { name: 'invoices:delete', description: 'Delete invoices (soft-delete/archive)' },
+    { name: 'invoices:download', description: 'Download invoices' },
+    { name: 'invoices:print', description: 'Print invoices' },
+    // Customers
+    { name: 'customers:read', description: 'View customers' },
+    { name: 'customers:create', description: 'Create customers' },
+    { name: 'customers:edit', description: 'Edit customers' },
+    { name: 'customers:delete', description: 'Delete customers (deactivate)' },
+    // Reports
+    { name: 'reports:read_all', description: 'View all company financial reports' },
+    { name: 'reports:read_own', description: 'View personal performance reports' },
+    // Users
+    { name: 'users:manage', description: 'Create and edit users, reset passwords, activate/deactivate users' },
+    { name: 'roles:assign', description: 'Assign roles' },
+    { name: 'permissions:manage', description: 'Manage permissions' },
+    // Settings
+    { name: 'settings:manage', description: 'Full system settings access' },
+  ];
+
+  // Map permissions to roles
+  const adminPermissions = [
+    'bookings:read', 'bookings:create', 'bookings:edit_any', 'bookings:edit_own',
+    'invoices:read', 'invoices:edit', 'invoices:download', 'invoices:print',
+    'customers:read', 'customers:create', 'customers:edit',
+    'reports:read_all', 'reports:read_own',
+    'users:manage', 'roles:assign', 'permissions:manage',
+    'settings:manage'
+  ];
+
+  const managerPermissions = [
+    'bookings:read', 'bookings:create', 'bookings:edit_any', 'bookings:edit_own',
+    'invoices:read', 'invoices:edit', 'invoices:download', 'invoices:print',
+    'customers:read', 'customers:create', 'customers:edit',
+    'reports:read_all', 'reports:read_own'
+  ];
+
+  const agentPermissions = [
+    'bookings:read', 'bookings:create', 'bookings:edit_own',
+    'invoices:read', 'invoices:download', 'invoices:print',
+    'customers:read', 'customers:create',
+    'reports:read_own'
   ];
 
   for (const perm of permissionsList) {
     const createdPerm = await prisma.permission.upsert({
       where: { name: perm.name },
-      update: {},
+      update: { description: perm.description },
       create: perm,
     });
 
-    await prisma.rolePermission.upsert({
-      where: {
-        roleId_permissionId: {
-          roleId: adminRole.id,
-          permissionId: createdPerm.id,
-        },
-      },
-      update: {},
-      create: {
-        roleId: adminRole.id,
-        permissionId: createdPerm.id,
-      },
-    });
-
-    if (['flights:read', 'hotels:read', 'tours:read', 'bookings:read', 'bookings:write', 'payments:write'].includes(perm.name)) {
+    // Assign to Admin role
+    if (adminPermissions.includes(perm.name)) {
       await prisma.rolePermission.upsert({
-        where: {
-          roleId_permissionId: {
-            roleId: agentRole.id,
-            permissionId: createdPerm.id,
-          },
-        },
+        where: { roleId_permissionId: { roleId: adminRole.id, permissionId: createdPerm.id } },
         update: {},
-        create: {
-          roleId: agentRole.id,
-          permissionId: createdPerm.id,
-        },
+        create: { roleId: adminRole.id, permissionId: createdPerm.id },
+      });
+      // Legacy compatibility
+      await prisma.rolePermission.upsert({
+        where: { roleId_permissionId: { roleId: superAdminRole.id, permissionId: createdPerm.id } },
+        update: {},
+        create: { roleId: superAdminRole.id, permissionId: createdPerm.id },
+      });
+      await prisma.rolePermission.upsert({
+        where: { roleId_permissionId: { roleId: legacyAdminRole.id, permissionId: createdPerm.id } },
+        update: {},
+        create: { roleId: legacyAdminRole.id, permissionId: createdPerm.id },
+      });
+    }
+
+    // Assign to Manager role
+    if (managerPermissions.includes(perm.name)) {
+      await prisma.rolePermission.upsert({
+        where: { roleId_permissionId: { roleId: managerRole.id, permissionId: createdPerm.id } },
+        update: {},
+        create: { roleId: managerRole.id, permissionId: createdPerm.id },
+      });
+    }
+
+    // Assign to Agent role
+    if (agentPermissions.includes(perm.name)) {
+      await prisma.rolePermission.upsert({
+        where: { roleId_permissionId: { roleId: agentRole.id, permissionId: createdPerm.id } },
+        update: {},
+        create: { roleId: agentRole.id, permissionId: createdPerm.id },
+      });
+      // Legacy compatibility
+      await prisma.rolePermission.upsert({
+        where: { roleId_permissionId: { roleId: legacyAgentRole.id, permissionId: createdPerm.id } },
+        update: {},
+        create: { roleId: legacyAgentRole.id, permissionId: createdPerm.id },
       });
     }
   }
 
+  // Seed default Users
   const passwordHash = await bcrypt.hash('admin123', 10);
+  const managerPasswordHash = await bcrypt.hash('manager123', 10);
+  const agentPasswordHash = await bcrypt.hash('agent123', 10);
+  const customerPasswordHash = await bcrypt.hash('customer123', 10);
+
+  // Admin User
   const adminUser = await prisma.user.upsert({
     where: { email: 'admin@tms.com' },
-    update: {},
+    update: { isActive: true },
     create: {
       email: 'admin@tms.com',
       passwordHash,
       firstName: 'System',
-      lastName: 'Administrator',
+      lastName: 'Admin',
       isEmailVerified: true,
+      isActive: true,
       userRoles: {
-        create: {
-          roleId: superAdminRole.id,
-        },
+        create: [
+          { roleId: adminRole.id },
+          { roleId: superAdminRole.id }
+        ],
+      },
+    },
+  });
+
+  // Manager User
+  const managerUser = await prisma.user.upsert({
+    where: { email: 'manager@tms.com' },
+    update: { isActive: true },
+    create: {
+      email: 'manager@tms.com',
+      passwordHash: managerPasswordHash,
+      firstName: 'System',
+      lastName: 'Manager',
+      isEmailVerified: true,
+      isActive: true,
+      userRoles: {
+        create: [
+          { roleId: managerRole.id }
+        ],
+      },
+    },
+  });
+
+  // Agent User
+  const agentUser = await prisma.user.upsert({
+    where: { email: 'agent@tms.com' },
+    update: { isActive: true },
+    create: {
+      email: 'agent@tms.com',
+      passwordHash: agentPasswordHash,
+      firstName: 'Jane',
+      lastName: 'Agent',
+      isEmailVerified: true,
+      isActive: true,
+      userRoles: {
+        create: [
+          { roleId: agentRole.id },
+          { roleId: legacyAgentRole.id }
+        ],
+      },
+    },
+  });
+
+  // Customer User
+  const customerUser = await prisma.user.upsert({
+    where: { email: 'customer@tms.com' },
+    update: { isActive: true },
+    create: {
+      email: 'customer@tms.com',
+      passwordHash: customerPasswordHash,
+      firstName: 'John',
+      lastName: 'Customer',
+      isEmailVerified: true,
+      isActive: true,
+      userRoles: {
+        create: [
+          { roleId: customerRole.id },
+          { roleId: legacyCustomerRole.id }
+        ],
       },
     },
   });

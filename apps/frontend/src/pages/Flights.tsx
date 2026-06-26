@@ -34,7 +34,7 @@ export default function Flights() {
   const [arrAirportName, setArrAirportName] = useState('');
   const [arrCountry, setArrCountry] = useState('');
 
-  const isAdminOrAgent = user?.roles?.some(r => ['SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT'].includes(r));
+  const isAdminOrAgent = user?.roles?.some(r => ['Admin', 'Manager', 'Agent', 'SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT'].includes(r));
 
   // Query flights
   const { data: flightsResult, isLoading } = useQuery({

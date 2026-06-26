@@ -27,7 +27,7 @@ export default function Tours() {
   const [destCountry, setDestCountry] = useState('');
   const [destDesc, setDestDesc] = useState('');
 
-  const isAdminOrAgent = user?.roles?.some(r => ['SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT'].includes(r));
+  const isAdminOrAgent = user?.roles?.some(r => ['Admin', 'Manager', 'Agent', 'SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT'].includes(r));
 
   // Query tours
   const { data: toursResult, isLoading } = useQuery({

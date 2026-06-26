@@ -26,6 +26,23 @@ interface ParsedFlight {
   flightClass: string;
 }
 
+function getCabinClassFromCode(code: string): string {
+  if (!code) return "Economy Class";
+  if (code.toLowerCase().includes("class")) {
+    return code;
+  }
+  const char = code.trim().substring(0, 1).toUpperCase();
+  const economyCodes = ["Y", "B", "M", "H", "Q", "K", "V", "L", "U", "T", "X", "G", "S", "N", "O", "W"];
+  const premiumEconomyCodes = ["E", "P"];
+  const businessCodes = ["C", "J", "D", "I", "Z"];
+  const firstCodes = ["F", "A"];
+  
+  if (firstCodes.includes(char)) return "First Class";
+  if (businessCodes.includes(char)) return "Business Class";
+  if (premiumEconomyCodes.includes(char)) return "Premium Economy Class";
+  return "Economy Class";
+}
+
 export function parsePNRText(text: string, defaultYear: number): ParsedFlight | null {
   if (!text) return null;
 
@@ -124,7 +141,7 @@ export default function PnrFlightModal({
   const [departTime, setDepartTime] = useState('');
   const [arrivalTime, setArrivalTime] = useState('');
   const [date, setDate] = useState('');
-  const [flightClass, setFlightClass] = useState('Y');
+  const [flightClass, setFlightClass] = useState('Economy Class');
   const [price, setPrice] = useState('0');
   const [baggage, setBaggage] = useState('23 KG');
   const [carryOnBaggage, setCarryOnBaggage] = useState('7 KG');
@@ -134,6 +151,8 @@ export default function PnrFlightModal({
   const [isConnecting, setIsConnecting] = useState(false);
   const [refundAmount, setRefundAmount] = useState('0.0');
   const [fineAmount, setFineAmount] = useState('0.0');
+  const [depTerminal, setDepTerminal] = useState('');
+  const [arrTerminal, setArrTerminal] = useState('');
 
   // Handle open state reset & edit population
   useEffect(() => {
@@ -181,7 +200,7 @@ export default function PnrFlightModal({
         }
         setDate(formattedDate);
         
-        setFlightClass(flightToEdit.flightClass || 'Y');
+        setFlightClass(getCabinClassFromCode(flightToEdit.flightClass || 'Economy Class'));
         setPrice(String(flightToEdit.price || '0'));
         setRefundAmount(String(flightToEdit.refundAmount ?? '0.0'));
         setFineAmount(String(flightToEdit.fineAmount ?? '0.0'));
@@ -191,10 +210,14 @@ export default function PnrFlightModal({
 
         let initialIsConnecting = false;
         let initialNotesText = flightToEdit.notes || '';
+        let initialDepTerminal = '';
+        let initialArrTerminal = '';
         if (flightToEdit.notes) {
           try {
             const parsed = JSON.parse(flightToEdit.notes);
             initialIsConnecting = !!parsed.isConnecting;
+            initialDepTerminal = parsed.depTerminal || '';
+            initialArrTerminal = parsed.arrTerminal || '';
             initialNotesText = parsed.actualNotes || '';
           } catch (e) {
             // normal string
@@ -202,6 +225,8 @@ export default function PnrFlightModal({
         }
         setNotes(initialNotesText);
         setIsConnecting(initialIsConnecting);
+        setDepTerminal(initialDepTerminal);
+        setArrTerminal(initialArrTerminal);
 
         let formattedIssueDate = '';
         if (flightToEdit.issueDate) {
@@ -223,7 +248,7 @@ export default function PnrFlightModal({
         setDepartTime('');
         setArrivalTime('');
         setDate('');
-        setFlightClass('Y');
+        setFlightClass('Economy Class');
         setPrice('0');
         setBaggage('23 KG');
         setCarryOnBaggage('7 KG');
@@ -233,6 +258,8 @@ export default function PnrFlightModal({
         setIsConnecting(false);
         setRefundAmount('0.0');
         setFineAmount('0.0');
+        setDepTerminal('');
+        setArrTerminal('');
         setSearchQuery('');
         setSelectedSearchBooking(null);
       }
@@ -336,7 +363,7 @@ export default function PnrFlightModal({
       setDepartTime(parsed.departTime);
       setArrivalTime(parsed.arrivalTime);
       setDate(parsed.date);
-      setFlightClass(parsed.flightClass);
+      setFlightClass(getCabinClassFromCode(parsed.flightClass));
       toast.success("PNR converted successfully!");
       setStep('form');
     } else {
@@ -402,6 +429,8 @@ export default function PnrFlightModal({
     try {
       const notesJson = JSON.stringify({
         isConnecting,
+        depTerminal: depTerminal || "",
+        arrTerminal: arrTerminal || "",
         actualNotes: notes || "",
       });
       const payload = {
@@ -738,6 +767,20 @@ export default function PnrFlightModal({
                   />
                 </div>
 
+                {/* Departure Terminal */}
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                    Departure Terminal
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. T2 or Terminal 4"
+                    value={depTerminal}
+                    onChange={(e) => setDepTerminal(e.target.value)}
+                    className="text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                  />
+                </div>
+
                 {/* Arrived At */}
                 <div className="flex flex-col gap-1">
                   <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
@@ -749,6 +792,20 @@ export default function PnrFlightModal({
                     placeholder="e.g. King Abdulaziz International Airport"
                     value={arrivedAt}
                     onChange={(e) => handleArrivedAtChange(e.target.value)}
+                    className="text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                  />
+                </div>
+
+                {/* Arrival Terminal */}
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                    Arrival Terminal
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Terminal 3"
+                    value={arrTerminal}
+                    onChange={(e) => setArrTerminal(e.target.value)}
                     className="text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                   />
                 </div>
@@ -813,13 +870,16 @@ export default function PnrFlightModal({
                   <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
                     Flight Class
                   </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Y"
+                  <select
                     value={flightClass}
                     onChange={(e) => setFlightClass(e.target.value)}
                     className="text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
-                  />
+                  >
+                    <option value="Economy Class">Economy Class</option>
+                    <option value="Premium Economy Class">Premium Economy Class</option>
+                    <option value="Business Class">Business Class</option>
+                    <option value="First Class">First Class</option>
+                  </select>
                 </div>
 
                 {/* Price */}

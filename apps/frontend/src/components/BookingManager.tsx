@@ -44,6 +44,7 @@ import TransportReservationModal from "./TransportReservationModal";
 import VisaReservationModal from "./VisaReservationModal";
 import AdditionalServiceModal from "./AdditionalServiceModal";
 import BookingTransactionModal from "./BookingTransactionModal";
+import { useAuthStore } from "../store/auth.store";
 import {
   printDocument,
   generateBookingInvoiceHtml,
@@ -150,6 +151,7 @@ export default function BookingManager({
   onClose,
 }: BookingManagerProps) {
   const queryClient = useQueryClient();
+  const user = useAuthStore((state) => state.user);
   const [isPnrModalOpen, setIsPnrModalOpen] = useState(false);
   const [pnrModalStep, setPnrModalStep] = useState<"pnr" | "form" | "search">(
     "pnr",
@@ -396,6 +398,31 @@ export default function BookingManager({
     enabled: !!bookingId && isOpen,
   });
 
+  const userFullName = [user?.firstName, user?.lastName].filter(Boolean).join(" ");
+  const isOwner =
+    // Admin / manager roles always have full access
+    ["Admin", "SUPER_ADMIN", "Manager", "BRANCH_MANAGER"].some(
+      (r) => user?.roles?.includes(r)
+    ) ||
+    // Created or owns this booking by user-id
+    booking?.createdById === user?.id ||
+    booking?.userId === user?.id ||
+    // Agent matched by linked agentId (preferred path)
+    (!!user?.agentId && booking?.agentId === user?.agentId) ||
+    // Fallback: agent name matches user's full name (covers un-linked accounts)
+    (!user?.agentId &&
+      !!userFullName &&
+      !!booking?.agent?.name &&
+      booking.agent.name.trim().toLowerCase() === userFullName.trim().toLowerCase())
+      ? true
+      : false;
+
+  // True when the logged-in user is an agent (not admin/manager) — used to hide financial internals
+  const isAgent = !!user?.roles?.length &&
+    !["Admin", "SUPER_ADMIN", "Manager", "BRANCH_MANAGER"].some(
+      (r) => user?.roles?.includes(r)
+    );
+
   // Sync edit state when booking loads
   useEffect(() => {
     if (booking) {
@@ -493,11 +520,19 @@ export default function BookingManager({
 
   // Helper functions for matching slabs and calculating margins
   const getCommissionRate = (price: number, slabs: any[]) => {
-    const slab = slabs?.find(
+    if (!slabs || slabs.length === 0) return 0;
+    const slab = slabs.find(
       (s: any) =>
         price >= s.minSales && (s.maxSales === null || price <= s.maxSales),
     );
-    return slab ? slab.commissionRate : 0;
+    if (slab) return slab.commissionRate;
+
+    // Fallback: if price exceeds the highest slab's maxSales, use the rate of the slab with the highest minSales
+    const highestSlab = slabs.reduce((prev: any, current: any) => (prev.minSales > current.minSales) ? prev : current);
+    if (price > highestSlab.minSales) {
+      return highestSlab.commissionRate;
+    }
+    return 0;
   };
 
   const calculateMargin = (price: number, profit: number, slabs: any[]) => {
@@ -708,16 +743,18 @@ export default function BookingManager({
                   </button>
 
                   {/* Edit Button */}
-                  <button
-                    onClick={startEditing}
-                    className="shrink-0 flex items-center gap-1.5 px-3.5 py-2 bg-secondary hover:bg-primary/10 border border-border hover:border-primary/30 text-foreground hover:text-primary rounded-lg text-xs font-bold transition-all group/edit"
-                  >
-                    <Pencil
-                      size={12}
-                      className="group-hover/edit:scale-110 transition-transform"
-                    />
-                    Edit
-                  </button>
+                  {isOwner && (
+                    <button
+                      onClick={startEditing}
+                      className="shrink-0 flex items-center gap-1.5 px-3.5 py-2 bg-secondary hover:bg-primary/10 border border-border hover:border-primary/30 text-foreground hover:text-primary rounded-lg text-xs font-bold transition-all group/edit"
+                    >
+                      <Pencil
+                        size={12}
+                        className="group-hover/edit:scale-110 transition-transform"
+                      />
+                      Edit
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -878,64 +915,72 @@ export default function BookingManager({
                     </span>
                   </div>
 
-                  {/* Total Spent */}
-                  <div className="bg-card p-3.5 rounded-lg shadow-sm border border-border flex flex-col justify-between">
-                    <div className="flex items-center gap-1 text-red-500 mb-1">
-                      <ArrowUpRight size={12} />
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-red-500">
-                        Vendor Cost
-                      </span>
-                    </div>
-                    <span className="text-[15px] font-bold text-red-600 dark:text-red-400">
-                      {formatCurrency(totalVendorCost)}
-                    </span>
-                  </div>
-
-                  {/* Agent Margin */}
-                  <div className="bg-card p-3.5 rounded-lg shadow-sm border border-border flex flex-col justify-between">
-                    <div className="flex items-center gap-1 text-blue-500 mb-1">
-                      <BadgePercent size={12} />
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-blue-500">
-                        Agent Margin
-                      </span>
-                    </div>
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-[15px] font-bold text-blue-600 dark:text-blue-400">
-                        {formatCurrency(agentMargin)}
-                      </span>
-                      {booking.agentId && booking.agent && (
-                        <span className="text-[12px] font-semibold text-blue-500/70">
-                          ({agentCommissionRate}%)
+                  {/* Total Spent — Admin/Manager only */}
+                  {isOwner && !isAgent && (
+                    <div className="bg-card p-3.5 rounded-lg shadow-sm border border-border flex flex-col justify-between">
+                      <div className="flex items-center gap-1 text-red-500 mb-1">
+                        <ArrowUpRight size={12} />
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-red-500">
+                          Vendor Cost
                         </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Total Profit */}
-                  <div className="bg-card p-3.5 rounded-lg shadow-sm border border-border flex flex-col justify-between">
-                    <div className="flex items-center gap-1 text-emerald-600 mb-1">
-                      <TrendingUp size={12} />
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">
-                        Total Profit
+                      </div>
+                      <span className="text-[15px] font-bold text-red-600 dark:text-red-400">
+                        {formatCurrency(totalVendorCost)}
                       </span>
                     </div>
-                    <span className="text-[15px] font-bold text-emerald-700 dark:text-emerald-400">
-                      {formatCurrency(profit)}
-                    </span>
-                  </div>
+                  )}
 
-                  {/* Refund from Vendors */}
-                  <div className="bg-card p-3.5 rounded-lg shadow-sm border border-border flex flex-col justify-between">
-                    <div className="flex items-center gap-1 text-violet-500 mb-1">
-                      <RotateCcw size={12} />
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-violet-500">
-                        Refund from Vendors
+                  {/* Agent Margin — Admin/Manager only */}
+                  {isOwner && !isAgent && (
+                    <div className="bg-card p-3.5 rounded-lg shadow-sm border border-border flex flex-col justify-between">
+                      <div className="flex items-center gap-1 text-blue-500 mb-1">
+                        <BadgePercent size={12} />
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-blue-500">
+                          Agent Margin
+                        </span>
+                      </div>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-[15px] font-bold text-blue-600 dark:text-blue-400">
+                          {formatCurrency(agentMargin)}
+                        </span>
+                        {booking.agentId && booking.agent && (
+                          <span className="text-[12px] font-semibold text-blue-500/70">
+                            ({agentCommissionRate}%)
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Total Profit — Admin/Manager only */}
+                  {isOwner && !isAgent && (
+                    <div className="bg-card p-3.5 rounded-lg shadow-sm border border-border flex flex-col justify-between">
+                      <div className="flex items-center gap-1 text-emerald-600 mb-1">
+                        <TrendingUp size={12} />
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">
+                          Total Profit
+                        </span>
+                      </div>
+                      <span className="text-[15px] font-bold text-emerald-700 dark:text-emerald-400">
+                        {formatCurrency(profit)}
                       </span>
                     </div>
-                    <span className="text-[15px] font-bold text-violet-600 dark:text-violet-400">
-                      {formatCurrency(totalVendorRefund)}
-                    </span>
-                  </div>
+                  )}
+
+                  {/* Refund from Vendors — Admin/Manager only */}
+                  {isOwner && !isAgent && (
+                    <div className="bg-card p-3.5 rounded-lg shadow-sm border border-border flex flex-col justify-between">
+                      <div className="flex items-center gap-1 text-violet-500 mb-1">
+                        <RotateCcw size={12} />
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-violet-500">
+                          Refund from Vendors
+                        </span>
+                      </div>
+                      <span className="text-[15px] font-bold text-violet-600 dark:text-violet-400">
+                        {formatCurrency(totalVendorRefund)}
+                      </span>
+                    </div>
+                  )}
 
                   {/* Refund to Client */}
                   <div className="bg-card p-3.5 rounded-lg shadow-sm border border-border flex flex-col justify-between">
@@ -951,8 +996,9 @@ export default function BookingManager({
                   </div>
                 </div>
 
-                {/* Expected Margin Warning Banner */}
-                {booking.agentId &&
+                {/* Expected Margin Warning Banner — Admin/Manager only */}
+                {isOwner && !isAgent &&
+                  booking.agentId &&
                   booking.agent &&
                   (() => {
                     const agentSlabs = booking.agent.slabs || [];
@@ -993,15 +1039,17 @@ export default function BookingManager({
                 Transaction History
               </h2>
               <div className="flex items-center gap-2">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsTransactionModalOpen(true);
-                  }}
-                  className="flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary hover:bg-primary/20 font-bold rounded text-[12px] transition-colors"
-                >
-                  <Plus size={12} /> Add
-                </button>
+                {isOwner && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsTransactionModalOpen(true);
+                    }}
+                    className="flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary hover:bg-primary/20 font-bold rounded text-[12px] transition-colors"
+                  >
+                    <Plus size={12} /> Add
+                  </button>
+                )}
                 <button className="text-muted-foreground">
                   {openSections.transactions ? (
                     <ChevronUp size={14} />
@@ -1301,16 +1349,18 @@ export default function BookingManager({
                 )}
               </h2>
               <div className="flex items-center gap-2">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setEditingPassenger(null);
-                    setIsPassengerModalOpen(true);
-                  }}
-                  className="flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary hover:bg-primary/20 font-bold rounded text-[12px] transition-colors"
-                >
-                  <Plus size={12} /> Add Passenger
-                </button>
+                {isOwner && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingPassenger(null);
+                      setIsPassengerModalOpen(true);
+                    }}
+                    className="flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary hover:bg-primary/20 font-bold rounded text-[12px] transition-colors"
+                  >
+                    <Plus size={12} /> Add Passenger
+                  </button>
+                )}
                 <button className="text-muted-foreground">
                   {openSections.passengers ? (
                     <ChevronUp size={14} />
@@ -1418,25 +1468,29 @@ export default function BookingManager({
                             </td>
                             {/* Actions */}
                             <td className="px-3 py-2">
-                              <div className="flex items-center justify-center gap-1">
-                                <button
-                                  onClick={() => {
-                                    setEditingPassenger(p);
-                                    setIsPassengerModalOpen(true);
-                                  }}
-                                  className="p-1 hover:bg-secondary rounded text-muted-foreground hover:text-primary transition-all"
-                                  title="Edit Passenger"
-                                >
-                                  <Pencil size={11} />
-                                </button>
-                                <button
-                                  onClick={() => handleDeletePassenger(p.id)}
-                                  className="p-1 hover:bg-secondary rounded text-muted-foreground hover:text-rose-600 transition-all"
-                                  title="Delete Passenger"
-                                >
-                                  <Trash2 size={11} />
-                                </button>
-                              </div>
+                              {isOwner ? (
+                                <div className="flex items-center justify-center gap-1">
+                                  <button
+                                    onClick={() => {
+                                      setEditingPassenger(p);
+                                      setIsPassengerModalOpen(true);
+                                    }}
+                                    className="p-1 hover:bg-secondary rounded text-muted-foreground hover:text-primary transition-all"
+                                    title="Edit Passenger"
+                                  >
+                                    <Pencil size={11} />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeletePassenger(p.id)}
+                                    className="p-1 hover:bg-secondary rounded text-muted-foreground hover:text-rose-600 transition-all"
+                                    title="Delete Passenger"
+                                  >
+                                    <Trash2 size={11} />
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="text-center text-muted-foreground">—</div>
+                              )}
                             </td>
                           </tr>
                         );
@@ -1462,42 +1516,46 @@ export default function BookingManager({
                 Flights & PNR
               </h2>
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setEditingFlight(null);
-                    setPnrModalStep("form");
-                    setIsPnrModalOpen(true);
-                  }}
-                  className="flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary hover:bg-primary/20 font-bold rounded text-[12px] transition-colors"
-                >
-                  <Plus size={12} /> Add Flight
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setEditingFlight(null);
-                    setPnrModalStep("pnr");
-                    setIsPnrModalOpen(true);
-                  }}
-                  className="flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary hover:bg-primary/20 font-bold rounded text-[12px] transition-colors"
-                >
-                  <Plus size={12} /> PNR Converter
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setEditingFlight(null);
-                    setPnrModalStep("search");
-                    setIsPnrModalOpen(true);
-                  }}
-                  className="flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary hover:bg-primary/20 font-bold rounded text-[12px] transition-colors"
-                >
-                  <Search size={12} /> Add Existing Flight
-                </button>
+                {isOwner && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingFlight(null);
+                        setPnrModalStep("form");
+                        setIsPnrModalOpen(true);
+                      }}
+                      className="flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary hover:bg-primary/20 font-bold rounded text-[12px] transition-colors"
+                    >
+                      <Plus size={12} /> Add Flight
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingFlight(null);
+                        setPnrModalStep("pnr");
+                        setIsPnrModalOpen(true);
+                      }}
+                      className="flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary hover:bg-primary/20 font-bold rounded text-[12px] transition-colors"
+                    >
+                      <Plus size={12} /> PNR Converter
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingFlight(null);
+                        setPnrModalStep("search");
+                        setIsPnrModalOpen(true);
+                      }}
+                      className="flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary hover:bg-primary/20 font-bold rounded text-[12px] transition-colors"
+                    >
+                      <Search size={12} /> Add Existing Flight
+                    </button>
+                  </>
+                )}
                 {/* <button
                   type="button"
                   onClick={(e) => {
@@ -1620,6 +1678,17 @@ export default function BookingManager({
                                   </p>
                                   <p className="text-[10px] text-muted-foreground font-extrabold tracking-wide uppercase truncate max-w-[150px]" title={fs.departedFrom}>
                                     {fs.departedFrom}
+                                    {(() => {
+                                      if (fs.notes) {
+                                        try {
+                                          const parsed = JSON.parse(fs.notes);
+                                          if (parsed.depTerminal) {
+                                            return <span className="text-[8px] bg-rose-50 text-rose-600 px-1 py-0.5 rounded font-black ml-1 uppercase border border-rose-200">T{parsed.depTerminal}</span>;
+                                          }
+                                        } catch (e) {}
+                                      }
+                                      return null;
+                                    })()}
                                   </p>
                                 </div>
                                 <div className="flex flex-col items-center w-16 relative">
@@ -1635,6 +1704,17 @@ export default function BookingManager({
                                   </p>
                                   <p className="text-[10px] text-muted-foreground font-extrabold tracking-wide uppercase truncate max-w-[150px]" title={fs.arrivedAt}>
                                     {fs.arrivedAt}
+                                    {(() => {
+                                      if (fs.notes) {
+                                        try {
+                                          const parsed = JSON.parse(fs.notes);
+                                          if (parsed.arrTerminal) {
+                                            return <span className="text-[8px] bg-rose-50 text-rose-600 px-1 py-0.5 rounded font-black ml-1 uppercase border border-rose-200">T{parsed.arrTerminal}</span>;
+                                          }
+                                        } catch (e) {}
+                                      }
+                                      return null;
+                                    })()}
                                   </p>
                                 </div>
                               </div>
@@ -1665,30 +1745,34 @@ export default function BookingManager({
                                   >
                                     <Printer size={13} />
                                   </button>
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setEditingFlight(fs);
-                                      setPnrModalStep("form");
-                                      setIsPnrModalOpen(true);
-                                    }}
-                                    className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-primary transition-all cursor-pointer"
-                                    title="Edit Flight"
-                                  >
-                                    <Pencil size={13} />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleDeleteFlight(fs.id);
-                                    }}
-                                    className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-rose-600 transition-all cursor-pointer"
-                                    title="Delete Flight"
-                                  >
-                                    <Trash2 size={13} />
-                                  </button>
+                                  {isOwner && (
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setEditingFlight(fs);
+                                          setPnrModalStep("form");
+                                          setIsPnrModalOpen(true);
+                                        }}
+                                        className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-primary transition-all cursor-pointer"
+                                        title="Edit Flight"
+                                      >
+                                        <Pencil size={13} />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDeleteFlight(fs.id);
+                                        }}
+                                        className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-rose-600 transition-all cursor-pointer"
+                                        title="Delete Flight"
+                                      >
+                                        <Trash2 size={13} />
+                                      </button>
+                                    </>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -1730,16 +1814,18 @@ export default function BookingManager({
                 Hotel Details
               </h2>
               <div className="flex items-center gap-2">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setEditingAccommodation(null);
-                    setIsHotelModalOpen(true);
-                  }}
-                  className="flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary hover:bg-primary/20 font-bold rounded text-[12px] transition-colors"
-                >
-                  <Plus size={12} /> Add
-                </button>
+                {isOwner && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingAccommodation(null);
+                      setIsHotelModalOpen(true);
+                    }}
+                    className="flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary hover:bg-primary/20 font-bold rounded text-[12px] transition-colors"
+                  >
+                    <Plus size={12} /> Add
+                  </button>
+                )}
                 <button className="text-muted-foreground">
                   {openSections.accommodation ? (
                     <ChevronUp size={14} />
@@ -1782,29 +1868,33 @@ export default function BookingManager({
                             >
                               <FileText size={11} />
                             </button>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setEditingAccommodation(acc);
-                                setIsHotelModalOpen(true);
-                              }}
-                              className="p-1 hover:bg-secondary rounded text-muted-foreground hover:text-primary transition-all"
-                              title="Edit Hotel"
-                            >
-                              <Pencil size={11} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteAccommodation(acc.id);
-                              }}
-                              className="p-1 hover:bg-secondary rounded text-muted-foreground hover:text-rose-600 transition-all"
-                              title="Delete Hotel"
-                            >
-                              <Trash2 size={11} />
-                            </button>
+                            {isOwner && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingAccommodation(acc);
+                                    setIsHotelModalOpen(true);
+                                  }}
+                                  className="p-1 hover:bg-secondary rounded text-muted-foreground hover:text-primary transition-all"
+                                  title="Edit Hotel"
+                                >
+                                  <Pencil size={11} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteAccommodation(acc.id);
+                                  }}
+                                  className="p-1 hover:bg-secondary rounded text-muted-foreground hover:text-rose-600 transition-all"
+                                  title="Delete Hotel"
+                                >
+                                  <Trash2 size={11} />
+                                </button>
+                              </>
+                            )}
                           </div>
                         </div>
 
@@ -1882,16 +1972,18 @@ export default function BookingManager({
                 Transfers
               </h2>
               <div className="flex items-center gap-2">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setEditingTransport(null);
-                    setIsTransportModalOpen(true);
-                  }}
-                  className="flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary hover:bg-primary/20 font-bold rounded text-[12px] transition-colors"
-                >
-                  <Plus size={12} /> Add
-                </button>
+                {isOwner && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingTransport(null);
+                      setIsTransportModalOpen(true);
+                    }}
+                    className="flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary hover:bg-primary/20 font-bold rounded text-[12px] transition-colors"
+                  >
+                    <Plus size={12} /> Add
+                  </button>
+                )}
                 {booking.transportServices?.length > 0 && (
                   <button
                     type="button"
@@ -1983,29 +2075,33 @@ export default function BookingManager({
                               >
                                 <FileText size={11} />
                               </button>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setEditingTransport(ts);
-                                  setIsTransportModalOpen(true);
-                                }}
-                                className="p-1 hover:bg-secondary rounded text-muted-foreground hover:text-primary transition-all"
-                                title="Edit Transport"
-                              >
-                                <Pencil size={11} />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDeleteTransport(ts.id);
-                                }}
-                                className="p-1 hover:bg-secondary rounded text-muted-foreground hover:text-rose-600 transition-all"
-                                title="Delete Transport"
-                              >
-                                <Trash2 size={11} />
-                              </button>
+                              {isOwner && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setEditingTransport(ts);
+                                      setIsTransportModalOpen(true);
+                                    }}
+                                    className="p-1 hover:bg-secondary rounded text-muted-foreground hover:text-primary transition-all"
+                                    title="Edit Transport"
+                                  >
+                                    <Pencil size={11} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteTransport(ts.id);
+                                    }}
+                                    className="p-1 hover:bg-secondary rounded text-muted-foreground hover:text-rose-600 transition-all"
+                                    title="Delete Transport"
+                                  >
+                                    <Trash2 size={11} />
+                                  </button>
+                                </>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -2037,16 +2133,18 @@ export default function BookingManager({
                 Visa Processing
               </h2>
               <div className="flex items-center gap-2">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setEditingVisa(null);
-                    setIsVisaModalOpen(true);
-                  }}
-                  className="flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary hover:bg-primary/20 font-bold rounded text-[12px] transition-colors"
-                >
-                  <Plus size={12} /> Add
-                </button>
+                {isOwner && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingVisa(null);
+                      setIsVisaModalOpen(true);
+                    }}
+                    className="flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary hover:bg-primary/20 font-bold rounded text-[12px] transition-colors"
+                  >
+                    <Plus size={12} /> Add
+                  </button>
+                )}
                 {booking.visaServices?.length > 0 && (
                   <button
                     type="button"
@@ -2121,29 +2219,33 @@ export default function BookingManager({
                         >
                           <FileText size={11} />
                         </button>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEditingVisa(vs);
-                            setIsVisaModalOpen(true);
-                          }}
-                          className="p-1 hover:bg-secondary rounded text-muted-foreground hover:text-primary transition-all"
-                          title="Edit Visa"
-                        >
-                          <Pencil size={11} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteVisa(vs.id);
-                          }}
-                          className="p-1 hover:bg-secondary rounded text-muted-foreground hover:text-rose-600 transition-all"
-                          title="Delete Visa"
-                        >
-                          <Trash2 size={11} />
-                        </button>
+                        {isOwner && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingVisa(vs);
+                                setIsVisaModalOpen(true);
+                              }}
+                              className="p-1 hover:bg-secondary rounded text-muted-foreground hover:text-primary transition-all"
+                              title="Edit Visa"
+                            >
+                              <Pencil size={11} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteVisa(vs.id);
+                              }}
+                              className="p-1 hover:bg-secondary rounded text-muted-foreground hover:text-rose-600 transition-all"
+                              title="Delete Visa"
+                            >
+                              <Trash2 size={11} />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
                   ))
@@ -2167,16 +2269,18 @@ export default function BookingManager({
                 Additional Services
               </h2>
               <div className="flex items-center gap-2">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setEditingAdditional(null);
-                    setIsAdditionalModalOpen(true);
-                  }}
-                  className="flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary hover:bg-primary/20 font-bold rounded text-[12px] transition-colors"
-                >
-                  <Plus size={12} /> Add
-                </button>
+                {isOwner && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingAdditional(null);
+                      setIsAdditionalModalOpen(true);
+                    }}
+                    className="flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary hover:bg-primary/20 font-bold rounded text-[12px] transition-colors"
+                  >
+                    <Plus size={12} /> Add
+                  </button>
+                )}
                 {booking.additionalServices?.length > 0 && (
                   <button
                     type="button"
@@ -2261,29 +2365,33 @@ export default function BookingManager({
                         >
                           <FileText size={11} />
                         </button>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEditingAdditional(as);
-                            setIsAdditionalModalOpen(true);
-                          }}
-                          className="p-1 hover:bg-secondary rounded text-muted-foreground hover:text-primary transition-all"
-                          title="Edit Service"
-                        >
-                          <Pencil size={11} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteAdditional(as.id);
-                          }}
-                          className="p-1 hover:bg-secondary rounded text-muted-foreground hover:text-rose-600 transition-all"
-                          title="Delete Service"
-                        >
-                          <Trash2 size={11} />
-                        </button>
+                        {isOwner && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingAdditional(as);
+                                setIsAdditionalModalOpen(true);
+                              }}
+                              className="p-1 hover:bg-secondary rounded text-muted-foreground hover:text-primary transition-all"
+                              title="Edit Service"
+                            >
+                              <Pencil size={11} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteAdditional(as.id);
+                              }}
+                              className="p-1 hover:bg-secondary rounded text-muted-foreground hover:text-rose-600 transition-all"
+                              title="Delete Service"
+                            >
+                              <Trash2 size={11} />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
                   ))

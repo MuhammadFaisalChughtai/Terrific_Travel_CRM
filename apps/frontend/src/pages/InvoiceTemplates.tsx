@@ -963,6 +963,8 @@ export default function InvoiceTemplatesPage() {
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
   const isAdmin =
+    user?.roles?.includes("Admin") ||
+    user?.roles?.includes("Manager") ||
     user?.roles?.includes("SUPER_ADMIN") ||
     user?.roles?.includes("ADMIN") ||
     false;

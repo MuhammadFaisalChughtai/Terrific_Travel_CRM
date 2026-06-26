@@ -2,7 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import { create, findAll, findOne, updateStatus, updateBookingDetails, toggleLock, cancel, finalizeMargin, addFlightService, updateFlightService, deleteFlightService, addAccommodationService, updateAccommodationService, deleteAccommodationService, addPassenger, updatePassenger, deletePassenger, getPassengerForm, submitPassengerForm, sendPassengerLink, uploadPassengerPassportScan, getPassengerPassportScan, deletePassengerPassportScan, addPassengerDocument, getPassengerDocumentFile, deletePassengerDocument, addPassengerByFormToken, deletePassengerByFormToken, adminUploadPassportScan, adminGetPassportScan, adminDeletePassportScan, adminAddPassengerDocument, adminGetPassengerDocumentFile, adminDeletePassengerDocument, searchAllPassengers, addTransportService, updateTransportService, deleteTransportService, addVisaService, updateVisaService, deleteVisaService, addAdditionalService, updateAdditionalService, deleteAdditionalService } from '../controllers/bookings.controller';
 import { authMiddleware } from '../middleware/auth.middleware';
-import { requireRoles } from '../middleware/rbac.middleware';
+import { requireRoles, requirePermissions, requireBookingOwnership } from '../middleware/rbac.middleware';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -22,51 +22,65 @@ router.delete('/passenger-form/:token/passenger/:passengerId', deletePassengerBy
 // Secure all remaining booking routes
 router.use(authMiddleware as any);
 
-router.get('/passengers/global-search', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, searchAllPassengers);
+// Check bookings:read permission for viewing passenger global search and bookings
+router.get('/passengers/global-search', requirePermissions('bookings:read') as any, searchAllPassengers);
 
-router.post('/', create);
-router.get('/', findAll);
-router.get('/:id', findOne);
-router.patch('/:id', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, updateBookingDetails);
-router.patch('/:id/status', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, updateStatus);
-router.patch('/:id/lock', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, toggleLock);
-router.patch('/:id/finalize-margin', requireRoles('SUPER_ADMIN', 'ADMIN') as any, finalizeMargin);
-router.post('/:id/flights', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, addFlightService);
-router.patch('/:id/flights/:flightServiceId', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, updateFlightService);
-router.delete('/:id/flights/:flightServiceId', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, deleteFlightService);
+router.post('/', requirePermissions('bookings:create') as any, create);
+router.get('/', requirePermissions('bookings:read') as any, findAll);
+router.get('/:id', requirePermissions('bookings:read') as any, findOne);
 
-router.post('/:id/accommodations', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, addAccommodationService);
-router.patch('/:id/accommodations/:accommodationId', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, updateAccommodationService);
-router.delete('/:id/accommodations/:accommodationId', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, deleteAccommodationService);
+// Editing booking details or status requires ownership or bookings:edit_any
+router.patch('/:id', requireBookingOwnership as any, updateBookingDetails);
+router.patch('/:id/status', requireBookingOwnership as any, updateStatus);
+router.patch('/:id/lock', requireRoles('Admin', 'Manager') as any, toggleLock);
+router.patch('/:id/finalize-margin', requireRoles('Admin') as any, finalizeMargin);
 
-router.post('/:id/transports', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, addTransportService);
-router.patch('/:id/transports/:transportServiceId', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, updateTransportService);
-router.delete('/:id/transports/:transportServiceId', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, deleteTransportService);
+// Booking segments edits require ownership
+router.post('/:id/flights', requireBookingOwnership as any, addFlightService);
+router.patch('/:id/flights/:flightServiceId', requireBookingOwnership as any, updateFlightService);
+router.delete('/:id/flights/:flightServiceId', requireBookingOwnership as any, deleteFlightService);
 
-router.post('/:id/visas', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, addVisaService);
-router.patch('/:id/visas/:visaServiceId', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, updateVisaService);
-router.delete('/:id/visas/:visaServiceId', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, deleteVisaService);
+router.post('/:id/accommodations', requireBookingOwnership as any, addAccommodationService);
+router.patch('/:id/accommodations/:accommodationId', requireBookingOwnership as any, updateAccommodationService);
+router.delete('/:id/accommodations/:accommodationId', requireBookingOwnership as any, deleteAccommodationService);
 
-router.post('/:id/additional-services', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, addAdditionalService);
-router.patch('/:id/additional-services/:serviceId', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, updateAdditionalService);
-router.delete('/:id/additional-services/:serviceId', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, deleteAdditionalService);
+router.post('/:id/transports', requireBookingOwnership as any, addTransportService);
+router.patch('/:id/transports/:transportServiceId', requireBookingOwnership as any, updateTransportService);
+router.delete('/:id/transports/:transportServiceId', requireBookingOwnership as any, deleteTransportService);
 
-// Passenger CRUD
-router.post('/:id/passengers', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, addPassenger);
-router.patch('/:id/passengers/:passengerId', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, updatePassenger);
-router.delete('/:id/passengers/:passengerId', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, deletePassenger);
-router.post('/:id/passengers/:passengerId/send-link', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, sendPassengerLink);
+router.post('/:id/visas', requireBookingOwnership as any, addVisaService);
+router.patch('/:id/visas/:visaServiceId', requireBookingOwnership as any, updateVisaService);
+router.delete('/:id/visas/:visaServiceId', requireBookingOwnership as any, deleteVisaService);
+
+router.post('/:id/additional-services', requireBookingOwnership as any, addAdditionalService);
+router.patch('/:id/additional-services/:serviceId', requireBookingOwnership as any, updateAdditionalService);
+router.delete('/:id/additional-services/:serviceId', requireBookingOwnership as any, deleteAdditionalService);
+
+// Passenger CRUD require ownership
+router.post('/:id/passengers', requireBookingOwnership as any, addPassenger);
+router.patch('/:id/passengers/:passengerId', requireBookingOwnership as any, updatePassenger);
+router.delete('/:id/passengers/:passengerId', requireBookingOwnership as any, deletePassenger);
+router.post('/:id/passengers/:passengerId/send-link', requireBookingOwnership as any, sendPassengerLink);
 
 // Admin passport scan (authenticated)
-router.post('/:id/passengers/:passengerId/passport-scan', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, upload.single('file'), adminUploadPassportScan);
-router.get('/:id/passengers/:passengerId/passport-scan', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, adminGetPassportScan);
-router.delete('/:id/passengers/:passengerId/passport-scan', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, adminDeletePassportScan);
+router.post('/:id/passengers/:passengerId/passport-scan', requireBookingOwnership as any, upload.single('file'), adminUploadPassportScan);
+router.get('/:id/passengers/:passengerId/passport-scan', requireBookingOwnership as any, adminGetPassportScan);
+router.delete('/:id/passengers/:passengerId/passport-scan', requireBookingOwnership as any, adminDeletePassportScan);
 
 // Admin additional documents (authenticated)
-router.post('/:id/passengers/:passengerId/documents', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, upload.single('file'), adminAddPassengerDocument);
-router.get('/:id/documents/:documentId/file', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, adminGetPassengerDocumentFile);
-router.delete('/:id/documents/:documentId', requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, adminDeletePassengerDocument);
+router.post('/:id/passengers/:passengerId/documents', requireBookingOwnership as any, upload.single('file'), adminAddPassengerDocument);
+router.get('/:id/documents/:documentId/file', requireBookingOwnership as any, adminGetPassengerDocumentFile);
+router.delete('/:id/documents/:documentId', requireBookingOwnership as any, adminDeletePassengerDocument);
 
-router.delete('/:id', cancel);
+// Soft cancel is done via PATCH, not DELETE
+router.patch('/:id/cancel', requireBookingOwnership as any, cancel);
+
+// Hard delete requests are rejected globally
+router.delete('/:id', (req, res) => {
+  res.status(403).json({
+    success: false,
+    message: 'Forbidden: Hard deletion of booking records is disabled system-wide to preserve audit logs. Please cancel or archive the booking instead.'
+  });
+});
 
 export default router;

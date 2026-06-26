@@ -34,7 +34,7 @@ export class DashboardService {
 
     allBookings.forEach((b: any) => {
       const price = b.totalPrice;
-      const accommodationsCost = b.accommodations?.reduce((sum: number, item: any) => sum + item.price * (item.qty || 1), 0) || 0;
+      const accommodationsCost = b.accommodations?.reduce((sum: number, item: any) => sum + item.price, 0) || 0;
       const flightsCost = b.flightServices?.reduce((sum: number, item: any) => sum + item.price, 0) || 0;
       const transportsCost = b.transportServices?.reduce((sum: number, item: any) => sum + item.price, 0) || 0;
       const visasCost = b.visaServices?.reduce((sum: number, item: any) => sum + item.price, 0) || 0;
@@ -45,9 +45,15 @@ export class DashboardService {
 
       let margin = 0.0;
       if (b.agent) {
-        const slab = b.agent.slabs.find(
+        let slab = b.agent.slabs.find(
           (s: any) => price >= s.minSales && (s.maxSales === null || price <= s.maxSales)
         );
+        if (!slab && b.agent.slabs.length > 0) {
+          const highestSlab = b.agent.slabs.reduce((prev: any, current: any) => (prev.minSales > current.minSales) ? prev : current);
+          if (price > highestSlab.minSales) {
+            slab = highestSlab;
+          }
+        }
         const rate = slab ? slab.commissionRate : 0.0;
         const potentialMargin = rawProfit * (rate / 100.0);
         if (rawProfit > 0) {
@@ -122,7 +128,7 @@ export class DashboardService {
 
     const calculateNetProfit = (b: any) => {
       const price = b.totalPrice;
-      const accommodationsCost = b.accommodations?.reduce((sum: number, item: any) => sum + item.price * (item.qty || 1), 0) || 0;
+      const accommodationsCost = b.accommodations?.reduce((sum: number, item: any) => sum + item.price, 0) || 0;
       const flightsCost = b.flightServices?.reduce((sum: number, item: any) => sum + item.price, 0) || 0;
       const transportsCost = b.transportServices?.reduce((sum: number, item: any) => sum + item.price, 0) || 0;
       const visasCost = b.visaServices?.reduce((sum: number, item: any) => sum + item.price, 0) || 0;
@@ -133,9 +139,15 @@ export class DashboardService {
 
       let margin = 0.0;
       if (b.agent) {
-        const slab = b.agent.slabs.find(
+        let slab = b.agent.slabs.find(
           (s: any) => price >= s.minSales && (s.maxSales === null || price <= s.maxSales)
         );
+        if (!slab && b.agent.slabs.length > 0) {
+          const highestSlab = b.agent.slabs.reduce((prev: any, current: any) => (prev.minSales > current.minSales) ? prev : current);
+          if (price > highestSlab.minSales) {
+            slab = highestSlab;
+          }
+        }
         const rate = slab ? slab.commissionRate : 0.0;
         const potentialMargin = rawProfit * (rate / 100.0);
         if (rawProfit > 0) {
