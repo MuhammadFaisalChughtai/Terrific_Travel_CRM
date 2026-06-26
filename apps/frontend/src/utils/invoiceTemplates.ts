@@ -536,7 +536,6 @@ function generateTimelineHtml(booking: any): string {
           <div class="timeline-detail-item">Flight: <strong>${f.flightNo}</strong> (PNR: ${f.pnr || "—"})</div>
           <div class="timeline-detail-item">Departure: <strong>${f.departTime || "—"}</strong> | Arrival: <strong>${f.arrivalTime || "—"}</strong></div>
           <div class="timeline-detail-item">Class: <strong>${f.flightClass || "Economy"}</strong> | Baggage: <strong>${f.baggage || "23 KG"}</strong></div>
-          <div class="timeline-detail-item">Supplier: <strong>${f.vendor?.name || "Terrific Travel Partner"}</strong></div>
         `,
         notes: f.notes,
       });
@@ -599,7 +598,6 @@ function generateTimelineHtml(booking: any): string {
         details: `
           <div class="timeline-detail-item">Vehicle: <strong>${t.vehicleType}</strong> | Pickup Time: <strong>${t.departureTime || "—"}</strong></div>
           <div class="timeline-detail-item">Flight Ref: <strong>${t.flightNo || "—"}</strong></div>
-          <div class="timeline-detail-item">Supplier: <strong>${t.vendor?.name || "Terrific Travel Partner"}</strong></div>
         `,
         notes: t.notes,
       });
@@ -617,7 +615,6 @@ function generateTimelineHtml(booking: any): string {
         badgeClass: "visa",
         details: `
           <div class="timeline-detail-item">Status: <strong>Processed</strong></div>
-          <div class="timeline-detail-item">Supplier: <strong>${v.vendor?.name || "Terrific Travel Partner"}</strong></div>
         `,
         notes: v.notes,
       });
@@ -635,7 +632,6 @@ function generateTimelineHtml(booking: any): string {
         badgeClass: "special",
         details: `
           <div class="timeline-detail-item">Description: <strong>${a.serviceDescription || "—"}</strong></div>
-          <div class="timeline-detail-item">Supplier: <strong>${a.customVendorName || a.vendor?.name || "Terrific Travel Partner"}</strong></div>
         `,
         notes: a.notes,
       });

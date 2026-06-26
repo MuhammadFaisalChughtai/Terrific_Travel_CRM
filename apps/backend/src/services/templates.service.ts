@@ -32,7 +32,7 @@ const BRAND_LOGOS = {
       <text x="32" y="28" font-family="Arial, sans-serif" font-weight="bold" font-size="6" fill="#FFFFFF" text-anchor="middle" letter-spacing="0.5">PROTECTED</text>
       <text x="32" y="35" font-family="Arial, sans-serif" font-size="4" fill="#FFFFFF" text-anchor="middle" opacity="0.8">REG. NO 11492</text>
     </svg>
-  `
+  `,
 };
 
 const SHARED_CSS = `
@@ -369,10 +369,14 @@ const SHARED_CSS = `
   }
 `;
 
-export const TEMPLATE_DEFAULTS: Record<string, { name: string; description: string; html: string }> = {
+export const TEMPLATE_DEFAULTS: Record<
+  string,
+  { name: string; description: string; html: string }
+> = {
   BOOKING_INVOICE: {
-    name: 'Booking Invoice',
-    description: 'Full client-facing booking invoice with passenger list, itemized services and financial totals.',
+    name: "Booking Invoice",
+    description:
+      "Full client-facing booking invoice with passenger list, itemized services and financial totals.",
     html: `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -528,14 +532,16 @@ tbody tr:nth-child(even) { background: #F8FAFC; }
   },
 
   FLIGHT_TICKET: {
-    name: 'Flight Ticket',
-    description: 'E-ticket itinerary with route, PNR, baggage and passenger details — one ticket per passenger.',
-    html: '{{FLIGHT_TICKET_PAGES}}',
+    name: "Flight Ticket",
+    description:
+      "E-ticket itinerary with route, PNR, baggage and passenger details — one ticket per passenger.",
+    html: "{{FLIGHT_TICKET_PAGES}}",
   },
 
   HOTEL_VOUCHER: {
-    name: 'Hotel Voucher',
-    description: 'Hotel accommodation voucher with check-in/out, room type, and guest list.',
+    name: "Hotel Voucher",
+    description:
+      "Hotel accommodation voucher with check-in/out, room type, and guest list.",
     html: `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -648,8 +654,9 @@ ${SHARED_CSS}
   },
 
   TRANSPORT_VOUCHER: {
-    name: 'Transfer Voucher',
-    description: 'Ground transport voucher with route, pickup time, vehicle and driver details.',
+    name: "Transfer Voucher",
+    description:
+      "Ground transport voucher with route, pickup time, vehicle and driver details.",
     html: `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -773,8 +780,9 @@ ${SHARED_CSS}
   },
 
   VISA_INVOICE: {
-    name: 'Visa Services Invoice',
-    description: 'Per-passenger visa processing invoice with consular details and fees.',
+    name: "Visa Services Invoice",
+    description:
+      "Per-passenger visa processing invoice with consular details and fees.",
     html: `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -890,8 +898,9 @@ tbody tr:nth-child(even) { background: #F8FAFC; }
   },
 
   SPECIAL_SERVICES: {
-    name: 'Special Services Invoice',
-    description: 'Invoice for additional/ancillary services like extra baggage, meals, and special requests.',
+    name: "Special Services Invoice",
+    description:
+      "Invoice for additional/ancillary services like extra baggage, meals, and special requests.",
     html: `<!DOCTYPE html>
 <html lang="en">
 <head>
