@@ -14,6 +14,8 @@ import {
   UserCheck,
   UserX,
   Lock,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -63,6 +65,7 @@ export default function UsersPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserItem | null>(null);
+  const [deleteConfirmUser, setDeleteConfirmUser] = useState<UserItem | null>(null);
 
   // Form states
   const [firstName, setFirstName] = useState("");
@@ -183,6 +186,23 @@ export default function UsersPage() {
     },
     onError: (err: any) => {
       toast.error(err.response?.data?.message || "Failed to reset password.");
+    },
+  });
+
+  // Delete user mutation
+  const deleteUserMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiClient.delete(`/users/${id}`);
+      return res.data;
+    },
+    onSuccess: () => {
+      toast.success("User account permanently deleted.");
+      setDeleteConfirmUser(null);
+      queryClient.invalidateQueries({ queryKey: ["users-list"] });
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || "Failed to delete user.");
+      setDeleteConfirmUser(null);
     },
   });
 
@@ -424,6 +444,14 @@ export default function UsersPage() {
                           >
                             <KeyRound size={11} />
                             <span>Reset Pass</span>
+                          </button>
+                          <button
+                            onClick={() => setDeleteConfirmUser(u)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-secondary hover:bg-rose-500/10 text-foreground hover:text-rose-600 rounded-lg border border-border font-bold text-[10.5px] transition-all"
+                            title="Permanently delete this user account"
+                          >
+                            <Trash2 size={11} />
+                            <span>Delete</span>
                           </button>
                         </div>
                       </td>

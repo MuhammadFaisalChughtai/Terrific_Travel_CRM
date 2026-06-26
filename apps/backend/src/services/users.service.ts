@@ -82,6 +82,41 @@ export class UsersService {
     };
   }
 
+  async remove(id: string, actorId: string) {
+    const user = await prisma.user.findUnique({ where: { id }, include: { userRoles: { include: { role: true } } } });
+    if (!user) throw new NotFoundException('User not found');
+
+    // Prevent deleting yourself
+    if (id === actorId) {
+      throw new Error('You cannot delete your own account.');
+    }
+
+    // Prevent deleting the last admin/super-admin account
+    const isAdmin = user.userRoles.some((ur: any) =>
+      ['Admin', 'SUPER_ADMIN'].includes(ur.role.name)
+    );
+    if (isAdmin) {
+      const adminCount = await prisma.user.count({
+        where: {
+          isActive: true,
+          userRoles: {
+            some: { role: { name: { in: ['Admin', 'SUPER_ADMIN'] } } },
+          },
+        },
+      });
+      if (adminCount <= 1) {
+        throw new Error('Cannot delete the last administrator account. Assign another admin first.');
+      }
+    }
+
+    // Delete user roles then the user
+    await prisma.userRole.deleteMany({ where: { userId: id } });
+    await prisma.user.delete({ where: { id } });
+
+    return { id, deleted: true };
+  }
+
+
   async create(data: any, actorId?: string) {
     const passwordHash = await bcrypt.hash(data.password || 'user123', 10);
     

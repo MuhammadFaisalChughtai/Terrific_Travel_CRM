@@ -73,3 +73,12 @@ export const updateRolePermissions = asyncHandler(async (req: AuthenticatedReque
   });
 });
 
+export const remove = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id } = req.params;
+  const result = await usersService.remove(id, req.user!.id);
+  res.status(200).json({
+    success: true,
+    data: result,
+    message: 'User account permanently deleted.',
+  });
+});

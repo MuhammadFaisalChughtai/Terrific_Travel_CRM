@@ -161,90 +161,8 @@ async function main() {
     }
   }
 
-  // Seed default Users
-  const passwordHash = await bcrypt.hash('admin123', 10);
-  const managerPasswordHash = await bcrypt.hash('manager123', 10);
-  const agentPasswordHash = await bcrypt.hash('agent123', 10);
-  const customerPasswordHash = await bcrypt.hash('customer123', 10);
 
-  // Admin User
-  const adminUser = await prisma.user.upsert({
-    where: { email: 'admin@tms.com' },
-    update: { isActive: true },
-    create: {
-      email: 'admin@tms.com',
-      passwordHash,
-      firstName: 'System',
-      lastName: 'Admin',
-      isEmailVerified: true,
-      isActive: true,
-      userRoles: {
-        create: [
-          { roleId: adminRole.id },
-          { roleId: superAdminRole.id }
-        ],
-      },
-    },
-  });
-
-  // Manager User
-  const managerUser = await prisma.user.upsert({
-    where: { email: 'manager@tms.com' },
-    update: { isActive: true },
-    create: {
-      email: 'manager@tms.com',
-      passwordHash: managerPasswordHash,
-      firstName: 'System',
-      lastName: 'Manager',
-      isEmailVerified: true,
-      isActive: true,
-      userRoles: {
-        create: [
-          { roleId: managerRole.id }
-        ],
-      },
-    },
-  });
-
-  // Agent User
-  const agentUser = await prisma.user.upsert({
-    where: { email: 'agent@tms.com' },
-    update: { isActive: true },
-    create: {
-      email: 'agent@tms.com',
-      passwordHash: agentPasswordHash,
-      firstName: 'Jane',
-      lastName: 'Agent',
-      isEmailVerified: true,
-      isActive: true,
-      userRoles: {
-        create: [
-          { roleId: agentRole.id },
-          { roleId: legacyAgentRole.id }
-        ],
-      },
-    },
-  });
-
-  // Customer User
-  const customerUser = await prisma.user.upsert({
-    where: { email: 'customer@tms.com' },
-    update: { isActive: true },
-    create: {
-      email: 'customer@tms.com',
-      passwordHash: customerPasswordHash,
-      firstName: 'John',
-      lastName: 'Customer',
-      isEmailVerified: true,
-      isActive: true,
-      userRoles: {
-        create: [
-          { roleId: customerRole.id },
-          { roleId: legacyCustomerRole.id }
-        ],
-      },
-    },
-  });
+  console.log('Roles, permissions, airports, and infrastructure seeded. No default users created.');
 
   const dlAirline = await prisma.airline.upsert({
     where: { code: 'DL' },
@@ -445,34 +363,7 @@ async function main() {
     });
   }
 
-  const existingAgents = await prisma.agent.findMany();
-  if (existingAgents.length === 0) {
-    const agentPasswordHash = await bcrypt.hash('agent123', 10);
-    const defaultAgent = await prisma.agent.create({
-      data: {
-        name: 'Jane Agent',
-        email: 'agent@tms.com',
-        phoneNumber: '+44 7911 123456',
-        gdsSystem: 'Amadeus',
-        client: 'Terrific Travel Ltd',
-        pcc: '1A2B',
-        jobStatus: 'Active',
-        passwordHash: agentPasswordHash,
-        walletBalance: 1500.0,
-      },
-    });
 
-    await prisma.agentSlab.createMany({
-      data: [
-        { agentId: defaultAgent.id, minSales: 1000, maxSales: 2000, commissionRate: 5 },
-        { agentId: defaultAgent.id, minSales: 2001, maxSales: 3000, commissionRate: 6 },
-        { agentId: defaultAgent.id, minSales: 3001, maxSales: 4000, commissionRate: 7 },
-        { agentId: defaultAgent.id, minSales: 4001, maxSales: 5000, commissionRate: 8 },
-        { agentId: defaultAgent.id, minSales: 5001, maxSales: null, commissionRate: 10 },
-      ],
-    });
-    console.log('Default Agent and Slabs Seeded.');
-  }
 
   // Seed Golden Crown Transport Vendor
   const goldenCrownVendor = await prisma.vendor.upsert({

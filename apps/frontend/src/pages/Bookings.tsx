@@ -1104,6 +1104,7 @@ export default function Bookings() {
         isOpen={isInitModalOpen}
         onClose={() => setIsInitModalOpen(false)}
         agents={agents || []}
+        user={user}
         onSuccess={(id) => {
           setIsInitModalOpen(false);
           setSelectedBookingId(id);

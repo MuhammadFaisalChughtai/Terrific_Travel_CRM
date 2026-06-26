@@ -1,14 +1,15 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../api/client";
 import { toast } from "sonner";
-import { Loader2, CalendarRange, User, DollarSign } from "lucide-react";
+import { Loader2, CalendarRange, User, DollarSign, Lock } from "lucide-react";
 import Modal from "./Modal";
 
 interface CreateBookingInitModalProps {
   isOpen: boolean;
   onClose: () => void;
   agents: any[];
+  user?: any; // Logged-in user from auth store
   onSuccess: (bookingId: string) => void;
 }
 
@@ -16,6 +17,7 @@ export default function CreateBookingInitModal({
   isOpen,
   onClose,
   agents,
+  user,
   onSuccess,
 }: CreateBookingInitModalProps) {
   const [agentId, setAgentId] = useState("");
@@ -23,6 +25,44 @@ export default function CreateBookingInitModal({
   const [totalPrice, setTotalPrice] = useState("");
 
   const queryClient = useQueryClient();
+
+  // Determine if the logged-in user is an agent (not admin/manager)
+  const isAgent =
+    !!user?.roles?.length &&
+    !["Admin", "SUPER_ADMIN", "Manager", "BRANCH_MANAGER"].some((r) =>
+      user?.roles?.includes(r)
+    );
+
+  // The agent profile linked to this user (by agentId or name match)
+  const linkedAgent = React.useMemo(() => {
+    if (!agents?.length) return null;
+    if (user?.agentId) {
+      return agents.find((a) => a.id === user.agentId) ?? null;
+    }
+    // Fallback: match by full name
+    const userFullName = [user?.firstName, user?.lastName]
+      .filter(Boolean)
+      .join(" ")
+      .trim()
+      .toLowerCase();
+    return (
+      agents.find(
+        (a) => a.name?.trim().toLowerCase() === userFullName
+      ) ?? null
+    );
+  }, [agents, user]);
+
+  // When modal opens, pre-select the agent's own profile if they are an agent
+  useEffect(() => {
+    if (isOpen && isAgent && linkedAgent) {
+      setAgentId(linkedAgent.id);
+    } else if (!isOpen) {
+      // Reset on close
+      setAgentId("");
+      setDepartureDate("");
+      setTotalPrice("");
+    }
+  }, [isOpen, isAgent, linkedAgent]);
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -32,8 +72,8 @@ export default function CreateBookingInitModal({
     onSuccess: (data) => {
       toast.success("Booking initialized successfully!");
       queryClient.invalidateQueries({ queryKey: ["bookings"] });
-      onSuccess(data.id); // Pass the newly created booking ID back
-      
+      onSuccess(data.id);
+
       // Reset form
       setAgentId("");
       setDepartureDate("");
@@ -41,7 +81,11 @@ export default function CreateBookingInitModal({
     },
     onError: (err: any) => {
       console.error("Booking creation error:", err.response?.data);
-      toast.error(err.response?.data?.stack || err.response?.data?.message || "Failed to initialize booking.");
+      toast.error(
+        err.response?.data?.stack ||
+          err.response?.data?.message ||
+          "Failed to initialize booking."
+      );
     },
   });
 
@@ -58,7 +102,7 @@ export default function CreateBookingInitModal({
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Initialize New Booking" maxWidth="md">
       <form onSubmit={handleSubmit} className="p-5 space-y-4 bg-secondary/10">
-        
+
         {/* Decorative Top Banner */}
         <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 flex items-center gap-3 mb-1">
           <div className="bg-primary/20 p-2 rounded-lg text-primary">
@@ -66,37 +110,73 @@ export default function CreateBookingInitModal({
           </div>
           <div>
             <h3 className="font-bold text-foreground text-xs">Start a New Booking</h3>
-            <p className="text-[10px] text-muted-foreground mt-0.5">Initialize the record. You can add flight, hotel, and visa details afterwards.</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              Initialize the record. You can add flight, hotel, and visa details afterwards.
+            </p>
           </div>
         </div>
 
+        {/* Linked Agent Field */}
         <div>
           <label className="block text-[11px] font-bold text-foreground mb-1">
             Linked Agent
           </label>
-          <div className="relative group">
-            <div className="absolute left-0 top-0 bottom-0 w-9 flex items-center justify-center text-muted-foreground group-focus-within:text-primary transition-colors pointer-events-none">
-              <User size={14} />
+
+          {isAgent && linkedAgent ? (
+            /* ── Agent view: name shown as read-only with lock icon ── */
+            <div className="relative group">
+              <div className="absolute left-0 top-0 bottom-0 w-9 flex items-center justify-center text-muted-foreground pointer-events-none">
+                <User size={14} />
+              </div>
+              <div className="w-full pl-9 pr-10 py-1.5 bg-secondary/40 border border-border rounded-xl text-xs font-semibold text-foreground select-none cursor-not-allowed opacity-80">
+                {linkedAgent.name}
+              </div>
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground/60">
+                <Lock size={12} />
+              </div>
             </div>
-            <select
-              value={agentId}
-              onChange={(e) => setAgentId(e.target.value)}
-              className="w-full pl-9 pr-4 py-1.5 bg-card border border-border rounded-xl text-xs font-medium text-foreground shadow-sm hover:border-primary/50 focus:ring-4 focus:ring-primary/10 focus:border-primary appearance-none transition-all cursor-pointer"
-              required
-            >
-              <option value="" disabled>-- Select an Agent --</option>
-              {agents?.map((a: any) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}
-                </option>
-              ))}
-            </select>
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground">
-               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+          ) : (
+            /* ── Admin / Manager view: full interactive dropdown ── */
+            <div className="relative group">
+              <div className="absolute left-0 top-0 bottom-0 w-9 flex items-center justify-center text-muted-foreground group-focus-within:text-primary transition-colors pointer-events-none">
+                <User size={14} />
+              </div>
+              <select
+                value={agentId}
+                onChange={(e) => setAgentId(e.target.value)}
+                className="w-full pl-9 pr-4 py-1.5 bg-card border border-border rounded-xl text-xs font-medium text-foreground shadow-sm hover:border-primary/50 focus:ring-4 focus:ring-primary/10 focus:border-primary appearance-none transition-all cursor-pointer"
+                required
+              >
+                <option value="" disabled>-- Select an Agent --</option>
+                {agents?.map((a: any) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                  </option>
+                ))}
+              </select>
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="m6 9 6 6 6-6"/>
+                </svg>
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* Helper caption for agents */}
+          {isAgent && linkedAgent && (
+            <p className="mt-1 text-[10px] text-muted-foreground flex items-center gap-1">
+              <Lock size={9} />
+              Bookings are automatically assigned to your agent profile.
+            </p>
+          )}
+          {isAgent && !linkedAgent && (
+            <p className="mt-1 text-[10px] text-rose-500">
+              ⚠ Your account is not linked to an agent profile. Contact your administrator.
+            </p>
+          )}
         </div>
 
+        {/* Departure Date */}
         <div>
           <label className="block text-[11px] font-bold text-foreground mb-1">
             Booking / Departure Date
@@ -115,6 +195,7 @@ export default function CreateBookingInitModal({
           </div>
         </div>
 
+        {/* Total Price */}
         <div>
           <label className="block text-[11px] font-bold text-foreground mb-1">
             Total Expected Payment
@@ -147,8 +228,8 @@ export default function CreateBookingInitModal({
           </button>
           <button
             type="submit"
-            disabled={createMutation.isPending}
-            className="px-5 py-1.5 bg-primary text-primary-foreground font-bold rounded-xl text-xs shadow-md hover:bg-primary/90 hover:shadow-lg hover:-translate-y-0.5 transition-all flex items-center gap-1.5"
+            disabled={createMutation.isPending || (isAgent && !linkedAgent)}
+            className="px-5 py-1.5 bg-primary text-primary-foreground font-bold rounded-xl text-xs shadow-md hover:bg-primary/90 hover:shadow-lg hover:-translate-y-0.5 transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
           >
             {createMutation.isPending ? (
               <Loader2 size={14} className="animate-spin" />
