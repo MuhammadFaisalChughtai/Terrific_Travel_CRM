@@ -75,6 +75,10 @@ export default function Bookings() {
   const [isInitModalOpen, setIsInitModalOpen] = useState(false);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
 
+  // Agent view mode: "mine" = only my bookings, "all" = all agents' bookings
+  // Agents default to showing only their own bookings
+  const [agentViewMode, setAgentViewMode] = useState<"mine" | "all">("mine");
+
   // Filters State
   const [filterDepartureDateFrom, setFilterDepartureDateFrom] = useState("");
   const [filterDepartureDateTo, setFilterDepartureDateTo] = useState("");
@@ -99,7 +103,7 @@ export default function Bookings() {
 
   // Query existing bookings with dynamic parameters
   const { data: bookingsResult, isLoading } = useQuery({
-    queryKey: ["bookings", JSON.stringify(appliedFilters)],
+    queryKey: ["bookings", JSON.stringify(appliedFilters), agentViewMode, user?.agentId],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (appliedFilters.departureDateFrom)
@@ -110,9 +114,16 @@ export default function Bookings() {
         params.append("bookingReference", appliedFilters.bookingReference);
         params.append("bookingReferenceOp", "contains");
       }
-      if (appliedFilters.agentId && appliedFilters.agentId !== "Any") {
+
+      // For agents: if "mine" mode, force filter to their own agentId
+      // If "all" mode, no agentId filter (shows all agents' bookings)
+      if (isAgent && agentViewMode === "mine" && user?.agentId) {
+        params.append("agentId", user.agentId);
+      } else if (!isAgent && appliedFilters.agentId && appliedFilters.agentId !== "Any") {
+        // Admins/managers use the filter dropdown
         params.append("agentId", appliedFilters.agentId);
       }
+
       if (appliedFilters.customerName)
         params.append("customerName", appliedFilters.customerName);
       if (appliedFilters.customerEmail)
@@ -342,6 +353,33 @@ export default function Bookings() {
           Bookings Management
         </h2>
         <div className="flex items-center gap-2.5">
+          {/* Agent view mode toggle — only visible to agents */}
+          {isAgent && (
+            <div className="inline-flex items-center rounded-lg border border-border overflow-hidden text-xs font-bold shadow-sm">
+              <button
+                onClick={() => setAgentViewMode("mine")}
+                className={`px-3 py-2 transition-colors ${
+                  agentViewMode === "mine"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-card text-muted-foreground hover:bg-secondary/40"
+                }`}
+                title="Show only my bookings"
+              >
+                My Bookings
+              </button>
+              <button
+                onClick={() => setAgentViewMode("all")}
+                className={`px-3 py-2 transition-colors ${
+                  agentViewMode === "all"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-card text-muted-foreground hover:bg-secondary/40"
+                }`}
+                title="Show all agents' bookings"
+              >
+                All Agents
+              </button>
+            </div>
+          )}
           <button
             onClick={() => {
               queryClient.invalidateQueries({ queryKey: ["bookings"] });
@@ -384,7 +422,7 @@ export default function Bookings() {
       {/* Main Bookings List */}
       <div className="p-6 bg-card border border-border rounded-2xl shadow-sm space-y-6">
         <h3 className="text-base font-bold flex items-center gap-2">
-          Active Travel Reservations
+          {isAgent && agentViewMode === "mine" ? "My Bookings" : "All Travel Reservations"}
         </h3>
 
         {isLoading ? (
@@ -609,7 +647,7 @@ export default function Bookings() {
                         </td>
                         <td className="px-4 py-3.5 whitespace-nowrap text-right align-middle pr-6">
                           <div className="inline-flex items-center gap-2 justify-end w-full">
-                            {/* View button — agents cannot open LOCKED bookings */}
+                            {/* Locked booking — agents cannot open at all, show lock icon */}
                             {isAgent && booking.lockedStatus === "LOCKED" ? (
                               <button
                                 onClick={() =>
@@ -624,109 +662,107 @@ export default function Bookings() {
                                 <Lock size={15} />
                               </button>
                             ) : (
-                              <button
-                                onClick={() => setSelectedBookingId(booking.id)}
-                                className="text-primary hover:text-primary-hover p-1 rounded hover:bg-secondary/35 transition-all"
-                                title="View Booking"
-                              >
-                                <Eye size={15} />
-                              </button>
-                            )}
-                            {/* Edit + Lock toggle — only for owners of non-locked bookings */}
-                            {isOwner &&
-                              !(
-                                isAgent && booking.lockedStatus === "LOCKED"
-                              ) && (
-                                <>
-                                  <span className="text-muted-foreground/30">
-                                    |
-                                  </span>
+                              <>
+                                {/* View button — available to all for non-locked bookings */}
+                                {isOwner && (
                                   <button
-                                    onClick={() =>
-                                      setSelectedBookingId(booking.id)
-                                    }
-                                    className="text-foreground hover:text-foreground/80 p-1 rounded hover:bg-secondary/35 transition-all"
-                                    title="Edit Booking"
+                                    onClick={() => setSelectedBookingId(booking.id)}
+                                    className="text-primary hover:text-primary-hover p-1 rounded hover:bg-secondary/35 transition-all"
+                                    title="View / Edit Booking"
                                   >
-                                    <Edit size={15} />
+                                    <Eye size={15} />
                                   </button>
-                                  {/* Lock/Unlock toggle — Admin/Manager only */}
-                                  {!isAgent && (
+                                )}
+
+                                {/* Edit button — only for owners */}
+                                {isOwner && (
+                                  <>
+                                    <span className="text-muted-foreground/30">|</span>
+                                    <button
+                                      onClick={() =>
+                                        setSelectedBookingId(booking.id)
+                                      }
+                                      className="text-foreground hover:text-foreground/80 p-1 rounded hover:bg-secondary/35 transition-all"
+                                      title="Edit Booking"
+                                    >
+                                      <Edit size={15} />
+                                    </button>
+                                  </>
+                                )}
+
+                                {/* Lock/Unlock toggle — Admin/Manager only */}
+                                {!isAgent && isOwner && (
+                                  <>
+                                    <span className="text-muted-foreground/30">|</span>
+                                    <button
+                                      onClick={() =>
+                                        toggleLockMutation.mutate(booking.id)
+                                      }
+                                      className={`${
+                                        booking.lockedStatus === "LOCKED"
+                                          ? "text-rose-600 hover:text-rose-700"
+                                          : "text-emerald-600 hover:text-emerald-700"
+                                      } p-1 rounded hover:bg-secondary/35 transition-all`}
+                                      title={
+                                        booking.lockedStatus === "LOCKED"
+                                          ? "Unlock Booking"
+                                          : "Lock Booking"
+                                      }
+                                      disabled={toggleLockMutation.isPending}
+                                    >
+                                      {booking.lockedStatus === "LOCKED" ? (
+                                        <Lock size={15} />
+                                      ) : (
+                                        <Unlock size={15} />
+                                      )}
+                                    </button>
+                                  </>
+                                )}
+
+                                {/* Finalize Margin — admin/manager only, confirmed + no agent yet */}
+                                {!isAgent && isOwner &&
+                                  booking.status === "CONFIRMED" &&
+                                  !booking.agentId && (
                                     <>
-                                      <span className="text-muted-foreground/30">
-                                        |
-                                      </span>
+                                      <span className="text-muted-foreground/30">|</span>
                                       <button
-                                        onClick={() =>
-                                          toggleLockMutation.mutate(booking.id)
-                                        }
-                                        className={`${
-                                          booking.lockedStatus === "LOCKED"
-                                            ? "text-rose-600 hover:text-rose-700"
-                                            : "text-emerald-600 hover:text-emerald-700"
-                                        } p-1 rounded hover:bg-secondary/35 transition-all`}
-                                        title={
-                                          booking.lockedStatus === "LOCKED"
-                                            ? "Unlock Booking"
-                                            : "Lock Booking"
-                                        }
-                                        disabled={toggleLockMutation.isPending}
+                                        onClick={() => {
+                                          setSelectedBooking(booking);
+                                          setIsFinalizeModalOpen(true);
+                                        }}
+                                        className="text-amber-600 hover:text-amber-700 font-bold text-xs inline-flex items-center gap-1 hover:underline"
+                                        title="Finalize Margin"
                                       >
-                                        {booking.lockedStatus === "LOCKED" ? (
-                                          <Lock size={15} />
-                                        ) : (
-                                          <Unlock size={15} />
-                                        )}
+                                        <Receipt size={14} />
+                                        <span>Finalize</span>
                                       </button>
                                     </>
                                   )}
-                                </>
-                              )}
 
-                            {isOwner &&
-                              booking.status === "CONFIRMED" &&
-                              !booking.agentId && (
-                                <>
-                                  <span className="text-muted-foreground/30">
-                                    |
-                                  </span>
-                                  <button
-                                    onClick={() => {
-                                      setSelectedBooking(booking);
-                                      setIsFinalizeModalOpen(true);
-                                    }}
-                                    className="text-amber-600 hover:text-amber-700 font-bold text-xs inline-flex items-center gap-1 hover:underline"
-                                    title="Finalize Margin"
-                                  >
-                                    <Receipt size={14} />
-                                    <span>Finalize</span>
-                                  </button>
-                                </>
-                              )}
-
-                            {booking.status === "CONFIRMED" && (
-                              <>
-                                <span className="text-muted-foreground/30">
-                                  |
-                                </span>
-                                <button
-                                  onClick={() => {
-                                    const template =
-                                      getTemplateContent("BOOKING_INVOICE");
-                                    const html = template
-                                      ? renderBookingInvoice(template, booking)
-                                      : generateBookingInvoiceHtml(booking);
-                                    printDocument(
-                                      html,
-                                      `Booking_Invoice_${booking.bookingReference || booking.id.substring(0, 8)}`,
-                                    );
-                                  }}
-                                  className="text-muted-foreground hover:text-foreground font-bold text-xs inline-flex items-center gap-1 hover:underline"
-                                  title="Print Invoice"
-                                >
-                                  <FileText size={14} />
-                                  <span>Invoice</span>
-                                </button>
+                                {/* Invoice — available to ALL users for any CONFIRMED booking (agents can view other agents' invoices) */}
+                                {booking.status === "CONFIRMED" && (
+                                  <>
+                                    <span className="text-muted-foreground/30">|</span>
+                                    <button
+                                      onClick={() => {
+                                        const template =
+                                          getTemplateContent("BOOKING_INVOICE");
+                                        const html = template
+                                          ? renderBookingInvoice(template, booking)
+                                          : generateBookingInvoiceHtml(booking);
+                                        printDocument(
+                                          html,
+                                          `Booking_Invoice_${booking.bookingReference || booking.id.substring(0, 8)}`,
+                                        );
+                                      }}
+                                      className="text-muted-foreground hover:text-foreground font-bold text-xs inline-flex items-center gap-1 hover:underline"
+                                      title="Print Invoice"
+                                    >
+                                      <FileText size={14} />
+                                      <span>Invoice</span>
+                                    </button>
+                                  </>
+                                )}
                               </>
                             )}
                           </div>
@@ -984,24 +1020,26 @@ export default function Bookings() {
               />
             </div>
 
-            {/* AGENT */}
-            <div className="space-y-1">
-              <label className="font-bold text-muted-foreground uppercase tracking-wider block">
-                AGENT
-              </label>
-              <select
-                value={filterAgentId}
-                onChange={(e) => setFilterAgentId(e.target.value)}
-                className="w-full bg-secondary/20 border border-border/80 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary text-foreground transition-all focus:bg-background"
-              >
-                <option value="Any">Any</option>
-                {agents?.map((a: any) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {/* AGENT filter — only shown to Admin/Manager; agents use the toggle in the header instead */}
+            {!isAgent && (
+              <div className="space-y-1">
+                <label className="font-bold text-muted-foreground uppercase tracking-wider block">
+                  AGENT
+                </label>
+                <select
+                  value={filterAgentId}
+                  onChange={(e) => setFilterAgentId(e.target.value)}
+                  className="w-full bg-secondary/20 border border-border/80 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary text-foreground transition-all focus:bg-background"
+                >
+                  <option value="Any">Any</option>
+                  {agents?.map((a: any) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {/* STATUS */}
             <div className="space-y-1">

@@ -581,7 +581,6 @@ function generateTimelineHtml(booking: any): string {
           <div class="timeline-detail-item">Room: <strong>${h.roomType} x${h.qty || 1}</strong> (${h.mealType || "Room Only"})</div>
           <div class="timeline-detail-item">Stay: <strong>${nights} Night(s)</strong> | Check-Out: <strong>${formatDate(checkOut)}</strong></div>
           <div class="timeline-detail-item">City: <strong>${h.city || "—"}</strong> | Conf #: <strong>${h.hotelConfirmationNumber || "—"}</strong></div>
-          <div class="timeline-detail-item">Supplier: <strong>${h.vendor?.name || "Terrific Travel Partner"}</strong></div>
         `,
         notes: h.notes,
       });
@@ -647,12 +646,40 @@ function generateTimelineHtml(booking: any): string {
     return `<div class="text-center" style="color: #64748B; padding: 24px; background: #F8FAFC; border: 1px dashed #E2E8F0; border-radius: 8px;">No travel itinerary components registered.</div>`;
   }
 
-  // Sort chronologically
-  items.sort((a, b) => a.date.getTime() - b.date.getTime());
+  // Separate layover cards from regular items so that chronological sort
+  // does not move them away from their adjacent flight segments.
+  const layoverCards = items.filter((i) => i.isLayoverCard);
+  const regularItems = items.filter((i) => !i.isLayoverCard);
+
+  // Sort only the non-layover items chronologically
+  regularItems.sort((a, b) => a.date.getTime() - b.date.getTime());
+
+  // Re-insert each layover card immediately AFTER the flight it belongs to.
+  // Each layover card's `date` is set to its preceding flight's date + 1 ms,
+  // so we match it to the regular item whose date is closest-just-before it.
+  const orderedItems: any[] = [];
+  regularItems.forEach((item) => {
+    orderedItems.push(item);
+    // Check if there's a layover card that should follow this item
+    const associatedLayover = layoverCards.find(
+      (lc) =>
+        lc.date.getTime() > item.date.getTime() &&
+        // Make sure it belongs right after this item (not a later flight)
+        !regularItems.some(
+          (ri) =>
+            ri !== item &&
+            ri.date.getTime() > item.date.getTime() &&
+            ri.date.getTime() < lc.date.getTime(),
+        ),
+    );
+    if (associatedLayover) {
+      orderedItems.push(associatedLayover);
+    }
+  });
 
   return `
     <div class="timeline-container">
-      ${items
+      ${orderedItems
         .map((item) => {
           if (item.isLayoverCard) {
             return `
@@ -734,7 +761,7 @@ export function generateBookingInvoiceHtml(booking: any) {
     flightsCost + hotelsCost + transportCost + visaCost + additionalCost;
   const totalPrice = booking.totalPrice || totalCalculated;
   const paidAmount = booking.paidAmount || 0;
-  const balanceDue = totalPrice - paidAmount;
+  const balanceDue = Math.max(0, totalPrice - paidAmount);
 
   return `
     <div class="document-container">
@@ -1887,7 +1914,7 @@ export function renderBookingInvoice(
     flightsCost + hotelsCost + transportCost + visaCost + additionalCost;
   const totalPrice = booking.totalPrice || totalCalculated;
   const paidAmount = booking.paidAmount || 0;
-  const balanceDue = totalPrice - paidAmount;
+  const balanceDue = Math.max(0, totalPrice - paidAmount);
 
   const leadPassengerBlock = `
     <p><strong>${leader ? `${leader.title || ""} ${leader.firstName} ${leader.lastName}` : "Valued Customer"}</strong></p>
