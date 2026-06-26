@@ -651,16 +651,16 @@ function generateTimelineHtml(booking: any): string {
   regularItems.sort((a, b) => a.date.getTime() - b.date.getTime());
 
   // Re-insert each layover card immediately AFTER the flight it belongs to.
-  // Each layover card's `date` is set to its preceding flight's date + 1 ms,
-  // so we match it to the regular item whose date is closest-just-before it.
+  // Use a mutable copy so each layover is consumed once and cannot be placed twice.
   const orderedItems: any[] = [];
+  const remainingLayovers = [...layoverCards];
   regularItems.forEach((item) => {
     orderedItems.push(item);
-    // Check if there's a layover card that should follow this item
-    const associatedLayover = layoverCards.find(
+    // Find the first unconsumed layover that should follow this item
+    const layoverIdx = remainingLayovers.findIndex(
       (lc) =>
         lc.date.getTime() > item.date.getTime() &&
-        // Make sure it belongs right after this item (not a later flight)
+        // Make sure no other regular item sits between this item and the layover
         !regularItems.some(
           (ri) =>
             ri !== item &&
@@ -668,8 +668,10 @@ function generateTimelineHtml(booking: any): string {
             ri.date.getTime() < lc.date.getTime(),
         ),
     );
-    if (associatedLayover) {
-      orderedItems.push(associatedLayover);
+    if (layoverIdx !== -1) {
+      orderedItems.push(remainingLayovers[layoverIdx]);
+      // Remove from pool so it cannot be matched again for the next flight
+      remainingLayovers.splice(layoverIdx, 1);
     }
   });
 
@@ -908,7 +910,7 @@ export function generateBookingInvoiceHtml(booking: any) {
       </div>
 
       <div class="doc-footer">
-        <p>Terrific Travel &amp; Tours Ltd | Registered in England &amp; Wales: #09384812 | VAT Number: GB 129 3847 21</p>
+        <p>Terrific Travel &amp; Tours Ltd | Registered in England &amp; Wales: #09384812</p>
         <p>Thank you for choosing Terrific Travel. We wish you an amazing journey!</p>
       </div>
     </div>
