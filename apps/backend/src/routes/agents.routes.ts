@@ -8,8 +8,8 @@ const router = Router();
 // Secure all agent routes
 router.use(authMiddleware as any);
 
-router.get('/', requireRoles('SUPER_ADMIN', 'ADMIN') as any, findAll);
-router.get('/:id', requireRoles('SUPER_ADMIN', 'ADMIN') as any, findOne);
+router.get('/', requireRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'AGENT', 'TRAVEL_AGENT') as any, findAll);
+router.get('/:id', requireRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'AGENT', 'TRAVEL_AGENT') as any, findOne);
 router.post('/', requireRoles('SUPER_ADMIN', 'ADMIN') as any, create);
 router.patch('/:id', requireRoles('SUPER_ADMIN', 'ADMIN') as any, update);
 router.delete('/:id', requireRoles('SUPER_ADMIN', 'ADMIN') as any, deleteAgent);

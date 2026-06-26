@@ -12,6 +12,14 @@ export const create = asyncHandler(async (req: AuthenticatedRequest, res: Respon
   });
 });
 
+export const getNextReference = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const result = await bookingsService.getNextReference();
+  res.status(200).json({
+    success: true,
+    data: result,
+  });
+});
+
 export const findAll = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const result = await bookingsService.findAll(req.user, req.query);
   res.status(200).json({

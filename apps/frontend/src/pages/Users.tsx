@@ -238,7 +238,7 @@ export default function UsersPage() {
       email,
       roles: [selectedRole],
       isActive,
-      agentId: selectedRole === "Agent" ? (selectedAgentId || null) : null,
+      agentId: ["Agent", "Admin", "Manager"].includes(selectedRole) ? (selectedAgentId || null) : null,
     };
 
     if (selectedUser) {
@@ -640,7 +640,7 @@ export default function UsersPage() {
             </div>
           </div>
 
-          {selectedRole === "Agent" && (
+          {["Agent", "Admin", "Manager"].includes(selectedRole) && (
             <div>
               <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">
                 Link Agent Profile

@@ -27,7 +27,7 @@ import {
   ShieldCheck,
   CheckCircle2,
   XCircle,
-  HelpCircle
+  HelpCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -38,14 +38,14 @@ import VendorPaymentModal from "../components/VendorPaymentModal";
 // Validation Schema for Vendor
 const vendorSchema = z.object({
   name: z.string().min(1, "Name is required"),
-  website: z
-    .string()
-    .min(1, "Website is required")
-    .url("Please enter a valid URL (e.g., https://example.com)"),
-  supportEmail: z
-    .string()
-    .min(1, "Support email is required")
-    .email("Please enter a valid email address"),
+  // website: z
+  //   .string()
+  //   .min(1, "Website is required")
+  //   .url("Please enter a valid URL (e.g., https://example.com)"),
+  // supportEmail: z
+  //   .string()
+  //   .min(1, "Support email is required")
+  //   .email("Please enter a valid email address"),
   phoneNumber: z.string().min(5, "Phone number must be at least 5 digits"),
   vendorType: z.string().min(1, "Vendor type is required"),
 });
@@ -94,7 +94,9 @@ export default function VendorPage() {
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   const [viewingVendorId, setViewingVendorId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"ledger" | "wallet" | "payments">("ledger");
+  const [activeTab, setActiveTab] = useState<"ledger" | "wallet" | "payments">(
+    "ledger",
+  );
 
   // Form Field States
   const [name, setName] = useState("");
@@ -131,7 +133,9 @@ export default function VendorPage() {
   const { data: dashboardSummary, refetch: refetchSummary } = useQuery({
     queryKey: ["vendor-summary", viewingVendorId],
     queryFn: async () => {
-      const res = await apiClient.get(`/vendors/${viewingVendorId}/dashboard-summary`);
+      const res = await apiClient.get(
+        `/vendors/${viewingVendorId}/dashboard-summary`,
+      );
       return res.data.data;
     },
     enabled: !!viewingVendorId,
@@ -149,7 +153,9 @@ export default function VendorPage() {
   const { data: walletHistory, refetch: refetchWallet } = useQuery({
     queryKey: ["vendor-wallet", viewingVendorId],
     queryFn: async () => {
-      const res = await apiClient.get(`/vendors/${viewingVendorId}/wallet-history`);
+      const res = await apiClient.get(
+        `/vendors/${viewingVendorId}/wallet-history`,
+      );
       return res.data.data;
     },
     enabled: !!viewingVendorId,
@@ -158,7 +164,9 @@ export default function VendorPage() {
   const { data: paymentsHistory, refetch: refetchPayments } = useQuery({
     queryKey: ["vendor-payments-history", viewingVendorId],
     queryFn: async () => {
-      const res = await apiClient.get(`/vendors/payments?vendorId=${viewingVendorId}`);
+      const res = await apiClient.get(
+        `/vendors/payments?vendorId=${viewingVendorId}`,
+      );
       return res.data.data.items;
     },
     enabled: !!viewingVendorId,
@@ -211,8 +219,16 @@ export default function VendorPage() {
   });
 
   const reversePaymentMutation = useMutation({
-    mutationFn: async ({ paymentId, reason }: { paymentId: string; reason: string }) => {
-      return apiClient.patch(`/vendors/payments/${paymentId}/reverse`, { reason });
+    mutationFn: async ({
+      paymentId,
+      reason,
+    }: {
+      paymentId: string;
+      reason: string;
+    }) => {
+      return apiClient.patch(`/vendors/payments/${paymentId}/reverse`, {
+        reason,
+      });
     },
     onSuccess: () => {
       toast.success("Vendor payment successfully reversed!");
@@ -223,7 +239,9 @@ export default function VendorPage() {
       queryClient.invalidateQueries({ queryKey: ["vendors"] });
     },
     onError: (err: any) => {
-      toast.error(err.response?.data?.message || "Failed to reverse vendor payment.");
+      toast.error(
+        err.response?.data?.message || "Failed to reverse vendor payment.",
+      );
     },
   });
 
@@ -324,16 +342,21 @@ export default function VendorPage() {
   };
 
   const handleReverseClick = (paymentId: string, referenceNumber: string) => {
-    const reason = window.prompt(`Enter reason for reversing payment ${referenceNumber}:`);
+    const reason = window.prompt(
+      `Enter reason for reversing payment ${referenceNumber}:`,
+    );
     if (reason === null) return; // User cancelled
-    reversePaymentMutation.mutate({ paymentId, reason: reason.trim() || "Payment Reversal" });
+    reversePaymentMutation.mutate({
+      paymentId,
+      reason: reason.trim() || "Payment Reversal",
+    });
   };
 
   // Filter list based on search
   const filteredVendors = vendorsData?.filter(
     (vendor) =>
       vendor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      vendor.vendorType.toLowerCase().includes(searchTerm.toLowerCase())
+      vendor.vendorType.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   // ════════════════════════════════════════════════════════════
@@ -347,7 +370,7 @@ export default function VendorPage() {
       pendingCount: 0,
       partialCount: 0,
       paidCount: 0,
-      lastPaymentDate: null
+      lastPaymentDate: null,
     };
 
     return (
@@ -363,13 +386,17 @@ export default function VendorPage() {
               Back to Vendor Directory
             </button>
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-black text-foreground">{viewingVendor.name}</h2>
+              <h2 className="text-lg font-black text-foreground">
+                {viewingVendor.name}
+              </h2>
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black border bg-primary/10 border-primary/20 text-primary uppercase tracking-wider">
                 {viewingVendor.vendorType}
               </span>
             </div>
             <p className="text-[11px] text-muted-foreground">
-              Registered on: {new Date(viewingVendor.createdAt).toLocaleDateString()} • Website:{" "}
+              Registered on:{" "}
+              {new Date(viewingVendor.createdAt).toLocaleDateString()} •
+              Website:{" "}
               <a
                 href={viewingVendor.website}
                 target="_blank"
@@ -396,7 +423,9 @@ export default function VendorPage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {/* Outstanding */}
           <div className="bg-card p-4 rounded-xl shadow-sm border border-border flex flex-col justify-between relative overflow-hidden">
-            <div className="absolute right-3 top-3 text-red-500/10"><TrendingUp size={44} /></div>
+            <div className="absolute right-3 top-3 text-red-500/10">
+              <TrendingUp size={44} />
+            </div>
             <div>
               <span className="block text-[9px] font-extrabold text-muted-foreground uppercase tracking-widest mb-1">
                 Outstanding Balance
@@ -412,7 +441,9 @@ export default function VendorPage() {
 
           {/* Total Paid */}
           <div className="bg-card p-4 rounded-xl shadow-sm border border-border flex flex-col justify-between relative overflow-hidden">
-            <div className="absolute right-3 top-3 text-emerald-500/10"><ShieldCheck size={44} /></div>
+            <div className="absolute right-3 top-3 text-emerald-500/10">
+              <ShieldCheck size={44} />
+            </div>
             <div>
               <span className="block text-[9px] font-extrabold text-muted-foreground uppercase tracking-widest mb-1">
                 Total Settled Paid
@@ -428,7 +459,9 @@ export default function VendorPage() {
 
           {/* Wallet Balance */}
           <div className="bg-card p-4 rounded-xl shadow-sm border border-border flex flex-col justify-between relative overflow-hidden">
-            <div className="absolute right-3 top-3 text-amber-500/10"><Coins size={44} /></div>
+            <div className="absolute right-3 top-3 text-amber-500/10">
+              <Coins size={44} />
+            </div>
             <div>
               <span className="block text-[9px] font-extrabold text-muted-foreground uppercase tracking-widest mb-1">
                 Prepayment Wallet Credit
@@ -444,7 +477,9 @@ export default function VendorPage() {
 
           {/* Last Payment */}
           <div className="bg-card p-4 rounded-xl shadow-sm border border-border flex flex-col justify-between relative overflow-hidden">
-            <div className="absolute right-3 top-3 text-blue-500/10"><Calendar size={44} /></div>
+            <div className="absolute right-3 top-3 text-blue-500/10">
+              <Calendar size={44} />
+            </div>
             <div>
               <span className="block text-[9px] font-extrabold text-muted-foreground uppercase tracking-widest mb-1">
                 Last Payment Processed
@@ -512,7 +547,9 @@ export default function VendorPage() {
                       <th className="py-2.5 px-4">Reference No</th>
                       <th className="py-2.5 px-4 text-right">Debit (+)</th>
                       <th className="py-2.5 px-4 text-right">Credit (-)</th>
-                      <th className="py-2.5 px-4 text-right">Running Balance</th>
+                      <th className="py-2.5 px-4 text-right">
+                        Running Balance
+                      </th>
                       <th className="py-2.5 px-4">Processed By</th>
                       <th className="py-2.5 px-4 max-w-xs">Notes</th>
                     </tr>
@@ -520,7 +557,10 @@ export default function VendorPage() {
                   <tbody className="divide-y divide-border/40 font-medium">
                     {ledgerEntries && ledgerEntries.length > 0 ? (
                       ledgerEntries.map((e: any) => (
-                        <tr key={e.id} className="hover:bg-secondary/5 transition-colors">
+                        <tr
+                          key={e.id}
+                          className="hover:bg-secondary/5 transition-colors"
+                        >
                           <td className="py-2.5 px-4 text-muted-foreground/80 text-[10px]">
                             {new Date(e.timestamp).toLocaleString()}
                           </td>
@@ -556,26 +596,40 @@ export default function VendorPage() {
                           <td className="py-2.5 px-4 text-right font-bold text-foreground tabular-nums">
                             {formatCurrency(e.runningBalance)}
                           </td>
-                          <td className="py-2.5 px-4 text-muted-foreground/90">{e.adminName}</td>
-                           <td className="py-2.5 px-4 text-[10px] text-muted-foreground max-w-sm">
+                          <td className="py-2.5 px-4 text-muted-foreground/90">
+                            {e.adminName}
+                          </td>
+                          <td className="py-2.5 px-4 text-[10px] text-muted-foreground max-w-sm">
                             {(() => {
                               if (!e.notes) return "—";
-                              const receiptMatch = e.notes.match(/(.*)Receipt:\s*(https?:\/\/[^|]+)(.*)/i);
+                              const receiptMatch = e.notes.match(
+                                /(.*)Receipt:\s*(https?:\/\/[^|]+)(.*)/i,
+                              );
                               if (receiptMatch) {
                                 const before = receiptMatch[1].trim();
                                 const url = encodeURI(receiptMatch[2].trim());
                                 const after = receiptMatch[3].trim();
-                                const text = [before, after].filter(Boolean).join(" ");
+                                const text = [before, after]
+                                  .filter(Boolean)
+                                  .join(" ");
                                 return (
                                   <div className="flex flex-col gap-1">
-                                    <span title={e.notes} className="truncate block">{text || "No additional notes"}</span>
+                                    <span
+                                      title={e.notes}
+                                      className="truncate block"
+                                    >
+                                      {text || "No additional notes"}
+                                    </span>
                                     <a
                                       href={url}
                                       target="_blank"
                                       rel="noopener noreferrer"
                                       className="inline-flex items-center gap-1 text-orange-500 hover:text-orange-600 hover:underline font-semibold"
                                     >
-                                      <FileText size={10} className="shrink-0" />
+                                      <FileText
+                                        size={10}
+                                        className="shrink-0"
+                                      />
                                       View Receipt
                                     </a>
                                   </div>
@@ -588,7 +642,10 @@ export default function VendorPage() {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={9} className="py-10 text-center text-muted-foreground text-xs">
+                        <td
+                          colSpan={9}
+                          className="py-10 text-center text-muted-foreground text-xs"
+                        >
                           No financial ledger entries exist for this vendor.
                         </td>
                       </tr>
@@ -610,7 +667,9 @@ export default function VendorPage() {
                       <th className="py-2.5 px-4">Transaction Type</th>
                       <th className="py-2.5 px-4">Payment Reference</th>
                       <th className="py-2.5 px-4 text-right">Amount</th>
-                      <th className="py-2.5 px-4 text-right">Running Balance</th>
+                      <th className="py-2.5 px-4 text-right">
+                        Running Balance
+                      </th>
                       <th className="py-2.5 px-4">Processed By</th>
                       <th className="py-2.5 px-4 max-w-xs">Notes</th>
                     </tr>
@@ -618,14 +677,18 @@ export default function VendorPage() {
                   <tbody className="divide-y divide-border/40 font-medium">
                     {walletHistory && walletHistory.length > 0 ? (
                       walletHistory.map((w: any) => (
-                        <tr key={w.id} className="hover:bg-secondary/5 transition-colors">
+                        <tr
+                          key={w.id}
+                          className="hover:bg-secondary/5 transition-colors"
+                        >
                           <td className="py-2.5 px-4 text-muted-foreground/80 text-[10px]">
                             {new Date(w.timestamp).toLocaleString()}
                           </td>
                           <td className="py-2.5 px-4">
                             <span
                               className={`inline-block px-2 py-0.5 rounded text-[9px] font-black uppercase ${
-                                w.type.startsWith("CREDIT") || w.type.startsWith("REVERSAL_DEBIT")
+                                w.type.startsWith("CREDIT") ||
+                                w.type.startsWith("REVERSAL_DEBIT")
                                   ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
                                   : "bg-red-500/10 text-red-600 dark:text-red-400"
                               }`}
@@ -638,7 +701,9 @@ export default function VendorPage() {
                           </td>
                           <td
                             className={`py-2.5 px-4 text-right tabular-nums font-bold ${
-                              w.amount > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
+                              w.amount > 0
+                                ? "text-emerald-600 dark:text-emerald-400"
+                                : "text-red-600 dark:text-red-400"
                             }`}
                           >
                             {w.amount > 0 ? "+" : ""}
@@ -647,15 +712,23 @@ export default function VendorPage() {
                           <td className="py-2.5 px-4 text-right font-extrabold text-foreground tabular-nums">
                             {formatCurrency(w.runningBalance)}
                           </td>
-                          <td className="py-2.5 px-4 text-muted-foreground/90">{w.adminName}</td>
-                          <td className="py-2.5 px-4 max-w-xs truncate text-muted-foreground text-[10px]" title={w.notes}>
+                          <td className="py-2.5 px-4 text-muted-foreground/90">
+                            {w.adminName}
+                          </td>
+                          <td
+                            className="py-2.5 px-4 max-w-xs truncate text-muted-foreground text-[10px]"
+                            title={w.notes}
+                          >
                             {w.notes}
                           </td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={7} className="py-10 text-center text-muted-foreground text-xs">
+                        <td
+                          colSpan={7}
+                          className="py-10 text-center text-muted-foreground text-xs"
+                        >
                           No wallet transactions recorded.
                         </td>
                       </tr>
@@ -687,7 +760,10 @@ export default function VendorPage() {
                   <tbody className="divide-y divide-border/40 font-medium">
                     {paymentsHistory && paymentsHistory.length > 0 ? (
                       paymentsHistory.map((p: any) => (
-                        <tr key={p.id} className="hover:bg-secondary/5 transition-colors">
+                        <tr
+                          key={p.id}
+                          className="hover:bg-secondary/5 transition-colors"
+                        >
                           <td className="py-2.5 px-4 font-mono font-bold text-foreground">
                             {p.referenceNumber}
                           </td>
@@ -697,8 +773,12 @@ export default function VendorPage() {
                           <td className="py-2.5 px-4 text-right font-black text-foreground tabular-nums">
                             {formatCurrency(p.amount)}
                           </td>
-                          <td className="py-2.5 px-4 text-muted-foreground">{p.paymentMethod}</td>
-                          <td className="py-2.5 px-4 text-muted-foreground">{p.bankAccount || "—"}</td>
+                          <td className="py-2.5 px-4 text-muted-foreground">
+                            {p.paymentMethod}
+                          </td>
+                          <td className="py-2.5 px-4 text-muted-foreground">
+                            {p.bankAccount || "—"}
+                          </td>
                           <td className="py-2.5 px-4">
                             <div className="flex flex-wrap gap-1 max-w-[200px]">
                               {p.allocations.map((a: any, idx: number) => (
@@ -706,7 +786,8 @@ export default function VendorPage() {
                                   key={idx}
                                   className="px-1.5 py-0.5 rounded bg-secondary/40 text-[9px] font-bold text-muted-foreground"
                                 >
-                                  {a.bookingReference} ({formatCurrency(a.amount)})
+                                  {a.bookingReference} (
+                                  {formatCurrency(a.amount)})
                                 </span>
                               ))}
                             </div>
@@ -724,11 +805,15 @@ export default function VendorPage() {
                               </span>
                             )}
                           </td>
-                          <td className="py-2.5 px-4 text-muted-foreground">{p.adminName}</td>
+                          <td className="py-2.5 px-4 text-muted-foreground">
+                            {p.adminName}
+                          </td>
                           <td className="py-2.5 px-4 text-right">
                             {!p.isReversed && (
                               <button
-                                onClick={() => handleReverseClick(p.id, p.referenceNumber)}
+                                onClick={() =>
+                                  handleReverseClick(p.id, p.referenceNumber)
+                                }
                                 className="inline-flex items-center gap-1 px-2 py-1 bg-red-500/10 text-red-600 hover:bg-red-500/20 rounded font-black text-[10px] tracking-wider uppercase transition-colors"
                               >
                                 <Undo2 size={10} />
@@ -740,7 +825,10 @@ export default function VendorPage() {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={9} className="py-10 text-center text-muted-foreground text-xs">
+                        <td
+                          colSpan={9}
+                          className="py-10 text-center text-muted-foreground text-xs"
+                        >
                           No payments processed for this vendor.
                         </td>
                       </tr>

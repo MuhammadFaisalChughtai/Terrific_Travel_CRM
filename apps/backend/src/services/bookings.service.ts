@@ -9,8 +9,7 @@ import { vendorsService } from './vendors.service';
 import { auditLogService } from './audit.service';
 
 export class BookingsService {
-  async create(userId: string, data: any) {
-    // Generate sequential bookingReference (e.g. TT1101)
+  async getNextReference() {
     const lastBooking = await prisma.booking.findFirst({
       where: {
         bookingReference: {
@@ -25,18 +24,35 @@ export class BookingsService {
       },
     });
 
-    let nextRef = 'TT1101';
+    let nextRef = 'TT00964';
     if (lastBooking && lastBooking.bookingReference) {
       const numStr = lastBooking.bookingReference.replace('TT', '');
       const num = parseInt(numStr, 10);
       if (!isNaN(num)) {
-        nextRef = `TT${num + 1}`;
+        nextRef = `TT${String(num + 1).padStart(5, '0')}`;
       }
+    }
+    return { nextReference: nextRef };
+  }
+
+  async create(userId: string, data: any) {
+    const nextRefObj = await this.getNextReference();
+    let finalRef = nextRefObj.nextReference;
+
+    if (data.bookingReference) {
+      const customRef = data.bookingReference.trim();
+      const existing = await prisma.booking.findUnique({
+        where: { bookingReference: customRef },
+      });
+      if (existing) {
+        throw new BadRequestException(`Booking reference "${customRef}" is already in use.`);
+      }
+      finalRef = customRef;
     }
 
     const booking = await prisma.booking.create({
       data: {
-        bookingReference: nextRef,
+        bookingReference: finalRef,
         userId,
         createdById: userId,
         assignedToId: data.assignedToId || userId,

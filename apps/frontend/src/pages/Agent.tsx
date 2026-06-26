@@ -36,9 +36,9 @@ const agentSchema = z.object({
     .or(z.literal(""))
     .optional(),
   phoneNumber: z.string().min(5, "Phone number must be at least 5 digits"),
-  gdsSystem: z.string().min(1, "GDS System is required"),
-  client: z.string().min(1, "Client name is required"),
-  pcc: z.string().min(1, "PCC code is required"),
+  // gdsSystem: z.string().min(1, "GDS System is required"),
+  // client: z.string().min(1, "Client name is required"),
+  // pcc: z.string().min(1, "PCC code is required"),
   jobStatus: z.enum(["Active", "Inactive"]),
 });
 

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../api/client";
 import { toast } from "sonner";
-import { Loader2, CalendarRange, User, DollarSign, Lock } from "lucide-react";
+import { Loader2, CalendarRange, User, DollarSign, Lock, Hash } from "lucide-react";
 import Modal from "./Modal";
 
 interface CreateBookingInitModalProps {
@@ -23,6 +23,7 @@ export default function CreateBookingInitModal({
   const [agentId, setAgentId] = useState("");
   const [departureDate, setDepartureDate] = useState("");
   const [totalPrice, setTotalPrice] = useState("");
+  const [bookingReference, setBookingReference] = useState("");
 
   const queryClient = useQueryClient();
 
@@ -52,17 +53,29 @@ export default function CreateBookingInitModal({
     );
   }, [agents, user]);
 
-  // When modal opens, pre-select the agent's own profile if they are an agent
+  // When modal opens, pre-select agent profile and fetch next booking reference
   useEffect(() => {
-    if (isOpen && isAgent && linkedAgent) {
-      setAgentId(linkedAgent.id);
-    } else if (!isOpen) {
+    if (isOpen) {
+      if (linkedAgent) {
+        setAgentId(linkedAgent.id);
+      }
+      apiClient.get("/bookings/next-reference")
+        .then((res) => {
+          if (res.data?.success && res.data?.data?.nextReference) {
+            setBookingReference(res.data.data.nextReference);
+          }
+        })
+        .catch((err) => {
+          console.error("Failed to fetch next booking reference:", err);
+        });
+    } else {
       // Reset on close
       setAgentId("");
       setDepartureDate("");
       setTotalPrice("");
+      setBookingReference("");
     }
-  }, [isOpen, isAgent, linkedAgent]);
+  }, [isOpen, linkedAgent]);
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -95,6 +108,7 @@ export default function CreateBookingInitModal({
       agentId: agentId || null,
       departureDate: departureDate || new Date().toISOString(),
       totalPrice: Number(totalPrice) || 0,
+      bookingReference: (bookingReference || "").trim().toUpperCase() || null,
       status: "PENDING",
     });
   };
@@ -113,6 +127,25 @@ export default function CreateBookingInitModal({
             <p className="text-[10px] text-muted-foreground mt-0.5">
               Initialize the record. You can add flight, hotel, and visa details afterwards.
             </p>
+          </div>
+        </div>
+
+        {/* Booking Reference */}
+        <div>
+          <label className="block text-[11px] font-bold text-foreground mb-1">
+            Booking Reference
+          </label>
+          <div className="relative group">
+            <div className="absolute left-0 top-0 bottom-0 w-9 flex items-center justify-center text-muted-foreground group-focus-within:text-primary transition-colors pointer-events-none">
+              <Hash size={14} />
+            </div>
+            <input
+              type="text"
+              value={bookingReference}
+              onChange={(e) => setBookingReference(e.target.value)}
+              placeholder="Auto-generated (e.g. TT00964)"
+              className="w-full pl-9 pr-4 py-1.5 bg-card border border-border rounded-xl text-xs font-medium text-foreground shadow-sm hover:border-primary/50 focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all uppercase"
+            />
           </div>
         </div>
 
