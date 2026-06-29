@@ -54,19 +54,28 @@ export default function InvoicesPage() {
   });
 
   const getTemplateContent = (type: string) => {
-    const t = dbTemplates?.find((x: any) => x.templateType.toUpperCase() === type.toUpperCase());
+    const t = dbTemplates?.find(
+      (x: any) => x.templateType.toUpperCase() === type.toUpperCase(),
+    );
     return t?.htmlContent || "";
   };
 
   const [searchTerm, setSearchTerm] = useState("");
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("Any");
-  const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
+  const [selectedBookingId, setSelectedBookingId] = useState<string | null>(
+    null,
+  );
   const [activeDropdownId, setActiveDropdownId] = useState<string | null>(null);
-  
+
   const [isPrintTicketModalOpen, setIsPrintTicketModalOpen] = useState(false);
-  const [printTicketSelectedFlight, setPrintTicketSelectedFlight] = useState<any | null>(null);
-  const [printTicketSelectedBooking, setPrintTicketSelectedBooking] = useState<any | null>(null);
-  const [printTicketSelectedPassenger, setPrintTicketSelectedPassenger] = useState<string>("all");
+  const [printTicketSelectedFlight, setPrintTicketSelectedFlight] = useState<
+    any | null
+  >(null);
+  const [printTicketSelectedBooking, setPrintTicketSelectedBooking] = useState<
+    any | null
+  >(null);
+  const [printTicketSelectedPassenger, setPrintTicketSelectedPassenger] =
+    useState<string>("all");
 
   // Fetch all bookings (invoices)
   const { data: bookingsResult, isLoading } = useQuery({
@@ -82,10 +91,12 @@ export default function InvoicesPage() {
     const refMatch = booking.bookingReference
       ?.toLowerCase()
       .includes(searchTerm.toLowerCase());
-    
+
     // Check passengers
-    const leadPassenger = booking.passengers?.find((p: any) => p.role === "Leader") || booking.passengers?.[0];
-    const clientName = leadPassenger 
+    const leadPassenger =
+      booking.passengers?.find((p: any) => p.role === "Leader") ||
+      booking.passengers?.[0];
+    const clientName = leadPassenger
       ? `${leadPassenger.firstName} ${leadPassenger.lastName}`.toLowerCase()
       : "";
     const nameMatch = clientName.includes(searchTerm.toLowerCase());
@@ -121,7 +132,8 @@ export default function InvoicesPage() {
             Invoicing & Vouchers Center
           </h1>
           <p className="text-muted-foreground text-xs mt-1">
-            Track consolidated customer billing, manage booking invoices, and edit/print travel vouchers.
+            Track consolidated customer billing, manage booking invoices, and
+            edit/print travel vouchers.
           </p>
         </div>
       </div>
@@ -162,7 +174,9 @@ export default function InvoicesPage() {
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20 space-y-3">
             <Loader2 className="animate-spin text-primary h-8 w-8" />
-            <p className="text-muted-foreground font-medium">Loading invoices list...</p>
+            <p className="text-muted-foreground font-medium">
+              Loading invoices list...
+            </p>
           </div>
         ) : filteredBookings.length === 0 ? (
           <div className="text-center py-20 text-muted-foreground italic">
@@ -185,12 +199,14 @@ export default function InvoicesPage() {
               </thead>
               <tbody className="divide-y divide-border/60">
                 {filteredBookings.map((booking: any) => {
-                  const leadPassenger = booking.passengers?.find((p: any) => p.role === "Leader") || booking.passengers?.[0];
-                  const clientName = leadPassenger 
+                  const leadPassenger =
+                    booking.passengers?.find((p: any) => p.role === "Leader") ||
+                    booking.passengers?.[0];
+                  const clientName = leadPassenger
                     ? `${leadPassenger.title || ""} ${leadPassenger.firstName} ${leadPassenger.lastName}`
                     : "No passengers";
                   const clientEmail = leadPassenger?.email || "—";
-                  
+
                   const totalPrice = booking.totalPrice || 0;
                   const paidAmount = booking.paidAmount || 0;
                   const balanceDue = totalPrice - paidAmount;
@@ -216,22 +232,34 @@ export default function InvoicesPage() {
                   }
 
                   return (
-                    <tr key={booking.id} className="hover:bg-secondary/5 transition-colors text-[11.5px]">
+                    <tr
+                      key={booking.id}
+                      className="hover:bg-secondary/5 transition-colors text-[11.5px]"
+                    >
                       <td className="px-5 py-3.5 font-bold text-foreground">
                         {booking.bookingReference}
                       </td>
                       <td className="px-5 py-3.5">
                         <div className="flex flex-col">
-                          <span className="font-semibold text-foreground">{clientName}</span>
-                          <span className="text-[10px] text-muted-foreground">{clientEmail}</span>
+                          <span className="font-semibold text-foreground">
+                            {clientName}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {clientEmail}
+                          </span>
                         </div>
                       </td>
                       <td className="px-5 py-3.5 text-muted-foreground">
-                        {booking.departureDate ? new Date(booking.departureDate).toLocaleDateString("en-GB", {
-                          day: "2-digit",
-                          month: "short",
-                          year: "numeric"
-                        }) : "—"}
+                        {booking.departureDate
+                          ? new Date(booking.departureDate).toLocaleDateString(
+                              "en-GB",
+                              {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                              },
+                            )
+                          : "—"}
                       </td>
                       <td className="px-5 py-3.5 text-right font-bold text-foreground">
                         {formatCurrency(totalPrice)}
@@ -242,24 +270,30 @@ export default function InvoicesPage() {
                       <td className="px-5 py-3.5 text-right text-rose-600 dark:text-rose-400 font-semibold">
                         {formatCurrency(balanceDue)}
                       </td>
-                      <td className="px-5 py-3.5 text-center">
-                        {statusBadge}
-                      </td>
+                      <td className="px-5 py-3.5 text-center">{statusBadge}</td>
                       <td className="px-5 py-3.5 text-right relative">
                         <div className="flex items-center justify-end gap-2">
                           {/* Edit Booking & Vouchers */}
-                          <button
+                          {/* <button
                             onClick={() => setSelectedBookingId(booking.id)}
                             className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-secondary hover:bg-primary/10 text-foreground hover:text-primary rounded-lg border border-border font-bold text-[11px] transition-all"
                             title="Edit invoice, flight tickets, hotel vouchers, transfers, visas, and special services"
                           >
                             <Edit3 size={11} />
                             <span>Edit Voucher</span>
-                          </button>
+                          </button> */}
 
                           {/* Print Invoice */}
                           <button
-                            onClick={() => printDocument(renderBookingInvoice(getTemplateContent("BOOKING_INVOICE"), booking), `Booking_Invoice_${booking.bookingReference}`)}
+                            onClick={() =>
+                              printDocument(
+                                renderBookingInvoice(
+                                  getTemplateContent("BOOKING_INVOICE"),
+                                  booking,
+                                ),
+                                `Booking_Invoice_${booking.bookingReference}`,
+                              )
+                            }
                             className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-primary text-primary-foreground font-bold rounded-lg hover:bg-primary/90 text-[11px] transition-all"
                             title="Print master booking invoice"
                           >
@@ -290,18 +324,25 @@ export default function InvoicesPage() {
                                       <button
                                         key={fs.id}
                                         onClick={() => {
-                                          setPrintTicketSelectedBooking(booking);
+                                          setPrintTicketSelectedBooking(
+                                            booking,
+                                          );
                                           setPrintTicketSelectedFlight(fs);
-                                          setPrintTicketSelectedPassenger("all");
+                                          setPrintTicketSelectedPassenger(
+                                            "all",
+                                          );
                                           setIsPrintTicketModalOpen(true);
                                         }}
                                         className="w-full text-left px-2 py-1 hover:bg-secondary rounded text-[11px] truncate"
                                       >
-                                        Print {fs.flightNo} (PNR: {fs.pnr || "—"})
+                                        Print {fs.flightNo} (PNR:{" "}
+                                        {fs.pnr || "—"})
                                       </button>
                                     ))
                                   ) : (
-                                    <div className="text-[10px] text-muted-foreground italic px-2 py-0.5">No flights</div>
+                                    <div className="text-[10px] text-muted-foreground italic px-2 py-0.5">
+                                      No flights
+                                    </div>
                                   )}
                                 </div>
 
@@ -315,17 +356,30 @@ export default function InvoicesPage() {
                                     booking.accommodations.map((acc: any) => (
                                       <button
                                         key={acc.id}
-                                        onClick={() => printDocument(renderHotelVoucher(getTemplateContent("HOTEL_VOUCHER"), booking, acc), `Hotel_Voucher_${acc.id.substring(0,4)}`)}
+                                        onClick={() =>
+                                          printDocument(
+                                            renderHotelVoucher(
+                                              getTemplateContent(
+                                                "HOTEL_VOUCHER",
+                                              ),
+                                              booking,
+                                              acc,
+                                            ),
+                                            `Hotel_Voucher_${acc.id.substring(0, 4)}`,
+                                          )
+                                        }
                                         className="w-full text-left px-2 py-1 hover:bg-secondary rounded text-[11px] truncate"
                                       >
                                         Print {acc.hotelName}
                                       </button>
                                     ))
                                   ) : (
-                                    <div className="text-[10px] text-muted-foreground italic px-2 py-0.5">No hotels</div>
+                                    <div className="text-[10px] text-muted-foreground italic px-2 py-0.5">
+                                      No hotels
+                                    </div>
                                   )}
                                 </div>
- 
+
                                 {/* Visa Invoices */}
                                 <div className="py-1 px-2">
                                   <div className="text-[9px] uppercase font-bold text-muted-foreground px-2 py-1 flex items-center gap-1">
@@ -336,17 +390,31 @@ export default function InvoicesPage() {
                                     booking.visaServices.map((vs: any) => (
                                       <button
                                         key={vs.id}
-                                        onClick={() => printDocument(renderVisaInvoice(getTemplateContent("VISA_INVOICE"), booking, vs), `Visa_Invoice_${vs.passportNumber}`)}
+                                        onClick={() =>
+                                          printDocument(
+                                            renderVisaInvoice(
+                                              getTemplateContent(
+                                                "VISA_INVOICE",
+                                              ),
+                                              booking,
+                                              vs,
+                                            ),
+                                            `Visa_Invoice_${vs.passportNumber}`,
+                                          )
+                                        }
                                         className="w-full text-left px-2 py-1 hover:bg-secondary rounded text-[11px] truncate"
                                       >
-                                        Print {vs.visaType} ({vs.passportNumber})
+                                        Print {vs.visaType} ({vs.passportNumber}
+                                        )
                                       </button>
                                     ))
                                   ) : (
-                                    <div className="text-[10px] text-muted-foreground italic px-2 py-0.5">No visas</div>
+                                    <div className="text-[10px] text-muted-foreground italic px-2 py-0.5">
+                                      No visas
+                                    </div>
                                   )}
                                 </div>
- 
+
                                 {/* Transport vouchers */}
                                 <div className="py-1 px-2">
                                   <div className="text-[9px] uppercase font-bold text-muted-foreground px-2 py-1 flex items-center gap-1">
@@ -357,17 +425,30 @@ export default function InvoicesPage() {
                                     booking.transportServices.map((ts: any) => (
                                       <button
                                         key={ts.id}
-                                        onClick={() => printDocument(renderTransportVoucher(getTemplateContent("TRANSPORT_VOUCHER"), booking, ts), `Transfer_Voucher_${ts.id.substring(0,4)}`)}
+                                        onClick={() =>
+                                          printDocument(
+                                            renderTransportVoucher(
+                                              getTemplateContent(
+                                                "TRANSPORT_VOUCHER",
+                                              ),
+                                              booking,
+                                              ts,
+                                            ),
+                                            `Transfer_Voucher_${ts.id.substring(0, 4)}`,
+                                          )
+                                        }
                                         className="w-full text-left px-2 py-1 hover:bg-secondary rounded text-[11px] truncate"
                                       >
                                         Print {ts.vehicleType} Transfer
                                       </button>
                                     ))
                                   ) : (
-                                    <div className="text-[10px] text-muted-foreground italic px-2 py-0.5">No transfers</div>
+                                    <div className="text-[10px] text-muted-foreground italic px-2 py-0.5">
+                                      No transfers
+                                    </div>
                                   )}
                                 </div>
- 
+
                                 {/* Special Services */}
                                 <div className="py-1 px-2">
                                   <div className="text-[9px] uppercase font-bold text-muted-foreground px-2 py-1 flex items-center gap-1">
@@ -375,17 +456,32 @@ export default function InvoicesPage() {
                                     <span>Special Services</span>
                                   </div>
                                   {booking.additionalServices?.length > 0 ? (
-                                    booking.additionalServices.map((as: any) => (
-                                      <button
-                                        key={as.id}
-                                        onClick={() => printDocument(renderSpecialServicesInvoice(getTemplateContent("SPECIAL_SERVICES"), booking, as), `Special_Service_${as.id.substring(0,4)}`)}
-                                        className="w-full text-left px-2 py-1 hover:bg-secondary rounded text-[11px] truncate"
-                                      >
-                                        Print {as.serviceName}
-                                      </button>
-                                    ))
+                                    booking.additionalServices.map(
+                                      (as: any) => (
+                                        <button
+                                          key={as.id}
+                                          onClick={() =>
+                                            printDocument(
+                                              renderSpecialServicesInvoice(
+                                                getTemplateContent(
+                                                  "SPECIAL_SERVICES",
+                                                ),
+                                                booking,
+                                                as,
+                                              ),
+                                              `Special_Service_${as.id.substring(0, 4)}`,
+                                            )
+                                          }
+                                          className="w-full text-left px-2 py-1 hover:bg-secondary rounded text-[11px] truncate"
+                                        >
+                                          Print {as.serviceName}
+                                        </button>
+                                      ),
+                                    )
                                   ) : (
-                                    <div className="text-[10px] text-muted-foreground italic px-2 py-0.5">No special services</div>
+                                    <div className="text-[10px] text-muted-foreground italic px-2 py-0.5">
+                                      No special services
+                                    </div>
                                   )}
                                 </div>
                               </div>
@@ -421,7 +517,8 @@ export default function InvoicesPage() {
       >
         <div className="p-4 flex flex-col gap-4 text-left font-sans">
           <p className="text-xs text-muted-foreground">
-            Choose whether to print a consolidated ticket for all passengers or select an individual passenger.
+            Choose whether to print a consolidated ticket for all passengers or
+            select an individual passenger.
           </p>
 
           <div className="flex flex-col gap-1.5">
@@ -433,10 +530,13 @@ export default function InvoicesPage() {
               onChange={(e) => setPrintTicketSelectedPassenger(e.target.value)}
               className="text-xs py-2 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary w-full"
             >
-              <option value="all">Full Family / All Passengers (One page per passenger)</option>
+              <option value="all">
+                Full Family / All Passengers (One page per passenger)
+              </option>
               {printTicketSelectedBooking?.passengers?.map((p: any) => (
                 <option key={p.id} value={p.id}>
-                  {p.title || ""} {p.firstName} {p.lastName} ({p.role || "Passenger"})
+                  {p.title || ""} {p.firstName} {p.lastName} (
+                  {p.role || "Passenger"})
                 </option>
               ))}
             </select>
@@ -455,8 +555,15 @@ export default function InvoicesPage() {
               onClick={() => {
                 if (printTicketSelectedBooking && printTicketSelectedFlight) {
                   printDocument(
-                    renderFlightTicket(getTemplateContent("FLIGHT_TICKET"), printTicketSelectedBooking, printTicketSelectedFlight, printTicketSelectedPassenger === "all" ? null : printTicketSelectedPassenger),
-                    `E-Ticket_${printTicketSelectedFlight.flightNo}`
+                    renderFlightTicket(
+                      getTemplateContent("FLIGHT_TICKET"),
+                      printTicketSelectedBooking,
+                      printTicketSelectedFlight,
+                      printTicketSelectedPassenger === "all"
+                        ? null
+                        : printTicketSelectedPassenger,
+                    ),
+                    `E-Ticket_${printTicketSelectedFlight.flightNo}`,
                   );
                 }
                 setIsPrintTicketModalOpen(false);

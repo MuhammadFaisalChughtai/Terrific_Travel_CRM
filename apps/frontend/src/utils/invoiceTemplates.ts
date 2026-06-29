@@ -770,15 +770,11 @@ export function generateBookingInvoiceHtml(booking: any) {
             IATA: 91263712  
           </p>
         </div>
-        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+        <div style="display: flex; align-items: center; height: 60px;">
           <div class="logos-block">
             ${BRAND_LOGOS.iataLogo}
             ${BRAND_LOGOS.atolLogo}
           </div>
-          <svg width="50" height="50" viewBox="0 0 29 29" fill="none" xmlns="http://www.w3.org/2000/svg" style="border: 1px solid #E2E8F0; padding: 4px; border-radius: 4px; background: white; margin-top: 4px;">
-            <path d="M0 0h7v7H0V0zm1 1v5h5V1H1zm8 0h1v1H9V1zm1 1h1v1h-1V2zm-1 1h1v1H9V3zm3-3h7v7h-7V0zm1 1v5h5V1h-5zm-5 7h1v1H9V8zm1 1h1v1h-1V9zm-1 1h1v1H9v-1zm4-2h1v1h-1V8zm1 1h1v1h-1V9zm-1 1h1v1h-1v-1zm4-2h1v1h-1V8zm1 1h1v1h-1V9zm-1 1h1v1h-1v-1zm-9 3h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1z" fill="#0F172A"/>
-            <path d="M0 9h7v7H0V9zm1 1v5h5v-5H1zm8 0h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm3-3h7v7h-7V9zm1 1v5h5v-5h-5zm-5 7h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm-9 3h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1z" fill="#0F172A"/>
-          </svg>
         </div>
       </div>
 
@@ -1110,7 +1106,7 @@ function generateIndividualTicketHtml(
             IATA: 91263712  
           </p>
         </div>
-        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+        <div style="display: flex; align-items: center; height: 60px;">
           <div class="logos-block">
             ${BRAND_LOGOS.iataLogo}
             ${BRAND_LOGOS.atolLogo}
@@ -1343,15 +1339,11 @@ export function generateHotelVoucherHtml(booking: any, hotel: any) {
             IATA: 91263712  
           </p>
         </div>
-        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+        <div style="display: flex; align-items: center; height: 60px;">
           <div class="logos-block">
             ${BRAND_LOGOS.iataLogo}
             ${BRAND_LOGOS.atolLogo}
           </div>
-          <svg width="50" height="50" viewBox="0 0 29 29" fill="none" xmlns="http://www.w3.org/2000/svg" style="border: 1px solid #E2E8F0; padding: 4px; border-radius: 4px; background: white; margin-top: 4px;">
-            <path d="M0 0h7v7H0V0zm1 1v5h5V1H1zm8 0h1v1H9V1zm1 1h1v1h-1V2zm-1 1h1v1H9V3zm3-3h7v7h-7V0zm1 1v5h5V1h-5zm-5 7h1v1H9V8zm1 1h1v1h-1V9zm-1 1h1v1H9v-1zm4-2h1v1h-1V8zm1 1h1v1h-1V9zm-1 1h1v1h-1v-1zm4-2h1v1h-1V8zm1 1h1v1h-1V9zm-1 1h1v1h-1v-1zm-9 3h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1z" fill="#0F172A"/>
-            <path d="M0 9h7v7H0V9zm1 1v5h5v-5H1zm8 0h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm3-3h7v7h-7V9zm1 1v5h5v-5h-5zm-5 7h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm-9 3h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1z" fill="#0F172A"/>
-          </svg>
         </div>
       </div>
 
@@ -1365,7 +1357,7 @@ export function generateHotelVoucherHtml(booking: any, hotel: any) {
           <p>Issue Date: <strong>${hotel.issueDate ? formatDate(hotel.issueDate) : formatDate(new Date())}</strong></p>
           <p>Booking Reference: <strong>${booking.bookingReference}</strong></p>
           <p>Hotel Confirmation #: <strong style="font-size: 12px; color: #10B981;">${hotel.hotelConfirmationNumber || "CONFIRMED"}</strong></p>
-          <p>GDS Reservation Code: <strong>${hotel.reservationNumber || "—"}</strong></p>
+          <p>Reservation Code: <strong>${hotel.reservationNumber || "—"}</strong></p>
         </div>
       </div>
 
@@ -1461,7 +1453,7 @@ export function generateHotelVoucherHtml(booking: any, hotel: any) {
       </div>
 
       <div class="doc-footer">
-        <p>Terrific Travel & Tours Ltd | Accommodation confirmation program registration under CAA regulations</p>
+        <p>Terrific Travel Ltd | Accommodation confirmation program registration under CAA regulations</p>
         <p>We wish you an enjoyable and comfortable stay!</p>
       </div>
     </div>
@@ -1504,15 +1496,11 @@ export function generateVisaInvoiceHtml(booking: any, visa: any) {
             IATA: 91263712  
           </p>
         </div>
-        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+        <div style="display: flex; align-items: center; height: 60px;">
           <div class="logos-block">
             ${BRAND_LOGOS.iataLogo}
             ${BRAND_LOGOS.atolLogo}
           </div>
-          <svg width="50" height="50" viewBox="0 0 29 29" fill="none" xmlns="http://www.w3.org/2000/svg" style="border: 1px solid #E2E8F0; padding: 4px; border-radius: 4px; background: white; margin-top: 4px;">
-            <path d="M0 0h7v7H0V0zm1 1v5h5V1H1zm8 0h1v1H9V1zm1 1h1v1h-1V2zm-1 1h1v1H9V3zm3-3h7v7h-7V0zm1 1v5h5V1h-5zm-5 7h1v1H9V8zm1 1h1v1h-1V9zm-1 1h1v1H9v-1zm4-2h1v1h-1V8zm1 1h1v1h-1V9zm-1 1h1v1h-1v-1zm4-2h1v1h-1V8zm1 1h1v1h-1V9zm-1 1h1v1h-1v-1zm-9 3h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1z" fill="#0F172A"/>
-            <path d="M0 9h7v7H0V9zm1 1v5h5v-5H1zm8 0h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm3-3h7v7h-7V9zm1 1v5h5v-5h-5zm-5 7h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm-9 3h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1z" fill="#0F172A"/>
-          </svg>
         </div>
       </div>
 
@@ -1590,7 +1578,7 @@ export function generateVisaInvoiceHtml(booking: any, visa: any) {
       </div>
 
       <div class="doc-footer">
-        <p>Terrific Travel & Tours Ltd | Registered Consular and Travel Visa Processing Partner</p>
+        <p>Terrific Travel Ltd | Registered Consular and Travel Visa Processing Partner</p>
         <p>We wish you a safe and hassle-free transit!</p>
       </div>
     </div>
@@ -1650,7 +1638,7 @@ export function generateTransportVoucherHtml(booking: any, transport: any) {
             Email: office@terrifictravel.co.uk
           </p>
         </div>
-        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+        <div style="display: flex; align-items: center; height: 60px;">
           <div class="logos-block">
             ${BRAND_LOGOS.iataLogo}
             ${BRAND_LOGOS.atolLogo}
@@ -1819,15 +1807,11 @@ export function generateSpecialServiceInvoiceHtml(booking: any, service: any) {
             IATA: 91263712  
           </p>
         </div>
-        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+        <div style="display: flex; align-items: center; height: 60px;">
           <div class="logos-block">
             ${BRAND_LOGOS.iataLogo}
             ${BRAND_LOGOS.atolLogo}
           </div>
-          <svg width="50" height="50" viewBox="0 0 29 29" fill="none" xmlns="http://www.w3.org/2000/svg" style="border: 1px solid #E2E8F0; padding: 4px; border-radius: 4px; background: white; margin-top: 4px;">
-            <path d="M0 0h7v7H0V0zm1 1v5h5V1H1zm8 0h1v1H9V1zm1 1h1v1h-1V2zm-1 1h1v1H9V3zm3-3h7v7h-7V0zm1 1v5h5V1h-5zm-5 7h1v1H9V8zm1 1h1v1h-1V9zm-1 1h1v1H9v-1zm4-2h1v1h-1V8zm1 1h1v1h-1V9zm-1 1h1v1h-1v-1zm4-2h1v1h-1V8zm1 1h1v1h-1V9zm-1 1h1v1h-1v-1zm-9 3h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1z" fill="#0F172A"/>
-            <path d="M0 9h7v7H0V9zm1 1v5h5v-5H1zm8 0h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm3-3h7v7h-7V9zm1 1v5h5v-5h-5zm-5 7h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm-9 3h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1z" fill="#0F172A"/>
-          </svg>
         </div>
       </div>
 
@@ -1899,7 +1883,7 @@ export function generateSpecialServiceInvoiceHtml(booking: any, service: any) {
       </div>
 
       <div class="doc-footer">
-        <p>Terrific Travel & Tours Ltd | Custom Travel Programs and Bespoke Luxury Services</p>
+        <p>Terrific Travel Ltd | Custom Travel Programs and Bespoke Luxury Services</p>
         <p>We are delighted to be part of your travel arrangements!</p>
       </div>
     </div>
