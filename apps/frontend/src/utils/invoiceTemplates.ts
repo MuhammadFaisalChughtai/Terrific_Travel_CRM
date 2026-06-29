@@ -600,7 +600,7 @@ function generateTimelineHtml(booking: any): string {
         icon: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/><path d="M5 21h14"/><path d="M9 13h6"/></svg>`,
         badgeClass: "transfer",
         details: `
-          <div class="timeline-detail-item">Vehicle: <strong>${t.vehicleType}</strong> | Pickup Time: <strong>${t.departureTime || "—"}</strong></div>
+          <div class="timeline-detail-item">Vehicle: <strong>${t.vehicleType}</strong> | Pickup Time: <strong>${t.departureTime || t.arrivalTime || "—"}</strong></div>
           <div class="timeline-detail-item">Flight Ref: <strong>${t.flightNo || "—"}</strong></div>
         `,
         notes: t.notes,
@@ -765,9 +765,9 @@ export function generateBookingInvoiceHtml(booking: any) {
           <p style="margin-top: 8px; margin-bottom: 0; font-size: 9px; color: #64748B; line-height: 1.4;">
             <strong>Terrific Travel &amp; Tours Ltd</strong><br>
             Address: Office 1, 11 Walford Road, Birmingham, B11 1NP, UK<br>
-            Phone: 0121 529 1630 | Emergency: +44 77 0090 0077<br>
+            Phone: 0121 529 1630 | Emergency: +44 7888 461474<br>
             Email: office@terrifictravel.co.uk | Web: www.terrifictravel.co.uk<br>
-            ATOL: 11492 | IATA: 91263712 | Reg No: 09384812
+            IATA: 91263712  
           </p>
         </div>
         <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
@@ -1105,9 +1105,9 @@ function generateIndividualTicketHtml(
           <p style="margin-top: 8px; margin-bottom: 0; font-size: 9px; color: #64748B; line-height: 1.4;">
             <strong>Terrific Travel &amp; Tours Ltd</strong><br>
             Address: Office 1, 11 Walford Road, Birmingham, B11 1NP, UK<br>
-            Phone: 0121 529 1630 | Emergency: +44 77 0090 0077<br>
+            Phone: 0121 529 1630 | Emergency: +44 7888 461474<br>
             Email: office@terrifictravel.co.uk | Web: www.terrifictravel.co.uk<br>
-            ATOL: 11492 | IATA: 91263712 | Reg No: 09384812
+            IATA: 91263712  
           </p>
         </div>
         <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
@@ -1239,10 +1239,6 @@ function generateIndividualTicketHtml(
                 <h5>Cabin Class</h5>
                 <p>${f.flightClass || "Economy"}</p>
               </div>
-              <div class="meta-item">
-                <h5>Fare Basis</h5>
-                <p>OLGBN1RE</p>
-              </div>
             </div>
           </div>
 
@@ -1342,9 +1338,9 @@ export function generateHotelVoucherHtml(booking: any, hotel: any) {
           <p style="margin-top: 8px; margin-bottom: 0; font-size: 9px; color: #64748B; line-height: 1.4;">
             <strong>Terrific Travel &amp; Tours Ltd</strong><br>
             Address: Office 1, 11 Walford Road, Birmingham, B11 1NP, UK<br>
-            Phone: 0121 529 1630 | Emergency: +44 77 0090 0077<br>
+            Phone: 0121 529 1630 | Emergency: +44 7888 461474<br>
             Email: office@terrifictravel.co.uk | Web: www.terrifictravel.co.uk<br>
-            ATOL: 11492 | IATA: 91263712 | Reg No: 09384812
+            IATA: 91263712  
           </p>
         </div>
         <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
@@ -1503,9 +1499,9 @@ export function generateVisaInvoiceHtml(booking: any, visa: any) {
           <p style="margin-top: 8px; margin-bottom: 0; font-size: 9px; color: #64748B; line-height: 1.4;">
             <strong>Terrific Travel &amp; Tours Ltd</strong><br>
             Address: Office 1, 11 Walford Road, Birmingham, B11 1NP, UK<br>
-            Phone: 0121 529 1630 | Emergency: +44 77 0090 0077<br>
+            Phone: 0121 529 1630 | Emergency: +44 7888 461474<br>
             Email: office@terrifictravel.co.uk | Web: www.terrifictravel.co.uk<br>
-            ATOL: 11492 | IATA: 91263712 | Reg No: 09384812
+            IATA: 91263712  
           </p>
         </div>
         <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
@@ -1616,10 +1612,6 @@ export function generateTransportVoucherHtml(booking: any, transport: any) {
       ? `TRN-ALL-${booking.id.substring(0, 6).toUpperCase()}`
       : `TRN-${transport.id.substring(0, 8).toUpperCase()}`;
 
-  const totalCost = transfers.reduce(
-    (sum: number, t: any) => sum + (t.price || 0),
-    0,
-  );
   const issueDate =
     transport === "all" || !transport
       ? formatDate(new Date())
@@ -1627,17 +1619,35 @@ export function generateTransportVoucherHtml(booking: any, transport: any) {
         ? formatDate(transport.issueDate)
         : formatDate(new Date());
 
+  // Lead guest name
+  const guestName = leader
+    ? `${leader.title || ""} ${leader.firstName} ${leader.lastName}`.trim()
+    : "Valued Passenger";
+
+  // Passenger count
+  const paxCount = booking.passengers?.length || 1;
+
+  // Primary vehicle type from first transfer
+  const primaryVehicle = transfers[0]?.vehicleType || "—";
+
+  // Vendor / agent ref
+  const vendorRef = transfers[0]?.vendor?.name || "Terrific Travel Partner";
+
+  // Agent name used as REF field (matching screenshot "Basma Travels" pattern)
+  const agentRef =
+    booking.agent?.name || booking.agentName || "Terrific Travel";
+
   return `
     <div class="document-container">
+      <!-- Header -->
       <div class="doc-header" style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #E2E8F0; padding-bottom: 16px; margin-bottom: 24px;">
         <div class="brand-block">
           ${BRAND_LOGOS.companyLogo}
-          <p style="margin-top: 8px; margin-bottom: 0; font-size: 9px; color: #64748B; line-height: 1.4;">
+          <p style="margin-top: 8px; margin-bottom: 0; font-size: 9px; color: #64748B; line-height: 1.6;">
             <strong>Terrific Travel &amp; Tours Ltd</strong><br>
-            Address: Office 1, 11 Walford Road, Birmingham, B11 1NP, UK<br>
-            Phone: 0121 529 1630 | Emergency: +44 77 0090 0077<br>
-            Email: office@terrifictravel.co.uk | Web: www.terrifictravel.co.uk<br>
-            ATOL: 11492 | IATA: 91263712 | Reg No: 09384812
+            www.terrifictravel.co.uk<br>
+            Phone: 0121 529 1630<br>
+            Email: office@terrifictravel.co.uk
           </p>
         </div>
         <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
@@ -1645,17 +1655,13 @@ export function generateTransportVoucherHtml(booking: any, transport: any) {
             ${BRAND_LOGOS.iataLogo}
             ${BRAND_LOGOS.atolLogo}
           </div>
-          <svg width="50" height="50" viewBox="0 0 29 29" fill="none" xmlns="http://www.w3.org/2000/svg" style="border: 1px solid #E2E8F0; padding: 4px; border-radius: 4px; background: white; margin-top: 4px;">
-            <path d="M0 0h7v7H0V0zm1 1v5h5V1H1zm8 0h1v1H9V1zm1 1h1v1h-1V2zm-1 1h1v1H9V3zm3-3h7v7h-7V0zm1 1v5h5V1h-5zm-5 7h1v1H9V8zm1 1h1v1h-1V9zm-1 1h1v1H9v-1zm4-2h1v1h-1V8zm1 1h1v1h-1V9zm-1 1h1v1h-1v-1zm4-2h1v1h-1V8zm1 1h1v1h-1V9zm-1 1h1v1h-1v-1zm-9 3h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1z" fill="#0F172A"/>
-            <path d="M0 9h7v7H0V9zm1 1v5h5v-5H1zm8 0h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm3-3h7v7h-7V9zm1 1v5h5v-5h-5zm-5 7h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm-9 3h1v1H9v-1zm1 1h1v1h-1v-1zm-1 1h1v1H9v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1zm4-2h1v1h-1v-1zm1 1h1v1h-1v-1zm-1 1h1v1h-1v-1z" fill="#0F172A"/>
-          </svg>
         </div>
       </div>
 
+      <!-- Title -->
       <div class="doc-title-section">
         <div>
           <h1 class="doc-title">Transfer Voucher</h1>
-          <span class="section-badge" style="background: #FEF3C7; color: #D97706;">Service: Scheduled</span>
         </div>
         <div class="doc-meta">
           <p>Voucher No: <strong>${voucherNo}</strong></p>
@@ -1664,35 +1670,55 @@ export function generateTransportVoucherHtml(booking: any, transport: any) {
         </div>
       </div>
 
-      <div class="info-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px;">
-        <div class="info-box">
-          <h3>Lead Passenger / Guest</h3>
-          <p><strong>${leader ? `${leader.title || ""} ${leader.firstName} ${leader.lastName}` : "Valued Passenger"}</strong></p>
-          ${leader && leader.email ? `<p>Email: ${leader.email}</p>` : ""}
-          ${leader && leader.phoneNumber ? `<p>Phone: ${leader.phoneNumber}</p>` : ""}
+      <!-- Booking Information section (mirrors screenshot layout) -->
+      <h3 style="font-family: 'Outfit', sans-serif; font-size: 12px; font-weight: 900; color: #0F172A; margin-bottom: 12px;">Booking Information</h3>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0; border: 1px solid #E2E8F0; border-radius: 8px; overflow: hidden; margin-bottom: 24px; font-size: 10px;">
+        <div style="display: flex; flex-direction: column; border-right: 1px solid #E2E8F0;">
+          <div style="display: flex; border-bottom: 1px solid #E2E8F0; padding: 8px 12px; gap: 8px;">
+            <span style="font-weight: 700; color: #334155; min-width: 110px;">Booking Date:</span>
+            <span style="color: #0F172A;">${issueDate}</span>
+          </div>
+          <div style="display: flex; border-bottom: 1px solid #E2E8F0; padding: 8px 12px; gap: 8px;">
+            <span style="font-weight: 700; color: #334155; min-width: 110px;">Booking No:</span>
+            <span style="color: #0F172A;">${booking.bookingReference}</span>
+          </div>
+          <div style="display: flex; padding: 8px 12px; gap: 8px;">
+            <span style="font-weight: 700; color: #334155; min-width: 110px;">REF:</span>
+            <span style="color: #0F172A;">${agentRef}</span>
+          </div>
         </div>
-        <div class="info-box">
-          <h3>Booking Summary</h3>
-          <p>Total Scheduled Transfers: <strong>${transfers.length} Leg(s)</strong></p>
-          <p>Ground Status: <strong>Confirmed &amp; Secured</strong></p>
-        </div>
-        <div class="info-box">
-          <h3>Fulfillment Vendor Details</h3>
-          <p><strong>Vendor Name:</strong> ${transfers[0]?.vendor?.name || "Terrific Travel Ground Partner"}</p>
-          <p><strong>Phone:</strong> ${transfers[0]?.vendor?.phoneNumber || "—"}</p>
-          ${transfers[0]?.vendor?.supportEmail ? `<p><strong>Email:</strong> ${transfers[0].vendor.supportEmail}</p>` : ""}
+        <div style="display: flex; flex-direction: column;">
+          <div style="display: flex; border-bottom: 1px solid #E2E8F0; padding: 8px 12px; gap: 8px;">
+            <span style="font-weight: 700; color: #334155; min-width: 110px;">PAX MOBILE</span>
+            <span style="color: #0F172A;">${leader?.phoneNumber || "—"}</span>
+          </div>
+          <div style="display: flex; border-bottom: 1px solid #E2E8F0; padding: 8px 12px; gap: 8px;">
+            <span style="font-weight: 700; color: #334155; min-width: 110px;">GUEST NAME</span>
+            <span style="color: #0F172A;">${guestName.toUpperCase()}</span>
+          </div>
+          <div style="display: flex; border-bottom: 1px solid #E2E8F0; padding: 8px 12px; gap: 8px;">
+            <span style="font-weight: 700; color: #334155; min-width: 110px;">NO OF PAX</span>
+            <span style="color: #0F172A;">${paxCount}</span>
+          </div>
+          <div style="display: flex; padding: 8px 12px; gap: 8px;">
+            <span style="font-weight: 700; color: #334155; min-width: 110px;">VEHICLE</span>
+            <span style="color: #0F172A;">${primaryVehicle.toUpperCase()}</span>
+          </div>
         </div>
       </div>
 
-      <h3 style="font-family: 'Outfit', sans-serif; text-transform: uppercase; font-size: 11px; color: #0F172A; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px; margin-bottom: 12px;">Route & Service Details</h3>
+      <!-- Transport schedule table (NO pricing) -->
+      <h3 style="font-family: 'Outfit', sans-serif; text-transform: uppercase; font-size: 11px; color: #0F172A; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px; margin-bottom: 12px;">Transport Details &amp; Schedule</h3>
       <table class="data-table" style="margin-bottom: 24px;">
         <thead>
           <tr>
-            <th>Date & Time</th>
-            <th>Pick-up Location</th>
-            <th>Drop-off Destination</th>
-            <th>Vehicle & Transfer Details</th>
-            <th class="text-right">Price</th>
+            <th>Date</th>
+            <th>Time</th>
+            <th>Flight No</th>
+            <th>Pick-Up</th>
+            <th>Drop-Off</th>
+            <th>No. of Guests</th>
+            <th>Vehicle</th>
           </tr>
         </thead>
         <tbody>
@@ -1700,17 +1726,13 @@ export function generateTransportVoucherHtml(booking: any, transport: any) {
             .map(
               (t: any) => `
             <tr>
-              <td>
-                <strong>${formatDate(t.date)}</strong><br/>
-                <span style="font-size: 9px; color: #64748B;">Time: ${t.departureTime || "—"}</span>
-              </td>
+              <td><strong>${formatDate(t.date)}</strong></td>
+              <td>${t.departureTime || t.arrivalTime || "—"}</td>
+              <td>${t.flightNo || "—"}</td>
               <td><strong>${t.departureDestination}</strong></td>
               <td><strong>${t.arrivalDestination}</strong></td>
-              <td>
-                <span style="font-weight: 700; color: #0F172A;">${t.vehicleType}</span>
-                ${t.flightNo ? `<br/><span style="font-size: 9px; color: #0284C7; font-weight: bold;">Flight: ${t.flightNo}</span>` : ""}
-              </td>
-              <td class="text-right"><strong>${formatCurrency(t.price)}</strong></td>
+              <td>${paxCount}</td>
+              <td>${t.vehicleType || "—"}</td>
             </tr>
           `,
             )
@@ -1718,25 +1740,47 @@ export function generateTransportVoucherHtml(booking: any, transport: any) {
         </tbody>
       </table>
 
-      <div class="financial-panel">
-        <table class="financial-table">
-          <tr class="total-row">
-            <td><strong>Total Ground Cost:</strong></td>
-            <td class="text-right"><strong>${formatCurrency(totalCost)}</strong></td>
+      <!-- Emergency Contact Details -->
+      <div style="margin-bottom: 20px;">
+        <h3 style="font-family: 'Outfit', sans-serif; font-size: 11px; font-weight: 900; color: #0F172A; margin-bottom: 8px;">Emergency Contact Details:</h3>
+        <table style="font-size: 10px; border-collapse: collapse; width: 100%;">
+          <tr>
+            <td style="padding: 3px 0; min-width: 180px;"><strong>Contact Details:</strong></td>
+            <td style="padding: 3px 0;">+441215291630</td>
+          </tr>
+          <tr>
+            <td style="padding: 3px 0;"><strong>Emergency WhatsApp:</strong></td>
+            <td style="padding: 3px 0;">+44 7888 461474</td>
+          </tr>
+          <tr>
+            <td style="padding: 3px 0;"><strong>${vendorRef} Contact:</strong></td>
+            <td style="padding: 3px 0;">${transfers[0]?.vendor?.phoneNumber || "N/A"}</td>
+          </tr>
+          <tr>
+            <td style="padding: 3px 0;"><strong>Operations:</strong></td>
+            <td style="padding: 3px 0;">24 Hours</td>
+          </tr>
+          <tr>
+            <td style="padding: 3px 0;"><strong>Reservations:</strong></td>
+            <td style="padding: 3px 0;">Mon–Fri 9.30am to 5.30pm and Sat 10am to 3pm</td>
           </tr>
         </table>
       </div>
 
-      <div class="info-box" style="font-size: 9px; line-height: 1.4; color: #64748B; border: 1.5px solid #E2E8F0; padding: 12px; border-radius: 8px;">
-        <p style="margin: 0 0 5px 0; font-weight: bold; color: #334155;">Important Transfer Notices</p>
-        <p style="margin: 0;">1. Driver will hold a sign with the lead passenger's name at the designated arrivals exit or hotel lobby.</p>
-        <p style="margin: 0;">2. Maximum waiting time for flight arrivals is 60 minutes after actual landing. Contact support if delayed in customs.</p>
-        <p style="margin: 0;">3. For departure transfers, please be present at the hotel lobby 10 minutes prior to scheduled pickup time.</p>
+      <!-- Notes section -->
+      <div style="font-size: 9.5px; line-height: 1.6; color: #1E293B; border: 1px solid #E2E8F0; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px;">
+        <p style="margin: 0 0 6px 0; font-weight: 900; color: #0F172A; font-size: 10px;">NOTE:</p>
+        <p style="margin: 0;">1. Please print a copy of this Voucher &amp; carry with you throughout your Journey.</p>
+        <p style="margin: 0;">2. Please send the copy of this Voucher to ${transfers[0]?.vendor?.name || "Transport supplier"} Transport contact no within 24 hours before departure for further confirmation.</p>
+        <p style="margin: 0;">3. On arrival at Makkah / Madinah Airport, immediately contact to ${transfers[0]?.vendor?.name || "Transport supplier"} Transport at given contact details.</p>
+        <p style="margin: 0;">4. If you will not reach to Vehicle/Transport on time, it will cost you more for extra waiting time. Company will not be responsible for anything.</p>
+        <p style="margin: 0;">5. Please coordinate with Driver or ${transfers[0]?.vendor?.name || "Transport supplier"} Transport one day before, for your Pick-Up time.</p>
       </div>
 
+      <!-- Footer -->
       <div class="doc-footer">
-        <p>Terrific Travel & Tours Ltd | Ground Operations and VIP Client Transfers</p>
-        <p>We wish you a pleasant and comfortable ride!</p>
+        <p>Address: Office 1, 11 Walford Road, Birmingham, B11 1NP</p>
+        <p>Email: office@terrifictravel.co.uk | Phone: 01215291630 | WhatsApp: +44 7888 461474</p>
       </div>
     </div>
   `;
@@ -1770,9 +1814,9 @@ export function generateSpecialServiceInvoiceHtml(booking: any, service: any) {
           <p style="margin-top: 8px; margin-bottom: 0; font-size: 9px; color: #64748B; line-height: 1.4;">
             <strong>Terrific Travel &amp; Tours Ltd</strong><br>
             Address: Office 1, 11 Walford Road, Birmingham, B11 1NP, UK<br>
-            Phone: 0121 529 1630 | Emergency: +44 77 0090 0077<br>
+            Phone: 0121 529 1630 | Emergency: +44 7888 461474<br>
             Email: office@terrifictravel.co.uk | Web: www.terrifictravel.co.uk<br>
-            ATOL: 11492 | IATA: 91263712 | Reg No: 09384812
+            IATA: 91263712  
           </p>
         </div>
         <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
@@ -2268,7 +2312,7 @@ export function renderTransportVoucher(
     <tr>
       <td>
         <strong>${formatDate(t.date)}</strong><br/>
-        <span style="font-size: 9px; color: #64748B;">Time: ${t.departureTime || "—"}</span>
+        <span style="font-size: 9px; color: #64748B;">Time: ${t.departureTime || t.arrivalTime || "—"}</span>
       </td>
       <td><strong>${t.departureDestination}</strong></td>
       <td><strong>${t.arrivalDestination}</strong></td>
@@ -2276,7 +2320,6 @@ export function renderTransportVoucher(
         <span style="font-weight: 700; color: #0F172A;">${t.vehicleType}</span>
         ${t.flightNo ? `<br/><span style="font-size: 9px; color: #0284C7; font-weight: bold;">Flight: ${t.flightNo}</span>` : ""}
       </td>
-      <td class="text-right"><strong>${formatCurrency(t.price)}</strong></td>
     </tr>
   `,
     )
@@ -2293,7 +2336,7 @@ export function renderTransportVoucher(
   html = html.replace(/{{LEAD_PASSENGER_BLOCK}}/g, leadPassengerBlock);
   html = html.replace(/{{TOTAL_TRANSFERS}}/g, String(transfers.length));
   html = html.replace(/{{TRANSFERS_TABLE_ROWS}}/g, transfersRows);
-  html = html.replace(/{{TOTAL_GROUND_COST}}/g, formatCurrency(totalCost));
+  html = html.replace(/{{TOTAL_GROUND_COST}}/g, "");
   html = html.replace(
     /{{VENDOR_NAME}}/g,
     transfers[0]?.vendor?.name || "Terrific Travel Ground Partner",
@@ -2306,6 +2349,70 @@ export function renderTransportVoucher(
     /{{VENDOR_EMAIL}}/g,
     transfers[0]?.vendor?.supportEmail || "—",
   );
+
+  // Dynamically strip any Price header and Total Ground Cost elements to ensure price is completely removed
+  html = html.replace(/<th[^>]*>\s*Price\s*<\/th>/gi, "");
+  html = html.replace(/<div class="financial-panel">[\s\S]*?<\/div>/gi, "");
+  html = html.replace(/<tr class="total-row">[\s\S]*?<\/tr>/gi, "");
+
+  // Force-update terms & conditions notes block in customized templates
+  const vendorName = transfers[0]?.vendor?.name || "Transport supplier";
+  const newNotesHtml = `
+    <!-- Notes section -->
+    <div style="font-size: 9.5px; line-height: 1.6; color: #1E293B; border: 1px solid #E2E8F0; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px;">
+      <p style="margin: 0 0 6px 0; font-weight: 900; color: #0F172A; font-size: 10px;">NOTE:</p>
+      <p style="margin: 0;">1. Please print a copy of this Voucher &amp; carry with you throughout your Journey.</p>
+      <p style="margin: 0;">2. Please send the copy of this Voucher to ${vendorName} Transport contact no within 24 hours before departure for further confirmation.</p>
+      <p style="margin: 0;">3. On arrival at Makkah / Madinah Airport, immediately contact to ${vendorName} Transport at given contact details.</p>
+      <p style="margin: 0;">4. If you will not reach to Vehicle/Transport on time, it will cost you more for extra waiting time. Company will not be responsible for anything.</p>
+      <p style="margin: 0;">5. Please coordinate with Driver or ${vendorName} Transport one day before, for your Pick-Up time.</p>
+    </div>
+  `;
+
+  let replaced = false;
+
+  // 1. If it contains "1. Please print a copy"
+  if (html.includes("1. Please print a copy")) {
+    const textIdx = html.indexOf("1. Please print a copy");
+    const divStartIdx = html.lastIndexOf("<div", textIdx);
+    const divEndIdx = html.indexOf("</div>", textIdx);
+    if (divStartIdx !== -1 && divEndIdx !== -1) {
+      html =
+        html.substring(0, divStartIdx) +
+        newNotesHtml +
+        html.substring(divEndIdx + 6);
+      replaced = true;
+    }
+  }
+
+  // 2. If not replaced and it contains "Important Transfer Notices"
+  if (!replaced && html.includes("Important Transfer Notices")) {
+    const textIdx = html.indexOf("Important Transfer Notices");
+    const divStartIdx = html.lastIndexOf("<div", textIdx);
+    const divEndIdx = html.indexOf("</div>", textIdx);
+    if (divStartIdx !== -1 && divEndIdx !== -1) {
+      html =
+        html.substring(0, divStartIdx) +
+        newNotesHtml +
+        html.substring(divEndIdx + 6);
+      replaced = true;
+    }
+  }
+
+  // 3. Fallback to append right before footer
+  if (!replaced) {
+    if (html.includes("doc-footer")) {
+      html = html.replace(
+        /<div class="doc-footer"/i,
+        `${newNotesHtml}\n<div class="doc-footer"`,
+      );
+    } else if (html.includes("footer-bar")) {
+      html = html.replace(
+        /<div class="footer-bar"/i,
+        `${newNotesHtml}\n<div class="footer-bar"`,
+      );
+    }
+  }
 
   return html;
 }

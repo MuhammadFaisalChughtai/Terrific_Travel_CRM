@@ -413,9 +413,9 @@ tbody tr:nth-child(even) { background: #F8FAFC; }
       <p style="margin-top: 8px; margin-bottom: 0; font-size: 9px; color: #64748B; line-height: 1.4;">
         <strong>Terrific Travel &amp; Tours Ltd</strong><br>
         Address: Office 1, 11 Walford Road, Birmingham, B11 1NP, UK<br>
-        Phone: 0121 529 1630 | Emergency: +44 77 0090 0077<br>
+        Phone: 0121 529 1630 | Emergency: +44 7888 461474<br>
         Email: office@terrifictravel.co.uk | Web: www.terrifictravel.co.uk<br>
-        ATOL: 11492 | IATA: 91263712 | Reg No: 09384812
+        IATA: 91206076  
       </p>
     </div>
     <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
@@ -577,9 +577,9 @@ ${SHARED_CSS}
       <p style="margin-top: 8px; margin-bottom: 0; font-size: 9px; color: #64748B; line-height: 1.4;">
         <strong>Terrific Travel &amp; Tours Ltd</strong><br>
         Address: Office 1, 11 Walford Road, Birmingham, B11 1NP, UK<br>
-        Phone: 0121 529 1630 | Emergency: +44 77 0090 0077<br>
+        Phone: 0121 529 1630 | Emergency: +44 7888 461474<br>
         Email: office@terrifictravel.co.uk | Web: www.terrifictravel.co.uk<br>
-        ATOL: 11492 | IATA: 91263712 | Reg No: 09384812
+        IATA: 91263712
       </p>
     </div>
     <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
@@ -689,9 +689,9 @@ ${SHARED_CSS}
       <p style="margin-top: 8px; margin-bottom: 0; font-size: 9px; color: #64748B; line-height: 1.4;">
         <strong>Terrific Travel &amp; Tours Ltd</strong><br>
         Address: Office 1, 11 Walford Road, Birmingham, B11 1NP, UK<br>
-        Phone: 0121 529 1630 | Emergency: +44 77 0090 0077<br>
+        Phone: 0121 529 1630 | Emergency: +44 7888 461474<br>
         Email: office@terrifictravel.co.uk | Web: www.terrifictravel.co.uk<br>
-        ATOL: 11492 | IATA: 91263712 | Reg No: 09384812
+        IATA: 91263712  
       </p>
     </div>
     <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
@@ -745,7 +745,6 @@ ${SHARED_CSS}
           <th>Pick-up Location</th>
           <th>Drop-off Destination</th>
           <th>Vehicle &amp; Transfer Details</th>
-          <th class="text-right">Price</th>
         </tr>
       </thead>
       <tbody>
@@ -753,20 +752,14 @@ ${SHARED_CSS}
       </tbody>
     </table>
 
-    <div class="financial-panel">
-      <table class="financial-table">
-        <tr class="total-row">
-          <td><strong>Total Ground Cost:</strong></td>
-          <td class="text-right"><strong>{{TOTAL_GROUND_COST}}</strong></td>
-        </tr>
-      </table>
-    </div>
 
-    <div class="info-box" style="font-size: 9px; line-height: 1.4; color: #64748B; border: 1.5px solid #E2E8F0; padding: 12px; border-radius: 8px;">
-      <p style="margin: 0 0 5px 0; font-weight: bold; color: #334155;">Important Transfer Notices</p>
-      <p style="margin: 0;">1. Driver will hold a sign with the lead passenger's name at the designated arrivals exit or hotel lobby.</p>
-      <p style="margin: 0;">2. Maximum waiting time for flight arrivals is 60 minutes after actual landing. Contact support if delayed in customs.</p>
-      <p style="margin: 0;">3. For departure transfers, please be present at the hotel lobby 10 minutes prior to scheduled pickup time.</p>
+    <div class="info-box" style="font-size: 9.5px; line-height: 1.6; color: #1E293B; border: 1px solid #E2E8F0; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px;">
+      <p style="margin: 0 0 6px 0; font-weight: 900; color: #0F172A; font-size: 10px;">NOTE:</p>
+      <p style="margin: 0;">1. Please print a copy of this Voucher &amp; carry with you throughout your Journey.</p>
+      <p style="margin: 0;">2. Please send the copy of this Voucher to {{VENDOR_NAME}} Transport contact no within 24 hours before departure for further confirmation.</p>
+      <p style="margin: 0;">3. On arrival at Makkah / Madinah Airport, immediately contact to {{VENDOR_NAME}} Transport at given contact details.</p>
+      <p style="margin: 0;">4. If you will not reach to Vehicle/Transport on time, it will cost you more for extra waiting time. Company will not be responsible for anything.</p>
+      <p style="margin: 0;">5. Please coordinate with Driver or {{VENDOR_NAME}} Transport one day before, for your Pick-Up time.</p>
     </div>
 
     <div class="footer-bar">
@@ -809,9 +802,9 @@ tbody tr:nth-child(even) { background: #F8FAFC; }
       <p style="margin-top: 8px; margin-bottom: 0; font-size: 9px; color: #64748B; line-height: 1.4;">
         <strong>Terrific Travel &amp; Tours Ltd</strong><br>
         Address: Office 1, 11 Walford Road, Birmingham, B11 1NP, UK<br>
-        Phone: 0121 529 1630 | Emergency: +44 77 0090 0077<br>
+        Phone: 0121 529 1630 | Emergency: +44 7888 461474<br>
         Email: office@terrifictravel.co.uk | Web: www.terrifictravel.co.uk<br>
-        ATOL: 11492 | IATA: 91263712 | Reg No: 09384812
+        IATA: 91263712  
       </p>
     </div>
     <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
@@ -927,9 +920,9 @@ tbody tr:nth-child(even) { background: #FFF7F0; }
       <p style="margin-top: 8px; margin-bottom: 0; font-size: 9px; color: #64748B; line-height: 1.4;">
         <strong>Terrific Travel &amp; Tours Ltd</strong><br>
         Address: Office 1, 11 Walford Road, Birmingham, B11 1NP, UK<br>
-        Phone: 0121 529 1630 | Emergency: +44 77 0090 0077<br>
+        Phone: 0121 529 1630 | Emergency: +44 7888 461474<br>
         Email: office@terrifictravel.co.uk | Web: www.terrifictravel.co.uk<br>
-        ATOL: 11492 | IATA: 91263712 | Reg No: 09384812
+        IATA: 91263712  
       </p>
     </div>
     <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
