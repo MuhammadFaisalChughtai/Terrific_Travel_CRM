@@ -103,7 +103,12 @@ export default function Bookings() {
 
   // Query existing bookings with dynamic parameters
   const { data: bookingsResult, isLoading } = useQuery({
-    queryKey: ["bookings", JSON.stringify(appliedFilters), agentViewMode, user?.agentId],
+    queryKey: [
+      "bookings",
+      JSON.stringify(appliedFilters),
+      agentViewMode,
+      user?.agentId,
+    ],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (appliedFilters.departureDateFrom)
@@ -119,7 +124,11 @@ export default function Bookings() {
       // If "all" mode, no agentId filter (shows all agents' bookings)
       if (isAgent && agentViewMode === "mine" && user?.agentId) {
         params.append("agentId", user.agentId);
-      } else if (!isAgent && appliedFilters.agentId && appliedFilters.agentId !== "Any") {
+      } else if (
+        !isAgent &&
+        appliedFilters.agentId &&
+        appliedFilters.agentId !== "Any"
+      ) {
         // Admins/managers use the filter dropdown
         params.append("agentId", appliedFilters.agentId);
       }
@@ -422,7 +431,9 @@ export default function Bookings() {
       {/* Main Bookings List */}
       <div className="p-6 bg-card border border-border rounded-2xl shadow-sm space-y-6">
         <h3 className="text-base font-bold flex items-center gap-2">
-          {isAgent && agentViewMode === "mine" ? "My Bookings" : "All Travel Reservations"}
+          {isAgent && agentViewMode === "mine"
+            ? "My Bookings"
+            : "All Travel Reservations"}
         </h3>
 
         {isLoading ? (
@@ -666,7 +677,9 @@ export default function Bookings() {
                                 {/* View button — available to all for non-locked bookings */}
                                 {isOwner && (
                                   <button
-                                    onClick={() => setSelectedBookingId(booking.id)}
+                                    onClick={() =>
+                                      setSelectedBookingId(booking.id)
+                                    }
                                     className="text-primary hover:text-primary-hover p-1 rounded hover:bg-secondary/35 transition-all"
                                     title="View / Edit Booking"
                                   >
@@ -677,7 +690,9 @@ export default function Bookings() {
                                 {/* Edit button — only for owners */}
                                 {isOwner && (
                                   <>
-                                    <span className="text-muted-foreground/30">|</span>
+                                    <span className="text-muted-foreground/30">
+                                      |
+                                    </span>
                                     <button
                                       onClick={() =>
                                         setSelectedBookingId(booking.id)
@@ -693,7 +708,9 @@ export default function Bookings() {
                                 {/* Lock/Unlock toggle — Admin/Manager only */}
                                 {!isAgent && isOwner && (
                                   <>
-                                    <span className="text-muted-foreground/30">|</span>
+                                    <span className="text-muted-foreground/30">
+                                      |
+                                    </span>
                                     <button
                                       onClick={() =>
                                         toggleLockMutation.mutate(booking.id)
@@ -720,11 +737,14 @@ export default function Bookings() {
                                 )}
 
                                 {/* Finalize Margin — admin/manager only, confirmed + no agent yet */}
-                                {!isAgent && isOwner &&
+                                {!isAgent &&
+                                  isOwner &&
                                   booking.status === "CONFIRMED" &&
                                   !booking.agentId && (
                                     <>
-                                      <span className="text-muted-foreground/30">|</span>
+                                      <span className="text-muted-foreground/30">
+                                        |
+                                      </span>
                                       <button
                                         onClick={() => {
                                           setSelectedBooking(booking);
@@ -742,13 +762,18 @@ export default function Bookings() {
                                 {/* Invoice — available to ALL users for any CONFIRMED booking (agents can view other agents' invoices) */}
                                 {booking.status === "CONFIRMED" && (
                                   <>
-                                    <span className="text-muted-foreground/30">|</span>
+                                    <span className="text-muted-foreground/30">
+                                      |
+                                    </span>
                                     <button
                                       onClick={() => {
                                         const template =
                                           getTemplateContent("BOOKING_INVOICE");
                                         const html = template
-                                          ? renderBookingInvoice(template, booking)
+                                          ? renderBookingInvoice(
+                                              template,
+                                              booking,
+                                            )
                                           : generateBookingInvoiceHtml(booking);
                                         printDocument(
                                           html,

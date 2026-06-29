@@ -1,15 +1,40 @@
 import { prisma } from '../config';
 
 export class DashboardService {
-  async getStats() {
+  async getStats(agentId?: string) {
     const [users, bookings, payments, flights, hotels, tours, allBookings, allAgents] = await Promise.all([
-      prisma.user.count(),
-      prisma.booking.count(),
-      prisma.payment.findMany({ where: { status: 'SUCCESS' } }),
-      prisma.bookingItem.count({ where: { itemType: 'FLIGHT' } }),
-      prisma.bookingItem.count({ where: { itemType: 'HOTEL' } }),
-      prisma.bookingItem.count({ where: { itemType: 'TOUR' } }),
+      prisma.user.count({
+        where: agentId ? { agentId } : {}
+      }),
+      prisma.booking.count({
+        where: agentId ? { agentId } : {}
+      }),
+      prisma.payment.findMany({
+        where: {
+          status: 'SUCCESS',
+          ...(agentId ? { booking: { agentId } } : {})
+        }
+      }),
+      prisma.bookingItem.count({
+        where: {
+          itemType: 'FLIGHT',
+          ...(agentId ? { booking: { agentId } } : {})
+        }
+      }),
+      prisma.bookingItem.count({
+        where: {
+          itemType: 'HOTEL',
+          ...(agentId ? { booking: { agentId } } : {})
+        }
+      }),
+      prisma.bookingItem.count({
+        where: {
+          itemType: 'TOUR',
+          ...(agentId ? { booking: { agentId } } : {})
+        }
+      }),
       prisma.booking.findMany({
+        where: agentId ? { agentId } : {},
         include: {
           agent: {
             include: {
@@ -25,12 +50,15 @@ export class DashboardService {
           additionalServices: true,
         }
       }),
-      prisma.agent.findMany(),
+      prisma.agent.findMany({
+        where: agentId ? { id: agentId } : {}
+      }),
     ]);
 
     const totalRevenue = payments.reduce((sum: number, p: any) => sum + p.amount, 0);
 
     const agentMap: Record<string, { id: string; name: string; profit: number; bookingsCount: number }> = {};
+    let totalProfit = 0;
 
     allBookings.forEach((b: any) => {
       const price = b.totalPrice;
@@ -66,6 +94,7 @@ export class DashboardService {
       }
 
       const netProfit = rawProfit - margin;
+      totalProfit += netProfit;
 
       if (b.agent) {
         if (!agentMap[b.agent.id]) {
@@ -98,6 +127,7 @@ export class DashboardService {
       totalUsers: users,
       totalBookings: bookings,
       totalRevenue,
+      totalProfit: Math.round(totalProfit * 100) / 100,
       flightBookings: flights,
       hotelBookings: hotels,
       tourBookings: tours,
@@ -105,8 +135,9 @@ export class DashboardService {
     };
   }
 
-  async getTrends() {
+  async getTrends(agentId?: string) {
     const bookings = await prisma.booking.findMany({
+      where: agentId ? { agentId } : {},
       include: {
         agent: {
           include: {

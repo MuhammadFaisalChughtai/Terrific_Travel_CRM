@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "../api/client";
 import { formatCurrency } from "@tms/shared-utils";
+import { useAuthStore } from "../store/auth.store";
 import {
   TrendingUp,
   Users,
@@ -26,6 +27,9 @@ import { useMemo, useState } from "react";
 
 export default function Dashboard() {
   const [period, setPeriod] = useState<"daily" | "weekly" | "monthly" | "yearly">("daily");
+  const user = useAuthStore((state) => state.user);
+  const isAgent = user?.roles.includes("Agent") || user?.roles.includes("TRAVEL_AGENT");
+  const isAdmin = user?.roles.includes("SUPER_ADMIN") || user?.roles.includes("ADMIN");
 
   // Fetch dashboard summary stats
   const { data: statsData, isLoading: statsLoading } = useQuery({
@@ -50,6 +54,7 @@ export default function Dashboard() {
     totalUsers: 148,
     totalBookings: 64,
     totalRevenue: 28400,
+    totalProfit: 9800,
     flightBookings: 32,
     hotelBookings: 20,
     tourBookings: 12,
@@ -92,29 +97,43 @@ export default function Dashboard() {
     return defaultTrends[period];
   }, [trendsData, period]);
 
-  const cards = [
-    {
-      name: "Total Revenue",
-      value: formatCurrency(stats.totalRevenue),
-      icon: DollarSign,
-      color:
-        "from-emerald-500/20 to-teal-500/10 text-emerald-600 dark:text-emerald-400",
-    },
-    {
-      name: "Total Bookings",
-      value: stats.totalBookings,
-      icon: CalendarRange,
-      color:
-        "from-blue-500/20 to-indigo-500/10 text-blue-600 dark:text-blue-400",
-    },
-    {
-      name: "Platform Users",
-      value: stats.totalUsers,
-      icon: Users,
-      color:
-        "from-purple-500/20 to-pink-500/10 text-purple-600 dark:text-purple-400",
-    },
-  ];
+  const cards = useMemo(() => {
+    const list = [
+      {
+        name: isAgent && !isAdmin ? "My Revenue" : "Total Revenue",
+        value: formatCurrency(stats.totalRevenue),
+        icon: DollarSign,
+        color:
+          "from-emerald-500/20 to-teal-500/10 text-emerald-600 dark:text-emerald-400",
+      },
+      {
+        name: isAgent && !isAdmin ? "My Bookings" : "Total Bookings",
+        value: stats.totalBookings,
+        icon: CalendarRange,
+        color:
+          "from-blue-500/20 to-indigo-500/10 text-blue-600 dark:text-blue-400",
+      },
+      {
+        name: isAgent && !isAdmin ? "My Profit" : "Total Profit",
+        value: formatCurrency(stats.totalProfit || 0),
+        icon: TrendingUp,
+        color:
+          "from-purple-500/20 to-pink-500/10 text-purple-600 dark:text-purple-400",
+      },
+    ];
+
+    if (isAdmin) {
+      list.push({
+        name: "Platform Users",
+        value: stats.totalUsers,
+        icon: Users,
+        color:
+          "from-amber-500/20 to-orange-500/10 text-amber-600 dark:text-amber-400",
+      });
+    }
+
+    return list;
+  }, [stats, isAgent, isAdmin]);
 
   const categories = [
     {
@@ -405,117 +424,119 @@ export default function Dashboard() {
       </div>
 
       {/* Agent Performance Section */}
-      <div className="space-y-3">
-        <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-          Agent Performance (Based on Generated Profit)
-        </h4>
+      {isAdmin && (
+        <div className="space-y-3">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            Agent Performance (Based on Generated Profit)
+          </h4>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Column 1: Top Performing */}
-          <div className="p-4 bg-card border border-emerald-500/20 rounded-xl space-y-3 shadow-sm">
-            <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold border-b border-border pb-1.5 uppercase tracking-wider text-[10px]">
-              <span className="p-1 rounded bg-emerald-500/10">
-                <TrendingUp size={12} />
-              </span>
-              <span>Top Performers</span>
-            </div>
-            <div className="space-y-2 max-h-48 overflow-y-auto divide-y divide-border/40">
-              {topAgents.length > 0 ? (
-                topAgents.map((a) => (
-                  <div
-                    key={a.id}
-                    className="pt-2 first:pt-0 flex items-center justify-between"
-                  >
-                    <div>
-                      <p className="font-bold text-foreground">{a.name}</p>
-                      <p className="text-[9px] text-muted-foreground">
-                        {a.bookingsCount} booking(s)
-                      </p>
-                    </div>
-                    <span className="text-[11px] font-black text-emerald-600 dark:text-emerald-400">
-                      {formatCurrency(a.profit)}
-                    </span>
-                  </div>
-                ))
-              ) : (
-                <p className="text-center py-4 text-muted-foreground italic text-[10px]">
-                  No top performers recorded
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Column 2: Average Performing */}
-          <div className="p-4 bg-card border border-blue-500/20 rounded-xl space-y-3 shadow-sm">
-            <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-bold border-b border-border pb-1.5 uppercase tracking-wider text-[10px]">
-              <span className="p-1 rounded bg-blue-500/10">
-                <TrendingUp size={12} />
-              </span>
-              <span>Average Performers</span>
-            </div>
-            <div className="space-y-2 max-h-48 overflow-y-auto divide-y divide-border/40">
-              {avgAgents.length > 0 ? (
-                avgAgents.map((a) => (
-                  <div
-                    key={a.id}
-                    className="pt-2 first:pt-0 flex items-center justify-between"
-                  >
-                    <div>
-                      <p className="font-bold text-foreground">{a.name}</p>
-                      <p className="text-[9px] text-muted-foreground">
-                        {a.bookingsCount} booking(s)
-                      </p>
-                    </div>
-                    <span className="text-[11px] font-black text-blue-600 dark:text-blue-400">
-                      {formatCurrency(a.profit)}
-                    </span>
-                  </div>
-                ))
-              ) : (
-                <p className="text-center py-4 text-muted-foreground italic text-[10px]">
-                  No average performers recorded
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Column 3: Least Performing */}
-          <div className="p-4 bg-card border border-rose-500/20 rounded-xl space-y-3 shadow-sm">
-            <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400 font-bold border-b border-border pb-1.5 uppercase tracking-wider text-[10px]">
-              <span className="p-1 rounded bg-rose-500/10">
-                <TrendingUp size={12} className="rotate-180" />
-              </span>
-              <span>Least Performers</span>
-            </div>
-            <div className="space-y-2 max-h-48 overflow-y-auto divide-y divide-border/40">
-              {leastAgents.length > 0 ? (
-                leastAgents.map((a) => (
-                  <div
-                    key={a.id}
-                    className="pt-2 first:pt-0 flex items-center justify-between"
-                  >
-                    <div>
-                      <p className="font-bold text-foreground">{a.name}</p>
-                      <p className="text-[9px] text-muted-foreground">
-                        {a.bookingsCount} booking(s)
-                      </p>
-                    </div>
-                    <span
-                      className={`text-[11px] font-black ${a.profit < 0 ? "text-red-500" : "text-foreground"}`}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Column 1: Top Performing */}
+            <div className="p-4 bg-card border border-emerald-500/20 rounded-xl space-y-3 shadow-sm">
+              <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold border-b border-border pb-1.5 uppercase tracking-wider text-[10px]">
+                <span className="p-1 rounded bg-emerald-500/10">
+                  <TrendingUp size={12} />
+                </span>
+                <span>Top Performers</span>
+              </div>
+              <div className="space-y-2 max-h-48 overflow-y-auto divide-y divide-border/40">
+                {topAgents.length > 0 ? (
+                  topAgents.map((a) => (
+                    <div
+                      key={a.id}
+                      className="pt-2 first:pt-0 flex items-center justify-between"
                     >
-                      {formatCurrency(a.profit)}
-                    </span>
-                  </div>
-                ))
-              ) : (
-                <p className="text-center py-4 text-muted-foreground italic text-[10px]">
-                  No least performers recorded
-                </p>
-              )}
+                      <div>
+                        <p className="font-bold text-foreground">{a.name}</p>
+                        <p className="text-[9px] text-muted-foreground">
+                          {a.bookingsCount} booking(s)
+                        </p>
+                      </div>
+                      <span className="text-[11px] font-black text-emerald-600 dark:text-emerald-400">
+                        {formatCurrency(a.profit)}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-center py-4 text-muted-foreground italic text-[10px]">
+                    No top performers recorded
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Column 2: Average Performing */}
+            <div className="p-4 bg-card border border-blue-500/20 rounded-xl space-y-3 shadow-sm">
+              <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-bold border-b border-border pb-1.5 uppercase tracking-wider text-[10px]">
+                <span className="p-1 rounded bg-blue-500/10">
+                  <TrendingUp size={12} />
+                </span>
+                <span>Average Performers</span>
+              </div>
+              <div className="space-y-2 max-h-48 overflow-y-auto divide-y divide-border/40">
+                {avgAgents.length > 0 ? (
+                  avgAgents.map((a) => (
+                    <div
+                      key={a.id}
+                      className="pt-2 first:pt-0 flex items-center justify-between"
+                    >
+                      <div>
+                        <p className="font-bold text-foreground">{a.name}</p>
+                        <p className="text-[9px] text-muted-foreground">
+                          {a.bookingsCount} booking(s)
+                        </p>
+                      </div>
+                      <span className="text-[11px] font-black text-blue-600 dark:text-blue-400">
+                        {formatCurrency(a.profit)}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-center py-4 text-muted-foreground italic text-[10px]">
+                    No average performers recorded
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Column 3: Least Performing */}
+            <div className="p-4 bg-card border border-rose-500/20 rounded-xl space-y-3 shadow-sm">
+              <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400 font-bold border-b border-border pb-1.5 uppercase tracking-wider text-[10px]">
+                <span className="p-1 rounded bg-rose-500/10">
+                  <TrendingUp size={12} className="rotate-180" />
+                </span>
+                <span>Least Performers</span>
+              </div>
+              <div className="space-y-2 max-h-48 overflow-y-auto divide-y divide-border/40">
+                {leastAgents.length > 0 ? (
+                  leastAgents.map((a) => (
+                    <div
+                      key={a.id}
+                      className="pt-2 first:pt-0 flex items-center justify-between"
+                    >
+                      <div>
+                        <p className="font-bold text-foreground">{a.name}</p>
+                        <p className="text-[9px] text-muted-foreground">
+                          {a.bookingsCount} booking(s)
+                        </p>
+                      </div>
+                      <span
+                        className={`text-[11px] font-black ${a.profit < 0 ? "text-red-500" : "text-foreground"}`}
+                      >
+                        {formatCurrency(a.profit)}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-center py-4 text-muted-foreground italic text-[10px]">
+                    No least performers recorded
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

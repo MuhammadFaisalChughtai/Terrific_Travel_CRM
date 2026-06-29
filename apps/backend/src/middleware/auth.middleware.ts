@@ -11,6 +11,7 @@ export interface AuthenticatedRequest extends Request {
     lastName: string;
     roles: string[];
     permissions: string[];
+    agentId?: string | null;
   };
 }
 
@@ -78,6 +79,7 @@ export async function authMiddleware(
       lastName: user.lastName,
       roles,
       permissions,
+      agentId: user.agentId,
     };
 
     next();

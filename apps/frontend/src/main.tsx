@@ -83,6 +83,12 @@ function AppRouter() {
       </Routes>
       <Toaster
         position="bottom-right"
+        toastOptions={{
+          style: {
+            width: "400px", // Set your desired width here
+            maxWidth: "100vw", // Prevents overflow on small mobile screens
+          },
+        }}
         theme={theme as "light" | "dark" | "system"}
         closeButton
         richColors
