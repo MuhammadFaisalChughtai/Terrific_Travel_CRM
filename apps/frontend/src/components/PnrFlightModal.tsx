@@ -23,6 +23,7 @@ interface ParsedFlight {
   departTime: string;
   arrivalTime: string;
   date: string; // YYYY-MM-DD
+  arrivalDate?: string; // YYYY-MM-DD
   flightClass: string;
 }
 
@@ -48,7 +49,8 @@ export function parsePNRText(text: string, defaultYear: number): ParsedFlight | 
 
   // Regex pattern for standard segment:
   // e.g. SV 116 Y 17JUN JEDRUH DK1 1230 1400
-  const segmentRegex = /([A-Z0-9]{2})\s*([0-9]{1,4})\s+([A-Z])\s+([0-9]{1,2})([A-Z]{3})\s+([A-Z]{3})[\s/]*([A-Z]{3})\s*(?:[A-Z]{2}\d+)?\s*([0-9]{2}:?[0-9]{2})\s+([0-9]{2}:?[0-9]{2})/i;
+  // Updated to allow optional prefix/suffix like #0645 or 0645+1
+  const segmentRegex = /([A-Z0-9]{2})\s*([0-9]{1,4})\s+([A-Z])\s+([0-9]{1,2})([A-Z]{3})\s+([A-Z]{3})[\s/]*([A-Z]{3})\s*(?:[A-Z]{2}\d+)?\s*([0-9]{2}:?[0-9]{2})\s+([#+*]?\s*[0-9]{2}:?[0-9]{2}(?:\s*[#+*]\s*\d)?)/i;
 
   const match = text.match(segmentRegex);
   if (!match) return null;
@@ -75,13 +77,12 @@ export function parsePNRText(text: string, defaultYear: number): ParsedFlight | 
     formattedDate = `${yyyy}-${mm}-${dd}`;
   }
 
-  // Format times: e.g. 1230 -> 12:30
+  // Format times: e.g. 1230 -> 12:30 or #0645 -> 06:45
   const formatTime = (t: string) => {
-    const clean = t.replace(':', '');
-    if (clean.length === 4) {
-      return `${clean.substring(0, 2)}:${clean.substring(2, 4)}`;
-    }
-    return t;
+    const timeMatch = t.match(/[0-9]{2}:?[0-9]{2}/);
+    if (!timeMatch) return t;
+    const clean = timeMatch[0].replace(':', '');
+    return `${clean.substring(0, 2)}:${clean.substring(2, 4)}`;
   };
 
   // Try to find a 6-character PNR record locator
@@ -102,6 +103,68 @@ export function parsePNRText(text: string, defaultYear: number): ParsedFlight | 
     }
   }
 
+  // Detect Flight Arrival Date (defaulting to the departure date if no rollover is found)
+  let arrivalDate = formattedDate;
+  if (formattedDate && monthIndex !== -1) {
+    let rolloverDays = 0;
+    
+    // Process the raw arrival time
+    const timeMatch = rawArrivalTime.match(/[0-9]{2}:?[0-9]{2}/);
+    const timeStr = timeMatch ? timeMatch[0] : "";
+    const remaining = rawArrivalTime.replace(timeStr, "").trim();
+
+    if (remaining) {
+      const numMatch = remaining.match(/(\d+)/);
+      if (numMatch && parseInt(numMatch[1], 10) > 0) {
+        rolloverDays = parseInt(numMatch[1], 10);
+      } else if (/[#+*]/.test(remaining)) {
+        rolloverDays = 1;
+      }
+    }
+
+    const arrivalTimeIndex = text.indexOf(rawArrivalTime);
+    if (arrivalTimeIndex !== -1 && rolloverDays === 0) {
+      const postTimeText = text.substring(arrivalTimeIndex + rawArrivalTime.length, arrivalTimeIndex + rawArrivalTime.length + 10);
+      const rolloverMatch = postTimeText.match(/^[\s(+*#]*\+?([1-9])\b/);
+      if (rolloverMatch) {
+        rolloverDays = parseInt(rolloverMatch[1], 10);
+      }
+    }
+
+    // Also look for a second date string in the text (e.g. 18JUN) that is after the departure monthStr
+    const allDates = [...text.matchAll(/\b([0-9]{1,2})(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\b/gi)];
+    if (allDates.length > 1) {
+      const secondMatch = allDates[1];
+      const arrDay = parseInt(secondMatch[1], 10);
+      const arrMonthStr = secondMatch[2].toUpperCase();
+      const arrMonthIndex = monthNames.indexOf(arrMonthStr);
+      if (arrMonthIndex !== -1) {
+        let arrYear = defaultYear;
+        // Check for cross-year roll-over: e.g. departure is DEC, arrival is JAN
+        if (monthIndex === 11 && arrMonthIndex === 0) {
+          arrYear = defaultYear + 1;
+        } else if (monthIndex === 0 && arrMonthIndex === 11) {
+          arrYear = defaultYear - 1;
+        }
+        const arrDateObj = new Date(arrYear, arrMonthIndex, arrDay);
+        const yyyy = arrDateObj.getFullYear();
+        const mm = String(arrDateObj.getMonth() + 1).padStart(2, '0');
+        const dd = String(arrDateObj.getDate()).padStart(2, '0');
+        arrivalDate = `${yyyy}-${mm}-${dd}`;
+        rolloverDays = 0; // second date override
+      }
+    }
+
+    if (rolloverDays > 0) {
+      const depDateObj = new Date(defaultYear, monthIndex, day);
+      depDateObj.setDate(depDateObj.getDate() + rolloverDays);
+      const yyyy = depDateObj.getFullYear();
+      const mm = String(depDateObj.getMonth() + 1).padStart(2, '0');
+      const dd = String(depDateObj.getDate()).padStart(2, '0');
+      arrivalDate = `${yyyy}-${mm}-${dd}`;
+    }
+  }
+
   return {
     flightNo: `${airline} ${flightNum}`,
     pnr,
@@ -110,6 +173,7 @@ export function parsePNRText(text: string, defaultYear: number): ParsedFlight | 
     departTime: formatTime(rawDepartTime),
     arrivalTime: formatTime(rawArrivalTime),
     date: formattedDate,
+    arrivalDate,
     flightClass
   };
 }
@@ -141,6 +205,7 @@ export default function PnrFlightModal({
   const [departTime, setDepartTime] = useState('');
   const [arrivalTime, setArrivalTime] = useState('');
   const [date, setDate] = useState('');
+  const [arrivalDate, setArrivalDate] = useState('');
   const [flightClass, setFlightClass] = useState('Economy Class');
   const [price, setPrice] = useState('0');
   const [baggage, setBaggage] = useState('23 KG');
@@ -212,6 +277,7 @@ export default function PnrFlightModal({
         let initialNotesText = flightToEdit.notes || '';
         let initialDepTerminal = '';
         let initialArrTerminal = '';
+        let initialArrivalDate = formattedDate;
         if (flightToEdit.notes) {
           try {
             const parsed = JSON.parse(flightToEdit.notes);
@@ -219,6 +285,7 @@ export default function PnrFlightModal({
             initialDepTerminal = parsed.depTerminal || '';
             initialArrTerminal = parsed.arrTerminal || '';
             initialNotesText = parsed.actualNotes || '';
+            initialArrivalDate = parsed.arrivalDate || formattedDate;
           } catch (e) {
             // normal string
           }
@@ -227,6 +294,7 @@ export default function PnrFlightModal({
         setIsConnecting(initialIsConnecting);
         setDepTerminal(initialDepTerminal);
         setArrTerminal(initialArrTerminal);
+        setArrivalDate(initialArrivalDate);
 
         let formattedIssueDate = '';
         if (flightToEdit.issueDate) {
@@ -248,6 +316,7 @@ export default function PnrFlightModal({
         setDepartTime('');
         setArrivalTime('');
         setDate('');
+        setArrivalDate('');
         setFlightClass('Economy Class');
         setPrice('0');
         setBaggage('23 KG');
@@ -363,6 +432,7 @@ export default function PnrFlightModal({
       setDepartTime(parsed.departTime);
       setArrivalTime(parsed.arrivalTime);
       setDate(parsed.date);
+      setArrivalDate(parsed.arrivalDate || parsed.date);
       setFlightClass(getCabinClassFromCode(parsed.flightClass));
       toast.success("PNR converted successfully!");
       setStep('form');
@@ -432,6 +502,7 @@ export default function PnrFlightModal({
         depTerminal: depTerminal || "",
         arrTerminal: arrTerminal || "",
         actualNotes: notes || "",
+        arrivalDate: arrivalDate || "",
       });
       const payload = {
         vendorId,
@@ -475,6 +546,7 @@ export default function PnrFlightModal({
       setDepartTime('');
       setArrivalTime('');
       setDate('');
+      setArrivalDate('');
       setFlightClass('Y');
       setPrice('0');
       setBaggage('');
@@ -847,7 +919,27 @@ export default function PnrFlightModal({
                     type="date"
                     required
                     value={date}
-                    onChange={(e) => setDate(e.target.value)}
+                    onChange={(e) => {
+                      const newDate = e.target.value;
+                      setDate(newDate);
+                      if (!arrivalDate || arrivalDate === date) {
+                        setArrivalDate(newDate);
+                      }
+                    }}
+                    className="text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                  />
+                </div>
+
+                {/* Arrival Date */}
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                    Arrival Date *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={arrivalDate}
+                    onChange={(e) => setArrivalDate(e.target.value)}
                     className="text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                   />
                 </div>

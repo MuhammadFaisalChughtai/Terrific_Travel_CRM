@@ -112,7 +112,19 @@ const getIsConnectingFlight = (currentFlight: any, nextFlight: any): boolean => 
 
 const calculateLayoverTime = (currentFlight: any, nextFlight: any): string => {
   try {
-    const arrDate = new Date(currentFlight.date);
+    let arrDateStr = currentFlight.date;
+    if (currentFlight.notes) {
+      try {
+        const parsedNotes = JSON.parse(currentFlight.notes);
+        if (parsedNotes.arrivalDate) {
+          arrDateStr = parsedNotes.arrivalDate;
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+    
+    const arrDate = new Date(arrDateStr);
     const depDate = new Date(nextFlight.date);
 
     const [arrH, arrM] = (currentFlight.arrivalTime || "00:00").split(":").map(Number);

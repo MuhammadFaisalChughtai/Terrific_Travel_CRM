@@ -11,6 +11,7 @@ import {
   Hotel,
   Map,
   CalendarRange,
+  Compass,
   CreditCard,
   BarChart3,
   Settings,
@@ -76,6 +77,7 @@ export default function DashboardLayout() {
   const menuItems = [
     { name: "Dashboard", path: "/", icon: LayoutDashboard },
     { name: "Bookings", path: "/bookings", icon: CalendarRange },
+    { name: "Upcoming Tours", path: "/tours", icon: Compass },
     { name: "Invoices", path: "/invoices", icon: FileText },
     { name: "Agent", path: "/agent", icon: Users, roles: ["Admin", "Manager"] },
     { name: "Vendors", path: "/vendors", icon: Store, roles: ["Admin", "Manager"] },

@@ -241,6 +241,191 @@ export class BookingsService {
     const offset = Number(query.offset) || 0;
     const where: any = {};
     
+    const isAdmin = user.roles.some((role: string) => 
+      ['SUPER_ADMIN', 'ADMIN', 'Admin'].includes(role)
+    );
+    const isManager = user.roles.some((role: string) => 
+      ['Manager'].includes(role)
+    );
+    const isAgent = user.roles.some((role: string) => 
+      ['Agent', 'TRAVEL_AGENT'].includes(role)
+    );
+
+    if (query.upcoming === 'true') {
+      if (isAdmin) {
+        // Admins see all, no restriction
+      } else if (isManager) {
+        // Managers see their own + sub-agents' bookings
+        if (user.agentId) {
+          where.OR = [
+            { agentId: user.agentId },
+            { createdById: user.id }
+          ];
+        } else {
+          where.createdById = user.id;
+        }
+      } else if (isAgent) {
+        // Agents only see their own bookings
+        where.createdById = user.id;
+      } else {
+        // Customers/others see their own bookings
+        where.userId = user.id;
+      }
+
+      const items = await prisma.booking.findMany({
+        where,
+        include: {
+          bookingItems: {
+            include: {
+              flight: { include: { airline: true } },
+              room: { include: { hotel: true } },
+              tour: { include: { destination: true } },
+            },
+          },
+          payments: true,
+          invoices: true,
+          user: { select: { id: true, firstName: true, lastName: true, email: true } },
+          agent: { include: { slabs: { orderBy: { minSales: 'asc' } } } },
+          transactions: true,
+          passengers: { include: { agent: true } },
+          bookingVendorPayments: { include: { vendor: true } },
+          vendorPaymentAllocations: { include: { vendorPayment: { include: { createdBy: true } } } },
+          accommodations: { include: { vendor: true } },
+          flightServices: { include: { vendor: true } },
+          transportServices: { include: { vendor: true } },
+          visaServices: { include: { vendor: true } },
+          additionalServices: { include: { vendor: true } },
+        },
+      });
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const computedItems = items.map((booking: any) => {
+        let nearestUpcomingDate: Date | null = null;
+        let nextServiceType: string | null = null;
+
+        if (booking.flightServices) {
+          for (const fs of booking.flightServices) {
+            if (fs.date) {
+              const d = new Date(fs.date);
+              d.setHours(0, 0, 0, 0);
+              if (d >= today) {
+                if (!nearestUpcomingDate || d < nearestUpcomingDate) {
+                  nearestUpcomingDate = d;
+                  nextServiceType = 'Flight Departure';
+                }
+              }
+            }
+          }
+        }
+
+        if (booking.accommodations) {
+          for (const acc of booking.accommodations) {
+            if (acc.checkInDate) {
+              const d = new Date(acc.checkInDate);
+              d.setHours(0, 0, 0, 0);
+              if (d >= today) {
+                if (!nearestUpcomingDate || d < nearestUpcomingDate) {
+                  nearestUpcomingDate = d;
+                  nextServiceType = 'Hotel Check-in';
+                }
+              }
+            }
+          }
+        }
+
+        if (booking.transportServices && booking.transportServices.length > 0) {
+          const sortedTransports = [...booking.transportServices].sort((a: any, b: any) => {
+            return new Date(a.date).getTime() - new Date(b.date).getTime();
+          });
+          for (let i = 0; i < sortedTransports.length; i++) {
+            const ts = sortedTransports[i];
+            if (ts.date) {
+              const d = new Date(ts.date);
+              d.setHours(0, 0, 0, 0);
+              if (d >= today) {
+                if (!nearestUpcomingDate || d < nearestUpcomingDate) {
+                  nearestUpcomingDate = d;
+                  nextServiceType = i === 0 ? 'Transport Pickup' : 'Transport Drop-off';
+                }
+              }
+            }
+          }
+        }
+
+        if (booking.passengers && booking.passengers.length > 0) {
+          booking.passengers.sort((a: any, b: any) => {
+            if (a.role === 'Leader' && b.role !== 'Leader') return -1;
+            if (a.role !== 'Leader' && b.role === 'Leader') return 1;
+            return a.id.localeCompare(b.id);
+          });
+        }
+
+        let daysLeft: number | null = null;
+        let priority = 'NORMAL';
+
+        if (nearestUpcomingDate) {
+          const diffTime = nearestUpcomingDate.getTime() - today.getTime();
+          daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          if (daysLeft <= 5) {
+            priority = 'HIGH';
+          } else if (daysLeft <= 10) {
+            priority = 'MEDIUM';
+          } else {
+            priority = 'NORMAL';
+          }
+        }
+
+        return {
+          ...booking,
+          nearestUpcomingDate,
+          nextServiceType,
+          daysLeft,
+          priority,
+        };
+      });
+
+      let filteredItems = computedItems;
+      if (query.search) {
+        const s = query.search.toLowerCase().trim();
+        filteredItems = filteredItems.filter((booking: any) => {
+          if (booking.bookingReference?.toLowerCase().includes(s)) return true;
+          if (booking.passengers?.some((p: any) => 
+            p.firstName?.toLowerCase().includes(s) || 
+            p.lastName?.toLowerCase().includes(s)
+          )) return true;
+          if (booking.flightServices?.some((f: any) => f.pnr?.toLowerCase().includes(s))) return true;
+          if (booking.flightServices?.some((f: any) => f.flightNo?.toLowerCase().includes(s))) return true;
+          if (booking.transportServices?.some((t: any) => t.flightNo?.toLowerCase().includes(s))) return true;
+          return false;
+        });
+      }
+
+      if (query.priority && query.priority !== 'ALL') {
+        const p = query.priority.toUpperCase().trim();
+        filteredItems = filteredItems.filter((booking: any) => booking.priority === p);
+      }
+
+      filteredItems.sort((a: any, b: any) => {
+        const pA = a.priority === 'HIGH' ? 1 : a.priority === 'MEDIUM' ? 2 : 3;
+        const pB = b.priority === 'HIGH' ? 1 : b.priority === 'MEDIUM' ? 2 : 3;
+        if (pA !== pB) return pA - pB;
+        
+        if (a.nearestUpcomingDate && b.nearestUpcomingDate) {
+          return a.nearestUpcomingDate.getTime() - b.nearestUpcomingDate.getTime();
+        }
+        if (a.nearestUpcomingDate) return -1;
+        if (b.nearestUpcomingDate) return 1;
+        return 0;
+      });
+
+      const total = filteredItems.length;
+      const paginatedItems = filteredItems.slice(offset, offset + limit);
+
+      return { total, limit, offset, items: paginatedItems };
+    }
+
     const isOperator = user.roles.some((role: string) => 
       ['SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT', 'Admin', 'Manager', 'Agent'].includes(role)
     );

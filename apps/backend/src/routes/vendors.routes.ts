@@ -35,8 +35,8 @@ router.get('/:id/wallet-history', requireRoles('SUPER_ADMIN', 'ADMIN') as any, g
 router.get('/:id/dashboard-summary', requireRoles('SUPER_ADMIN', 'ADMIN') as any, getDashboardSummary);
 
 // Base CRUD routes
-router.get('/', requireRoles('SUPER_ADMIN', 'ADMIN') as any, findAll);
-router.get('/:id', requireRoles('SUPER_ADMIN', 'ADMIN') as any, findOne);
+router.get('/', findAll);
+router.get('/:id', findOne);
 router.post('/', requireRoles('SUPER_ADMIN', 'ADMIN') as any, create);
 router.patch('/:id', requireRoles('SUPER_ADMIN', 'ADMIN') as any, update);
 router.delete('/:id', requireRoles('SUPER_ADMIN', 'ADMIN') as any, deleteVendor);
