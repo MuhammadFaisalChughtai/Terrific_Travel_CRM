@@ -158,27 +158,27 @@ export default function Dashboard() {
 
   const sortedAgents = useMemo(() => {
     return [...(stats.agentPerformance || [])].sort(
-      (a, b) => b.profit - a.profit,
+      (a, b) => b.bookingsCount - a.bookingsCount || b.profit - a.profit,
     );
   }, [stats.agentPerformance]);
 
   const topAgents = useMemo(() => {
-    // Top performers are those with profit > 0 in the top third of the list
+    // Top performers are those with bookingsCount > 0 in the top third of the list
     if (sortedAgents.length === 0) return [];
     const count = Math.max(1, Math.ceil(sortedAgents.length / 3));
-    return sortedAgents.filter((a, idx) => a.profit > 0 && idx < count);
+    return sortedAgents.filter((a, idx) => a.bookingsCount > 0 && idx < count);
   }, [sortedAgents]);
 
   const leastAgents = useMemo(() => {
-    // Least performers are those with profit <= 0 or in the bottom third of the list
+    // Least performers are those with bookingsCount <= 0 or in the bottom third of the list
     if (sortedAgents.length === 0) return [];
     if (sortedAgents.length <= 2) {
       return sortedAgents.filter(
-        (a) => a.profit <= 0 || !topAgents.some((t) => t.id === a.id),
+        (a) => a.bookingsCount <= 0 || !topAgents.some((t) => t.id === a.id),
       );
     }
     const startIndex = Math.floor((sortedAgents.length * 2) / 3);
-    return sortedAgents.filter((a, idx) => idx >= startIndex || a.profit <= 0);
+    return sortedAgents.filter((a, idx) => idx >= startIndex || a.bookingsCount <= 0);
   }, [sortedAgents, topAgents]);
 
   const avgAgents = useMemo(() => {
@@ -424,10 +424,10 @@ export default function Dashboard() {
       </div>
 
       {/* Agent Performance Section */}
-      {isAdmin && (
+      {true && (
         <div className="space-y-3">
           <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-            Agent Performance (Based on Generated Profit)
+            Agent Performance (Based on Number of Bookings)
           </h4>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

@@ -655,13 +655,17 @@ function generateTimelineHtml(booking: any): string {
   regularItems.forEach((item) => {
     item.sortDate = new Date(item.date);
     if (item.type === "FLIGHT") {
-      const match = item.details.match(/Departure: <strong>([0-9]{2}:[0-9]{2})/);
+      const match = item.details.match(
+        /Departure: <strong>([0-9]{2}:[0-9]{2})/,
+      );
       if (match) {
         const [h, m] = match[1].split(":");
         item.sortDate.setHours(parseInt(h, 10), parseInt(m, 10), 0, 0);
       }
     } else if (item.type === "TRANSFER") {
-      const match = item.details.match(/Pickup Time: <strong>([0-9]{2}:[0-9]{2})/);
+      const match = item.details.match(
+        /Pickup Time: <strong>([0-9]{2}:[0-9]{2})/,
+      );
       if (match) {
         const [h, m] = match[1].split(":");
         item.sortDate.setHours(parseInt(h, 10), parseInt(m, 10), 0, 0);
@@ -670,21 +674,29 @@ function generateTimelineHtml(booking: any): string {
   });
 
   // 2. Separate by types to determine phases
-  const flights = regularItems.filter((i) => i.type === "FLIGHT").sort((a, b) => a.sortDate.getTime() - b.sortDate.getTime());
+  const flights = regularItems
+    .filter((i) => i.type === "FLIGHT")
+    .sort((a, b) => a.sortDate.getTime() - b.sortDate.getTime());
   let maxGap = 0;
   let gapIndex = -1;
   for (let i = 0; i < flights.length - 1; i++) {
-    const gap = flights[i + 1].sortDate.getTime() - flights[i].sortDate.getTime();
-    if (gap > maxGap && gap > 86400000) { 
+    const gap =
+      flights[i + 1].sortDate.getTime() - flights[i].sortDate.getTime();
+    if (gap > maxGap && gap > 86400000) {
       maxGap = gap;
       gapIndex = i;
     }
   }
-  const outboundFlights = gapIndex >= 0 ? flights.slice(0, gapIndex + 1) : flights;
+  const outboundFlights =
+    gapIndex >= 0 ? flights.slice(0, gapIndex + 1) : flights;
   const returnFlights = gapIndex >= 0 ? flights.slice(gapIndex + 1) : [];
 
-  const hotels = regularItems.filter((i) => i.type === "HOTEL").sort((a, b) => a.sortDate.getTime() - b.sortDate.getTime());
-  const transfers = regularItems.filter((i) => i.type === "TRANSFER").sort((a, b) => a.sortDate.getTime() - b.sortDate.getTime());
+  const hotels = regularItems
+    .filter((i) => i.type === "HOTEL")
+    .sort((a, b) => a.sortDate.getTime() - b.sortDate.getTime());
+  const transfers = regularItems
+    .filter((i) => i.type === "TRANSFER")
+    .sort((a, b) => a.sortDate.getTime() - b.sortDate.getTime());
 
   // 3. Assign logical phases
   regularItems.forEach((item) => {
@@ -697,12 +709,18 @@ function generateTimelineHtml(booking: any): string {
       item.phase = 5 + Math.min(idx * 2, 2); // 1st = 5, 2nd+ = 7
     } else if (item.type === "TRANSFER") {
       const idx = transfers.indexOf(item);
-      if (idx === 0 && (!hotels[0] || item.sortDate.getTime() <= hotels[0].sortDate.getTime() + 86400000 * 2)) {
+      if (
+        idx === 0 &&
+        (!hotels[0] ||
+          item.sortDate.getTime() <=
+            hotels[0].sortDate.getTime() + 86400000 * 2)
+      ) {
         item.phase = 4; // Arrival Transfer
       } else if (
         idx === transfers.length - 1 &&
         returnFlights.length > 0 &&
-        item.sortDate.getTime() >= returnFlights[0].sortDate.getTime() - 86400000 * 2
+        item.sortDate.getTime() >=
+          returnFlights[0].sortDate.getTime() - 86400000 * 2
       ) {
         item.phase = 8; // Departure Transfer
       } else {
@@ -964,8 +982,23 @@ export function generateBookingInvoiceHtml(booking: any) {
         </div>
       </div>
 
+      <div class="signature-block" style="margin-top: 40px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-end; padding: 0 20px; page-break-inside: avoid;">
+        <div style="width: 250px;">
+          <div style="border-bottom: 1px solid #94A3B8; height: 40px; margin-bottom: 8px;"></div>
+          <p style="margin: 0; font-size: 11px; font-weight: bold; color: #475569;">Customer Signature</p>
+          <p style="margin: 2px 0 0 0; font-size: 9px; color: #94A3B8;">I agree to all Terms &amp; Conditions</p>
+        </div>
+        <div style="width: 250px; text-align: right;">
+          <div style="border-bottom: 1px solid #94A3B8; height: 40px; margin-bottom: 8px; position: relative;">
+            <span style="position: absolute; bottom: 4px; right: 0; font-family: 'Brush Script MT', cursive; font-size: 24px; color: #0F172A; opacity: 0.8; font-style: italic;">Terrific Travel</span>
+          </div>
+          <p style="margin: 0; font-size: 11px; font-weight: bold; color: #475569;">Authorized Signatory</p>
+          <p style="margin: 2px 0 0 0; font-size: 9px; color: #94A3B8;">Terrific Travel &amp; Tours Ltd</p>
+        </div>
+      </div>
+
       <div class="doc-footer">
-        <p>Terrific Travel &amp; Tours Ltd | Registered in England &amp; Wales: #09384812</p>
+        <p>Terrific Travel &amp; Tours Ltd | Registered in England &amp; Wales</p>
         <p>Thank you for choosing Terrific Travel. We wish you an amazing journey!</p>
       </div>
     </div>
@@ -1024,10 +1057,20 @@ function getIsConnecting(currentFlight: any, nextFlight: any): boolean {
 
   if (codeA && codeB && codeA === codeB) {
     try {
-      const arrDate = new Date(currentFlight.date);
+      let arrDateStr = currentFlight.date;
+      if (currentFlight.notes) {
+        try {
+          const parsed = JSON.parse(currentFlight.notes);
+          if (parsed.arrivalDate) arrDateStr = parsed.arrivalDate;
+        } catch (e) {}
+      }
+      const arrDate = new Date(arrDateStr);
       const depDate = new Date(nextFlight.date);
 
       const [arrH, arrM] = (currentFlight.arrivalTime || "00:00")
+        .split(":")
+        .map(Number);
+      const [depH_arrSeg, depM_arrSeg] = (currentFlight.departTime || "00:00")
         .split(":")
         .map(Number);
       const [depH, depM] = (nextFlight.departTime || "00:00")
@@ -1041,6 +1084,13 @@ function getIsConnecting(currentFlight: any, nextFlight: any): boolean {
         arrH,
         arrM,
       );
+      
+      // If arrival time is earlier in the day than departure time of the same flight, 
+      // it means the flight landed the next day.
+      if (arrH < depH_arrSeg || (arrH === depH_arrSeg && arrM < depM_arrSeg)) {
+        arrTime.setDate(arrTime.getDate() + 1);
+      }
+
       const depTime = new Date(
         depDate.getFullYear(),
         depDate.getMonth(),
@@ -1062,10 +1112,20 @@ function getIsConnecting(currentFlight: any, nextFlight: any): boolean {
 
 function calculateLayover(arrivalSeg: any, departSeg: any): string {
   try {
-    const arrDate = new Date(arrivalSeg.date);
+    let arrDateStr = arrivalSeg.date;
+    if (arrivalSeg.notes) {
+      try {
+        const parsed = JSON.parse(arrivalSeg.notes);
+        if (parsed.arrivalDate) arrDateStr = parsed.arrivalDate;
+      } catch (e) {}
+    }
+    const arrDate = new Date(arrDateStr);
     const depDate = new Date(departSeg.date);
 
     const [arrH, arrM] = (arrivalSeg.arrivalTime || "00:00")
+      .split(":")
+      .map(Number);
+    const [depH_arrSeg, depM_arrSeg] = (arrivalSeg.departTime || "00:00")
       .split(":")
       .map(Number);
     const [depH, depM] = (departSeg.departTime || "00:00")
@@ -1081,6 +1141,13 @@ function calculateLayover(arrivalSeg: any, departSeg: any): string {
       0,
       0,
     );
+    
+    // If arrival time is earlier in the day than departure time of the same flight, 
+    // it means the flight landed the next day.
+    if (arrH < depH_arrSeg || (arrH === depH_arrSeg && arrM < depM_arrSeg)) {
+      arrTime.setDate(arrTime.getDate() + 1);
+    }
+
     const depTime = new Date(
       depDate.getFullYear(),
       depDate.getMonth(),

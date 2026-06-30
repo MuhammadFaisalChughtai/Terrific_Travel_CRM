@@ -252,6 +252,7 @@ export class BookingsService {
     );
 
     if (query.upcoming === 'true') {
+      where.lockedStatus = { not: 'LOCKED' };
       if (isAdmin) {
         // Admins see all, no restriction
       } else if (isManager) {
@@ -266,7 +267,14 @@ export class BookingsService {
         }
       } else if (isAgent) {
         // Agents only see their own bookings
-        where.createdById = user.id;
+        if (user.agentId) {
+          where.OR = [
+            { agentId: user.agentId },
+            { createdById: user.id }
+          ];
+        } else {
+          where.createdById = user.id;
+        }
       } else {
         // Customers/others see their own bookings
         where.userId = user.id;

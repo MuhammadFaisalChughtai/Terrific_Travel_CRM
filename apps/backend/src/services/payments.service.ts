@@ -337,6 +337,161 @@ export class PaymentsService {
         throw new BadRequestException("Invalid transaction type");
     }
   }
+
+  async submitPaymentRequest(data: any, userId: string) {
+    const amount = Number(data.amount);
+    if (!amount || amount <= 0) throw new BadRequestException('Valid amount is required');
+    if (!data.receiptUrl) throw new BadRequestException('Receipt upload is required');
+
+    const booking = await prisma.booking.findUnique({
+      where: { id: data.bookingId }
+    });
+    if (!booking) throw new NotFoundException('Booking not found');
+
+    const request = await prisma.paymentRequest.create({
+      data: {
+        bookingId: data.bookingId,
+        type: data.type || 'CUSTOMER_PAYMENT',
+        amount,
+        paymentMethod: data.paymentMethod || 'Bank Transfer',
+        receiptUrl: data.receiptUrl,
+        notes: data.notes,
+        bankAccount: data.bankAccount,
+        vendorId: data.vendorId,
+        cardPaymentCharges: data.cardPaymentCharges ? Number(data.cardPaymentCharges) : null,
+        isPaidByCompany: data.isPaidByCompany,
+        transactionDate: data.transactionDate ? new Date(data.transactionDate) : null,
+        createdById: userId,
+      }
+    });
+
+    const agent = await prisma.user.findUnique({ 
+      where: { id: userId },
+      include: { userRoles: { include: { role: true } } }
+    });
+    const agentName = agent ? `${agent.firstName} ${agent.lastName}` : 'System';
+    const isAdmin = agent?.userRoles.some(ur => ur.role.name === 'ADMIN' || ur.role.name === 'SUPER_ADMIN');
+
+    if (isAdmin) {
+      // Auto-approve the request if submitted by an Admin
+      return await this.approvePaymentRequest(request.id, userId, agentName);
+    }
+
+    // Notify Admins only if it's an agent request
+    const admins = await prisma.user.findMany({
+      where: { userRoles: { some: { role: { name: { in: ['ADMIN', 'SUPER_ADMIN'] } } } } }
+    });
+
+    if (admins.length > 0) {
+      await prisma.notification.createMany({
+        data: admins.map(admin => ({
+          userId: admin.id,
+          title: 'New Payment Request',
+          message: `${agentName} submitted a payment request of £${amount} for booking ${booking.bookingReference || data.bookingId}.`
+        }))
+      });
+    }
+
+    return request;
+  }
+
+  async getPaymentRequests(query: any) {
+    const { status } = query;
+    const whereClause: any = {};
+    if (status) {
+      whereClause.status = status;
+    }
+
+    return prisma.paymentRequest.findMany({
+      where: whereClause,
+      include: {
+        booking: {
+          select: { bookingReference: true }
+        },
+        createdBy: {
+          select: { firstName: true, lastName: true }
+        },
+        reviewedBy: {
+          select: { firstName: true, lastName: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async approvePaymentRequest(id: string, adminId: string, adminName: string) {
+    const request = await prisma.paymentRequest.findUnique({
+      where: { id }
+    });
+    if (!request) throw new NotFoundException('Payment Request not found');
+    if (request.status !== 'PENDING') throw new BadRequestException(`Request is already ${request.status}`);
+
+    // Call recordTransaction logic
+    const recordPayload = {
+      type: request.type,
+      amount: request.amount,
+      bookingId: request.bookingId,
+      paymentMethod: request.paymentMethod,
+      bankAccount: request.bankAccount,
+      vendorId: request.vendorId,
+      cardPaymentCharges: request.cardPaymentCharges,
+      isPaidByCompany: request.isPaidByCompany,
+      notes: request.notes,
+      transactionDate: request.transactionDate
+    };
+
+    const transactionResult = await this.recordTransaction(recordPayload, request.createdById, adminName);
+
+    // Update Request status
+    const updatedRequest = await prisma.paymentRequest.update({
+      where: { id },
+      data: {
+        status: 'APPROVED',
+        reviewedById: adminId,
+        reviewedAt: new Date()
+      }
+    });
+
+    // Notify Agent
+    await prisma.notification.create({
+      data: {
+        userId: request.createdById,
+        title: 'Payment Request Approved',
+        message: `Your payment request of £${request.amount} has been approved.`
+      }
+    });
+
+    return updatedRequest;
+  }
+
+  async rejectPaymentRequest(id: string, reason: string, adminId: string) {
+    const request = await prisma.paymentRequest.findUnique({
+      where: { id }
+    });
+    if (!request) throw new NotFoundException('Payment Request not found');
+    if (request.status !== 'PENDING') throw new BadRequestException(`Request is already ${request.status}`);
+
+    const updatedRequest = await prisma.paymentRequest.update({
+      where: { id },
+      data: {
+        status: 'REJECTED',
+        rejectionReason: reason || 'No reason provided',
+        reviewedById: adminId,
+        reviewedAt: new Date()
+      }
+    });
+
+    // Notify Agent
+    await prisma.notification.create({
+      data: {
+        userId: request.createdById,
+        title: 'Payment Request Rejected',
+        message: `Your payment request of £${request.amount} has been rejected. Reason: ${reason || 'No reason provided'}.`
+      }
+    });
+
+    return updatedRequest;
+  }
 }
 
 export const paymentsService = new PaymentsService();

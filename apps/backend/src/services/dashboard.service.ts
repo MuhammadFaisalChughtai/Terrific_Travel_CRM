@@ -2,7 +2,7 @@ import { prisma } from '../config';
 
 export class DashboardService {
   async getStats(agentId?: string) {
-    const [users, bookings, payments, flights, hotels, tours, allBookings, allAgents] = await Promise.all([
+    const [users, bookings, payments, flights, hotels, tours, allBookings, allAgents, globalBookings, globalAgents] = await Promise.all([
       prisma.user.count({
         where: agentId ? { agentId } : {}
       }),
@@ -53,13 +53,31 @@ export class DashboardService {
       prisma.agent.findMany({
         where: agentId ? { id: agentId } : {}
       }),
+      prisma.booking.findMany({
+        include: {
+          agent: {
+            include: {
+              slabs: {
+                orderBy: { minSales: 'asc' }
+              }
+            }
+          },
+          accommodations: true,
+          flightServices: true,
+          transportServices: true,
+          visaServices: true,
+          additionalServices: true,
+        }
+      }),
+      prisma.agent.findMany(),
     ]);
 
     const totalRevenue = payments.reduce((sum: number, p: any) => sum + p.amount, 0);
 
     const agentMap: Record<string, { id: string; name: string; profit: number; bookingsCount: number }> = {};
-    let totalProfit = 0;
+    let totalProfit = 0; // The logged-in user's total profit
 
+    // Calculate profit for the filtered bookings (for the stat card)
     allBookings.forEach((b: any) => {
       const price = b.totalPrice;
       const accommodationsCost = b.accommodations?.reduce((sum: number, item: any) => sum + item.price, 0) || 0;
@@ -95,6 +113,43 @@ export class DashboardService {
 
       const netProfit = rawProfit - margin;
       totalProfit += netProfit;
+    });
+
+    // Calculate agent leaderboard using ALL global bookings
+    globalBookings.forEach((b: any) => {
+      const price = b.totalPrice;
+      const accommodationsCost = b.accommodations?.reduce((sum: number, item: any) => sum + item.price, 0) || 0;
+      const flightsCost = b.flightServices?.reduce((sum: number, item: any) => sum + item.price, 0) || 0;
+      const transportsCost = b.transportServices?.reduce((sum: number, item: any) => sum + item.price, 0) || 0;
+      const visasCost = b.visaServices?.reduce((sum: number, item: any) => sum + item.price, 0) || 0;
+      const additionalCost = b.additionalServices?.reduce((sum: number, item: any) => sum + item.servicePrice, 0) || 0;
+      
+      const totalVendorCost = accommodationsCost + flightsCost + transportsCost + visasCost + additionalCost;
+      const rawProfit = price - totalVendorCost;
+
+      let margin = 0.0;
+      if (b.agent) {
+        let slab = b.agent.slabs.find(
+          (s: any) => price >= s.minSales && (s.maxSales === null || price <= s.maxSales)
+        );
+        if (!slab && b.agent.slabs.length > 0) {
+          const highestSlab = b.agent.slabs.reduce((prev: any, current: any) => (prev.minSales > current.minSales) ? prev : current);
+          if (price > highestSlab.minSales) {
+            slab = highestSlab;
+          }
+        }
+        const rate = slab ? slab.commissionRate : 0.0;
+        const potentialMargin = rawProfit * (rate / 100.0);
+        if (rawProfit > 0) {
+          if (rawProfit - potentialMargin <= 0) {
+            margin = 0.0;
+          } else {
+            margin = potentialMargin;
+          }
+        }
+      }
+
+      const netProfit = rawProfit - margin;
 
       if (b.agent) {
         if (!agentMap[b.agent.id]) {
@@ -110,7 +165,7 @@ export class DashboardService {
       }
     });
 
-    allAgents.forEach((a: any) => {
+    globalAgents.forEach((a: any) => {
       if (!agentMap[a.id]) {
         agentMap[a.id] = {
           id: a.id,

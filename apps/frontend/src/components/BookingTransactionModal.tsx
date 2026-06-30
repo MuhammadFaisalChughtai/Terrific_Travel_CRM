@@ -178,21 +178,21 @@ export default function BookingTransactionModal({
     return urlLower.endsWith(".png") || urlLower.endsWith(".jpg") || urlLower.endsWith(".jpeg") || urlLower.includes("users/");
   }, [receiptUrl]);
 
-  // Mutation
   const transactionMutation = useMutation({
     mutationFn: async (payload: any) => {
-      return apiClient.post("/payments/transactions", payload);
+      return apiClient.post("/payments/requests", payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["bookings"] });
       queryClient.invalidateQueries({ queryKey: ["global-ledger"] });
       queryClient.invalidateQueries({ queryKey: ["vendors"] });
-      toast.success("Transaction recorded successfully!");
+      queryClient.invalidateQueries({ queryKey: ["payment-requests"] });
+      toast.success("Payment request submitted for approval!");
       onSuccess();
       onClose();
     },
     onError: (err: any) => {
-      toast.error(err.response?.data?.message || "Failed to record transaction.");
+      toast.error(err.response?.data?.message || "Failed to submit request.");
     }
   });
 
@@ -202,6 +202,11 @@ export default function BookingTransactionModal({
     const amt = Number(amount) || 0;
     if (amt <= 0) {
       toast.error("Please enter a valid amount.");
+      return;
+    }
+
+    if (!receiptUrl) {
+      toast.error("Receipt upload is required.");
       return;
     }
 
@@ -236,6 +241,7 @@ export default function BookingTransactionModal({
       notes: formattedNotes,
       paymentMethod,
       bankAccount,
+      receiptUrl,
       transactionDate: transactionDate ? new Date(transactionDate).toISOString() : undefined
     };
 
@@ -602,7 +608,7 @@ export default function BookingTransactionModal({
                 <span>Recording...</span>
               </>
             ) : (
-              <span>Record Transaction</span>
+              <span>Submit Request</span>
             )}
           </button>
         </div>

@@ -16,6 +16,11 @@ enum BookingStatus {
   COMPLETED
 }
 
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+}
+
 enum PaymentStatus {
   PENDING
   SUCCESS
@@ -61,6 +66,8 @@ model User {
   vendorLedgers           VendorLedger[]
   agentId                 String?
   agent                   Agent?         @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  submittedRequests       PaymentRequest[] @relation("SubmittedRequests")
+  reviewedRequests        PaymentRequest[] @relation("ReviewedRequests")
 }
 
 
@@ -237,6 +244,8 @@ model Booking {
   visaServices        VisaService[]
   additionalServices  AdditionalService[]
 
+  paymentRequests     PaymentRequest[]
+
   @@index([bookingReference])
 }
 
@@ -342,6 +351,7 @@ model Agent {
   bookings      Booking[]
   passengers    Passenger[]
   users         User[]
+  attendances   Attendance[]
 }
 
 model AgentSlab {
@@ -672,4 +682,41 @@ model DocumentTemplate {
   updatedAt    DateTime @updatedAt
 }
 
+model PaymentRequest {
+  id                 String    @id @default(uuid())
+  bookingId          String
+  booking            Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  type               String    // "CUSTOMER_PAYMENT", "VENDOR_REFUND", etc.
+  amount             Float
+  paymentMethod      String
+  receiptUrl         String
+  notes              String?
+  bankAccount        String?
+  vendorId           String?
+  cardPaymentCharges Float?
+  isPaidByCompany    Boolean?
+  transactionDate    DateTime?
+  status             String    @default("PENDING") // PENDING, APPROVED, REJECTED
+  rejectionReason    String?
+  createdById        String
+  createdBy          User      @relation("SubmittedRequests", fields: [createdById], references: [id])
+  createdAt          DateTime  @default(now())
+  reviewedById       String?
+  reviewedBy         User?     @relation("ReviewedRequests", fields: [reviewedById], references: [id])
+  reviewedAt         DateTime?
+}
+
+model Attendance {
+  id            String           @id @default(uuid())
+  agentId       String
+  agent         Agent            @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  date          DateTime         @db.Date
+  checkInTime   DateTime?
+  checkOutTime  DateTime?
+  status        AttendanceStatus
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@unique([agentId, date])
+}
 

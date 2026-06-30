@@ -26,6 +26,8 @@ import {
   BookOpen,
   FileText,
   Layers,
+  DollarSign,
+  Clock,
 } from "lucide-react";
 export default function DashboardLayout() {
   const location = useLocation();
@@ -35,7 +37,8 @@ export default function DashboardLayout() {
 
   useEffect(() => {
     if (user?.id) {
-      apiClient.get(`/users/${user.id}`)
+      apiClient
+        .get(`/users/${user.id}`)
         .then((res) => {
           if (res.data?.success && res.data?.data) {
             // Merge so we never wipe out permissions or other token-only fields
@@ -50,8 +53,8 @@ export default function DashboardLayout() {
           console.error("Failed to sync user profile:", err);
         });
     }
-  // Re-run whenever agentId is missing so stale sessions heal without logout
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Re-run whenever agentId is missing so stale sessions heal without logout
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, user?.agentId === null || user?.agentId === undefined]);
 
   const theme = useThemeStore((state) => state.theme);
@@ -65,10 +68,12 @@ export default function DashboardLayout() {
 
   const userHasRole = (allowed: string[]) => {
     if (!user?.roles) return false;
-    return user.roles.some(r => {
+    return user.roles.some((r) => {
       const up = r.toUpperCase();
-      if (up === "SUPER_ADMIN" || up === "ADMIN") return allowed.includes("Admin");
-      if (up === "TRAVEL_AGENT" || up === "AGENT") return allowed.includes("Agent");
+      if (up === "SUPER_ADMIN" || up === "ADMIN")
+        return allowed.includes("Admin");
+      if (up === "TRAVEL_AGENT" || up === "AGENT")
+        return allowed.includes("Agent");
       if (up === "MANAGER") return allowed.includes("Manager");
       return allowed.includes(r);
     });
@@ -80,15 +85,42 @@ export default function DashboardLayout() {
     { name: "Upcoming Tours", path: "/tours", icon: Compass },
     { name: "Invoices", path: "/invoices", icon: FileText },
     { name: "Agent", path: "/agent", icon: Users, roles: ["Admin", "Manager"] },
-    { name: "Vendors", path: "/vendors", icon: Store, roles: ["Admin", "Manager"] },
-    { name: "Ledger", path: "/ledger", icon: BookOpen, roles: ["Admin", "Manager"] },
-    { name: "Templates", path: "/invoice-templates", icon: Layers, roles: ["Admin", "Manager"] },
+    {
+      name: "Vendors",
+      path: "/vendors",
+      icon: Store,
+      roles: ["Admin", "Manager"],
+    },
+    {
+      name: "Ledger",
+      path: "/ledger",
+      icon: BookOpen,
+      roles: ["Admin", "Manager"],
+    },
+    {
+      name: "Templates",
+      path: "/invoice-templates",
+      icon: Layers,
+      roles: ["Admin", "Manager"],
+    },
     { name: "Users", path: "/users", icon: User, roles: ["Admin"] },
+    {
+      name: "Payment Approvals",
+      path: "/payments",
+      icon: DollarSign,
+      roles: ["Admin"],
+    },
+    {
+      name: "Attendance",
+      path: "/attendance",
+      icon: Clock,
+      roles: ["Admin", "Agent"], // Assuming we want both to see it
+    },
     { name: "Settings", path: "/settings", icon: Settings, roles: ["Admin"] },
   ];
 
-  const filteredMenuItems = menuItems.filter(item => 
-    item.roles ? userHasRole(item.roles) : true
+  const filteredMenuItems = menuItems.filter((item) =>
+    item.roles ? userHasRole(item.roles) : true,
   );
 
   const handleLogout = () => {
@@ -178,8 +210,8 @@ export default function DashboardLayout() {
               <Menu size={20} />
             </button>
             <h1 className="text-lg font-bold">
-              {filteredMenuItems.find((m) => m.path === location.pathname)?.name ||
-                "Terrific Travel"}
+              {filteredMenuItems.find((m) => m.path === location.pathname)
+                ?.name || "Terrific Travel"}
             </h1>
           </div>
 

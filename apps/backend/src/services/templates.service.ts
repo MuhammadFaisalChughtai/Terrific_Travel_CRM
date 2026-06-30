@@ -519,7 +519,7 @@ tbody tr:nth-child(even) { background: #F8FAFC; }
   </div>
 
   <div class="doc-footer">
-    <p>Terrific Travel &amp; Tours Ltd | Registered in England &amp; Wales: #09384812 | VAT Number: GB 129 3847 21</p>
+    <p>Terrific Travel &amp; Tours Ltd | Registered in England &amp; Wales </p>
     <p>Thank you for choosing Terrific Travel. We wish you an amazing journey!</p>
   </div>
 </div>

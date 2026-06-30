@@ -82,8 +82,13 @@ export async function requireBookingOwnership(
       return next(new NotFoundException('Booking not found.'));
     }
 
-    // Agent can only access/edit their own bookings (where createdById == user.id)
-    if (booking.createdById !== req.user.id && booking.userId !== req.user.id) {
+    // Agent can only access/edit their own bookings
+    if (
+      booking.createdById !== req.user.id && 
+      booking.userId !== req.user.id &&
+      booking.assignedToId !== req.user.id &&
+      (!booking.agentId || booking.agentId !== req.user.agentId)
+    ) {
       return next(new ForbiddenException('Forbidden: You do not have ownership of this booking.'));
     }
 

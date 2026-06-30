@@ -196,7 +196,7 @@ export default function Tours() {
           onClick={() => setActiveTab('catalog')}
           className={`px-5 py-3 text-sm font-bold border-b-2 transition-all ${
             activeTab === 'catalog'
-              ? 'border-primary text-primary'
+              ? 'border-primary text-primary'catalog
               : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
         >
@@ -330,7 +330,7 @@ export default function Tours() {
                       <th className="px-4 py-3">Passenger</th>
                       <th className="px-4 py-3">Agent</th>
                       <th className="px-4 py-3 text-right">Total Price</th>
-                      <th className="px-4 py-3 text-right pr-6">Actions</th>
+                      {/* <th className="px-4 py-3 text-right pr-6">Actions</th> */}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/60 text-xs text-foreground bg-card">
@@ -366,10 +366,10 @@ export default function Tours() {
 
                       const badgeText =
                         booking.priority === "HIGH"
-                          ? "🔴 High Priority"
+                          ? "High Priority"
                           : booking.priority === "MEDIUM"
-                            ? "🟡 Upcoming Soon"
-                            : "🟢 Normal";
+                            ? "Upcoming Soon"
+                            : "Normal";
 
                       return (
                         <tr
@@ -404,7 +404,7 @@ export default function Tours() {
                           <td className="px-4 py-3.5 text-right font-black">
                             {formatCurrency(booking.totalPrice)}
                           </td>
-                          <td className="px-4 py-3 text-right pr-6">
+                          {/* <td className="px-4 py-3 text-right pr-6">
                             <button
                               onClick={() => setSelectedBookingId(booking.id)}
                               className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-xl transition-all"
@@ -412,7 +412,7 @@ export default function Tours() {
                             >
                               <Eye size={16} />
                             </button>
-                          </td>
+                          </td> */}
                         </tr>
                       );
                     })}
@@ -557,7 +557,6 @@ export default function Tours() {
       {selectedBookingId && (
         <BookingManager
           bookingId={selectedBookingId}
-          isOpen={!!selectedBookingId}
           onClose={() => {
             setSelectedBookingId(null);
             queryClient.invalidateQueries({ queryKey: ["upcoming-tours"] });

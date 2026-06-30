@@ -3,6 +3,42 @@ import { paymentsService } from '../services/payments.service';
 import { asyncHandler } from '../middleware/async.middleware';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
 
+export const submitPaymentRequest = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const userId = req.user?.id || 'system';
+  const result = await paymentsService.submitPaymentRequest(req.body, userId);
+  res.status(201).json({
+    success: true,
+    data: result,
+  });
+});
+
+export const getPaymentRequests = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const result = await paymentsService.getPaymentRequests(req.query);
+  res.status(200).json({
+    success: true,
+    data: result,
+  });
+});
+
+export const approvePaymentRequest = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const userId = req.user?.id || 'system';
+  const adminName = req.user ? `${req.user.firstName} ${req.user.lastName}` : 'Admin';
+  const result = await paymentsService.approvePaymentRequest(req.params.id, userId, adminName);
+  res.status(200).json({
+    success: true,
+    data: result,
+  });
+});
+
+export const rejectPaymentRequest = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const userId = req.user?.id || 'system';
+  const result = await paymentsService.rejectPaymentRequest(req.params.id, req.body.reason, userId);
+  res.status(200).json({
+    success: true,
+    data: result,
+  });
+});
+
 export const checkout = asyncHandler(async (req: Request, res: Response) => {
   const result = await paymentsService.checkout(req.body);
   res.status(200).json({

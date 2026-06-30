@@ -8,6 +8,7 @@ import swaggerJSDoc from 'swagger-jsdoc';
 import { config, logger, prisma, redis } from './config';
 import mainRouter from './routes';
 import { errorHandler } from './middleware/error.middleware';
+import { startAttendanceCron } from './cron/attendance.cron';
 
 async function bootstrap() {
   const app = express();
@@ -77,6 +78,9 @@ async function bootstrap() {
     // Redis might throw because lazyConnect is true but connect is called.
     // That's fine if it's already connected.
   }
+
+  // Start cron jobs
+  startAttendanceCron();
 
   app.listen(config.port, () => {
     logger.info(`Express server listening on port ${config.port}`);

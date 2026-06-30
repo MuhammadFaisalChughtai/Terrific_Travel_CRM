@@ -7,7 +7,7 @@ const router = Router();
 
 // Secure all dashboard routes
 router.use(authMiddleware as any);
-router.use(requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any);
+router.use(requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT', 'Agent') as any);
 
 router.get('/stats', getStats);
 router.get('/trends', getTrends);

@@ -13,6 +13,7 @@ import agentsRoutes from './agents.routes';
 import slabsRoutes from './slabs.routes';
 import vendorsRoutes from './vendors.routes';
 import templatesRoutes from './templates.routes';
+import attendanceRoutes from './attendance.routes';
 
 const router = Router();
 
@@ -30,5 +31,6 @@ router.use('/agents', agentsRoutes);
 router.use('/slabs', slabsRoutes);
 router.use('/vendors', vendorsRoutes);
 router.use('/templates', templatesRoutes);
+router.use('/attendance', attendanceRoutes);
 
 export default router;
