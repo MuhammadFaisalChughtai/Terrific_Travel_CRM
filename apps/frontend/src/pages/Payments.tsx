@@ -4,10 +4,12 @@ import { apiClient } from '../api/client';
 import { formatCurrency } from '@tms/shared-utils';
 import { CreditCard, CheckCircle2, XCircle, Clock, Search, FileText, Check, X, Eye } from 'lucide-react';
 import { toast } from 'sonner';
+import { useNotificationStore } from '../store/notification.store';
 
 export default function Payments() {
   const [activeTab, setActiveTab] = useState<'requests' | 'ledger'>('requests');
   const queryClient = useQueryClient();
+  const addNotification = useNotificationStore((state) => state.addNotification);
 
   const { data: requestsData, isLoading: isLoadingRequests } = useQuery({
     queryKey: ['payment-requests', 'PENDING'],
@@ -31,10 +33,13 @@ export default function Payments() {
     mutationFn: async (id: string) => {
       return apiClient.post(`/payments/requests/${id}/approve`);
     },
-    onSuccess: () => {
+    onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: ['payment-requests'] });
       queryClient.invalidateQueries({ queryKey: ['payments-list'] });
       toast.success('Payment request approved and transaction recorded!');
+      const req = requestsData?.find((r: any) => r.id === id);
+      const ref = req?.booking?.bookingReference || req?.bookingId?.substring(0, 8) || "Booking";
+      addNotification('Payment Approved', `Payment request for ${ref} has been successfully approved and recorded.`);
     },
     onError: (err: any) => {
       toast.error(err.response?.data?.message || 'Failed to approve request.');
@@ -45,9 +50,12 @@ export default function Payments() {
     mutationFn: async ({ id, reason }: { id: string, reason: string }) => {
       return apiClient.post(`/payments/requests/${id}/reject`, { reason });
     },
-    onSuccess: () => {
+    onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['payment-requests'] });
       toast.success('Payment request rejected.');
+      const req = requestsData?.find((r: any) => r.id === id);
+      const ref = req?.booking?.bookingReference || req?.bookingId?.substring(0, 8) || "Booking";
+      addNotification('Payment Rejected', `Payment request for ${ref} was rejected.`);
     },
     onError: (err: any) => {
       toast.error(err.response?.data?.message || 'Failed to reject request.');

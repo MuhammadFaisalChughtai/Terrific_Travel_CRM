@@ -379,17 +379,22 @@ export class PaymentsService {
 
     // Notify Admins only if it's an agent request
     const admins = await prisma.user.findMany({
-      where: { userRoles: { some: { role: { name: { in: ['ADMIN', 'SUPER_ADMIN'] } } } } }
+      where: {
+        userRoles: {
+          some: {
+            role: { name: { in: ['ADMIN', 'SUPER_ADMIN'] } }
+          }
+        }
+      }
     });
 
     if (admins.length > 0) {
-      await prisma.notification.createMany({
-        data: admins.map(admin => ({
-          userId: admin.id,
-          title: 'New Payment Request',
-          message: `${agentName} submitted a payment request of £${amount} for booking ${booking.bookingReference || data.bookingId}.`
-        }))
-      });
+      const notifications = admins.map(admin => ({
+        userId: admin.id,
+        title: 'New Payment Request',
+        message: `${agentName} submitted a payment request of £${amount} for booking ${booking.bookingReference || data.bookingId}.`
+      }));
+      await prisma.notification.createMany({ data: notifications });
     }
 
     return request;
@@ -421,7 +426,8 @@ export class PaymentsService {
 
   async approvePaymentRequest(id: string, adminId: string, adminName: string) {
     const request = await prisma.paymentRequest.findUnique({
-      where: { id }
+      where: { id },
+      include: { booking: true }
     });
     if (!request) throw new NotFoundException('Payment Request not found');
     if (request.status !== 'PENDING') throw new BadRequestException(`Request is already ${request.status}`);
@@ -457,7 +463,7 @@ export class PaymentsService {
       data: {
         userId: request.createdById,
         title: 'Payment Request Approved',
-        message: `Your payment request of £${request.amount} has been approved.`
+        message: `Your payment request of £${request.amount} for booking ${request.booking.bookingReference || request.bookingId} has been approved.`
       }
     });
 
@@ -466,7 +472,8 @@ export class PaymentsService {
 
   async rejectPaymentRequest(id: string, reason: string, adminId: string) {
     const request = await prisma.paymentRequest.findUnique({
-      where: { id }
+      where: { id },
+      include: { booking: true }
     });
     if (!request) throw new NotFoundException('Payment Request not found');
     if (request.status !== 'PENDING') throw new BadRequestException(`Request is already ${request.status}`);
@@ -475,7 +482,7 @@ export class PaymentsService {
       where: { id },
       data: {
         status: 'REJECTED',
-        rejectionReason: reason || 'No reason provided',
+        rejectionReason: reason,
         reviewedById: adminId,
         reviewedAt: new Date()
       }
@@ -486,7 +493,7 @@ export class PaymentsService {
       data: {
         userId: request.createdById,
         title: 'Payment Request Rejected',
-        message: `Your payment request of £${request.amount} has been rejected. Reason: ${reason || 'No reason provided'}.`
+        message: `Your payment request of £${request.amount} for booking ${request.booking.bookingReference || request.bookingId} has been rejected. Reason: ${reason}.`
       }
     });
 

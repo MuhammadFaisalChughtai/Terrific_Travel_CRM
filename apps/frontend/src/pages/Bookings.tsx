@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../api/client";
 import { useBookingStore } from "../store/booking.store";
@@ -46,6 +46,26 @@ export default function Bookings() {
 
   // Checkout cart Zustand state
   const { flight, hotel, room, tour, clearCart } = useBookingStore();
+
+  // Top horizontal scrollbar logic
+  const topScrollRef = useRef<HTMLDivElement>(null);
+  const bottomScrollRef = useRef<HTMLDivElement>(null);
+  const tableRef = useRef<HTMLTableElement>(null);
+  const [tableWidth, setTableWidth] = useState(0);
+
+
+
+  const handleTopScroll = () => {
+    if (bottomScrollRef.current && topScrollRef.current) {
+      bottomScrollRef.current.scrollLeft = topScrollRef.current.scrollLeft;
+    }
+  };
+
+  const handleBottomScroll = () => {
+    if (bottomScrollRef.current && topScrollRef.current) {
+      topScrollRef.current.scrollLeft = bottomScrollRef.current.scrollLeft;
+    }
+  };
 
   const toggleLockMutation = useMutation({
     mutationFn: async (bookingId: string) => {
@@ -166,6 +186,18 @@ export default function Bookings() {
       return res.data.data;
     },
   });
+
+  useEffect(() => {
+    if (tableRef.current) {
+      const resizeObserver = new ResizeObserver((entries) => {
+        for (let entry of entries) {
+          setTableWidth(entry.target.scrollWidth);
+        }
+      });
+      resizeObserver.observe(tableRef.current);
+      return () => resizeObserver.disconnect();
+    }
+  }, [isLoading, bookingsResult]);
 
   // Query agents list for margin finalization selection
   const { data: agents } = useQuery({
@@ -446,9 +478,23 @@ export default function Bookings() {
             No historical reservations logged.
           </div>
         ) : (
-          <div className="overflow-x-auto -mx-6">
-            <div className="inline-block min-w-full align-middle">
-              <table className="min-w-full divide-y divide-border table-auto text-left">
+          <div className="space-y-0">
+            {tableWidth > 0 && (
+              <div 
+                className="overflow-x-auto -mx-6 custom-scrollbar hidden md:block sticky top-16 z-20 bg-card border-b border-border/40" 
+                ref={topScrollRef} 
+                onScroll={handleTopScroll}
+              >
+                <div style={{ width: tableWidth, height: '1px' }}></div>
+              </div>
+            )}
+            <div 
+              className="overflow-x-auto -mx-6 custom-scrollbar"
+              ref={bottomScrollRef} 
+              onScroll={handleBottomScroll}
+            >
+              <div className="inline-block min-w-full align-middle">
+                <table ref={tableRef} className="min-w-full divide-y divide-border table-auto text-left">
                 <thead>
                   <tr className="bg-secondary/20 text-[11px] uppercase tracking-wider text-muted-foreground font-black border-b border-border">
                     <th className="px-4 py-3 w-12 text-center">No.</th>
@@ -798,6 +844,7 @@ export default function Bookings() {
                 </tbody>
               </table>
             </div>
+          </div>
           </div>
         )}
       </div>

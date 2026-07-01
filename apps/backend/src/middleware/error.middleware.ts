@@ -61,9 +61,23 @@ export function errorHandler(
     payload.errors = err.errors;
   }
 
-  logger.error(
-    `HTTP Error - Path: ${payload.path} | Status: ${statusCode} | Response: ${JSON.stringify(payload)}`
-  );
+  if (statusCode >= 500) {
+    logger.error(
+      `HTTP Server Error - Path: ${payload.path} | Status: ${statusCode} | Response: ${JSON.stringify(payload)}`
+    );
+  } else if (statusCode === 401 || statusCode === 404) {
+    logger.warn(
+      `HTTP Client Error - Path: ${payload.path} | Status: ${statusCode} | Message: ${payload.message}`
+    );
+    // Don't leak stack traces for 401/404 to the client in production
+    if (process.env.NODE_ENV === 'production') {
+      delete payload.stack;
+    }
+  } else {
+    logger.warn(
+      `HTTP Client Error - Path: ${payload.path} | Status: ${statusCode} | Response: ${JSON.stringify(payload)}`
+    );
+  }
 
   res.status(statusCode).json(payload);
 }

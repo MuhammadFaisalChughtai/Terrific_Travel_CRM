@@ -64,7 +64,16 @@ export default function DashboardLayout() {
   const toggleSidebar = useDashboardStore((state) => state.toggleSidebar);
 
   const notifications = useNotificationStore((state) => state.notifications);
+  const fetchNotifications = useNotificationStore((state) => state.fetchNotifications);
   const unreadCount = notifications.filter((n) => !n.isRead).length;
+
+  useEffect(() => {
+    if (user?.id) {
+      fetchNotifications();
+      const interval = setInterval(() => fetchNotifications(), 30000);
+      return () => clearInterval(interval);
+    }
+  }, [user?.id, fetchNotifications]);
 
   const userHasRole = (allowed: string[]) => {
     if (!user?.roles) return false;

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { apiClient } from '../api/client';
 
 export interface LocalNotification {
   id: string;
@@ -10,21 +11,24 @@ export interface LocalNotification {
 
 interface NotificationState {
   notifications: LocalNotification[];
+  fetchNotifications: () => Promise<void>;
   addNotification: (title: string, message: string) => void;
-  markAsRead: (id: string) => void;
-  clearAll: () => void;
+  markAsRead: (id: string) => Promise<void>;
+  clearAll: () => Promise<void>;
 }
 
 export const useNotificationStore = create<NotificationState>((set) => ({
-  notifications: [
-    {
-      id: 'welcome-notification',
-      title: 'Welcome to Terrific Travel!',
-      message: 'Explore and manage your enterprise flights, hotels, and tours seamlessly.',
-      isRead: false,
-      createdAt: new Date().toISOString(),
+  notifications: [],
+  fetchNotifications: async () => {
+    try {
+      const res = await apiClient.get('/notifications');
+      if (res.data?.success) {
+        set({ notifications: res.data.data });
+      }
+    } catch (err) {
+      console.error('Failed to fetch notifications', err);
     }
-  ],
+  },
   addNotification: (title, message) => set((state) => ({
     notifications: [
       {
@@ -37,8 +41,23 @@ export const useNotificationStore = create<NotificationState>((set) => ({
       ...state.notifications,
     ],
   })),
-  markAsRead: (id) => set((state) => ({
-    notifications: state.notifications.map((n) => n.id === id ? { ...n, isRead: true } : n),
-  })),
-  clearAll: () => set({ notifications: [] }),
+  markAsRead: async (id) => {
+    try {
+      // Optimistic update
+      set((state) => ({
+        notifications: state.notifications.map((n) => n.id === id ? { ...n, isRead: true } : n),
+      }));
+      await apiClient.put(`/notifications/${id}/read`);
+    } catch (err) {
+      console.error(err);
+    }
+  },
+  clearAll: async () => {
+    try {
+      set({ notifications: [] });
+      await apiClient.delete('/notifications');
+    } catch (err) {
+      console.error(err);
+    }
+  },
 }));

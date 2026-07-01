@@ -1,17 +1,19 @@
 import { useNotificationStore } from '../store/notification.store';
-import { Bell, Check, Trash2, Calendar } from 'lucide-react';
+import { Bell, Check, Trash2, Calendar, Eye } from 'lucide-react';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 
 export default function Notifications() {
   const { notifications, markAsRead, clearAll } = useNotificationStore();
+  const navigate = useNavigate();
 
-  const handleMarkAsRead = (id: string) => {
-    markAsRead(id);
+  const handleMarkAsRead = async (id: string) => {
+    await markAsRead(id);
     toast.success('Marked alert as read.');
   };
 
-  const handleClearAll = () => {
-    clearAll();
+  const handleClearAll = async () => {
+    await clearAll();
     toast.success('Cleared all alerts.');
   };
 
@@ -61,15 +63,41 @@ export default function Notifications() {
                 </span>
               </div>
 
-              {!notif.isRead && (
-                <button
-                  onClick={() => handleMarkAsRead(notif.id)}
-                  className="p-1.5 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg transition-all shrink-0"
-                  title="Mark as read"
-                >
-                  <Check size={14} />
-                </button>
-              )}
+              <div className="flex items-center gap-2 shrink-0">
+                {notif.title === 'New Payment Request' && (
+                  <button
+                    onClick={() => {
+                      if (!notif.isRead) handleMarkAsRead(notif.id);
+                      navigate('/payments');
+                    }}
+                    className="p-1.5 bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 rounded-lg transition-all"
+                    title="View Request"
+                  >
+                    <Eye size={14} />
+                  </button>
+                )}
+                {(notif.title === 'Payment Request Approved' || notif.title === 'Payment Request Rejected') && (
+                  <button
+                    onClick={() => {
+                      if (!notif.isRead) handleMarkAsRead(notif.id);
+                      navigate('/bookings');
+                    }}
+                    className="p-1.5 bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 rounded-lg transition-all"
+                    title="View Bookings"
+                  >
+                    <Eye size={14} />
+                  </button>
+                )}
+                {!notif.isRead && (
+                  <button
+                    onClick={() => handleMarkAsRead(notif.id)}
+                    className="p-1.5 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg transition-all"
+                    title="Mark as read"
+                  >
+                    <Check size={14} />
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>
