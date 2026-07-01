@@ -28,8 +28,8 @@ export const config = {
   jwt: {
     accessSecret: process.env.JWT_ACCESS_SECRET || 'tms_super_secret_access_key_987654321',
     refreshSecret: process.env.JWT_REFRESH_SECRET || 'tms_super_secret_refresh_key_123456789',
-    accessExp: process.env.JWT_ACCESS_EXPIRATION || '15m',
-    refreshExp: process.env.JWT_REFRESH_EXPIRATION || '7d',
+    accessExp: process.env.JWT_ACCESS_EXPIRATION || '24h',
+    refreshExp: process.env.JWT_REFRESH_EXPIRATION || '30d',
   },
   minio: {
     endPoint: process.env.MINIO_ENDPOINT || 'localhost',

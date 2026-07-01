@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import { getBalanceSheet } from '../controllers/reports.controller';
-import { protect, authorize } from '../middleware/auth.middleware';
+import { authMiddleware } from '../middleware/auth.middleware';
+import { requireRoles } from '../middleware/rbac.middleware';
 
 const router = Router();
 
-router.use(protect);
-router.use(authorize('SUPER_ADMIN', 'ADMIN'));
+router.use(authMiddleware as any);
+router.use(requireRoles('SUPER_ADMIN', 'ADMIN') as any);
 
 router.get('/balance-sheet', getBalanceSheet);
 
