@@ -498,7 +498,6 @@ export default function Bookings() {
                 >
                   <thead>
                     <tr className="bg-secondary/20 text-[11px] uppercase tracking-wider text-muted-foreground font-black border-b border-border">
-                      <th className="px-4 py-3 text-right pr-6">Actions</th>
                       <th className="px-4 py-3 w-12 text-center">No.</th>
                       <th className="px-4 py-3">Ref</th>
                       <th className="px-4 py-3">Booking Date</th>
@@ -638,152 +637,25 @@ export default function Bookings() {
                           key={booking.id}
                           className="hover:bg-secondary/5 transition-colors"
                         >
-                          <td className="px-4 py-3.5 whitespace-nowrap text-right align-middle pr-6">
-                            <div className="inline-flex items-center gap-2 justify-end w-full">
-                              {/* Locked booking — agents cannot open at all, show lock icon */}
-                              {isAgent && booking.lockedStatus === "LOCKED" ? (
-                                <button
-                                  onClick={() =>
-                                    toast.error(
-                                      "This booking is locked by the administrator and cannot be accessed.",
-                                      { duration: 4000 },
-                                    )
-                                  }
-                                  className="text-rose-400 cursor-not-allowed p-1 rounded opacity-60"
-                                  title="Booking Locked — Access Denied"
-                                >
-                                  <Lock size={15} />
-                                </button>
-                              ) : (
-                                <>
-                                  {/* View button — available to all for non-locked bookings */}
-                                  {isOwner && (
-                                    <button
-                                      onClick={() =>
-                                        setSelectedBookingId(booking.id)
-                                      }
-                                      className="text-primary hover:text-primary-hover p-1 rounded hover:bg-secondary/35 transition-all"
-                                      title="View / Edit Booking"
-                                    >
-                                      <Eye size={15} />
-                                    </button>
-                                  )}
-
-                                  {/* Edit button — only for owners */}
-                                  {isOwner && (
-                                    <>
-                                      <span className="text-muted-foreground/30">
-                                        |
-                                      </span>
-                                      <button
-                                        onClick={() =>
-                                          setSelectedBookingId(booking.id)
-                                        }
-                                        className="text-foreground hover:text-foreground/80 p-1 rounded hover:bg-secondary/35 transition-all"
-                                        title="Edit Booking"
-                                      >
-                                        <Edit size={15} />
-                                      </button>
-                                    </>
-                                  )}
-
-                                  {/* Lock/Unlock toggle — Admin/Manager only */}
-                                  {!isAgent && isOwner && (
-                                    <>
-                                      <span className="text-muted-foreground/30">
-                                        |
-                                      </span>
-                                      <button
-                                        onClick={() =>
-                                          toggleLockMutation.mutate(booking.id)
-                                        }
-                                        className={`${
-                                          booking.lockedStatus === "LOCKED"
-                                            ? "text-rose-600 hover:text-rose-700"
-                                            : "text-emerald-600 hover:text-emerald-700"
-                                        } p-1 rounded hover:bg-secondary/35 transition-all`}
-                                        title={
-                                          booking.lockedStatus === "LOCKED"
-                                            ? "Unlock Booking"
-                                            : "Lock Booking"
-                                        }
-                                        disabled={toggleLockMutation.isPending}
-                                      >
-                                        {booking.lockedStatus === "LOCKED" ? (
-                                          <Lock size={15} />
-                                        ) : (
-                                          <Unlock size={15} />
-                                        )}
-                                      </button>
-                                    </>
-                                  )}
-
-                                  {/* Finalize Margin — admin/manager only, confirmed + no agent yet */}
-                                  {!isAgent &&
-                                    isOwner &&
-                                    booking.status === "CONFIRMED" &&
-                                    !booking.agentId && (
-                                      <>
-                                        <span className="text-muted-foreground/30">
-                                          |
-                                        </span>
-                                        <button
-                                          onClick={() => {
-                                            setSelectedBooking(booking);
-                                            setIsFinalizeModalOpen(true);
-                                          }}
-                                          className="text-amber-600 hover:text-amber-700 font-bold text-xs inline-flex items-center gap-1 hover:underline"
-                                          title="Finalize Margin"
-                                        >
-                                          <Receipt size={14} />
-                                          <span>Finalize</span>
-                                        </button>
-                                      </>
-                                    )}
-
-                                  {/* Invoice — available to ALL users for any CONFIRMED booking (agents can view other agents' invoices) */}
-                                  {booking.status === "CONFIRMED" && (
-                                    <>
-                                      <span className="text-muted-foreground/30">
-                                        |
-                                      </span>
-                                      <button
-                                        onClick={() => {
-                                          const template =
-                                            getTemplateContent(
-                                              "BOOKING_INVOICE",
-                                            );
-                                          const html = template
-                                            ? renderBookingInvoice(
-                                                template,
-                                                booking,
-                                              )
-                                            : generateBookingInvoiceHtml(
-                                                booking,
-                                              );
-                                          printDocument(
-                                            html,
-                                            `Booking_Invoice_${booking.bookingReference || booking.id.substring(0, 8)}`,
-                                          );
-                                        }}
-                                        className="text-muted-foreground hover:text-foreground font-bold text-xs inline-flex items-center gap-1 hover:underline"
-                                        title="Print Invoice"
-                                      >
-                                        <FileText size={14} />
-                                        <span>Invoice</span>
-                                      </button>
-                                    </>
-                                  )}
-                                </>
-                              )}
-                            </div>
-                          </td>
                           <td className="px-4 py-3.5 whitespace-nowrap text-center text-muted-foreground font-mono align-middle">
                             {index + 1}
                           </td>
                           <td className="px-4 py-3.5 whitespace-nowrap font-semibold font-mono text-primary align-middle">
-                            {booking.bookingReference ||
-                              booking.id.substring(0, 8).toUpperCase()}
+                            {isOwner && booking.lockedStatus === "UNLOCKED" ? (
+                              <button
+                                onClick={() => setSelectedBookingId(booking.id)}
+                                className="text-primary hover:text-primary-hover p-1 rounded hover:bg-secondary/35 transition-all"
+                                title="View / Edit Booking"
+                              >
+                                {booking.bookingReference ||
+                                  booking.id.substring(0, 8).toUpperCase()}
+                              </button>
+                            ) : (
+                              <>
+                                {booking.bookingReference ||
+                                  booking.id.substring(0, 8).toUpperCase()}
+                              </>
+                            )}
                           </td>
                           <td className="px-4 py-3.5 whitespace-nowrap text-muted-foreground align-middle">
                             {bookingDate}
