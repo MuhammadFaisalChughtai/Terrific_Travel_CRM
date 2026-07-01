@@ -34,6 +34,7 @@ import {
   X,
   Printer,
   RotateCcw,
+  Download,
 } from "lucide-react";
 import Modal from "./Modal";
 import HtmlEditorModal from "./HtmlEditorModal";
@@ -47,6 +48,7 @@ import BookingTransactionModal from "./BookingTransactionModal";
 import { useAuthStore } from "../store/auth.store";
 import {
   printDocument,
+  downloadDocument,
   generateBookingInvoiceHtml,
   generateFlightTicketHtml,
   generateHotelVoucherHtml,
@@ -752,6 +754,21 @@ export default function BookingManager({
                   >
                     <FileText size={12} />
                     Print Invoice
+                  </button>
+
+                  {/* Download Invoice Button */}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      downloadDocument(
+                        renderBookingInvoice(getTemplateContent("BOOKING_INVOICE"), booking),
+                        `Booking_Invoice_${booking.bookingReference}.pdf`,
+                      )
+                    }
+                    className="shrink-0 flex items-center gap-1.5 px-3.5 py-2 bg-secondary hover:bg-primary/10 border border-border hover:border-primary/30 text-foreground hover:text-primary rounded-lg text-xs font-bold transition-all"
+                  >
+                    <Download size={12} />
+                    Download Invoice
                   </button>
 
                   {/* Edit Button */}
