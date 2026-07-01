@@ -529,7 +529,7 @@ function generateTimelineHtml(booking: any): string {
       items.push({
         type: "FLIGHT",
         date: f.date ? new Date(f.date) : new Date(booking.createdAt),
-        title: `Outbound Flight: ${f.departedFrom} to ${f.arrivedAt}`,
+        title: `${f.flightType || "Outbound"} Flight: ${f.departedFrom} to ${f.arrivedAt}`,
         icon: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-1.1.1-1.4.5l-.3.3c-.4.4-.4 1.1 0 1.5L9 12l-5.5 5.5H2v2l2 2h2v-1.5L11.5 15l3.5 5.7c.4.4 1.1.4 1.5 0l.3-.3c.4-.3.6-.9.5-1.4Z"/></svg>`,
         badgeClass: "flight",
         details: `
@@ -1085,9 +1085,10 @@ function getIsConnecting(currentFlight: any, nextFlight: any): boolean {
         arrM,
       );
       
+      const isSameDate = new Date(arrDateStr).toDateString() === new Date(currentFlight.date).toDateString();
       // If arrival time is earlier in the day than departure time of the same flight, 
-      // it means the flight landed the next day.
-      if (arrH < depH_arrSeg || (arrH === depH_arrSeg && arrM < depM_arrSeg)) {
+      // and they are currently evaluated on the same date, it means it landed the next day.
+      if (isSameDate && (arrH < depH_arrSeg || (arrH === depH_arrSeg && arrM < depM_arrSeg))) {
         arrTime.setDate(arrTime.getDate() + 1);
       }
 
@@ -1142,9 +1143,10 @@ function calculateLayover(arrivalSeg: any, departSeg: any): string {
       0,
     );
     
+    const isSameDate = new Date(arrDateStr).toDateString() === new Date(arrivalSeg.date).toDateString();
     // If arrival time is earlier in the day than departure time of the same flight, 
-    // it means the flight landed the next day.
-    if (arrH < depH_arrSeg || (arrH === depH_arrSeg && arrM < depM_arrSeg)) {
+    // and they are currently evaluated on the same date, it means the flight landed the next day.
+    if (isSameDate && (arrH < depH_arrSeg || (arrH === depH_arrSeg && arrM < depM_arrSeg))) {
       arrTime.setDate(arrTime.getDate() + 1);
     }
 
