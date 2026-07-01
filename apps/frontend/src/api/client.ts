@@ -47,7 +47,7 @@ apiClient.interceptors.response.use(
       if (!isRefreshing) {
         isRefreshing = true;
         try {
-          const res = await axios.post('/api/auth/refresh', { refreshToken }, { baseURL: apiClient.defaults.baseURL });
+          const res = await axios.post('/auth/refresh', { refreshToken }, { baseURL: apiClient.defaults.baseURL });
           const newTokens = res.data.data;
 
           useAuthStore.setState({

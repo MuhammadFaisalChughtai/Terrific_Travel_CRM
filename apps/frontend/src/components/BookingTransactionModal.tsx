@@ -11,7 +11,7 @@ import {
   Upload,
   Eye,
   Trash2,
-  FileIcon
+  FileIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import Modal from "./Modal";
@@ -31,15 +31,15 @@ export default function BookingTransactionModal({
   bookingId,
   bookingReference,
   booking,
-  onSuccess
+  onSuccess,
 }: BookingTransactionModalProps) {
   const queryClient = useQueryClient();
 
   const getTodayString = () => {
     const d = new Date();
     const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
   };
 
@@ -48,7 +48,8 @@ export default function BookingTransactionModal({
     "CUSTOMER_PAYMENT" | "VENDOR_REFUND" | "CUSTOMER_REFUND" | "VENDOR_DISCOUNT"
   >("CUSTOMER_PAYMENT");
 
-  const [transactionDate, setTransactionDate] = useState<string>(getTodayString());
+  const [transactionDate, setTransactionDate] =
+    useState<string>(getTodayString());
   const [paymentMethod, setPaymentMethod] = useState<string>("Bank Transfer");
   const [vendorId, setVendorId] = useState<string>("");
   const [serviceIds, setServiceIds] = useState<string[]>([]);
@@ -70,7 +71,7 @@ export default function BookingTransactionModal({
 
     const checkService = (serviceList: any[]) => {
       if (!serviceList) return;
-      serviceList.forEach(s => {
+      serviceList.forEach((s) => {
         if (s.vendor && s.vendor.id && s.vendor.name) {
           vendorsMap.set(s.vendor.id, s.vendor.name);
         }
@@ -89,31 +90,67 @@ export default function BookingTransactionModal({
   // Extract all services for service selection
   const bookingServices = useMemo(() => {
     if (!booking) return [];
-    const services: Array<{ id: string; name: string; type: string; vendorId?: string; vendorName?: string }> = [];
+    const services: Array<{
+      id: string;
+      name: string;
+      type: string;
+      vendorId?: string;
+      vendorName?: string;
+    }> = [];
 
     if (booking.accommodations) {
       booking.accommodations.forEach((s: any) => {
-        services.push({ id: s.id, name: `${s.hotelName || 'Unknown Hotel'} (Hotel)`, type: 'Accommodation', vendorId: s.vendor?.id, vendorName: s.vendor?.name });
+        services.push({
+          id: s.id,
+          name: `${s.hotelName || "Unknown Hotel"} (Hotel)`,
+          type: "Accommodation",
+          vendorId: s.vendor?.id,
+          vendorName: s.vendor?.name,
+        });
       });
     }
     if (booking.flightServices) {
       booking.flightServices.forEach((s: any) => {
-        services.push({ id: s.id, name: `${s.flightNo || 'Flight'} (${s.departedFrom || '?'} to ${s.arrivedAt || '?'})`, type: 'Flight', vendorId: s.vendor?.id, vendorName: s.vendor?.name });
+        services.push({
+          id: s.id,
+          name: `${s.flightNo || "Flight"} (${s.departedFrom || "?"} to ${s.arrivedAt || "?"})`,
+          type: "Flight",
+          vendorId: s.vendor?.id,
+          vendorName: s.vendor?.name,
+        });
       });
     }
     if (booking.transportServices) {
       booking.transportServices.forEach((s: any) => {
-        services.push({ id: s.id, name: `${s.vehicleType || 'Transport'} (${s.departureDestination || '?'} to ${s.arrivalDestination || '?'})`, type: 'Transport', vendorId: s.vendor?.id, vendorName: s.vendor?.name });
+        services.push({
+          id: s.id,
+          name: `${s.vehicleType || "Transport"} (${s.departureDestination || "?"} to ${s.arrivalDestination || "?"})`,
+          type: "Transport",
+          vendorId: s.vendor?.id,
+          vendorName: s.vendor?.name,
+        });
       });
     }
     if (booking.visaServices) {
       booking.visaServices.forEach((s: any) => {
-        services.push({ id: s.id, name: `${s.visaType || 'Visa'} (${s.passportNumber || 'No Passport'})`, type: 'Visa', vendorId: s.vendor?.id, vendorName: s.vendor?.name });
+        services.push({
+          id: s.id,
+          name: `${s.visaType || "Visa"} (${s.passportNumber || "No Passport"})`,
+          type: "Visa",
+          vendorId: s.vendor?.id,
+          vendorName: s.vendor?.name,
+        });
       });
     }
     if (booking.additionalServices) {
       booking.additionalServices.forEach((s: any) => {
-        services.push({ id: s.id, name: `${s.serviceName || 'Additional Service'}`, type: 'Additional', vendorId: s.vendor?.id, vendorName: s.vendor?.name });
+        services.push({
+          id: s.id,
+          name: `${s.serviceName || "Additional Service"}`,
+          type: "Additional",
+          vendorId: s.vendor?.id,
+          vendorName: s.vendor?.name,
+        });
       });
     }
 
@@ -159,7 +196,7 @@ export default function BookingTransactionModal({
 
     try {
       const res = await apiClient.post("/uploads/single", formData, {
-        headers: { "Content-Type": "multipart/form-data" }
+        headers: { "Content-Type": "multipart/form-data" },
       });
       setReceiptUrl(res.data.data.url);
       setReceiptFilename(res.data.data.filename);
@@ -175,7 +212,12 @@ export default function BookingTransactionModal({
   const isImageReceipt = useMemo(() => {
     if (!receiptUrl) return false;
     const urlLower = receiptUrl.toLowerCase();
-    return urlLower.endsWith(".png") || urlLower.endsWith(".jpg") || urlLower.endsWith(".jpeg") || urlLower.includes("users/");
+    return (
+      urlLower.endsWith(".png") ||
+      urlLower.endsWith(".jpg") ||
+      urlLower.endsWith(".jpeg") ||
+      urlLower.includes("users/")
+    );
   }, [receiptUrl]);
 
   const transactionMutation = useMutation({
@@ -193,7 +235,7 @@ export default function BookingTransactionModal({
     },
     onError: (err: any) => {
       toast.error(err.response?.data?.message || "Failed to submit request.");
-    }
+    },
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -205,34 +247,46 @@ export default function BookingTransactionModal({
       return;
     }
 
-    if (!receiptUrl) {
-      toast.error("Receipt upload is required.");
-      return;
-    }
+    // if (!receiptUrl) {
+    //   toast.error("Receipt upload is required.");
+    //   return;
+    // }
 
-    if ((transactionType === "VENDOR_REFUND" || transactionType === "VENDOR_DISCOUNT") && !vendorId) {
+    if (
+      (transactionType === "VENDOR_REFUND" ||
+        transactionType === "VENDOR_DISCOUNT") &&
+      !vendorId
+    ) {
       toast.error("Please select a vendor.");
       return;
     }
 
-    if ((transactionType === "VENDOR_REFUND" || transactionType === "VENDOR_DISCOUNT") && serviceIds.length === 0) {
+    if (
+      (transactionType === "VENDOR_REFUND" ||
+        transactionType === "VENDOR_DISCOUNT") &&
+      serviceIds.length === 0
+    ) {
       toast.error("Please select at least one service.");
       return;
     }
 
     let serviceNote = "";
     if (serviceIds.length > 0) {
-      const selectedServices = bookingServices.filter(s => serviceIds.includes(s.id));
+      const selectedServices = bookingServices.filter((s) =>
+        serviceIds.includes(s.id),
+      );
       if (selectedServices.length > 0) {
-        serviceNote = `Services: ${selectedServices.map(s => s.name).join(", ")}`;
+        serviceNote = `Services: ${selectedServices.map((s) => s.name).join(", ")}`;
       }
     }
 
     const formattedNotes = [
       notes,
       serviceNote,
-      receiptUrl ? `Receipt: ${receiptUrl}` : ""
-    ].filter(Boolean).join(". ");
+      receiptUrl ? `Receipt: ${receiptUrl}` : "",
+    ]
+      .filter(Boolean)
+      .join(". ");
 
     const payload: any = {
       type: transactionType,
@@ -242,15 +296,23 @@ export default function BookingTransactionModal({
       paymentMethod,
       bankAccount,
       receiptUrl,
-      transactionDate: transactionDate ? new Date(transactionDate).toISOString() : undefined
+      transactionDate: transactionDate
+        ? new Date(transactionDate).toISOString()
+        : undefined,
     };
 
-    if (transactionType === "CUSTOMER_PAYMENT" && paymentMethod === "Credit Card") {
+    if (
+      transactionType === "CUSTOMER_PAYMENT" &&
+      paymentMethod === "Credit Card"
+    ) {
       payload.cardPaymentCharges = Number(cardPaymentCharges) || 0;
       payload.isPaidByCompany = isPaidByCompany;
     }
 
-    if (transactionType === "VENDOR_REFUND" || transactionType === "VENDOR_DISCOUNT") {
+    if (
+      transactionType === "VENDOR_REFUND" ||
+      transactionType === "VENDOR_DISCOUNT"
+    ) {
       payload.vendorId = vendorId;
     }
 
@@ -264,8 +326,10 @@ export default function BookingTransactionModal({
       title={`Record Booking Transaction (${bookingReference})`}
       maxWidth="5xl"
     >
-      <form onSubmit={handleSubmit} className="space-y-4 py-2 font-sans text-xs">
-        
+      <form
+        onSubmit={handleSubmit}
+        className="space-y-4 py-2 font-sans text-xs"
+      >
         {/* Input Fields Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Action/Type Selector */}
@@ -278,7 +342,9 @@ export default function BookingTransactionModal({
               onChange={(e) => setTransactionType(e.target.value as any)}
               className="w-full px-3 py-2 bg-secondary/10 border border-border rounded-lg text-foreground font-semibold focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary min-h-[36px]"
             >
-              <option value="CUSTOMER_PAYMENT">Payment received from the customer</option>
+              <option value="CUSTOMER_PAYMENT">
+                Payment received from the customer
+              </option>
               <option value="VENDOR_REFUND">Refund from Vendor</option>
               <option value="VENDOR_DISCOUNT">Discount from Vendor</option>
               <option value="CUSTOMER_REFUND">Refund to Customer</option>
@@ -300,7 +366,8 @@ export default function BookingTransactionModal({
           </div>
 
           {/* Vendor selector (Conditional for VENDOR_REFUND or VENDOR_DISCOUNT), otherwise Payment Method */}
-          {(transactionType === "VENDOR_REFUND" || transactionType === "VENDOR_DISCOUNT") ? (
+          {transactionType === "VENDOR_REFUND" ||
+          transactionType === "VENDOR_DISCOUNT" ? (
             <div>
               <label className="block text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-1">
                 Select Vendor *
@@ -312,7 +379,7 @@ export default function BookingTransactionModal({
                 className="w-full px-3 py-2 bg-secondary/10 border border-border rounded-lg text-foreground font-semibold focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary min-h-[36px]"
               >
                 <option value="">-- Choose Vendor --</option>
-                {uniqueVendors.map(v => (
+                {uniqueVendors.map((v) => (
                   <option key={v.id} value={v.id}>
                     {v.name}
                   </option>
@@ -338,13 +405,18 @@ export default function BookingTransactionModal({
           )}
 
           {/* Service Selector (For refunds and discounts) */}
-          {(transactionType === "CUSTOMER_REFUND" || transactionType === "VENDOR_REFUND" || transactionType === "VENDOR_DISCOUNT") && (
+          {(transactionType === "CUSTOMER_REFUND" ||
+            transactionType === "VENDOR_REFUND" ||
+            transactionType === "VENDOR_DISCOUNT") && (
             <div className="col-span-1 md:col-span-2">
               <label className="block text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-1 flex justify-between items-center">
-                <span>Select Services {transactionType === "CUSTOMER_REFUND" ? "(Optional)" : "*"}</span>
+                <span>
+                  Select Services{" "}
+                  {transactionType === "CUSTOMER_REFUND" ? "(Optional)" : "*"}
+                </span>
                 {serviceIds.length > 0 && (
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={() => setServiceIds([])}
                     className="text-[9px] text-primary hover:underline"
                   >
@@ -353,28 +425,48 @@ export default function BookingTransactionModal({
                 )}
               </label>
               <div className="w-full max-h-32 overflow-y-auto px-3 py-2 bg-secondary/10 border border-border rounded-lg space-y-1.5 custom-scrollbar">
-                {bookingServices.filter(s => (transactionType === "CUSTOMER_REFUND" ? true : s.vendorId === vendorId)).length === 0 ? (
-                  <div className="text-xs text-muted-foreground italic py-1">No services available for this vendor.</div>
+                {bookingServices.filter((s) =>
+                  transactionType === "CUSTOMER_REFUND"
+                    ? true
+                    : s.vendorId === vendorId,
+                ).length === 0 ? (
+                  <div className="text-xs text-muted-foreground italic py-1">
+                    No services available for this vendor.
+                  </div>
                 ) : (
-                  bookingServices.filter(s => (transactionType === "CUSTOMER_REFUND" ? true : s.vendorId === vendorId)).map(s => (
-                    <label key={s.id} className="flex items-start gap-2 cursor-pointer hover:bg-secondary/20 p-1 rounded-md transition-colors">
-                      <input
-                        type="checkbox"
-                        checked={serviceIds.includes(s.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setServiceIds(prev => [...prev, s.id]);
-                          } else {
-                            setServiceIds(prev => prev.filter(id => id !== s.id));
-                          }
-                        }}
-                        className="mt-0.5 rounded border-border text-primary focus:ring-primary"
-                      />
-                      <span className="text-xs text-foreground font-medium">
-                        <span className="font-semibold text-muted-foreground">{s.type}:</span> {s.name}
-                      </span>
-                    </label>
-                  ))
+                  bookingServices
+                    .filter((s) =>
+                      transactionType === "CUSTOMER_REFUND"
+                        ? true
+                        : s.vendorId === vendorId,
+                    )
+                    .map((s) => (
+                      <label
+                        key={s.id}
+                        className="flex items-start gap-2 cursor-pointer hover:bg-secondary/20 p-1 rounded-md transition-colors"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={serviceIds.includes(s.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setServiceIds((prev) => [...prev, s.id]);
+                            } else {
+                              setServiceIds((prev) =>
+                                prev.filter((id) => id !== s.id),
+                              );
+                            }
+                          }}
+                          className="mt-0.5 rounded border-border text-primary focus:ring-primary"
+                        />
+                        <span className="text-xs text-foreground font-medium">
+                          <span className="font-semibold text-muted-foreground">
+                            {s.type}:
+                          </span>{" "}
+                          {s.name}
+                        </span>
+                      </label>
+                    ))
                 )}
               </div>
             </div>
@@ -386,7 +478,10 @@ export default function BookingTransactionModal({
               Amount (£) *
             </label>
             <div className="relative">
-              <Coins size={14} className="absolute left-3 top-2.5 text-muted-foreground" />
+              <Coins
+                size={14}
+                className="absolute left-3 top-2.5 text-muted-foreground"
+              />
               <input
                 type="number"
                 step="0.01"
@@ -400,10 +495,13 @@ export default function BookingTransactionModal({
           </div>
 
           {/* Payment method selector for VENDOR_REFUND and VENDOR_DISCOUNT so all views can have bank/cc fields */}
-          {(transactionType === "VENDOR_REFUND" || transactionType === "VENDOR_DISCOUNT") ? (
+          {transactionType === "VENDOR_REFUND" ||
+          transactionType === "VENDOR_DISCOUNT" ? (
             <div>
               <label className="block text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-1">
-                {transactionType === "VENDOR_DISCOUNT" ? "Discount Method" : "Refund Method"}
+                {transactionType === "VENDOR_DISCOUNT"
+                  ? "Discount Method"
+                  : "Refund Method"}
               </label>
               <select
                 value={paymentMethod}
@@ -432,7 +530,8 @@ export default function BookingTransactionModal({
           )}
 
           {/* Row 3 helper: bank source input if vendor refund/discount selected */}
-          {(transactionType === "VENDOR_REFUND" || transactionType === "VENDOR_DISCOUNT") && (
+          {(transactionType === "VENDOR_REFUND" ||
+            transactionType === "VENDOR_DISCOUNT") && (
             <div>
               <label className="block text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-1">
                 Bank Source / Account
@@ -453,14 +552,19 @@ export default function BookingTransactionModal({
           <div className="p-3.5 bg-primary/5 border border-primary/20 rounded-xl space-y-2.5 animate-fadeIn">
             <div className="flex items-center gap-1.5 text-primary">
               <CreditCard size={14} />
-              <span className="font-black uppercase tracking-wider text-[9px]">Credit Card Charges</span>
+              <span className="font-black uppercase tracking-wider text-[9px]">
+                Credit Card Charges
+              </span>
             </div>
             <div>
               <label className="block text-[9px] font-black uppercase tracking-wider text-muted-foreground mb-1">
                 Credit Card Charges (£)
               </label>
               <div className="relative max-w-xs">
-                <Percent size={12} className="absolute left-3 top-2 text-primary" />
+                <Percent
+                  size={12}
+                  className="absolute left-3 top-2 text-primary"
+                />
                 <input
                   type="number"
                   step="0.01"
@@ -474,7 +578,7 @@ export default function BookingTransactionModal({
                 Charges will be recorded separately inside this booking.
               </p>
             </div>
-            
+
             <div className="flex items-center gap-2 select-none">
               <input
                 type="checkbox"
@@ -483,7 +587,10 @@ export default function BookingTransactionModal({
                 onChange={(e) => setIsPaidByCompany(e.target.checked)}
                 className="w-3.5 h-3.5 text-primary border-border rounded focus:ring-primary cursor-pointer"
               />
-              <label htmlFor="isPaidByCompany" className="text-[10px] font-bold text-foreground cursor-pointer">
+              <label
+                htmlFor="isPaidByCompany"
+                className="text-[10px] font-bold text-foreground cursor-pointer"
+              >
                 Paid by the Company (expense deduction)
               </label>
             </div>
@@ -504,8 +611,12 @@ export default function BookingTransactionModal({
                   ) : (
                     <Upload className="w-6 h-6 text-muted-foreground mb-1" />
                   )}
-                  <p className="text-[10px] font-bold text-foreground">Click to upload file</p>
-                  <p className="text-[8px] text-muted-foreground">PNG, JPG, or PDF up to 5MB</p>
+                  <p className="text-[10px] font-bold text-foreground">
+                    Click to upload file
+                  </p>
+                  <p className="text-[8px] text-muted-foreground">
+                    PNG, JPG, or PDF up to 5MB
+                  </p>
                 </div>
                 <input
                   type="file"
@@ -525,8 +636,15 @@ export default function BookingTransactionModal({
             {receiptUrl ? (
               <div className="flex items-start gap-4 p-3 bg-secondary/10 border border-border rounded-lg relative min-h-[96px]">
                 {isImageReceipt ? (
-                  <div className="relative group w-20 h-20 border border-border rounded bg-card overflow-hidden cursor-pointer" onClick={() => window.open(receiptUrl, "_blank")}>
-                    <img src={receiptUrl} alt="Receipt Thumbnail" className="w-full h-full object-cover transition-transform group-hover:scale-110" />
+                  <div
+                    className="relative group w-20 h-20 border border-border rounded bg-card overflow-hidden cursor-pointer"
+                    onClick={() => window.open(receiptUrl, "_blank")}
+                  >
+                    <img
+                      src={receiptUrl}
+                      alt="Receipt Thumbnail"
+                      className="w-full h-full object-cover transition-transform group-hover:scale-110"
+                    />
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                       <Eye className="text-white w-4 h-4" />
                     </div>
@@ -536,9 +654,11 @@ export default function BookingTransactionModal({
                     <FileIcon className="w-8 h-8 text-primary" />
                   </div>
                 )}
-                
+
                 <div className="flex-1 min-w-0 pr-8 space-y-1.5">
-                  <p className="font-bold text-foreground text-[11px] truncate">{receiptFilename || "Uploaded Receipt"}</p>
+                  <p className="font-bold text-foreground text-[11px] truncate">
+                    {receiptFilename || "Uploaded Receipt"}
+                  </p>
                   <div className="flex gap-2">
                     <button
                       type="button"
@@ -565,7 +685,9 @@ export default function BookingTransactionModal({
             ) : (
               <div className="flex flex-col items-center justify-center h-24 border border-dashed border-border/40 rounded-lg text-muted-foreground">
                 <FileText className="w-6 h-6 text-muted-foreground/45 mb-1" />
-                <span className="text-[10px] font-semibold text-muted-foreground/60">No receipt uploaded yet</span>
+                <span className="text-[10px] font-semibold text-muted-foreground/60">
+                  No receipt uploaded yet
+                </span>
               </div>
             )}
           </div>
@@ -577,7 +699,10 @@ export default function BookingTransactionModal({
             Internal Notes / Description
           </label>
           <div className="relative">
-            <FileText size={14} className="absolute left-3 top-2.5 text-muted-foreground" />
+            <FileText
+              size={14}
+              className="absolute left-3 top-2.5 text-muted-foreground"
+            />
             <textarea
               rows={2}
               placeholder="Audit reference, cancellation receipt, or check numbers..."
