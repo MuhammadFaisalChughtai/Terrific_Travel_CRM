@@ -15,6 +15,8 @@ import uploadsRoutes from './uploads.routes';
 import slabsRoutes from './slabs.routes';
 import attendanceRoutes from './attendance.routes';
 import notificationsRoutes from './notifications.routes';
+import agentMarginRoutes from './agent-margin.routes';
+import reportsRoutes from './reports.routes';
 
 const router = Router();
 
@@ -34,5 +36,7 @@ router.use('/dashboard', dashboardRoutes);
 router.use('/uploads', uploadsRoutes);
 router.use('/attendance', attendanceRoutes);
 router.use('/notifications', notificationsRoutes);
+router.use('/agent-margins', agentMarginRoutes);
+router.use('/reports', reportsRoutes);
 
 export default router;

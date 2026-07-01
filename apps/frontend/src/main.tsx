@@ -15,7 +15,7 @@ import Hotels from "./pages/Hotels";
 import Tours from "./pages/Tours";
 import Bookings from "./pages/Bookings";
 import Payments from "./pages/Payments";
-import Reports from "./pages/Reports";
+// import Reports from "./pages/Reports";
 import Notifications from "./pages/Notifications";
 import Settings from "./pages/Settings";
 import AgentPage from "./pages/Agent";
@@ -26,6 +26,7 @@ import InvoiceTemplatesPage from "./pages/InvoiceTemplates";
 import PassengerForm from "./pages/PassengerForm";
 import UsersPage from "./pages/Users";
 import Attendance from "./pages/Attendance";
+import AgentMargins from "./pages/AgentMargins";
 import { useAuthStore } from "./store/auth.store";
 
 const queryClient = new QueryClient({
@@ -66,7 +67,7 @@ function AppRouter() {
           <Route path="tours" element={<Tours />} />
           <Route path="bookings" element={<Bookings />} />
           <Route path="payments" element={<Payments />} />
-          <Route path="reports" element={<Reports />} />
+          {/* <Route path="reports" element={<Reports />} /> */}
           <Route path="notifications" element={<Notifications />} />
           <Route path="settings" element={<Settings />} />
           <Route path="agent" element={<AgentPage />} />
@@ -76,6 +77,7 @@ function AppRouter() {
           <Route path="invoice-templates" element={<InvoiceTemplatesPage />} />
           <Route path="users" element={<UsersPage />} />
           <Route path="attendance" element={<Attendance />} />
+          <Route path="agent-margins" element={<AgentMargins />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" />} />

@@ -894,6 +894,18 @@ export default function Bookings() {
                   {formatCurrency(selectedBooking.totalPrice)}
                 </span>
               </p>
+              {selectedBooking.agentMargin && (
+                <p className="text-muted-foreground">
+                  Margin Status:{" "}
+                  <span className={`font-bold ${
+                    selectedBooking.agentMargin.status === 'PAID' 
+                      ? 'text-emerald-500' 
+                      : 'text-amber-500'
+                  }`}>
+                    {selectedBooking.agentMargin.status}
+                  </span>
+                </p>
+              )}
             </div>
 
             <div className="space-y-1.5">

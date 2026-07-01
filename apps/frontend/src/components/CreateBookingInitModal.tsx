@@ -2,7 +2,14 @@ import React, { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../api/client";
 import { toast } from "sonner";
-import { Loader2, CalendarRange, User, DollarSign, Lock, Hash } from "lucide-react";
+import {
+  Loader2,
+  CalendarRange,
+  User,
+  DollarSign,
+  Lock,
+  Hash,
+} from "lucide-react";
 import Modal from "./Modal";
 
 interface CreateBookingInitModalProps {
@@ -31,7 +38,7 @@ export default function CreateBookingInitModal({
   const isAgent =
     !!user?.roles?.length &&
     !["Admin", "SUPER_ADMIN", "Manager", "BRANCH_MANAGER"].some((r) =>
-      user?.roles?.includes(r)
+      user?.roles?.includes(r),
     );
 
   // The agent profile linked to this user (by agentId or name match)
@@ -47,9 +54,7 @@ export default function CreateBookingInitModal({
       .trim()
       .toLowerCase();
     return (
-      agents.find(
-        (a) => a.name?.trim().toLowerCase() === userFullName
-      ) ?? null
+      agents.find((a) => a.name?.trim().toLowerCase() === userFullName) ?? null
     );
   }, [agents, user]);
 
@@ -59,7 +64,8 @@ export default function CreateBookingInitModal({
       if (linkedAgent) {
         setAgentId(linkedAgent.id);
       }
-      apiClient.get("/bookings/next-reference")
+      apiClient
+        .get("/bookings/next-reference")
         .then((res) => {
           if (res.data?.success && res.data?.data?.nextReference) {
             setBookingReference(res.data.data.nextReference);
@@ -97,7 +103,7 @@ export default function CreateBookingInitModal({
       toast.error(
         err.response?.data?.stack ||
           err.response?.data?.message ||
-          "Failed to initialize booking."
+          "Failed to initialize booking.",
       );
     },
   });
@@ -114,18 +120,25 @@ export default function CreateBookingInitModal({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Initialize New Booking" maxWidth="md">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Initialize New Booking"
+      maxWidth="md"
+    >
       <form onSubmit={handleSubmit} className="p-5 space-y-4 bg-secondary/10">
-
         {/* Decorative Top Banner */}
         <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 flex items-center gap-3 mb-1">
           <div className="bg-primary/20 p-2 rounded-lg text-primary">
             <CalendarRange size={20} />
           </div>
           <div>
-            <h3 className="font-bold text-foreground text-xs">Start a New Booking</h3>
+            <h3 className="font-bold text-foreground text-xs">
+              Start a New Booking
+            </h3>
             <p className="text-[10px] text-muted-foreground mt-0.5">
-              Initialize the record. You can add flight, hotel, and visa details afterwards.
+              Initialize the record. You can add flight, hotel, and visa details
+              afterwards.
             </p>
           </div>
         </div>
@@ -180,7 +193,9 @@ export default function CreateBookingInitModal({
                 className="w-full pl-9 pr-4 py-1.5 bg-card border border-border rounded-xl text-xs font-medium text-foreground shadow-sm hover:border-primary/50 focus:ring-4 focus:ring-primary/10 focus:border-primary appearance-none transition-all cursor-pointer"
                 required
               >
-                <option value="" disabled>-- Select an Agent --</option>
+                <option value="" disabled>
+                  -- Select an Agent --
+                </option>
                 {agents?.map((a: any) => (
                   <option key={a.id} value={a.id}>
                     {a.name}
@@ -188,8 +203,18 @@ export default function CreateBookingInitModal({
                 ))}
               </select>
               <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground">
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="m6 9 6 6 6-6"/>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="m6 9 6 6 6-6" />
                 </svg>
               </div>
             </div>
@@ -204,7 +229,8 @@ export default function CreateBookingInitModal({
           )}
           {isAgent && !linkedAgent && (
             <p className="mt-1 text-[10px] text-rose-500">
-              ⚠ Your account is not linked to an agent profile. Contact your administrator.
+              ⚠ Your account is not linked to an agent profile. Contact your
+              administrator.
             </p>
           )}
         </div>
@@ -212,7 +238,7 @@ export default function CreateBookingInitModal({
         {/* Departure Date */}
         <div>
           <label className="block text-[11px] font-bold text-foreground mb-1">
-            Booking / Departure Date
+            Booking Date
           </label>
           <div className="relative group">
             <div className="absolute left-0 top-0 bottom-0 w-9 flex items-center justify-center text-muted-foreground group-focus-within:text-primary transition-colors pointer-events-none">

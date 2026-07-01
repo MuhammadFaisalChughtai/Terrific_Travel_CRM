@@ -63,7 +63,10 @@ import {
   renderSpecialServicesInvoice,
 } from "../utils/invoiceTemplates";
 
-const getIsConnectingFlight = (currentFlight: any, nextFlight: any): boolean => {
+const getIsConnectingFlight = (
+  currentFlight: any,
+  nextFlight: any,
+): boolean => {
   if (!nextFlight) return false;
 
   // 1. Explicit check: notes metadata
@@ -96,11 +99,27 @@ const getIsConnectingFlight = (currentFlight: any, nextFlight: any): boolean => 
       const arrDate = new Date(currentFlight.date);
       const depDate = new Date(nextFlight.date);
 
-      const [arrH, arrM] = (currentFlight.arrivalTime || "00:00").split(":").map(Number);
-      const [depH, depM] = (nextFlight.departTime || "00:00").split(":").map(Number);
+      const [arrH, arrM] = (currentFlight.arrivalTime || "00:00")
+        .split(":")
+        .map(Number);
+      const [depH, depM] = (nextFlight.departTime || "00:00")
+        .split(":")
+        .map(Number);
 
-      const arrTime = new Date(arrDate.getFullYear(), arrDate.getMonth(), arrDate.getDate(), arrH, arrM);
-      const depTime = new Date(depDate.getFullYear(), depDate.getMonth(), depDate.getDate(), depH, depM);
+      const arrTime = new Date(
+        arrDate.getFullYear(),
+        arrDate.getMonth(),
+        arrDate.getDate(),
+        arrH,
+        arrM,
+      );
+      const depTime = new Date(
+        depDate.getFullYear(),
+        depDate.getMonth(),
+        depDate.getDate(),
+        depH,
+        depM,
+      );
 
       const diffMs = depTime.getTime() - arrTime.getTime();
       return diffMs > 0 && diffMs <= 24 * 60 * 60 * 1000;
@@ -125,15 +144,31 @@ const calculateLayoverTime = (currentFlight: any, nextFlight: any): string => {
         // ignore
       }
     }
-    
+
     const arrDate = new Date(arrDateStr);
     const depDate = new Date(nextFlight.date);
 
-    const [arrH, arrM] = (currentFlight.arrivalTime || "00:00").split(":").map(Number);
-    const [depH, depM] = (nextFlight.departTime || "00:00").split(":").map(Number);
+    const [arrH, arrM] = (currentFlight.arrivalTime || "00:00")
+      .split(":")
+      .map(Number);
+    const [depH, depM] = (nextFlight.departTime || "00:00")
+      .split(":")
+      .map(Number);
 
-    const arrTime = new Date(arrDate.getFullYear(), arrDate.getMonth(), arrDate.getDate(), arrH, arrM);
-    const depTime = new Date(depDate.getFullYear(), depDate.getMonth(), depDate.getDate(), depH, depM);
+    const arrTime = new Date(
+      arrDate.getFullYear(),
+      arrDate.getMonth(),
+      arrDate.getDate(),
+      arrH,
+      arrM,
+    );
+    const depTime = new Date(
+      depDate.getFullYear(),
+      depDate.getMonth(),
+      depDate.getDate(),
+      depH,
+      depM,
+    );
 
     const diffMs = depTime.getTime() - arrTime.getTime();
     if (diffMs <= 0) return "";
@@ -346,7 +381,8 @@ export default function BookingManager({
   const [printTicketSelectedFlight, setPrintTicketSelectedFlight] = useState<
     any | null
   >(null);
-  const [printTicketSelectedPassenger, setPrintTicketSelectedPassenger] = useState<string>("all");
+  const [printTicketSelectedPassenger, setPrintTicketSelectedPassenger] =
+    useState<string>("all");
   const [expandedTx, setExpandedTx] = useState<Record<string, boolean>>({});
   const [isHtmlEditorOpen, setIsHtmlEditorOpen] = useState(false);
   const [htmlEditorContent, setHtmlEditorContent] = useState("");
@@ -383,7 +419,9 @@ export default function BookingManager({
   });
 
   const getTemplateContent = (type: string) => {
-    const t = dbTemplates?.find((x: any) => x.templateType.toUpperCase() === type.toUpperCase());
+    const t = dbTemplates?.find(
+      (x: any) => x.templateType.toUpperCase() === type.toUpperCase(),
+    );
     return t?.htmlContent || "";
   };
 
@@ -412,11 +450,13 @@ export default function BookingManager({
     enabled: !!bookingId && isOpen,
   });
 
-  const userFullName = [user?.firstName, user?.lastName].filter(Boolean).join(" ");
+  const userFullName = [user?.firstName, user?.lastName]
+    .filter(Boolean)
+    .join(" ");
   const isOwner =
     // Admin / manager roles always have full access
-    ["Admin", "SUPER_ADMIN", "Manager", "BRANCH_MANAGER"].some(
-      (r) => user?.roles?.includes(r)
+    ["Admin", "SUPER_ADMIN", "Manager", "BRANCH_MANAGER"].some((r) =>
+      user?.roles?.includes(r),
     ) ||
     // Created or owns this booking by user-id
     booking?.createdById === user?.id ||
@@ -427,14 +467,16 @@ export default function BookingManager({
     (!user?.agentId &&
       !!userFullName &&
       !!booking?.agent?.name &&
-      booking.agent.name.trim().toLowerCase() === userFullName.trim().toLowerCase())
+      booking.agent.name.trim().toLowerCase() ===
+        userFullName.trim().toLowerCase())
       ? true
       : false;
 
   // True when the logged-in user is an agent (not admin/manager) — used to hide financial internals
-  const isAgent = !!user?.roles?.length &&
-    !["Admin", "SUPER_ADMIN", "Manager", "BRANCH_MANAGER"].some(
-      (r) => user?.roles?.includes(r)
+  const isAgent =
+    !!user?.roles?.length &&
+    !["Admin", "SUPER_ADMIN", "Manager", "BRANCH_MANAGER"].some((r) =>
+      user?.roles?.includes(r),
     );
 
   // Sync edit state when booking loads
@@ -542,7 +584,9 @@ export default function BookingManager({
     if (slab) return slab.commissionRate;
 
     // Fallback: if price exceeds the highest slab's maxSales, use the rate of the slab with the highest minSales
-    const highestSlab = slabs.reduce((prev: any, current: any) => (prev.minSales > current.minSales) ? prev : current);
+    const highestSlab = slabs.reduce((prev: any, current: any) =>
+      prev.minSales > current.minSales ? prev : current,
+    );
     if (price > highestSlab.minSales) {
       return highestSlab.commissionRate;
     }
@@ -619,7 +663,11 @@ export default function BookingManager({
   const clientRefund = booking.refundAmount || 0;
   const cardPaymentCharges = booking.cardPaymentCharges || 0;
 
-  const rawProfit = (totalPrice - clientRefund) - (totalVendorCost - totalVendorRefund) - cardPaymentCharges;
+  const rawProfit =
+    totalPrice -
+    clientRefund -
+    (totalVendorCost - totalVendorRefund) -
+    cardPaymentCharges;
 
   // Potential Margin
   const potentialMargin =
@@ -746,7 +794,10 @@ export default function BookingManager({
                     type="button"
                     onClick={() =>
                       printDocument(
-                        renderBookingInvoice(getTemplateContent("BOOKING_INVOICE"), booking),
+                        renderBookingInvoice(
+                          getTemplateContent("BOOKING_INVOICE"),
+                          booking,
+                        ),
                         `Booking_Invoice_${booking.bookingReference}`,
                       )
                     }
@@ -761,7 +812,10 @@ export default function BookingManager({
                     type="button"
                     onClick={() =>
                       downloadDocument(
-                        renderBookingInvoice(getTemplateContent("BOOKING_INVOICE"), booking),
+                        renderBookingInvoice(
+                          getTemplateContent("BOOKING_INVOICE"),
+                          booking,
+                        ),
                         `Booking_Invoice_${booking.bookingReference}.pdf`,
                       )
                     }
@@ -1026,7 +1080,8 @@ export default function BookingManager({
                 </div>
 
                 {/* Expected Margin Warning Banner — Admin/Manager only */}
-                {isOwner && !isAgent &&
+                {isOwner &&
+                  !isAgent &&
                   booking.agentId &&
                   booking.agent &&
                   (() => {
@@ -1102,18 +1157,21 @@ export default function BookingManager({
                   </thead>
                   <tbody className="text-foreground divide-y divide-border">
                     {(() => {
-                      const clientTransactions = booking.transactions?.filter((tx: any) => {
-                        if (!tx.notes) return true;
-                        const notesLower = tx.notes.toLowerCase();
-                        if (notesLower.includes("vendor payment") || 
-                            notesLower.includes("discount received") || 
+                      const clientTransactions =
+                        booking.transactions?.filter((tx: any) => {
+                          if (!tx.notes) return true;
+                          const notesLower = tx.notes.toLowerCase();
+                          if (
+                            notesLower.includes("vendor payment") ||
+                            notesLower.includes("discount received") ||
                             notesLower.includes("vendor refund") ||
                             notesLower.includes("refund from vendor") ||
-                            tx.paymentMethod === "Discount") {
-                          return false;
-                        }
-                        return true;
-                      }) || [];
+                            tx.paymentMethod === "Discount"
+                          ) {
+                            return false;
+                          }
+                          return true;
+                        }) || [];
 
                       if (clientTransactions.length === 0) {
                         return (
@@ -1143,12 +1201,20 @@ export default function BookingManager({
                           <td className="px-4 py-2 font-semibold uppercase">
                             {tx.paymentMethod}
                           </td>
-                          <td className={`px-4 py-2 text-right font-bold ${
-                            tx.amount < 0 
-                              ? "text-red-600 dark:text-red-400" 
-                              : "text-emerald-600 dark:text-emerald-400"
-                          }`}>
-                            {tx.amount < 0 ? "-" : (tx.notes?.toLowerCase().includes("credit card charges") ? "+" : "")}
+                          <td
+                            className={`px-4 py-2 text-right font-bold ${
+                              tx.amount < 0
+                                ? "text-red-600 dark:text-red-400"
+                                : "text-emerald-600 dark:text-emerald-400"
+                            }`}
+                          >
+                            {tx.amount < 0
+                              ? "-"
+                              : tx.notes
+                                    ?.toLowerCase()
+                                    .includes("credit card charges")
+                                ? "+"
+                                : ""}
                             {formatCurrency(Math.abs(tx.amount))}
                           </td>
                           <td className="px-4 py-2 text-muted-foreground">
@@ -1165,7 +1231,9 @@ export default function BookingManager({
                                 const before = receiptMatch[1].trim();
                                 const url = encodeURI(receiptMatch[2].trim());
                                 const after = receiptMatch[3].trim();
-                                mainText = [before, after].filter(Boolean).join(" ") || "No additional notes";
+                                mainText =
+                                  [before, after].filter(Boolean).join(" ") ||
+                                  "No additional notes";
                                 receiptLink = (
                                   <a
                                     href={url}
@@ -1181,9 +1249,10 @@ export default function BookingManager({
 
                               const isExpanded = expandedTx[tx.id] || false;
                               const shouldTruncate = mainText.length > 100;
-                              const displayedText = (shouldTruncate && !isExpanded) 
-                                ? `${mainText.substring(0, 100)}...` 
-                                : mainText;
+                              const displayedText =
+                                shouldTruncate && !isExpanded
+                                  ? `${mainText.substring(0, 100)}...`
+                                  : mainText;
 
                               return (
                                 <div className="flex flex-col gap-1 max-w-[500px]">
@@ -1193,7 +1262,10 @@ export default function BookingManager({
                                       type="button"
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        setExpandedTx(prev => ({ ...prev, [tx.id]: !isExpanded }));
+                                        setExpandedTx((prev) => ({
+                                          ...prev,
+                                          [tx.id]: !isExpanded,
+                                        }));
                                       }}
                                       className="text-primary hover:underline text-[10px] font-bold text-left self-start mt-0.5"
                                     >
@@ -1518,7 +1590,9 @@ export default function BookingManager({
                                   </button>
                                 </div>
                               ) : (
-                                <div className="text-center text-muted-foreground">—</div>
+                                <div className="text-center text-muted-foreground">
+                                  —
+                                </div>
                               )}
                             </td>
                           </tr>
@@ -1641,13 +1715,20 @@ export default function BookingManager({
                       );
                       return sortedFlights.map((fs: any, idx: number) => {
                         const nextFlight = sortedFlights[idx + 1];
-                        const isConnecting = getIsConnectingFlight(fs, nextFlight);
-                        const layoverTime = isConnecting ? calculateLayoverTime(fs, nextFlight) : "";
-                        
+                        const isConnecting = getIsConnectingFlight(
+                          fs,
+                          nextFlight,
+                        );
+                        const layoverTime = isConnecting
+                          ? calculateLayoverTime(fs, nextFlight)
+                          : "";
+
                         // Extract codes for simple display in layover text
                         const extractCode = (str: string) => {
                           const match = str.match(/\(([^)]+)\)/);
-                          return match ? match[1].toUpperCase() : str.toUpperCase();
+                          return match
+                            ? match[1].toUpperCase()
+                            : str.toUpperCase();
                         };
                         const transitHub = extractCode(fs.arrivedAt || "");
 
@@ -1659,13 +1740,20 @@ export default function BookingManager({
                               {isConnecting && (
                                 <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-500"></div>
                               )}
-                              {idx > 0 && getIsConnectingFlight(sortedFlights[idx - 1], fs) && (
-                                <div className="absolute left-0 top-0 bottom-0 w-1 bg-sky-500"></div>
-                              )}
+                              {idx > 0 &&
+                                getIsConnectingFlight(
+                                  sortedFlights[idx - 1],
+                                  fs,
+                                ) && (
+                                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-sky-500"></div>
+                                )}
 
                               <div className="flex items-center gap-3">
                                 <div className="w-9 h-9 bg-primary/5 text-primary border border-primary/10 rounded-xl flex items-center justify-center font-bold text-[11px] shadow-inner">
-                                  <Plane size={14} className="text-primary group-hover:rotate-12 transition-transform" />
+                                  <Plane
+                                    size={14}
+                                    className="text-primary group-hover:rotate-12 transition-transform"
+                                  />
                                 </div>
                                 <div>
                                   <div className="flex items-center gap-1.5">
@@ -1682,17 +1770,23 @@ export default function BookingManager({
                                     )}
                                   </div>
                                   <p className="text-[10px] text-muted-foreground mt-0.5 font-mono">
-                                    PNR: <strong className="text-foreground font-bold">{fs.pnr || "—"}</strong>
+                                    PNR:{" "}
+                                    <strong className="text-foreground font-bold">
+                                      {fs.pnr || "—"}
+                                    </strong>
                                   </p>
                                   {fs.date && (
                                     <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1 font-medium">
-                                      <span>Date:</span> 
+                                      <span>Date:</span>
                                       <strong className="text-foreground">
-                                        {new Date(fs.date).toLocaleDateString("en-US", {
-                                          month: "short",
-                                          day: "2-digit",
-                                          year: "numeric",
-                                        })}
+                                        {new Date(fs.date).toLocaleDateString(
+                                          "en-US",
+                                          {
+                                            month: "short",
+                                            day: "2-digit",
+                                            year: "numeric",
+                                          },
+                                        )}
                                       </strong>
                                     </p>
                                   )}
@@ -1705,14 +1799,21 @@ export default function BookingManager({
                                   <p className="font-extrabold text-foreground text-[14px]">
                                     {fs.departTime || "—"}
                                   </p>
-                                  <p className="text-[10px] text-muted-foreground font-extrabold tracking-wide uppercase truncate max-w-[150px]" title={fs.departedFrom}>
+                                  <p
+                                    className="text-[10px] text-muted-foreground font-extrabold tracking-wide uppercase truncate max-w-[150px]"
+                                    title={fs.departedFrom}
+                                  >
                                     {fs.departedFrom}
                                     {(() => {
                                       if (fs.notes) {
                                         try {
                                           const parsed = JSON.parse(fs.notes);
                                           if (parsed.depTerminal) {
-                                            return <span className="text-[8px] bg-rose-50 text-rose-600 px-1 py-0.5 rounded font-black ml-1 uppercase border border-rose-200">T{parsed.depTerminal}</span>;
+                                            return (
+                                              <span className="text-[8px] bg-rose-50 text-rose-600 px-1 py-0.5 rounded font-black ml-1 uppercase border border-rose-200">
+                                                T{parsed.depTerminal}
+                                              </span>
+                                            );
                                           }
                                         } catch (e) {}
                                       }
@@ -1731,14 +1832,21 @@ export default function BookingManager({
                                   <p className="font-extrabold text-foreground text-[14px]">
                                     {fs.arrivalTime || "—"}
                                   </p>
-                                  <p className="text-[10px] text-muted-foreground font-extrabold tracking-wide uppercase truncate max-w-[150px]" title={fs.arrivedAt}>
+                                  <p
+                                    className="text-[10px] text-muted-foreground font-extrabold tracking-wide uppercase truncate max-w-[150px]"
+                                    title={fs.arrivedAt}
+                                  >
                                     {fs.arrivedAt}
                                     {(() => {
                                       if (fs.notes) {
                                         try {
                                           const parsed = JSON.parse(fs.notes);
                                           if (parsed.arrTerminal) {
-                                            return <span className="text-[8px] bg-rose-50 text-rose-600 px-1 py-0.5 rounded font-black ml-1 uppercase border border-rose-200">T{parsed.arrTerminal}</span>;
+                                            return (
+                                              <span className="text-[8px] bg-rose-50 text-rose-600 px-1 py-0.5 rounded font-black ml-1 uppercase border border-rose-200">
+                                                T{parsed.arrTerminal}
+                                              </span>
+                                            );
                                           }
                                         } catch (e) {}
                                       }
@@ -1811,9 +1919,19 @@ export default function BookingManager({
                               <div className="flex items-center justify-center py-2 relative my-1">
                                 <div className="absolute left-1/2 -translate-x-1/2 top-0 bottom-0 w-[2px] bg-gradient-to-b from-amber-500 to-sky-500 opacity-30 z-0"></div>
                                 <div className="flex items-center gap-1.5 px-4 py-1.5 bg-amber-50/90 border border-amber-200/80 rounded-full text-amber-800 text-[10.5px] font-bold shadow-sm relative z-10 hover:scale-[1.02] transition-transform backdrop-blur-sm">
-                                  <Clock size={12} className="text-amber-600 animate-pulse" />
+                                  <Clock
+                                    size={12}
+                                    className="text-amber-600 animate-pulse"
+                                  />
                                   <span>
-                                    Layover: <strong className="text-amber-950 font-black">{layoverTime}</strong> in transit at <strong className="text-amber-950 font-black">{transitHub}</strong>
+                                    Layover:{" "}
+                                    <strong className="text-amber-950 font-black">
+                                      {layoverTime}
+                                    </strong>{" "}
+                                    in transit at{" "}
+                                    <strong className="text-amber-950 font-black">
+                                      {transitHub}
+                                    </strong>
                                   </span>
                                 </div>
                               </div>
@@ -1888,7 +2006,11 @@ export default function BookingManager({
                               onClick={(e) => {
                                 e.stopPropagation();
                                 printDocument(
-                                  renderHotelVoucher(getTemplateContent("HOTEL_VOUCHER"), booking, acc),
+                                  renderHotelVoucher(
+                                    getTemplateContent("HOTEL_VOUCHER"),
+                                    booking,
+                                    acc,
+                                  ),
                                   `Hotel_Voucher_${acc.hotelName.replace(/\s+/g, "_")}`,
                                 );
                               }}
@@ -2019,7 +2141,11 @@ export default function BookingManager({
                     onClick={(e) => {
                       e.stopPropagation();
                       printDocument(
-                        renderTransportVoucher(getTemplateContent("TRANSPORT_VOUCHER"), booking, "all"),
+                        renderTransportVoucher(
+                          getTemplateContent("TRANSPORT_VOUCHER"),
+                          booking,
+                          "all",
+                        ),
                         `Combined_Transfers_${booking.bookingReference || booking.id.substring(0, 8)}`,
                       );
                     }}
@@ -2095,7 +2221,11 @@ export default function BookingManager({
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   printDocument(
-                                    renderTransportVoucher(getTemplateContent("TRANSPORT_VOUCHER"), booking, ts),
+                                    renderTransportVoucher(
+                                      getTemplateContent("TRANSPORT_VOUCHER"),
+                                      booking,
+                                      ts,
+                                    ),
                                     `Transfer_Voucher_${ts.id.substring(0, 4)}`,
                                   );
                                 }}
@@ -2180,7 +2310,11 @@ export default function BookingManager({
                     onClick={(e) => {
                       e.stopPropagation();
                       printDocument(
-                        renderVisaInvoice(getTemplateContent("VISA_INVOICE"), booking, "all"),
+                        renderVisaInvoice(
+                          getTemplateContent("VISA_INVOICE"),
+                          booking,
+                          "all",
+                        ),
                         `Combined_Visa_Invoice_${booking.bookingReference || booking.id.substring(0, 8)}`,
                       );
                     }}
@@ -2239,7 +2373,11 @@ export default function BookingManager({
                           onClick={(e) => {
                             e.stopPropagation();
                             printDocument(
-                              renderVisaInvoice(getTemplateContent("VISA_INVOICE"), booking, vs),
+                              renderVisaInvoice(
+                                getTemplateContent("VISA_INVOICE"),
+                                booking,
+                                vs,
+                              ),
                               `Visa_Invoice_${vs.passportNumber}`,
                             );
                           }}
@@ -2316,7 +2454,11 @@ export default function BookingManager({
                     onClick={(e) => {
                       e.stopPropagation();
                       printDocument(
-                        renderSpecialServicesInvoice(getTemplateContent("SPECIAL_SERVICES"), booking, "all"),
+                        renderSpecialServicesInvoice(
+                          getTemplateContent("SPECIAL_SERVICES"),
+                          booking,
+                          "all",
+                        ),
                         `Combined_Special_Services_${booking.bookingReference || booking.id.substring(0, 8)}`,
                       );
                     }}
@@ -2385,7 +2527,11 @@ export default function BookingManager({
                           onClick={(e) => {
                             e.stopPropagation();
                             printDocument(
-                              renderSpecialServicesInvoice(getTemplateContent("SPECIAL_SERVICES"), booking, as),
+                              renderSpecialServicesInvoice(
+                                getTemplateContent("SPECIAL_SERVICES"),
+                                booking,
+                                as,
+                              ),
                               `Special_Service_${as.id.substring(0, 4)}`,
                             );
                           }}

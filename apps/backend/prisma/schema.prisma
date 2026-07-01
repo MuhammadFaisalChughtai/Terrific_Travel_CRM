@@ -68,6 +68,7 @@ model User {
   agent                   Agent?         @relation(fields: [agentId], references: [id], onDelete: SetNull)
   submittedRequests       PaymentRequest[] @relation("SubmittedRequests")
   reviewedRequests        PaymentRequest[] @relation("ReviewedRequests")
+  paidMargins             AgentMargin[]    @relation("PaidMargins")
 }
 
 
@@ -246,6 +247,9 @@ model Booking {
 
   paymentRequests     PaymentRequest[]
 
+  agentMarginId       String?
+  agentMargin         AgentMargin?           @relation(fields: [agentMarginId], references: [id])
+
   @@index([bookingReference])
 }
 
@@ -352,6 +356,8 @@ model Agent {
   passengers    Passenger[]
   users         User[]
   attendances   Attendance[]
+  agentMargins  AgentMargin[]
+  vendorLedgers VendorLedger[]
 }
 
 model AgentSlab {
@@ -626,6 +632,8 @@ model VendorLedger {
   id               String   @id @default(uuid())
   vendorId         String?
   vendor           Vendor?  @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  agentId          String?
+  agent            Agent?   @relation(fields: [agentId], references: [id], onDelete: Cascade)
   bookingId        String?
   booking          Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
   bookingReference String?
@@ -718,5 +726,27 @@ model Attendance {
   updatedAt     DateTime         @updatedAt
 
   @@unique([agentId, date])
+}
+
+model AgentMargin {
+  id               String   @id @default(uuid())
+  agentId          String
+  agent            Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  month            Int
+  year             Int
+  bookingCount     Int
+  totalProfit      Float
+  marginPercentage Float
+  marginAmount     Float
+  status           String   @default("UNPAID") // UNPAID, PAID
+  paidDate         DateTime?
+  paidById         String?
+  paidBy           User?    @relation("PaidMargins", fields: [paidById], references: [id])
+  notes            String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  bookings         Booking[]
+
+  @@unique([agentId, month, year])
 }
 

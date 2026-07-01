@@ -7,6 +7,7 @@ import { useDashboardStore } from "../store/dashboard.store";
 import { useNotificationStore } from "../store/notification.store";
 import {
   LayoutDashboard,
+  PieChart,
   Plane,
   Hotel,
   Map,
@@ -28,6 +29,7 @@ import {
   Layers,
   DollarSign,
   Clock,
+  Calculator,
 } from "lucide-react";
 export default function DashboardLayout() {
   const location = useLocation();
@@ -64,7 +66,9 @@ export default function DashboardLayout() {
   const toggleSidebar = useDashboardStore((state) => state.toggleSidebar);
 
   const notifications = useNotificationStore((state) => state.notifications);
-  const fetchNotifications = useNotificationStore((state) => state.fetchNotifications);
+  const fetchNotifications = useNotificationStore(
+    (state) => state.fetchNotifications,
+  );
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
   useEffect(() => {
@@ -125,6 +129,18 @@ export default function DashboardLayout() {
       icon: Clock,
       roles: ["Admin", "Agent"], // Assuming we want both to see it
     },
+    {
+      name: "Agent Margins",
+      path: "/agent-margins",
+      icon: Calculator,
+      roles: ["Admin", "Agent"],
+    },
+    // {
+    //   name: "Financials",
+    //   path: "/reports",
+    //   icon: PieChart,
+    //   roles: ["Admin", "Manager"],
+    // },
     { name: "Settings", path: "/settings", icon: Settings, roles: ["Admin"] },
   ];
 
