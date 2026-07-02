@@ -387,3 +387,9 @@ export const deleteAdditionalService = asyncHandler(async (req: AuthenticatedReq
     data: result,
   });
 });
+
+export const getUniqueHotels = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const query = (req.query.search as string || '').trim();
+  const result = await bookingsService.getUniqueHotels(query);
+  res.status(200).json({ success: true, data: result });
+});

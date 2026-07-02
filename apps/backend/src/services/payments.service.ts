@@ -506,6 +506,16 @@ export class PaymentsService {
       },
     });
 
+    // Clear admin notifications for this request
+    await prisma.notification.deleteMany({
+      where: {
+        title: "New Payment Request",
+        message: {
+          contains: `for booking ${request.booking.bookingReference || request.bookingId}.`
+        }
+      }
+    });
+
     // Notify Agent
     await prisma.notification.create({
       data: {
@@ -535,6 +545,16 @@ export class PaymentsService {
         reviewedById: adminId,
         reviewedAt: new Date(),
       },
+    });
+
+    // Clear admin notifications for this request
+    await prisma.notification.deleteMany({
+      where: {
+        title: "New Payment Request",
+        message: {
+          contains: `for booking ${request.booking.bookingReference || request.bookingId}.`
+        }
+      }
     });
 
     // Notify Agent

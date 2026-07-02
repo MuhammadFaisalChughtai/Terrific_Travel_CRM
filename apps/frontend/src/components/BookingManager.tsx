@@ -1414,9 +1414,10 @@ export default function BookingManager({
                     Payment Allocation History
                   </h3>
                   <div className="space-y-2">
-                    {booking.vendorPaymentAllocations &&
-                    booking.vendorPaymentAllocations.length > 0 ? (
-                      booking.vendorPaymentAllocations.map((alloc: any) => (
+                    {booking.vendorPaymentAllocations && booking.vendorPaymentAllocations.length > 0 ? (
+                      [...booking.vendorPaymentAllocations]
+                        .sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+                        .map((alloc: any) => (
                         <div
                           key={alloc.id}
                           className={`flex items-start justify-between gap-3 p-3 border rounded-lg text-[11px] ${
@@ -2025,7 +2026,9 @@ export default function BookingManager({
               <div className="p-3">
                 {booking.accommodations?.length > 0 ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {booking.accommodations.map((acc: any) => (
+                    {[...booking.accommodations]
+                      .sort((a: any, b: any) => new Date(a.checkInDate).getTime() - new Date(b.checkInDate).getTime())
+                      .map((acc: any) => (
                       <div
                         key={acc.id}
                         className="border border-border rounded-lg p-2.5 relative text-[12px]"
@@ -2215,7 +2218,9 @@ export default function BookingManager({
                   </thead>
                   <tbody className="text-foreground divide-y divide-border">
                     {booking.transportServices?.length > 0 ? (
-                      booking.transportServices.map((ts: any) => (
+                      [...booking.transportServices]
+                        .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                        .map((ts: any) => (
                         <tr
                           key={ts.id}
                           className="hover:bg-secondary/5 transition-colors"
@@ -2374,7 +2379,9 @@ export default function BookingManager({
             {openSections.visa && (
               <div className="p-3 space-y-2">
                 {booking.visaServices?.length > 0 ? (
-                  booking.visaServices.map((vs: any) => (
+                  [...booking.visaServices]
+                    .sort((a: any, b: any) => new Date(a.issueDate).getTime() - new Date(b.issueDate).getTime())
+                    .map((vs: any) => (
                     <div
                       key={vs.id}
                       className="border border-border rounded-lg p-2 flex items-center justify-between hover:bg-secondary/10 transition-colors text-[12px]"
@@ -2518,7 +2525,9 @@ export default function BookingManager({
             {openSections.additional && (
               <div className="p-3 space-y-2">
                 {booking.additionalServices?.length > 0 ? (
-                  booking.additionalServices.map((as: any) => (
+                  [...booking.additionalServices]
+                  .sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+                  .map((as: any) => (
                     <div
                       key={as.id}
                       className="border border-border rounded-lg p-2 flex items-center justify-between hover:bg-secondary/10 transition-colors text-[12px]"

@@ -72,11 +72,10 @@ export default function DashboardLayout() {
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
   useEffect(() => {
-    if (user?.id) {
-      fetchNotifications();
-      const interval = setInterval(() => fetchNotifications(), 30000);
-      return () => clearInterval(interval);
-    }
+    if (!user?.id) return;
+    fetchNotifications();
+    const interval = setInterval(() => fetchNotifications(), 30000);
+    return () => clearInterval(interval);
   }, [user?.id, fetchNotifications]);
 
   const userHasRole = (allowed: string[]) => {

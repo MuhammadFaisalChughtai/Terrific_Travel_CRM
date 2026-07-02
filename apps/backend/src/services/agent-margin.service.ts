@@ -149,7 +149,19 @@ export const agentMarginService = {
   async markAsPaid(id: string, adminId: string, notes?: string) {
     const margin = await prisma.agentMargin.findUnique({
       where: { id },
-      include: { agent: true }
+      include: { 
+        agent: true,
+        bookings: {
+          select: {
+            id: true,
+            bookingReference: true,
+            paidAmount: true,
+            bookingVendorPayments: {
+              select: { amountPaid: true }
+            }
+          }
+        }
+      }
     });
 
     if (!margin) {
@@ -160,8 +172,24 @@ export const agentMarginService = {
       throw createError(400, 'Margin is already paid');
     }
 
-    // Transaction to update margin and create ledger
-    const [updatedMargin, ledgerEntry] = await prisma.$transaction([
+    const transactionsData = margin.bookings.map(b => {
+      const vendorCost = b.bookingVendorPayments.reduce((sum, vp) => sum + vp.amountPaid, 0);
+      const profit = b.paidAmount - vendorCost;
+      const bookingMargin = profit * (margin.marginPercentage / 100);
+
+      return {
+        bookingId: b.id,
+        amount: -bookingMargin,
+        paymentMethod: 'AGENT PAYOUT',
+        notes: `Agent Margin Payout for ${margin.month}/${margin.year}`
+      };
+    });
+
+    const bookingRefs = margin.bookings.map(b => b.bookingReference).join(', ');
+    const ledgerNotes = `Agent Margin Payout for ${margin.month}/${margin.year}${bookingRefs ? ` | Bookings: ${bookingRefs}` : ''}`;
+
+    // Transaction to update margin, create ledger, and insert booking transactions
+    const [updatedMargin, ledgerEntry, bookingTransactions] = await prisma.$transaction([
       prisma.agentMargin.update({
         where: { id },
         data: {
@@ -179,11 +207,16 @@ export const agentMarginService = {
           debit: margin.marginAmount,
           credit: 0,
           runningBalance: 0,
-          notes: `Agent Margin Payout for ${margin.month}/${margin.year}`,
+          notes: ledgerNotes,
           referenceNumber: `MARGIN-${margin.id.slice(-6).toUpperCase()}`,
           createdById: adminId
         }
-      })
+      }),
+      ...(transactionsData.length > 0 ? [
+        prisma.bookingTransaction.createMany({
+          data: transactionsData
+        })
+      ] : [])
     ]);
 
     return updatedMargin;
@@ -191,7 +224,8 @@ export const agentMarginService = {
 
   async resetPayment(id: string) {
     const margin = await prisma.agentMargin.findUnique({
-      where: { id }
+      where: { id },
+      include: { bookings: true }
     });
 
     if (!margin) {
@@ -202,7 +236,9 @@ export const agentMarginService = {
       throw createError(400, 'Margin is not paid');
     }
 
-    // Transaction to reset margin and remove ledger
+    // Transaction to reset margin, remove ledger, and remove booking transactions
+    const bookingIds = margin.bookings.map(b => b.id);
+    
     await prisma.$transaction([
       prisma.agentMargin.update({
         where: { id },
@@ -219,7 +255,17 @@ export const agentMarginService = {
           eventType: 'AGENT_PAYOUT',
           referenceNumber: `MARGIN-${margin.id.slice(-6).toUpperCase()}`
         }
-      })
+      }),
+      // Delete corresponding booking transactions
+      ...(bookingIds.length > 0 ? [
+        prisma.bookingTransaction.deleteMany({
+          where: {
+            bookingId: { in: bookingIds },
+            paymentMethod: 'AGENT PAYOUT',
+            notes: `Agent Margin Payout for ${margin.month}/${margin.year}`
+          }
+        })
+      ] : [])
     ]);
 
     return { success: true };

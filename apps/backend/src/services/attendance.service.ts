@@ -133,6 +133,27 @@ export class AttendanceService {
     console.log(`Found ${records.length} attendance records`);
     return records;
   }
+  async updateAttendance(id: string, data: any) {
+    const record = await prisma.attendance.findUnique({ where: { id } });
+    if (!record) throw new NotFoundException('Attendance record not found');
+    
+    // Parse dates if provided, allow nulling them out if explicitly passed as null
+    let updateData: any = {};
+    if (data.checkInTime !== undefined) {
+      updateData.checkInTime = data.checkInTime ? new Date(data.checkInTime) : null;
+    }
+    if (data.checkOutTime !== undefined) {
+      updateData.checkOutTime = data.checkOutTime ? new Date(data.checkOutTime) : null;
+    }
+    if (data.status !== undefined) {
+      updateData.status = data.status;
+    }
+
+    return prisma.attendance.update({
+      where: { id },
+      data: updateData
+    });
+  }
 }
 
 export const attendanceService = new AttendanceService();

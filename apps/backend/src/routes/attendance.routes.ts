@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { checkIn, checkOut, getTodayStatus, getAllAttendance } from '../controllers/attendance.controller';
+import { checkIn, checkOut, getTodayStatus, getAllAttendance, updateAttendance } from '../controllers/attendance.controller';
 import { authMiddleware } from '../middleware/auth.middleware';
 import { requireRoles } from '../middleware/rbac.middleware';
 
@@ -16,7 +16,6 @@ router.get('/today', requireRoles('Agent', 'TRAVEL_AGENT') as any, getTodayStatu
 
 // Admin routes
 router.get('/admin/all', requireRoles('SUPER_ADMIN', 'ADMIN') as any, getAllAttendance);
-
-
+router.patch('/admin/:id', requireRoles('SUPER_ADMIN', 'ADMIN') as any, updateAttendance);
 
 export default router;

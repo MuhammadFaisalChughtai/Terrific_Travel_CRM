@@ -186,15 +186,14 @@ export default function Bookings() {
   });
 
   useEffect(() => {
-    if (tableRef.current) {
-      const resizeObserver = new ResizeObserver((entries) => {
-        for (let entry of entries) {
-          setTableWidth(entry.target.scrollWidth);
-        }
-      });
-      resizeObserver.observe(tableRef.current);
-      return () => resizeObserver.disconnect();
-    }
+    if (!tableRef.current) return;
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        setTableWidth(entry.target.scrollWidth);
+      }
+    });
+    resizeObserver.observe(tableRef.current);
+    return () => resizeObserver.disconnect();
   }, [isLoading, bookingsResult]);
 
   // Query agents list for margin finalization selection
@@ -537,7 +536,7 @@ export default function Bookings() {
                           year: "numeric",
                         });
                       };
-                      const bookingDate = formatDate(booking.createdAt);
+                      const bookingDate = formatDate(booking.bookingDate || booking.createdAt);
                       const travelDate = formatDate(booking.departureDate);
 
                       // Dynamic Vendor Payment calculations

@@ -37,3 +37,9 @@ export const getAllAttendance = asyncHandler(async (req: Request, res: Response)
   const result = await attendanceService.getAllAttendance(req.query);
   res.status(200).json({ success: true, data: result });
 });
+
+export const updateAttendance = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id } = req.params;
+  const result = await attendanceService.updateAttendance(id, req.body);
+  res.status(200).json({ success: true, data: result });
+});

@@ -28,7 +28,7 @@ export default function CreateBookingInitModal({
   onSuccess,
 }: CreateBookingInitModalProps) {
   const [agentId, setAgentId] = useState("");
-  const [departureDate, setDepartureDate] = useState("");
+  const [bookingDate, setBookingDate] = useState("");
   const [totalPrice, setTotalPrice] = useState("");
   const [bookingReference, setBookingReference] = useState("");
 
@@ -77,7 +77,7 @@ export default function CreateBookingInitModal({
     } else {
       // Reset on close
       setAgentId("");
-      setDepartureDate("");
+      setBookingDate("");
       setTotalPrice("");
       setBookingReference("");
     }
@@ -95,7 +95,7 @@ export default function CreateBookingInitModal({
 
       // Reset form
       setAgentId("");
-      setDepartureDate("");
+      setBookingDate("");
       setTotalPrice("");
     },
     onError: (err: any) => {
@@ -112,7 +112,7 @@ export default function CreateBookingInitModal({
     e.preventDefault();
     createMutation.mutate({
       agentId: agentId || null,
-      departureDate: departureDate || new Date().toISOString(),
+      bookingDate: bookingDate || new Date().toISOString(),
       totalPrice: Number(totalPrice) || 0,
       bookingReference: (bookingReference || "").trim().toUpperCase() || null,
       status: "PENDING",
@@ -235,7 +235,7 @@ export default function CreateBookingInitModal({
           )}
         </div>
 
-        {/* Departure Date */}
+        {/* Booking Date */}
         <div>
           <label className="block text-[11px] font-bold text-foreground mb-1">
             Booking Date
@@ -246,8 +246,8 @@ export default function CreateBookingInitModal({
             </div>
             <input
               type="date"
-              value={departureDate}
-              onChange={(e) => setDepartureDate(e.target.value)}
+              value={bookingDate}
+              onChange={(e) => setBookingDate(e.target.value)}
               className="w-full pl-9 pr-4 py-1.5 bg-card border border-border rounded-xl text-xs font-medium text-foreground shadow-sm hover:border-primary/50 focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all cursor-pointer"
               required
             />

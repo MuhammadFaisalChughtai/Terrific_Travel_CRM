@@ -59,7 +59,8 @@ export class BookingsService {
         totalPrice: Number(data.totalPrice) || 0,
         status: data.status || BookingStatus.PENDING,
         agentId: data.agentId || null,
-        departureDate: data.departureDate ? new Date(data.departureDate) : null,
+        bookingDate: data.bookingDate ? new Date(data.bookingDate) : new Date(),
+        departureDate: null,
         paidAmount: Number(data.paidAmount) || 0,
         refundAmount: Number(data.refundAmount) || 0,
         cardPaymentCharges: Number(data.cardPaymentCharges) || 0,
@@ -1953,6 +1954,55 @@ export class BookingsService {
     });
 
     return { success: true };
+  }
+
+  async getUniqueHotels(search: string) {
+    const accommodations = await prisma.accommodationService.findMany({
+      where: search ? {
+        hotelName: { contains: search, mode: 'insensitive' }
+      } : undefined,
+      select: { hotelName: true, city: true },
+      distinct: ['hotelName'],
+      take: 20
+    });
+
+    const hotelDb = await prisma.hotel.findMany({
+      where: search ? {
+        name: { contains: search, mode: 'insensitive' }
+      } : undefined,
+      select: { name: true, city: true },
+      take: 20
+    });
+
+    const combinedMap = new Map<string, any>();
+    
+    // Add past bookings
+    accommodations.forEach(a => {
+      if (a.hotelName && a.hotelName.trim() !== '') {
+        combinedMap.set(a.hotelName.toLowerCase(), {
+          name: a.hotelName,
+          city: a.city || ''
+        });
+      }
+    });
+
+    // Add hotel DB (will overwrite if duplicate, but keeps the unique names)
+    hotelDb.forEach(h => {
+      if (h.name && h.name.trim() !== '') {
+        if (!combinedMap.has(h.name.toLowerCase())) {
+          combinedMap.set(h.name.toLowerCase(), {
+            name: h.name,
+            city: h.city || ''
+          });
+        }
+      }
+    });
+
+    return Array.from(combinedMap.values()).map((h, i) => ({
+      id: `prev-${i}`,
+      name: h.name,
+      city: h.city
+    })).slice(0, 20);
   }
 }
 

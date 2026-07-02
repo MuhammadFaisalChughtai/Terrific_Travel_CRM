@@ -222,6 +222,7 @@ model Booking {
 
   // New Detailed CRM Fields
   bookingReference    String                 @unique @default(cuid())
+  bookingDate         DateTime?
   departureDate       DateTime?
   paidAmount          Float                  @default(0.0)
   refundAmount        Float                  @default(0.0)

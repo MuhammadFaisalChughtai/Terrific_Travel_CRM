@@ -3,9 +3,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, differenceInMinutes } from "date-fns";
 import { useAuthStore } from "../store/auth.store";
 import { apiClient } from "../api/client";
-import { LogIn, LogOut, CheckCircle2, XCircle, Clock, Filter, ChevronDown, Users, Loader2 } from "lucide-react";
+import { LogIn, LogOut, CheckCircle2, XCircle, Clock, Filter, ChevronDown, Users, Loader2, Edit } from "lucide-react";
 import { toast } from "sonner";
 import Modal from "../components/Modal";
+import EditAttendanceModal from "../components/EditAttendanceModal";
 
 interface AttendanceRecord {
   id: string;
@@ -30,6 +31,9 @@ export default function Attendance() {
   });
   const [showFilters, setShowFilters] = useState(false);
   const filterRef = useRef<HTMLDivElement>(null);
+  
+  const [selectedRecord, setSelectedRecord] = useState<any>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -239,6 +243,7 @@ export default function Attendance() {
                     <th className="px-6 py-4 font-bold text-muted-foreground uppercase text-[10px] tracking-widest">Check Out</th>
                     <th className="px-6 py-4 font-bold text-muted-foreground uppercase text-[10px] tracking-widest">Duration</th>
                     <th className="px-6 py-4 font-bold text-muted-foreground uppercase text-[10px] tracking-widest">Status</th>
+                    {isAdmin && <th className="px-6 py-4 font-bold text-muted-foreground uppercase text-[10px] tracking-widest text-right">Actions</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/50 bg-card">
@@ -309,6 +314,19 @@ export default function Attendance() {
                               </span>
                             )}
                           </td>
+                          {isAdmin && (
+                            <td className="px-6 py-4 text-right">
+                              <button
+                                onClick={() => {
+                                  setSelectedRecord(record);
+                                  setIsEditModalOpen(true);
+                                }}
+                                className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                              >
+                                <Edit size={16} />
+                              </button>
+                            </td>
+                          )}
                         </tr>
                       );
                     })
@@ -391,6 +409,14 @@ export default function Attendance() {
           )}
         </div>
       </div>
+      
+      {isAdmin && (
+        <EditAttendanceModal 
+          isOpen={isEditModalOpen} 
+          onClose={() => setIsEditModalOpen(false)} 
+          record={selectedRecord} 
+        />
+      )}
     </div>
   );
 }

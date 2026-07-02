@@ -313,8 +313,8 @@ export default function HotelReservationModal({
   const { data: existingHotelsData } = useQuery({
     queryKey: ['existing-hotels', hotelSearchQuery],
     queryFn: async () => {
-      const res = await apiClient.get(`/hotels?search=${encodeURIComponent(hotelSearchQuery)}&limit=10`);
-      return res.data.data.items || [];
+      const res = await apiClient.get(`/bookings/accommodations/unique-hotels?search=${encodeURIComponent(hotelSearchQuery)}`);
+      return res.data.data || [];
     },
     enabled: isOpen && hotelSearchQuery.trim().length > 0
   });
