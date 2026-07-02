@@ -748,6 +748,6 @@ model AgentMargin {
   updatedAt        DateTime @updatedAt
   bookings         Booking[]
 
-  // @@unique([agentId, startDate, endDate])
+  @@unique([agentId, startDate, endDate])
 }
 
