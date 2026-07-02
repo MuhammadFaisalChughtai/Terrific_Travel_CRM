@@ -632,11 +632,20 @@ function generateTimelineHtml(booking: any): string {
 
   // Visas
   if (booking.visaServices && booking.visaServices.length > 0) {
+    const visaGroups: Record<string, any[]> = {};
     booking.visaServices.forEach((v: any) => {
+      const key = v.visaType || "Unknown Visa";
+      if (!visaGroups[key]) visaGroups[key] = [];
+      visaGroups[key].push(v);
+    });
+
+    Object.values(visaGroups).forEach((group: any[]) => {
+      const v = group[0];
+      const count = group.length;
       items.push({
         type: "VISA",
         date: v.issueDate ? new Date(v.issueDate) : new Date(booking.createdAt),
-        title: `Visa Application: ${v.visaType}`,
+        title: count > 1 ? `Visa Application: ${v.visaType} (x${count})` : `Visa Application: ${v.visaType}`,
         icon: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>`,
         badgeClass: "visa",
         details: `
@@ -1701,13 +1710,21 @@ export function generateVisaInvoiceHtml(booking: any, visa: any) {
           </tr>
         </thead>
         <tbody>
-          ${visas
+          ${Object.values(
+            visas.reduce((acc: any, v: any) => {
+              const key = v.visaType || "Unknown Visa";
+              if (!acc[key]) acc[key] = { ...v, count: 0, totalPrice: 0 };
+              acc[key].count += 1;
+              acc[key].totalPrice += (Number(v.price) || 0);
+              return acc;
+            }, {})
+          )
             .map(
               (v: any) => `
             <tr>
-              <td><strong>${v.visaType}</strong></td>
+              <td><strong>${v.visaType} ${v.count > 1 ? `(x${v.count})` : ""}</strong></td>
               <td>${v.issueDate ? formatDate(v.issueDate) : "—"}</td>
-              <td class="text-right"><strong>${formatCurrency(v.price)}</strong></td>
+              <td class="text-right"><strong>${formatCurrency(v.totalPrice)}</strong></td>
             </tr>
           `,
             )
@@ -2148,14 +2165,21 @@ export function renderBookingInvoice(
       </tr>
     `,
     ) || []),
-    ...(booking.visaServices?.map(
+    ...(Object.values(
+      (booking.visaServices || []).reduce((acc: any, v: any) => {
+        const key = v.visaType || "Unknown Visa";
+        if (!acc[key]) acc[key] = { ...v, count: 0 };
+        acc[key].count += 1;
+        return acc;
+      }, {})
+    ).map(
       (v: any) => `
       <tr>
         <td><span style="font-weight: 700; color: #8B5CF6;">VISA</span></td>
-        <td>Visa Type: <strong>${v.visaType}</strong></td>
+        <td>Visa Type: <strong>${v.visaType} ${v.count > 1 ? `(x${v.count})` : ""}</strong></td>
       </tr>
     `,
-    ) || []),
+    )),
     ...(booking.additionalServices?.map(
       (a: any) => `
       <tr>
