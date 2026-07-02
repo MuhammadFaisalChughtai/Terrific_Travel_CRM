@@ -345,6 +345,14 @@ export default function Attendance() {
             </div>
           </div>
         </div>
+
+        {isAdmin && (
+          <EditAttendanceModal 
+            isOpen={isEditModalOpen} 
+            onClose={() => setIsEditModalOpen(false)} 
+            record={selectedRecord} 
+          />
+        )}
       </div>
     );
   }
@@ -409,14 +417,6 @@ export default function Attendance() {
           )}
         </div>
       </div>
-      
-      {isAdmin && (
-        <EditAttendanceModal 
-          isOpen={isEditModalOpen} 
-          onClose={() => setIsEditModalOpen(false)} 
-          record={selectedRecord} 
-        />
-      )}
     </div>
   );
 }

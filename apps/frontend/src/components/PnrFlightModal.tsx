@@ -47,12 +47,17 @@ function getCabinClassFromCode(code: string): string {
 export function parsePNRText(text: string, defaultYear: number): ParsedFlight | null {
   if (!text) return null;
 
-  // Regex pattern for standard segment:
-  // e.g. SV 116 Y 17JUN JEDRUH DK1 1230 1400
-  // Updated to allow optional prefix/suffix like #0645 or 0645+1
-  const segmentRegex = /([A-Z0-9]{2})\s*([0-9]{1,4})\s+([A-Z])\s+([0-9]{1,2})([A-Z]{3})\s+([A-Z]{3})[\s/]*([A-Z]{3})\s*(?:[A-Z]{2}\d+)?\s*([0-9]{2}:?[0-9]{2})\s+([#+*]?\s*[0-9]{2}:?[0-9]{2}(?:\s*[#+*]\s*\d)?)/i;
+  // Standard Amadeus/Galileo
+  const amadeusRegex = /([A-Z0-9]{2})\s*([0-9]{1,4})\s+([A-Z])\s+([0-9]{1,2})([A-Z]{3})\s+([A-Z]{3})[\s/]*([A-Z]{3})\s*(?:[A-Z]{2}\d+)?\s*([0-9]{2}:?[0-9]{2})\s+([#+*]?\s*[0-9]{2}:?[0-9]{2}(?:\s*[#+*]\s*\d)?)/i;
+  
+  // Sabre Format (e.g. EK 36K 28JUL T NCLDXB*HK5 215P 1230A)
+  const sabreRegex = /([A-Z0-9]{2})\s*([0-9]{1,4})\s*([A-Z])\s+([0-9]{1,2})([A-Z]{3})\s+(?:[A-Z]{1,3}\s+)?([A-Z]{3})[\s/]*([A-Z]{3})(?:\*[A-Z]{2}\d+)?\s+([0-9]{3,4}[APap]?)\s+([0-9]{3,4}[APap]?)/i;
 
-  const match = text.match(segmentRegex);
+  let match = text.match(amadeusRegex);
+  if (!match) {
+    match = text.match(sabreRegex);
+  }
+  
   if (!match) return null;
 
   const airline = match[1].toUpperCase();
@@ -77,8 +82,18 @@ export function parsePNRText(text: string, defaultYear: number): ParsedFlight | 
     formattedDate = `${yyyy}-${mm}-${dd}`;
   }
 
-  // Format times: e.g. 1230 -> 12:30 or #0645 -> 06:45
   const formatTime = (t: string) => {
+    const ampmMatch = t.match(/([0-9]{1,4})\s*([AP][M]?)/i);
+    if (ampmMatch) {
+      let nums = ampmMatch[1];
+      const isPm = ampmMatch[2].toUpperCase().startsWith('P');
+      nums = nums.padStart(4, '0');
+      let hours = parseInt(nums.substring(0, 2), 10);
+      const mins = nums.substring(2, 4);
+      if (isPm && hours < 12) hours += 12;
+      if (!isPm && hours === 12) hours = 0;
+      return `${String(hours).padStart(2, '0')}:${mins}`;
+    }
     const timeMatch = t.match(/[0-9]{2}:?[0-9]{2}/);
     if (!timeMatch) return t;
     const clean = timeMatch[0].replace(':', '');
