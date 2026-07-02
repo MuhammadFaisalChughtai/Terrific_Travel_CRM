@@ -733,8 +733,8 @@ model AgentMargin {
   id               String   @id @default(uuid())
   agentId          String
   agent            Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  month            Int
-  year             Int
+  startDate        DateTime
+  endDate          DateTime
   bookingCount     Int
   totalProfit      Float
   marginPercentage Float
@@ -748,6 +748,6 @@ model AgentMargin {
   updatedAt        DateTime @updatedAt
   bookings         Booking[]
 
-  @@unique([agentId, month, year])
+  @@unique([agentId, startDate, endDate])
 }
 

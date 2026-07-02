@@ -9,14 +9,27 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import AgentMarginBookingsModal from "../components/AgentMarginBookingsModal";
+import RecalculateMarginModal from "../components/RecalculateMarginModal";
 
 export default function AgentMargins() {
   const user = useAuthStore((state) => state.user);
   const queryClient = useQueryClient();
   const isAdmin = user?.roles.includes("SUPER_ADMIN") || user?.roles.includes("ADMIN");
 
-  const [month, setMonth] = useState(new Date().getMonth() + 1);
-  const [year, setYear] = useState(new Date().getFullYear());
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date();
+    d.setDate(1);
+    const tzOffset = d.getTimezoneOffset() * 60000;
+    return new Date(d.getTime() - tzOffset).toISOString().split("T")[0];
+  });
+  
+  const [endDate, setEndDate] = useState(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + 1);
+    d.setDate(0);
+    const tzOffset = d.getTimezoneOffset() * 60000;
+    return new Date(d.getTime() - tzOffset).toISOString().split("T")[0];
+  });
   const [agentId, setAgentId] = useState("all");
   const [status, setStatus] = useState("all");
 
@@ -24,6 +37,7 @@ export default function AgentMargins() {
   
   const [selectedMargin, setSelectedMargin] = useState<any>(null);
   const [isBookingsModalOpen, setIsBookingsModalOpen] = useState(false);
+  const [isRecalculateModalOpen, setIsRecalculateModalOpen] = useState(false);
 
   // Fetch agents for filter
   const { data: agents } = useQuery({
@@ -37,32 +51,19 @@ export default function AgentMargins() {
 
   // Fetch margins
   const { data: margins, isLoading } = useQuery({
-    queryKey: ["agent-margins", month, year, agentId, status, isAdmin],
+    queryKey: ["agent-margins", startDate, endDate, agentId, status, isAdmin],
     queryFn: async () => {
       if (!isAdmin) {
         const res = await apiClient.get("/agent-margins/my-margins");
         return res.data.data as any[];
       }
       const params = new URLSearchParams();
-      if (month) params.append("month", month.toString());
-      if (year) params.append("year", year.toString());
+      if (startDate) params.append("startDate", startDate);
+      if (endDate) params.append("endDate", endDate);
       if (agentId !== "all") params.append("agentId", agentId);
       if (status !== "all") params.append("status", status);
       const res = await apiClient.get(`/agent-margins?${params.toString()}`);
       return res.data.data as any[];
-    }
-  });
-
-  const calculateMutation = useMutation({
-    mutationFn: async () => {
-      return apiClient.post("/agent-margins/calculate", { month, year });
-    },
-    onSuccess: (res) => {
-      toast.success(res.data.message || "Margins calculated successfully");
-      queryClient.invalidateQueries({ queryKey: ["agent-margins"] });
-    },
-    onError: (err: any) => {
-      toast.error(err.response?.data?.message || "Failed to calculate margins");
     }
   });
 
@@ -116,16 +117,11 @@ export default function AgentMargins() {
         {isAdmin && (
           <div className="flex gap-2">
             <button
-              onClick={() => calculateMutation.mutate()}
-              disabled={calculateMutation.isPending}
-              className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 disabled:opacity-50"
+              onClick={() => setIsRecalculateModalOpen(true)}
+              className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors"
             >
-              {calculateMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Calculator className="h-4 w-4" />
-              )}
-              Recalculate {month}/{year}
+              <Calculator className="h-4 w-4" />
+              Recalculate
             </button>
           </div>
         )}
@@ -148,23 +144,20 @@ export default function AgentMargins() {
           </div>
         )}
         <div className="flex-1 min-w-[150px]">
-          <label className="text-xs font-medium text-muted-foreground mb-1 block">Month</label>
-          <select
-            value={month}
-            onChange={(e) => setMonth(Number(e.target.value))}
+          <label className="text-xs font-medium text-muted-foreground mb-1 block">Start Date</label>
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
             className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-ring"
-          >
-            {Array.from({ length: 12 }).map((_, i) => (
-              <option key={i + 1} value={i + 1}>{new Date(0, i).toLocaleString('default', { month: 'long' })}</option>
-            ))}
-          </select>
+          />
         </div>
         <div className="flex-1 min-w-[150px]">
-          <label className="text-xs font-medium text-muted-foreground mb-1 block">Year</label>
+          <label className="text-xs font-medium text-muted-foreground mb-1 block">End Date</label>
           <input
-            type="number"
-            value={year}
-            onChange={(e) => setYear(Number(e.target.value))}
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
             className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-ring"
           />
         </div>
@@ -233,8 +226,8 @@ export default function AgentMargins() {
                         {m.agent?.name}
                       </td>
                     )}
-                    <td className="px-4 py-3">
-                      {m.month}/{m.year}
+                    <td className="px-4 py-3 text-xs whitespace-nowrap">
+                      {new Date(m.startDate).toLocaleDateString()} - {new Date(m.endDate).toLocaleDateString()}
                     </td>
                     <td className="px-4 py-3 text-right">
                       {m.bookingCount}
@@ -312,6 +305,14 @@ export default function AgentMargins() {
             setIsBookingsModalOpen(false);
             setSelectedMargin(null);
           }}
+        />
+      )}
+
+      {isRecalculateModalOpen && (
+        <RecalculateMarginModal
+          startDate={startDate}
+          endDate={endDate}
+          onClose={() => setIsRecalculateModalOpen(false)}
         />
       )}
     </div>

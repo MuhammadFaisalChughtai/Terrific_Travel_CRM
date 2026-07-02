@@ -86,13 +86,13 @@ export const reportsService = {
         });
 
         const mMargins = await prisma.agentMargin.aggregate({
-          where: { month: d.getMonth() + 1, year: d.getFullYear(), status: 'PAID' },
+          where: { endDate: { gte: start, lte: end }, status: 'PAID' },
           _sum: { marginAmount: true }
         });
 
-        const rev = mBookings._sum.paidAmount || 0;
-        const vc = mVendors._sum.amountPaid || 0;
-        const am = mMargins._sum.marginAmount || 0;
+        const rev = mBookings._sum?.paidAmount || 0;
+        const vc = mVendors._sum?.amountPaid || 0;
+        const am = mMargins._sum?.marginAmount || 0;
 
         trendData.push({
           name: start.toLocaleString('default', { month: 'short', year: '2-digit' }),

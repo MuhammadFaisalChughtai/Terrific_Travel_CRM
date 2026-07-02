@@ -511,9 +511,9 @@ export class PaymentsService {
       where: {
         title: "New Payment Request",
         message: {
-          contains: `for booking ${request.booking.bookingReference || request.bookingId}.`
-        }
-      }
+          contains: `for booking ${request.booking.bookingReference || request.bookingId}.`,
+        },
+      },
     });
 
     // Notify Agent
@@ -552,9 +552,9 @@ export class PaymentsService {
       where: {
         title: "New Payment Request",
         message: {
-          contains: `for booking ${request.booking.bookingReference || request.bookingId}.`
-        }
-      }
+          contains: `for booking ${request.booking.bookingReference || request.bookingId}.`,
+        },
+      },
     });
 
     // Notify Agent

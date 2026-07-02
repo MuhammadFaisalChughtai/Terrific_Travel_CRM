@@ -4,18 +4,33 @@ import { asyncHandler } from '../middleware/async.middleware';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
 
 export const calculateAgentMargins = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  const { month, year } = req.body;
+  const { startDate, endDate, includedBookingIds } = req.body;
   
-  if (!month || !year) {
-    return res.status(400).json({ success: false, message: 'Month and year are required' });
+  if (!startDate || !endDate) {
+    return res.status(400).json({ success: false, message: 'startDate and endDate are required' });
   }
 
-  const margins = await agentMarginService.calculateAgentMargins(month, year);
+  const margins = await agentMarginService.calculateAgentMargins(startDate, endDate, includedBookingIds);
   
   res.status(200).json({
     success: true,
     data: margins,
     message: `Successfully calculated margins for ${margins.length} agents.`
+  });
+});
+
+export const getEligibleBookings = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { startDate, endDate } = req.query;
+  
+  if (!startDate || !endDate) {
+    return res.status(400).json({ success: false, message: 'startDate and endDate are required' });
+  }
+
+  const bookings = await agentMarginService.getEligibleBookings(startDate as string, endDate as string);
+  
+  res.status(200).json({
+    success: true,
+    data: bookings
   });
 });
 

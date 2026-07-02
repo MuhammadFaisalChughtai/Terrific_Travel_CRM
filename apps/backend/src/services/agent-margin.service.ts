@@ -2,7 +2,63 @@ import { prisma } from '../config';
 import createError from 'http-errors';
 
 export const agentMarginService = {
-  async calculateAgentMargins(month: number, year: number) {
+  async getEligibleBookings(startDate: string, endDate: string) {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+
+    const bookings = await prisma.booking.findMany({
+      where: {
+        agentId: { not: null },
+        status: { not: 'CANCELLED' },
+        OR: [
+          {
+            bookingDate: {
+              gte: start,
+              lte: end
+            }
+          },
+          {
+            bookingDate: null,
+            createdAt: {
+              gte: start,
+              lte: end
+            }
+          }
+        ]
+      },
+      include: {
+        agent: { select: { name: true } },
+        passengers: { select: { firstName: true, lastName: true }, take: 1 },
+        bookingVendorPayments: true,
+        agentMargin: { select: { status: true } }
+      },
+      orderBy: { bookingDate: 'asc' }
+    });
+
+    return bookings.map(b => {
+      const vendorCost = b.bookingVendorPayments.reduce((acc: any, vp: any) => acc + (vp.amountPaid || 0), 0);
+      const profit = b.paidAmount - vendorCost;
+      return {
+        id: b.id,
+        bookingReference: b.bookingReference,
+        date: b.bookingDate || b.createdAt,
+        agentName: b.agent?.name,
+        leadPassenger: b.passengers[0] ? `${b.passengers[0].firstName} ${b.passengers[0].lastName}` : 'Unknown',
+        totalPrice: b.totalPrice,
+        paidAmount: b.paidAmount,
+        vendorCost,
+        profit,
+        marginStatus: b.agentMargin?.status
+      };
+    });
+  },
+
+  async calculateAgentMargins(startDate: string, endDate: string, includedBookingIds?: string[]) {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+
     // 1. Fetch all agents with their slabs
     const agents = await prisma.agent.findMany({
       include: {
@@ -12,27 +68,47 @@ export const agentMarginService = {
       }
     });
 
+    let eligibleBookingsRaw: any[] = [];
+
     // 2. Fetch eligible bookings using SQL aggregation
-    // Only include bookings where paymentStatus = 'PAID', status != 'CANCELLED'
-    // and no unpaid vendor payments exist.
-    const eligibleBookingsRaw: any[] = await prisma.$queryRaw`
-      SELECT 
-        b."agentId",
-        COUNT(b.id)::int as "bookingCount",
-        array_agg(b.id) as "bookingIds",
-        SUM(b."paidAmount" - COALESCE(vp."totalVendorCost", 0))::float as "totalProfit"
-      FROM "Booking" b
-      LEFT JOIN (
-        SELECT "bookingId", SUM("amountPaid") as "totalVendorCost"
-        FROM "BookingVendorPayment"
-        GROUP BY "bookingId"
-      ) vp ON vp."bookingId" = b.id
-      WHERE b."agentId" IS NOT NULL
-        AND b.status != 'CANCELLED'
-        AND EXTRACT(MONTH FROM b."createdAt") = ${month}
-        AND EXTRACT(YEAR FROM b."createdAt") = ${year}
-      GROUP BY b."agentId"
-    `;
+    if (includedBookingIds && Array.isArray(includedBookingIds)) {
+      if (includedBookingIds.length > 0) {
+        eligibleBookingsRaw = await prisma.$queryRaw`
+          SELECT 
+            b."agentId",
+            COUNT(b.id)::int as "bookingCount",
+            array_agg(b.id) as "bookingIds",
+            SUM(b."paidAmount" - COALESCE(vp."totalVendorCost", 0))::float as "totalProfit"
+          FROM "Booking" b
+          LEFT JOIN (
+            SELECT "bookingId", SUM("amountPaid") as "totalVendorCost"
+            FROM "BookingVendorPayment"
+            GROUP BY "bookingId"
+          ) vp ON vp."bookingId" = b.id
+          WHERE b.id = ANY(${includedBookingIds})
+          GROUP BY b."agentId"
+        `;
+      }
+    } else {
+      eligibleBookingsRaw = await prisma.$queryRaw`
+        SELECT 
+          b."agentId",
+          COUNT(b.id)::int as "bookingCount",
+          array_agg(b.id) as "bookingIds",
+          SUM(b."paidAmount" - COALESCE(vp."totalVendorCost", 0))::float as "totalProfit"
+        FROM "Booking" b
+        LEFT JOIN (
+          SELECT "bookingId", SUM("amountPaid") as "totalVendorCost"
+          FROM "BookingVendorPayment"
+          GROUP BY "bookingId"
+        ) vp ON vp."bookingId" = b.id
+        WHERE b."agentId" IS NOT NULL
+          AND b.status != 'CANCELLED'
+          AND COALESCE(b."bookingDate", b."createdAt") >= ${start}
+          AND COALESCE(b."bookingDate", b."createdAt") <= ${end}
+        GROUP BY b."agentId"
+      `;
+    }
 
     const marginsCreated = [];
 
@@ -63,10 +139,10 @@ export const agentMarginService = {
       // Create or update the margin record
       const marginRecord = await prisma.agentMargin.upsert({
         where: {
-          agentId_month_year: {
+          agentId_startDate_endDate: {
             agentId,
-            month,
-            year
+            startDate: start,
+            endDate: end
           }
         },
         update: {
@@ -78,8 +154,8 @@ export const agentMarginService = {
         },
         create: {
           agentId,
-          month,
-          year,
+          startDate: start,
+          endDate: end,
           bookingCount,
           totalProfit,
           marginPercentage,
@@ -110,11 +186,15 @@ export const agentMarginService = {
   },
 
   async getAllMargins(query: any) {
-    const { month, year, agentId, status } = query;
+    const { startDate, endDate, agentId, status } = query;
     const where: any = {};
 
-    if (month) where.month = parseInt(month);
-    if (year) where.year = parseInt(year);
+    if (startDate) where.startDate = { gte: new Date(startDate) };
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      where.endDate = { lte: end };
+    }
     if (agentId && agentId !== 'all') where.agentId = agentId;
     if (status && status !== 'all') where.status = status;
 
@@ -129,8 +209,7 @@ export const agentMarginService = {
         }
       },
       orderBy: [
-        { year: 'desc' },
-        { month: 'desc' },
+        { startDate: 'desc' },
         { agent: { name: 'asc' } }
       ]
     });
@@ -140,8 +219,7 @@ export const agentMarginService = {
     return prisma.agentMargin.findMany({
       where: { agentId },
       orderBy: [
-        { year: 'desc' },
-        { month: 'desc' }
+        { startDate: 'desc' }
       ]
     });
   },
@@ -177,16 +255,19 @@ export const agentMarginService = {
       const profit = b.paidAmount - vendorCost;
       const bookingMargin = profit * (margin.marginPercentage / 100);
 
+      const periodStr = `${margin.startDate.toISOString().split('T')[0]} to ${margin.endDate.toISOString().split('T')[0]}`;
+      
       return {
         bookingId: b.id,
         amount: -bookingMargin,
         paymentMethod: 'AGENT PAYOUT',
-        notes: `Agent Margin Payout for ${margin.month}/${margin.year}`
+        notes: `Agent Margin Payout for ${periodStr}`
       };
     });
 
+    const periodStr = `${margin.startDate.toISOString().split('T')[0]} to ${margin.endDate.toISOString().split('T')[0]}`;
     const bookingRefs = margin.bookings.map(b => b.bookingReference).join(', ');
-    const ledgerNotes = `Agent Margin Payout for ${margin.month}/${margin.year}${bookingRefs ? ` | Bookings: ${bookingRefs}` : ''}`;
+    const ledgerNotes = `Agent Margin Payout for ${periodStr}${bookingRefs ? ` | Bookings: ${bookingRefs}` : ''}`;
 
     // Transaction to update margin, create ledger, and insert booking transactions
     const [updatedMargin, ledgerEntry, bookingTransactions] = await prisma.$transaction([
@@ -258,13 +339,16 @@ export const agentMarginService = {
       }),
       // Delete corresponding booking transactions
       ...(bookingIds.length > 0 ? [
-        prisma.bookingTransaction.deleteMany({
-          where: {
-            bookingId: { in: bookingIds },
-            paymentMethod: 'AGENT PAYOUT',
-            notes: `Agent Margin Payout for ${margin.month}/${margin.year}`
-          }
-        })
+        (() => {
+          const periodStr = `${margin.startDate.toISOString().split('T')[0]} to ${margin.endDate.toISOString().split('T')[0]}`;
+          return prisma.bookingTransaction.deleteMany({
+            where: {
+              bookingId: { in: bookingIds },
+              paymentMethod: 'AGENT PAYOUT',
+              notes: `Agent Margin Payout for ${periodStr}`
+            }
+          });
+        })()
       ] : [])
     ]);
 

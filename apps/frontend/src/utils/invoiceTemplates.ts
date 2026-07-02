@@ -2423,7 +2423,11 @@ export function renderTransportVoucher(
     ${leader && leader.phoneNumber ? `<p>Phone: ${leader.phoneNumber}</p>` : ""}
   `;
 
-  const transfersRows = transfers
+  const sortedTransports = [...transfers].sort((a: any, b: any) => {
+    return new Date(a.date).getTime() - new Date(b.date).getTime();
+  });
+
+  const transfersRows = sortedTransports
     .map(
       (t: any) => `
     <tr>
