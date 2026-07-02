@@ -27,7 +27,7 @@ interface PassengerModalProps {
   bookingPassengers?: any[];
 }
 
-const TITLES = ["Mr", "Mrs", "Ms", "Miss", "Dr", "Prof"];
+const TITLES = ["Mr", "Mrs", "Ms", "Miss", "MSTR", "Dr", "Prof"];
 const ROLES = ["Leader", "Family Member", "Passenger"];
 
 function deriveAgeCategory(dob: string): string {

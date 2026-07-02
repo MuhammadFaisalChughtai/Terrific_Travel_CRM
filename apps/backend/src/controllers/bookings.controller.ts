@@ -1,5 +1,6 @@
 import { Response } from 'express';
 import { bookingsService } from '../services/bookings.service';
+import { vendorsService } from '../services/vendors.service';
 import { asyncHandler } from '../middleware/async.middleware';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
 import { minioService } from '../services/minio.service';
@@ -319,6 +320,12 @@ export const adminDeletePassengerDocument = asyncHandler(async (req: Authenticat
   const { id, documentId } = req.params;
   const result = await bookingsService.adminDeletePassengerDocument(id, documentId);
   res.status(200).json({ success: true, data: result });
+});
+
+export const deleteVendorPayment = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id, paymentId } = req.params;
+  const result = await vendorsService.deleteBookingVendorPayment(id, paymentId);
+  res.status(200).json(result);
 });
 
 export const addVisaService = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {

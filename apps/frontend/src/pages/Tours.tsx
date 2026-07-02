@@ -385,7 +385,14 @@ export default function Tours() {
                             </span>
                           </td>
                           <td className="px-4 py-3.5 font-bold tracking-wider">
-                            {booking.bookingReference}
+                            <button
+                              onClick={() => setSelectedBookingId(booking.id)}
+                              className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-xl transition-all"
+                              title="View Details"
+                            >
+                              {/* <Eye size={16} /> */}
+                              {booking.bookingReference}
+                            </button>
                           </td>
                           <td className="px-4 py-3.5 font-semibold">
                             {booking.nextServiceType || "—"}
@@ -556,6 +563,7 @@ export default function Tours() {
       {/* Detailed Booking Slideover */}
       {selectedBookingId && (
         <BookingManager
+          isOpen={true}
           bookingId={selectedBookingId}
           onClose={() => {
             setSelectedBookingId(null);

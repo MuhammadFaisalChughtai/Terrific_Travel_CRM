@@ -29,13 +29,8 @@ export const agentMarginService = {
       ) vp ON vp."bookingId" = b.id
       WHERE b."agentId" IS NOT NULL
         AND b.status != 'CANCELLED'
-        AND b."paymentStatus" = 'PAID'
         AND EXTRACT(MONTH FROM b."createdAt") = ${month}
         AND EXTRACT(YEAR FROM b."createdAt") = ${year}
-        AND NOT EXISTS (
-          SELECT 1 FROM "BookingVendorPayment" bvp2 
-          WHERE bvp2."bookingId" = b.id AND bvp2.status != 'PAID'
-        )
       GROUP BY b."agentId"
     `;
 
@@ -239,9 +234,7 @@ export const agentMarginService = {
 
     const bookings = await prisma.booking.findMany({
       where: {
-        agentId: margin.agentId,
-        status: { not: 'CANCELLED' },
-        paymentStatus: 'PAID',
+        agentMarginId: marginId
       },
       include: {
         user: { select: { firstName: true, lastName: true } },
@@ -249,19 +242,7 @@ export const agentMarginService = {
       }
     });
 
-    // Filter by month/year and fully paid vendor status
-    const eligibleBookings = bookings.filter((b: any) => {
-      const bMonth = b.createdAt.getMonth() + 1;
-      const bYear = b.createdAt.getFullYear();
-      if (bMonth !== margin.month || bYear !== margin.year) return false;
-      
-      const hasUnpaidVendor = b.bookingVendorPayments.some((vp: any) => vp.status !== 'PAID');
-      if (hasUnpaidVendor) return false;
-
-      return true;
-    });
-
-    return eligibleBookings.map((b: any) => {
+    return bookings.map((b: any) => {
       const vendorCost = b.bookingVendorPayments.reduce((sum: number, vp: any) => sum + vp.amountPaid, 0);
       const profit = b.paidAmount - vendorCost;
       return {

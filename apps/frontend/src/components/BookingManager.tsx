@@ -248,6 +248,25 @@ export default function BookingManager({
     }
   };
 
+  const handleDeleteVendorPayment = async (paymentId: string) => {
+    if (!booking) return;
+    
+    if (!window.confirm("Are you sure you want to permanently delete this vendor payment record?")) return;
+
+    const toastId = toast.loading("Deleting vendor payment...");
+    try {
+      await apiClient.delete(
+        `/bookings/${booking.id}/vendor-payments/${paymentId}`,
+      );
+      toast.success("Vendor payment deleted successfully", { id: toastId });
+      queryClient.invalidateQueries({ queryKey: ["booking", booking.id] });
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to delete vendor payment", {
+        id: toastId,
+      });
+    }
+  };
+
   const handleDeleteFlight = async (flightServiceId: string) => {
     if (!booking) return;
     if (
@@ -1321,6 +1340,9 @@ export default function BookingManager({
                         <th className="py-2 px-3 text-center">
                           Payment Status
                         </th>
+                        {(user?.roles?.includes("ADMIN") || user?.roles?.includes("SUPER_ADMIN")) && (
+                          <th className="py-2 px-3 text-center w-10"></th>
+                        )}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/40 font-medium">
@@ -1353,6 +1375,22 @@ export default function BookingManager({
                                 {vp.status}
                               </span>
                             </td>
+                            {(user?.roles?.includes("ADMIN") || user?.roles?.includes("SUPER_ADMIN")) && (
+                              <td className="py-2.5 px-3 text-center">
+                                {vp.originalCost === 0 && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteVendorPayment(vp.id);
+                                    }}
+                                    className="text-red-500/70 hover:text-red-600 transition-colors p-1 hover:bg-red-50 dark:hover:bg-red-500/10 rounded"
+                                    title="Delete Orphaned Vendor Payment"
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                )}
+                              </td>
+                            )}
                           </tr>
                         ))
                       ) : (

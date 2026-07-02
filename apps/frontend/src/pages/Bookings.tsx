@@ -897,11 +897,13 @@ export default function Bookings() {
               {selectedBooking.agentMargin && (
                 <p className="text-muted-foreground">
                   Margin Status:{" "}
-                  <span className={`font-bold ${
-                    selectedBooking.agentMargin.status === 'PAID' 
-                      ? 'text-emerald-500' 
-                      : 'text-amber-500'
-                  }`}>
+                  <span
+                    className={`font-bold ${
+                      selectedBooking.agentMargin.status === "PAID"
+                        ? "text-emerald-500"
+                        : "text-amber-500"
+                    }`}
+                  >
                     {selectedBooking.agentMargin.status}
                   </span>
                 </p>

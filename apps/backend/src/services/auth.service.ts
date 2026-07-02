@@ -141,15 +141,17 @@ export class AuthService {
       )
     ) as string[];
 
-    await prisma.refreshToken.update({
-      where: { id: storedToken.id },
-      data: { isRevoked: true },
+    // Remove revocation and regeneration of refresh token to prevent concurrent request race conditions
+    // and multiple tabs logging out the user
+    const payload = { sub: user.id, email: user.email, roles, permissions };
+    const accessToken = jwt.sign(payload, config.jwt.accessSecret, {
+      expiresIn: config.jwt.accessExp as any,
     });
 
-    const tokens = await this.generateTokens(user.id, user.email, roles, permissions);
-    await this.saveRefreshToken(user.id, tokens.refreshToken);
-
-    return tokens;
+    return {
+      accessToken,
+      refreshToken: storedToken.token,
+    };
   }
 
   async logout(refreshToken: string) {
@@ -194,7 +196,7 @@ export class AuthService {
 
   private async saveRefreshToken(userId: string, token: string) {
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
+    expiresAt.setDate(expiresAt.getDate() + 30);
 
     await prisma.refreshToken.create({
       data: {

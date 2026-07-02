@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import multer from 'multer';
-import { create, getNextReference, findAll, findOne, updateStatus, updateBookingDetails, toggleLock, cancel, finalizeMargin, addFlightService, updateFlightService, deleteFlightService, addAccommodationService, updateAccommodationService, deleteAccommodationService, addPassenger, updatePassenger, deletePassenger, getPassengerForm, submitPassengerForm, sendPassengerLink, uploadPassengerPassportScan, getPassengerPassportScan, deletePassengerPassportScan, addPassengerDocument, getPassengerDocumentFile, deletePassengerDocument, addPassengerByFormToken, deletePassengerByFormToken, adminUploadPassportScan, adminGetPassportScan, adminDeletePassportScan, adminAddPassengerDocument, adminGetPassengerDocumentFile, adminDeletePassengerDocument, searchAllPassengers, addTransportService, updateTransportService, deleteTransportService, addVisaService, updateVisaService, deleteVisaService, addAdditionalService, updateAdditionalService, deleteAdditionalService } from '../controllers/bookings.controller';
+import { create, getNextReference, findAll, findOne, updateStatus, updateBookingDetails, toggleLock, cancel, finalizeMargin, addFlightService, updateFlightService, deleteFlightService, addAccommodationService, updateAccommodationService, deleteAccommodationService, addPassenger, updatePassenger, deletePassenger, getPassengerForm, submitPassengerForm, sendPassengerLink, uploadPassengerPassportScan, getPassengerPassportScan, deletePassengerPassportScan, addPassengerDocument, getPassengerDocumentFile, deletePassengerDocument, addPassengerByFormToken, deletePassengerByFormToken, adminUploadPassportScan, adminGetPassportScan, adminDeletePassportScan, adminAddPassengerDocument, adminGetPassengerDocumentFile, adminDeletePassengerDocument, searchAllPassengers, addTransportService, updateTransportService, deleteTransportService, addVisaService, updateVisaService, deleteVisaService, addAdditionalService, updateAdditionalService, deleteAdditionalService, deleteVendorPayment } from '../controllers/bookings.controller';
 import { authMiddleware } from '../middleware/auth.middleware';
 import { requireRoles, requirePermissions, requireBookingOwnership } from '../middleware/rbac.middleware';
 
@@ -37,6 +37,8 @@ router.patch('/:id/lock', requireRoles('Admin', 'Manager') as any, toggleLock);
 router.patch('/:id/finalize-margin', requireRoles('Admin') as any, finalizeMargin);
 
 // Booking segments edits require ownership
+router.delete('/:id/vendor-payments/:paymentId', requireRoles('SUPER_ADMIN', 'ADMIN') as any, deleteVendorPayment);
+
 router.post('/:id/flights', requireBookingOwnership as any, addFlightService);
 router.patch('/:id/flights/:flightServiceId', requireBookingOwnership as any, updateFlightService);
 router.delete('/:id/flights/:flightServiceId', requireBookingOwnership as any, deleteFlightService);

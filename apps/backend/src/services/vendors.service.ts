@@ -1279,6 +1279,30 @@ export class VendorsService {
       }
     });
   }
+
+  async deleteBookingVendorPayment(bookingId: string, paymentId: string) {
+    const payment = await prisma.bookingVendorPayment.findFirst({
+      where: { id: paymentId, bookingId }
+    });
+
+    if (!payment) {
+      throw new NotFoundException('Vendor payment not found on this booking');
+    }
+
+    if (payment.amountPaid > 0) {
+      throw new BadRequestException('Cannot delete a vendor payment record that already has payments applied. Please reverse payments first.');
+    }
+
+    if (payment.originalCost > 0) {
+      throw new BadRequestException('Cannot delete a vendor payment record that is attached to active services. Please remove the vendor from all booking services first.');
+    }
+
+    await prisma.bookingVendorPayment.delete({
+      where: { id: paymentId }
+    });
+
+    return { success: true, message: 'Vendor payment record deleted successfully' };
+  }
 }
 
 export const vendorsService = new VendorsService();
