@@ -682,88 +682,43 @@ function generateTimelineHtml(booking: any): string {
   const layoverCards = items.filter((i) => i.isLayoverCard);
   const regularItems = items.filter((i) => !i.isLayoverCard);
 
-  // 1. Assign a base sorting date and parse time if available
+  // 1. Assign a base sorting date, parse exact time if available, and assign fallback phase
   regularItems.forEach((item) => {
     item.sortDate = new Date(item.date);
+    
     if (item.type === "FLIGHT") {
-      const match = item.details.match(
-        /Departure: <strong>([0-9]{2}:[0-9]{2})/,
-      );
+      const match = item.details.match(/Departure: <strong>([0-9]{2}:[0-9]{2})/);
       if (match) {
         const [h, m] = match[1].split(":");
         item.sortDate.setHours(parseInt(h, 10), parseInt(m, 10), 0, 0);
       }
+      item.phase = 4;
     } else if (item.type === "TRANSFER") {
-      const match = item.details.match(
-        /Pickup Time: <strong>([0-9]{2}:[0-9]{2})/,
-      );
+      const match = item.details.match(/Pickup Time: <strong>([0-9]{2}:[0-9]{2})/);
       if (match) {
         const [h, m] = match[1].split(":");
         item.sortDate.setHours(parseInt(h, 10), parseInt(m, 10), 0, 0);
       }
-    }
-  });
-
-  // 2. Separate by types to determine phases
-  const flights = regularItems
-    .filter((i) => i.type === "FLIGHT")
-    .sort((a, b) => a.sortDate.getTime() - b.sortDate.getTime());
-  let maxGap = 0;
-  let gapIndex = -1;
-  for (let i = 0; i < flights.length - 1; i++) {
-    const gap =
-      flights[i + 1].sortDate.getTime() - flights[i].sortDate.getTime();
-    if (gap > maxGap && gap > 86400000) {
-      maxGap = gap;
-      gapIndex = i;
-    }
-  }
-  const outboundFlights =
-    gapIndex >= 0 ? flights.slice(0, gapIndex + 1) : flights;
-  const returnFlights = gapIndex >= 0 ? flights.slice(gapIndex + 1) : [];
-
-  const hotels = regularItems
-    .filter((i) => i.type === "HOTEL")
-    .sort((a, b) => a.sortDate.getTime() - b.sortDate.getTime());
-  const transfers = regularItems
-    .filter((i) => i.type === "TRANSFER")
-    .sort((a, b) => a.sortDate.getTime() - b.sortDate.getTime());
-
-  // 3. Assign logical phases
-  regularItems.forEach((item) => {
-    if (item.type === "SPECIAL_SERVICE") item.phase = 1;
-    else if (item.type === "VISA") item.phase = 2;
-    else if (item.type === "FLIGHT") {
-      item.phase = outboundFlights.includes(item) ? 3 : 9;
+      item.phase = 3;
     } else if (item.type === "HOTEL") {
-      const idx = hotels.indexOf(item);
-      item.phase = 5 + Math.min(idx * 2, 2); // 1st = 5, 2nd+ = 7
-    } else if (item.type === "TRANSFER") {
-      const idx = transfers.indexOf(item);
-      if (
-        idx === 0 &&
-        (!hotels[0] ||
-          item.sortDate.getTime() <=
-            hotels[0].sortDate.getTime() + 86400000 * 2)
-      ) {
-        item.phase = 4; // Arrival Transfer
-      } else if (
-        idx === transfers.length - 1 &&
-        returnFlights.length > 0 &&
-        item.sortDate.getTime() >=
-          returnFlights[0].sortDate.getTime() - 86400000 * 2
-      ) {
-        item.phase = 8; // Departure Transfer
-      } else {
-        item.phase = 6; // Inter-city Transfer
-      }
+      item.sortDate.setHours(23, 59, 0, 0); // Default hotel check-in to end of the day
+      item.phase = 5;
+    } else if (item.type === "VISA") {
+      item.sortDate.setHours(0, 0, 0, 0); // Default visas to start of day
+      item.phase = 1;
+    } else if (item.type === "SPECIAL_SERVICE") {
+      item.sortDate.setHours(12, 0, 0, 0); // Default special services to mid-day
+      item.phase = 2;
+    } else {
+      item.phase = 9;
     }
   });
 
-  // 4. Sort by logical phase first, then by actual datetime within the phase
+  // 2. Sort by exact datetime first, then by phase if datetimes are identical
   regularItems.sort((a, b) => {
-    if (a.phase !== b.phase) return a.phase - b.phase;
-    return a.sortDate.getTime() - b.sortDate.getTime();
+    const timeDiff = a.sortDate.getTime() - b.sortDate.getTime();
+    if (timeDiff !== 0) return timeDiff;
+    return a.phase - b.phase;
   });
 
   // Re-insert each layover card immediately AFTER the flight it belongs to.
