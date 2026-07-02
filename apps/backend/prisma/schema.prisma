@@ -733,8 +733,8 @@ model AgentMargin {
   id               String   @id @default(uuid())
   agentId          String
   agent            Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  startDate        DateTime
-  endDate          DateTime
+  startDate        DateTime @default(now())
+  endDate          DateTime @default(now())
   bookingCount     Int
   totalProfit      Float
   marginPercentage Float
