@@ -116,6 +116,9 @@ export default function Bookings() {
   const [filterCreatedAtFrom, setFilterCreatedAtFrom] = useState("");
   const [filterCreatedAtTo, setFilterCreatedAtTo] = useState("");
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
+
   // Applied parameters
   const [appliedFilters, setAppliedFilters] = useState<any>({});
 
@@ -126,6 +129,7 @@ export default function Bookings() {
       JSON.stringify(appliedFilters),
       agentViewMode,
       user?.agentId,
+      currentPage,
     ],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -178,7 +182,8 @@ export default function Bookings() {
       if (appliedFilters.createdAtTo)
         params.append("createdAtTo", appliedFilters.createdAtTo);
 
-      params.append("limit", "1000");
+      params.append("limit", itemsPerPage.toString());
+      params.append("offset", ((currentPage - 1) * itemsPerPage).toString());
 
       const res = await apiClient.get(`/bookings?${params.toString()}`);
       return res.data.data;
@@ -363,6 +368,7 @@ export default function Bookings() {
       createdAtFrom: filterCreatedAtFrom,
       createdAtTo: filterCreatedAtTo,
     });
+    setCurrentPage(1);
     setIsFilterModalOpen(false);
   };
 
@@ -380,6 +386,7 @@ export default function Bookings() {
     setFilterCreatedAtFrom("");
     setFilterCreatedAtTo("");
     setAppliedFilters({});
+    setCurrentPage(1);
   };
 
   return (
@@ -863,6 +870,31 @@ export default function Bookings() {
                 </table>
               </div>
             </div>
+
+            {/* Pagination Controls */}
+            {bookingsResult?.total > itemsPerPage && (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 p-4 bg-background border border-border rounded-lg shadow-sm">
+                <div className="text-sm text-muted-foreground font-medium">
+                  Showing <span className="text-foreground">{bookingsResult.items.length === 0 ? 0 : ((currentPage - 1) * itemsPerPage) + 1}</span> to <span className="text-foreground">{((currentPage - 1) * itemsPerPage) + bookingsResult.items.length}</span> of <span className="text-foreground">{bookingsResult.total}</span> bookings
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="px-4 py-2 text-sm font-semibold rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage(prev => prev + 1)}
+                    disabled={currentPage * itemsPerPage >= bookingsResult.total}
+                    className="px-4 py-2 text-sm font-semibold rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
