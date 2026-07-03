@@ -85,7 +85,13 @@ export default function AgentMarginBookingsModal({ margin, onClose }: Props) {
                         {formatCurrency(b.profit)}
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <CheckCircle className="h-4 w-4 text-emerald-500 inline-block" />
+                        {margin?.status === 'PAID' ? (
+                          <span className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                            PAID
+                          </span>
+                        ) : (
+                          <CheckCircle className="h-4 w-4 text-emerald-500 inline-block" />
+                        )}
                       </td>
                     </tr>
                   ))}
