@@ -120,6 +120,7 @@ export default function Payments() {
                     <th className="py-3 px-4">Submitted By</th>
                     <th className="py-3 px-4">Booking Ref</th>
                     <th className="py-3 px-4">Amount</th>
+                    <th className="py-3 px-4">Credit Charges</th>
                     <th className="py-3 px-4">Method</th>
                     <th className="py-3 px-4">Date Submitted</th>
                     <th className="py-3 px-4">Receipt</th>
@@ -135,6 +136,9 @@ export default function Payments() {
                       <td className="py-3.5 px-4 font-mono text-xs text-primary">{req.booking?.bookingReference || req.bookingId.substring(0, 8)}</td>
                       <td className="py-3.5 px-4 font-bold text-emerald-600 dark:text-emerald-400">
                         {formatCurrency(req.amount)}
+                      </td>
+                      <td className="py-3.5 px-4 font-semibold text-rose-600 dark:text-rose-400">
+                        {req.cardPaymentCharges ? formatCurrency(req.cardPaymentCharges) : "-"}
                       </td>
                       <td className="py-3.5 px-4 text-xs font-semibold">{req.paymentMethod}</td>
                       <td className="py-3.5 px-4 text-xs text-muted-foreground">

@@ -63,6 +63,7 @@ export default function VendorPaymentModal({
 
   // Selection states
   const [selectedBookingIds, setSelectedBookingIds] = useState<string[]>([]);
+  const [selectedBookingsData, setSelectedBookingsData] = useState<Record<string, Booking>>({});
   const [selectedVendorId, setSelectedVendorId] = useState<string>("");
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [paymentAmount, setPaymentAmount] = useState<string>("");
@@ -70,6 +71,7 @@ export default function VendorPaymentModal({
   const [cardPaymentCharges, setCardPaymentCharges] = useState<string>("");
   const [bankAccount, setBankAccount] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
+  const [useWallet, setUseWallet] = useState<boolean>(false);
 
   // Receipt upload states
   const [isUploading, setIsUploading] = useState(false);
@@ -102,6 +104,7 @@ export default function VendorPaymentModal({
   useEffect(() => {
     if (!isOpen) {
       setSelectedBookingIds([]);
+      setSelectedBookingsData({});
       setSelectedVendorId("");
       setSelectedServiceIds([]);
       setPaymentAmount("");
@@ -109,6 +112,7 @@ export default function VendorPaymentModal({
       setCardPaymentCharges("");
       setBankAccount("");
       setNotes("");
+      setUseWallet(false);
       setReceiptUrl("");
       setReceiptFilename("");
       setBookingSearchQuery("");
@@ -126,9 +130,14 @@ export default function VendorPaymentModal({
 
   // Queries
   const { data: bookingsList, isLoading: isBookingsLoading } = useQuery({
-    queryKey: ["bookings-all-list-modal"],
+    queryKey: ["bookings-all-list-modal", bookingSearchQuery],
     queryFn: async () => {
-      const res = await apiClient.get("/bookings?limit=1000");
+      const params = new URLSearchParams();
+      params.append('limit', '10');
+      if (bookingSearchQuery.trim()) {
+        params.append('search', bookingSearchQuery.trim());
+      }
+      const res = await apiClient.get(`/bookings?${params.toString()}`);
       return res.data.data.items as Booking[];
     },
     enabled: isOpen
@@ -137,29 +146,11 @@ export default function VendorPaymentModal({
   const filteredBookings = useMemo(() => {
     if (!bookingsList) return [];
     
-    const query = bookingSearchQuery.trim().toLowerCase();
-    
-    const matches = bookingsList.filter(b => {
-      if (!query) return true;
-      const leader = b.passengers?.find((p: any) => p.role === "Leader");
-      const leaderName = leader ? `${leader.firstName} ${leader.lastName}`.toLowerCase() : "";
-      
-      const matchesRef = b.bookingReference.toLowerCase().includes(query);
-      const matchesAgent = (b.agent?.name || "").toLowerCase().includes(query);
-      const matchesLeader = leaderName.includes(query);
-      const matchesAnyPassenger = b.passengers?.some((p: any) => 
-        `${p.firstName || ""} ${p.lastName || ""}`.toLowerCase().includes(query)
-      );
-
-      return matchesRef || matchesAgent || matchesLeader || matchesAnyPassenger;
-    });
-
-    // Limit matching results to first 5
-    const firstFive = matches.slice(0, 5);
+    // The backend now filters and returns top 10 matches
+    const finalResults = [...bookingsList];
 
     // Keep any selected ones visible
-    const selectedBookings = bookingsList.filter(b => selectedBookingIds.includes(b.id));
-    const finalResults = [...firstFive];
+    const selectedBookings = Object.values(selectedBookingsData);
     selectedBookings.forEach(sb => {
       if (!finalResults.some(r => r.id === sb.id)) {
         finalResults.push(sb);
@@ -167,7 +158,7 @@ export default function VendorPaymentModal({
     });
 
     return finalResults;
-  }, [bookingsList, bookingSearchQuery, selectedBookingIds]);
+  }, [bookingsList, selectedBookingsData]);
 
   const { data: vendors } = useQuery({
     queryKey: ["vendors-list-modal"],
@@ -178,11 +169,25 @@ export default function VendorPaymentModal({
     enabled: isOpen
   });
 
+  const selectedVendorObj = useMemo(() => {
+    return vendors?.find(v => v.id === selectedVendorId) || null;
+  }, [vendors, selectedVendorId]);
+
+  const { data: outstandingBookingsData, isLoading: isLoadingOutstanding } = useQuery({
+    queryKey: ["vendor-outstanding", selectedVendorId],
+    queryFn: async () => {
+      if (selectedVendorId.startsWith("custom-")) return { items: [], totalOutstanding: 0 };
+      const res = await apiClient.get(`/vendors/outstanding-bookings?vendorId=${selectedVendorId}`);
+      return res.data.data;
+    },
+    enabled: isOpen && !!selectedVendorId && !selectedVendorId.startsWith("custom-")
+  });
+
   // Find all custom vendors from additional services in selected bookings
   const customVendors = useMemo(() => {
-    if (!bookingsList || selectedBookingIds.length === 0) return [];
+    if (selectedBookingIds.length === 0) return [];
     const list: any[] = [];
-    const selectedBookings = bookingsList.filter(b => selectedBookingIds.includes(b.id));
+    const selectedBookings = Object.values(selectedBookingsData);
     selectedBookings.forEach(b => {
       if (b.additionalServices) {
         b.additionalServices.forEach((s: any) => {
@@ -201,14 +206,14 @@ export default function VendorPaymentModal({
       }
     });
     return list;
-  }, [bookingsList, selectedBookingIds]);
+  }, [selectedBookingsData]);
 
   // Extract all services for selected bookings
   const availableServices = useMemo(() => {
-    if (!bookingsList || selectedBookingIds.length === 0) return [];
+    if (selectedBookingIds.length === 0) return [];
     
     const list: any[] = [];
-    const selectedBookings = bookingsList.filter(b => selectedBookingIds.includes(b.id));
+    const selectedBookings = Object.values(selectedBookingsData);
 
     selectedBookings.forEach(b => {
       if (b.accommodations) {
@@ -281,9 +286,47 @@ export default function VendorPaymentModal({
         });
       }
     });
-
     return list;
-  }, [bookingsList, selectedBookingIds]);
+  }, [selectedBookingIds, selectedBookingsData, selectedVendorId]);
+
+  const dynamicTotalRemaining = useMemo(() => {
+    if (!selectedVendorId) return 0;
+    
+    if (selectedServiceIds.length > 0) {
+      return availableServices
+        .filter(s => s.vendorId === selectedVendorId)
+        .filter(s => selectedServiceIds.includes(s.id))
+        .reduce((acc, s) => acc + s.price, 0);
+    }
+    
+    if (selectedBookingIds.length > 0) {
+      if (selectedVendorId.startsWith("custom-")) {
+        return availableServices.filter(s => s.vendorId === selectedVendorId).reduce((acc, s) => acc + s.price, 0);
+      }
+      
+      let sum = 0;
+      selectedBookingIds.forEach(id => {
+        const b = selectedBookingsData[id];
+        if (b && b.bookingVendorPayments) {
+          const vp = b.bookingVendorPayments.find((p: any) => p.vendorId === selectedVendorId);
+          if (vp) {
+            sum += vp.remainingBalance;
+          }
+        }
+      });
+      return sum;
+    }
+    
+    if (selectedVendorId.startsWith("custom-")) {
+      return availableServices.filter(s => s.vendorId === selectedVendorId).reduce((acc, s) => acc + s.price, 0);
+    }
+    
+    if (outstandingBookingsData) {
+      return outstandingBookingsData.totalOutstanding || 0;
+    }
+    
+    return 0;
+  }, [selectedVendorId, selectedServiceIds, selectedBookingIds, availableServices, selectedBookingsData, outstandingBookingsData]);
 
   // Filter services by selected vendor
   const filteredServices = useMemo(() => {
@@ -298,13 +341,17 @@ export default function VendorPaymentModal({
 
   // Calculate sum of selected services and pre-fill amount field
   useEffect(() => {
-    const sum = filteredServices
+    let sum = filteredServices
       .filter(s => selectedServiceIds.includes(s.id))
       .reduce((acc, s) => acc + s.price, 0);
+      
     if (sum > 0) {
+      if (useWallet && selectedVendorObj && selectedVendorObj.walletBalance > 0) {
+        sum = Math.max(0, sum - selectedVendorObj.walletBalance);
+      }
       setPaymentAmount(sum.toString());
     }
-  }, [selectedServiceIds, filteredServices]);
+  }, [selectedServiceIds, filteredServices, useWallet, selectedVendorObj]);
 
   // Handle receipt upload
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -345,6 +392,11 @@ export default function VendorPaymentModal({
       queryClient.invalidateQueries({ queryKey: ["vendors"] });
       queryClient.invalidateQueries({ queryKey: ["global-ledger"] });
       queryClient.invalidateQueries({ queryKey: ["bookings"] });
+      queryClient.invalidateQueries({ queryKey: ["vendor-outstanding"] });
+      queryClient.invalidateQueries({ queryKey: ["vendor-ledger"] });
+      queryClient.invalidateQueries({ queryKey: ["vendor-wallet"] });
+      queryClient.invalidateQueries({ queryKey: ["vendor-payments"] });
+      queryClient.invalidateQueries({ queryKey: ["vendor-dashboard"] });
       toast.success("Transaction recorded successfully!");
       if (onSuccess) onSuccess();
       onClose();
@@ -357,18 +409,14 @@ export default function VendorPaymentModal({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (selectedBookingIds.length === 0) {
-      toast.error("Please select at least one booking.");
-      return;
-    }
     if (!selectedVendorId) {
       toast.error("Please select a vendor.");
       return;
     }
 
     const amount = Number(paymentAmount) || 0;
-    if (amount <= 0) {
-      toast.error("Please enter a valid payment amount.");
+    if (amount <= 0 && !useWallet) {
+      toast.error("Please enter a valid payment amount or choose to include wallet balance.");
       return;
     }
 
@@ -390,6 +438,7 @@ export default function VendorPaymentModal({
       bankAccount,
       notes: formattedNotes,
       bookingIds: selectedBookingIds,
+      useWallet,
       receiptUrl: receiptUrl || undefined,
       cardPaymentCharges: paymentMethod === "Credit Card" ? Number(cardPaymentCharges) || 0 : 0
     };
@@ -397,10 +446,18 @@ export default function VendorPaymentModal({
     recordTransactionMutation.mutate(payload);
   };
 
-  const handleBookingSelect = (id: string) => {
+  const handleBookingSelect = (id: string, bookingObj?: Booking) => {
     setSelectedBookingIds(prev =>
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
     );
+    if (bookingObj) {
+      setSelectedBookingsData(prev => {
+        const next = { ...prev };
+        if (next[id]) delete next[id];
+        else next[id] = bookingObj;
+        return next;
+      });
+    }
   };
 
   const handleServiceSelect = (id: string) => {
@@ -409,18 +466,15 @@ export default function VendorPaymentModal({
     );
   };
 
-  // Render selected bookings text
   const selectedBookingsText = useMemo(() => {
     if (selectedBookingIds.length === 0) return "Choose Bookings...";
-    const selectedRefs = bookingsList
-      ?.filter(b => selectedBookingIds.includes(b.id))
-      .map(b => {
+    const selectedRefs = Object.values(selectedBookingsData).map(b => {
         const leader = b.passengers?.find((p: any) => p.role === "Leader");
         const leaderPart = leader ? ` - Lead: ${leader.firstName} ${leader.lastName}` : "";
         return `${b.bookingReference} (${b.agent?.name || "Direct"})${leaderPart}`;
       });
     return selectedRefs?.join(", ") || "Choose Bookings...";
-  }, [selectedBookingIds, bookingsList]);
+  }, [selectedBookingsData]);
 
   // Render selected services text
   const selectedServicesText = useMemo(() => {
@@ -443,7 +497,7 @@ export default function VendorPaymentModal({
           {/* Row 1, Col 1: Bookings */}
           <div ref={bookingsRef} className="relative">
             <label className="block text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-1">
-              Bookings (Concatenated with Agent) *
+              Bookings (Optional)
             </label>
             <button
               type="button"
@@ -478,7 +532,7 @@ export default function VendorPaymentModal({
                       return (
                         <div
                           key={b.id}
-                          onClick={() => handleBookingSelect(b.id)}
+                          onClick={() => handleBookingSelect(b.id, b)}
                           className="flex items-center gap-2.5 px-3 py-2 hover:bg-secondary/20 cursor-pointer select-none text-foreground font-medium"
                         >
                           <div className="flex items-center justify-center w-4 h-4 border border-border rounded bg-secondary/10">
@@ -527,12 +581,45 @@ export default function VendorPaymentModal({
                 </option>
               ))}
             </select>
+            {selectedVendorId && (
+              <div className="mt-2 flex items-center justify-between p-2 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/50 rounded-lg">
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-bold text-blue-800 dark:text-blue-300">
+                    {selectedServiceIds.length > 0 ? "Outstanding (Selected Services)" : selectedBookingIds.length > 0 ? "Outstanding (Selected Bookings)" : "Total Outstanding Balance"}
+                  </span>
+                  <span className="text-sm font-black text-blue-600 dark:text-blue-400">
+                    {isLoadingOutstanding && !selectedVendorId.startsWith("custom-") && selectedBookingIds.length === 0 ? (
+                      <span className="text-[10px] font-semibold text-blue-500 animate-pulse">Calculating...</span>
+                    ) : (
+                      `£${dynamicTotalRemaining.toFixed(2)}`
+                    )}
+                  </span>
+                </div>
+              </div>
+            )}
+            {selectedVendorObj && selectedVendorObj.walletBalance > 0 && (
+              <div className="mt-2 flex items-center justify-between p-2 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/50 rounded-lg">
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-bold text-emerald-800 dark:text-emerald-300">Available Wallet Balance</span>
+                  <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">£{selectedVendorObj.walletBalance.toFixed(2)}</span>
+                </div>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    className="rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500"
+                    checked={useWallet}
+                    onChange={(e) => setUseWallet(e.target.checked)}
+                  />
+                  <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 select-none">Include Balance</span>
+                </label>
+              </div>
+            )}
           </div>
 
           {/* Row 2, Col 1: Services (Dependent on Vendor) */}
           <div ref={servicesRef} className="relative">
             <label className="block text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-1">
-              Select Services from Same Vendor *
+              Select Services (Optional)
             </label>
             <button
               type="button"
@@ -620,6 +707,18 @@ export default function VendorPaymentModal({
                 onChange={(e) => setPaymentAmount(e.target.value)}
                 className="w-full pl-9 pr-3 py-2 bg-secondary/10 border border-border rounded-lg text-foreground font-semibold focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary min-h-[36px]"
               />
+            </div>
+            <div className="mt-2 px-2 py-1.5 bg-secondary/5 rounded border border-border/50 flex flex-col gap-1">
+              {useWallet && selectedVendorObj && selectedVendorObj.walletBalance > 0 && (
+                <div className="flex justify-between items-center text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                  <span>+ Applied Wallet Balance:</span>
+                  <span>£{selectedVendorObj.walletBalance.toFixed(2)}</span>
+                </div>
+              )}
+              <div className="flex justify-between items-center text-[11px] font-black text-primary">
+                <span>Total Payment Allocation:</span>
+                <span>£{((Number(paymentAmount) || 0) + (useWallet && selectedVendorObj ? selectedVendorObj.walletBalance : 0)).toFixed(2)}</span>
+              </div>
             </div>
           </div>
 

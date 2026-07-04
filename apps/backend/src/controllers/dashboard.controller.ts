@@ -36,3 +36,28 @@ export const getTrends = asyncHandler(async (req: Request, res: Response) => {
     data: result,
   });
 });
+
+export const getStatsByPeriod = asyncHandler(async (req: Request, res: Response) => {
+  const user = (req as AuthenticatedRequest).user;
+  const isAgent = user?.roles.includes('Agent') || user?.roles.includes('TRAVEL_AGENT');
+  const isAdmin = user?.roles.includes('SUPER_ADMIN') || user?.roles.includes('ADMIN');
+
+  let agentId: string | undefined = undefined;
+  if (isAgent && !isAdmin && user?.agentId) {
+    agentId = user.agentId;
+  }
+
+  const rawPeriod = req.query.period as string;
+  const validPeriods = ['monthly', 'quarterly', 'yearly', 'all'] as const;
+  type Period = typeof validPeriods[number];
+
+  const period: Period = validPeriods.includes(rawPeriod as Period)
+    ? (rawPeriod as Period)
+    : 'all';
+
+  const result = await dashboardService.getStatsByPeriod(period, agentId);
+  res.status(200).json({
+    success: true,
+    data: result,
+  });
+});

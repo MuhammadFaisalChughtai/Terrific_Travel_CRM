@@ -519,9 +519,7 @@ export default function HotelReservationModal({
                         onClick={() => {
                           setHotelName(h.name);
                           setCity(h.city || '');
-                          if (h.address) {
-                            setHotelAddress(h.address);
-                          }
+                          setHotelAddress(h.address || '');
                           setShowSuggestions(false);
                         }}
                         className="w-full text-left px-3 py-2 hover:bg-secondary/60 text-xs font-medium text-foreground transition-colors flex flex-col"

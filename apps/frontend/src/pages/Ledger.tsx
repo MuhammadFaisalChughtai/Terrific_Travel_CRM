@@ -45,8 +45,14 @@ export default function LedgerPage() {
   const printRef = useRef<HTMLDivElement>(null);
 
   // Filters
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [dateFrom, setDateFrom] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return d.toISOString().slice(0, 10);
+  });
+  const [dateTo, setDateTo] = useState(() => {
+    return new Date().toISOString().slice(0, 10);
+  });
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearch, setShowSearch] = useState(false);
   const [typeFilter, setTypeFilter] = useState("all");

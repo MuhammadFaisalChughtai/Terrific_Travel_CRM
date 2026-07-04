@@ -10,6 +10,7 @@ import {
   PlaneTakeoff,
   Hotel,
   Compass,
+  Percent,
 } from "lucide-react";
 import {
   AreaChart,
@@ -25,17 +26,52 @@ import {
 } from "recharts";
 import { useMemo, useState } from "react";
 
+type ChartPeriod = "daily" | "weekly" | "monthly" | "quarterly" | "yearly";
+type KpiPeriod = "monthly" | "quarterly" | "yearly" | "all";
+type AgentPeriod = "weekly" | "monthly" | "yearly" | "all";
+type CategoryPeriod = "daily" | "weekly" | "monthly" | "quarterly" | "yearly" | "all";
+
 export default function Dashboard() {
-  const [period, setPeriod] = useState<"daily" | "weekly" | "monthly" | "yearly">("daily");
+  const [chartPeriod, setChartPeriod] = useState<ChartPeriod>("daily");
+  const [kpiPeriod, setKpiPeriod] = useState<KpiPeriod>("all");
+  const [agentPeriod, setAgentPeriod] = useState<AgentPeriod>("all");
+  const [categoryPeriod, setCategoryPeriod] = useState<CategoryPeriod>("all");
   const user = useAuthStore((state) => state.user);
   const isAgent = user?.roles.includes("Agent") || user?.roles.includes("TRAVEL_AGENT");
   const isAdmin = user?.roles.includes("SUPER_ADMIN") || user?.roles.includes("ADMIN");
 
-  // Fetch dashboard summary stats
+  // Fetch dashboard summary stats (all-time, for category breakdowns + agent leaderboard)
   const { data: statsData, isLoading: statsLoading } = useQuery({
     queryKey: ["dashboard-stats"],
     queryFn: async () => {
       const res = await apiClient.get("/dashboard/stats");
+      return res.data.data;
+    },
+  });
+
+  // Fetch period-filtered KPI stats
+  const { data: periodStatsData, isLoading: periodStatsLoading } = useQuery({
+    queryKey: ["dashboard-stats-by-period", kpiPeriod],
+    queryFn: async () => {
+      const res = await apiClient.get(`/dashboard/stats-by-period?period=${kpiPeriod}`);
+      return res.data.data;
+    },
+  });
+
+  // Fetch agent performance stats
+  const { data: agentStatsData, isLoading: agentStatsLoading } = useQuery({
+    queryKey: ["dashboard-stats-by-period", agentPeriod],
+    queryFn: async () => {
+      const res = await apiClient.get(`/dashboard/stats-by-period?period=${agentPeriod}`);
+      return res.data.data;
+    },
+  });
+
+  // Fetch category breakdown stats
+  const { data: categoryStatsData, isLoading: categoryStatsLoading } = useQuery({
+    queryKey: ["dashboard-stats-by-period", categoryPeriod],
+    queryFn: async () => {
+      const res = await apiClient.get(`/dashboard/stats-by-period?period=${categoryPeriod}`);
       return res.data.data;
     },
   });
@@ -58,6 +94,14 @@ export default function Dashboard() {
     flightBookings: 32,
     hotelBookings: 20,
     tourBookings: 12,
+  };
+
+  const periodStats = periodStatsData || {
+    totalRevenue: 0,
+    totalVendorCost: 0,
+    totalMargin: 0,
+    totalProfit: 0,
+    totalBookings: 0,
   };
 
   const defaultTrends = {
@@ -83,6 +127,12 @@ export default function Dashboard() {
       { date: "May", bookings: 160, revenue: 78000, profit: 27000 },
       { date: "Jun", bookings: 185, revenue: 91000, profit: 31500 },
     ],
+    quarterly: [
+      { date: "Q1 2025", bookings: 375, revenue: 182000, profit: 62700 },
+      { date: "Q2 2025", bookings: 480, revenue: 234000, profit: 80800 },
+      { date: "Q3 2025", bookings: 520, revenue: 254000, profit: 87600 },
+      { date: "Q4 2025", bookings: 445, revenue: 217000, profit: 74800 },
+    ],
     yearly: [
       { date: "2024", bookings: 1200, revenue: 580000, profit: 201000 },
       { date: "2025", bookings: 1450, revenue: 710000, profit: 246000 },
@@ -91,31 +141,45 @@ export default function Dashboard() {
   };
 
   const activeTrends = useMemo(() => {
-    if (trendsData && trendsData[period]) {
-      return trendsData[period];
+    if (trendsData && trendsData[chartPeriod]) {
+      return trendsData[chartPeriod];
     }
-    return defaultTrends[period];
-  }, [trendsData, period]);
+    return defaultTrends[chartPeriod];
+  }, [trendsData, chartPeriod]);
+
+  const kpiPeriodLabel: Record<KpiPeriod, string> = {
+    monthly: "This Month",
+    quarterly: "This Quarter",
+    yearly: "This Year",
+    all: "All Time",
+  };
 
   const cards = useMemo(() => {
     const list = [
       {
         name: isAgent && !isAdmin ? "My Revenue" : "Total Revenue",
-        value: formatCurrency(stats.totalRevenue),
+        value: formatCurrency(periodStats.totalRevenue),
         icon: DollarSign,
         color:
           "from-emerald-500/20 to-teal-500/10 text-emerald-600 dark:text-emerald-400",
       },
       {
         name: isAgent && !isAdmin ? "My Bookings" : "Total Bookings",
-        value: stats.totalBookings,
+        value: periodStats.totalBookings,
         icon: CalendarRange,
         color:
           "from-blue-500/20 to-indigo-500/10 text-blue-600 dark:text-blue-400",
       },
       {
-        name: isAgent && !isAdmin ? "My Profit" : "Total Profit",
-        value: formatCurrency(stats.totalProfit || 0),
+        name: isAgent && !isAdmin ? "My Margin" : "Total Margin",
+        value: formatCurrency(periodStats.totalMargin),
+        icon: Percent,
+        color:
+          "from-violet-500/20 to-purple-500/10 text-violet-600 dark:text-violet-400",
+      },
+      {
+        name: isAgent && !isAdmin ? "My Net Profit" : "Net Profit",
+        value: formatCurrency(periodStats.totalProfit),
         icon: TrendingUp,
         color:
           "from-purple-500/20 to-pink-500/10 text-purple-600 dark:text-purple-400",
@@ -133,44 +197,43 @@ export default function Dashboard() {
     }
 
     return list;
-  }, [stats, isAgent, isAdmin]);
+  }, [periodStats, stats, isAgent, isAdmin]);
 
   const categories = [
     {
       name: "Flight Bookings",
-      value: stats.flightBookings,
+      value: categoryStatsData?.flightBookings ?? stats.flightBookings,
       icon: PlaneTakeoff,
       color: "text-sky-600 dark:text-sky-400",
     },
     {
       name: "Hotel Bookings",
-      value: stats.hotelBookings,
+      value: categoryStatsData?.hotelBookings ?? stats.hotelBookings,
       icon: Hotel,
       color: "text-amber-600 dark:text-amber-400",
     },
     {
       name: "Tour Bookings",
-      value: stats.tourBookings,
+      value: categoryStatsData?.tourBookings ?? stats.tourBookings,
       icon: Compass,
       color: "text-rose-600 dark:text-rose-400",
     },
   ];
 
   const sortedAgents = useMemo(() => {
-    return [...(stats.agentPerformance || [])].sort(
+    const performanceData = agentStatsData?.agentPerformance || stats.agentPerformance || [];
+    return [...performanceData].sort(
       (a, b) => b.bookingsCount - a.bookingsCount || b.profit - a.profit,
     );
-  }, [stats.agentPerformance]);
+  }, [agentStatsData?.agentPerformance, stats.agentPerformance]);
 
   const topAgents = useMemo(() => {
-    // Top performers are those with bookingsCount > 0 in the top third of the list
     if (sortedAgents.length === 0) return [];
     const count = Math.max(1, Math.ceil(sortedAgents.length / 3));
     return sortedAgents.filter((a, idx) => a.bookingsCount > 0 && idx < count);
   }, [sortedAgents]);
 
   const leastAgents = useMemo(() => {
-    // Least performers are those with bookingsCount <= 0 or in the bottom third of the list
     if (sortedAgents.length === 0) return [];
     if (sortedAgents.length <= 2) {
       return sortedAgents.filter(
@@ -182,7 +245,6 @@ export default function Dashboard() {
   }, [sortedAgents, topAgents]);
 
   const avgAgents = useMemo(() => {
-    // Average performers are the remaining agents in the middle
     return sortedAgents.filter(
       (a) =>
         !topAgents.some((t) => t.id === a.id) &&
@@ -203,14 +265,43 @@ export default function Dashboard() {
         </p>
       </div>
 
+      {/* KPI Period Filter */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            KPI Period
+          </p>
+          <p className="text-[10px] text-muted-foreground/70 mt-0.5">
+            Showing stats for: <span className="text-foreground font-semibold">{kpiPeriodLabel[kpiPeriod]}</span>
+          </p>
+        </div>
+        <div className="flex bg-secondary/50 p-0.5 rounded-lg border border-border self-start sm:self-center">
+          {(["monthly", "quarterly", "yearly", "all"] as const).map((p) => (
+            <button
+              key={p}
+              onClick={() => setKpiPeriod(p)}
+              className={`px-3 py-1 rounded-md text-[10px] font-semibold capitalize transition-all ${
+                kpiPeriod === p
+                  ? "bg-card text-foreground shadow-sm border border-border/40"
+                  : "text-muted-foreground hover:text-foreground border border-transparent"
+              }`}
+            >
+              {p === "all" ? "All Time" : p}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Primary KPI Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className={`grid grid-cols-1 gap-4 ${isAdmin ? "md:grid-cols-5" : "md:grid-cols-4"}`}>
         {cards.map((card) => {
           const Icon = card.icon;
           return (
             <div
               key={card.name}
-              className="p-4 bg-card border border-border rounded-xl flex items-center justify-between shadow-sm"
+              className={`p-4 bg-card border border-border rounded-xl flex items-center justify-between shadow-sm transition-opacity ${
+                periodStatsLoading ? "opacity-60 animate-pulse" : "opacity-100"
+              }`}
             >
               <div>
                 <p className="text-xs font-semibold text-muted-foreground">
@@ -229,7 +320,29 @@ export default function Dashboard() {
       </div>
 
       {/* Category breakdown */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            Category Breakdown
+          </h4>
+          <div className="flex bg-secondary/50 p-0.5 rounded-lg border border-border self-start sm:self-center overflow-x-auto max-w-full">
+            {(["daily", "weekly", "monthly", "quarterly", "yearly", "all"] as const).map((p) => (
+              <button
+                key={p}
+                onClick={() => setCategoryPeriod(p)}
+                className={`px-3 py-1 rounded-md text-[10px] font-semibold capitalize whitespace-nowrap transition-all ${
+                  categoryPeriod === p
+                    ? "bg-card text-foreground shadow-sm border border-border/40"
+                    : "text-muted-foreground hover:text-foreground border border-transparent"
+                }`}
+              >
+                {p === "all" ? "All Time" : p}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {categories.map((cat) => {
           const Icon = cat.icon;
           return (
@@ -249,6 +362,7 @@ export default function Dashboard() {
             </div>
           );
         })}
+        </div>
       </div>
 
       {/* Charts Section Header & Filter */}
@@ -262,12 +376,12 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="flex bg-secondary/50 p-0.5 rounded-lg border border-border self-start sm:self-center">
-          {(["daily", "weekly", "monthly", "yearly"] as const).map((p) => (
+          {(["daily", "weekly", "monthly", "quarterly", "yearly"] as const).map((p) => (
             <button
               key={p}
-              onClick={() => setPeriod(p)}
+              onClick={() => setChartPeriod(p)}
               className={`px-3 py-1 rounded-md text-[10px] font-semibold capitalize transition-all ${
-                period === p
+                chartPeriod === p
                   ? "bg-card text-foreground shadow-sm border border-border/40"
                   : "text-muted-foreground hover:text-foreground border border-transparent"
               }`}
@@ -426,9 +540,26 @@ export default function Dashboard() {
       {/* Agent Performance Section */}
       {true && (
         <div className="space-y-3">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-            Agent Performance (Based on Number of Bookings)
-          </h4>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              Agent Performance (Based on Number of Bookings)
+            </h4>
+            <div className="flex bg-secondary/50 p-0.5 rounded-lg border border-border self-start sm:self-center">
+              {(["weekly", "monthly", "yearly", "all"] as const).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setAgentPeriod(p)}
+                  className={`px-3 py-1 rounded-md text-[10px] font-semibold capitalize transition-all ${
+                    agentPeriod === p
+                      ? "bg-card text-foreground shadow-sm border border-border/40"
+                      : "text-muted-foreground hover:text-foreground border border-transparent"
+                  }`}
+                >
+                  {p === "all" ? "All Time" : p}
+                </button>
+              ))}
+            </div>
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Column 1: Top Performing */}

@@ -39,6 +39,10 @@ export default function TransportReservationModal({
   const [customFlightNo, setCustomFlightNo] = useState('');
   const [isReturnFlight, setIsReturnFlight] = useState(false);
 
+  // Passenger selection states
+  const [passengerId, setPassengerId] = useState('');
+  const [passengerName, setPassengerName] = useState('');
+
   const [price, setPrice] = useState('0');
   const [currency, setCurrency] = useState('');
   const [otherCurrency, setOtherCurrency] = useState('');
@@ -98,6 +102,8 @@ export default function TransportReservationModal({
         setCurrency(transportToEdit.currency || '');
         setOtherCurrency(transportToEdit.otherCurrency || '');
         setConversionRate(transportToEdit.conversionRate ? String(transportToEdit.conversionRate) : '');
+        setPassengerId(transportToEdit.passengerId || '');
+        setPassengerName(transportToEdit.passengerName || '');
         setRefundAmount(String(transportToEdit.refundAmount ?? '0.0'));
         setFineAmount(String(transportToEdit.fineAmount ?? '0.0'));
         setIssueDate(formatDateToInput(transportToEdit.issueDate));
@@ -117,6 +123,8 @@ export default function TransportReservationModal({
         setCurrency('');
         setOtherCurrency('');
         setConversionRate('');
+        setPassengerId('');
+        setPassengerName('');
         setRefundAmount('0.0');
         setFineAmount('0.0');
         setIssueDate('');
@@ -163,6 +171,8 @@ export default function TransportReservationModal({
         departureTime: departureTime || '',
         arrivalTime: arrivalTime || '',
         flightNo: finalFlightNo || null,
+        passengerId: passengerId || null,
+        passengerName: passengerName || null,
         price: Number(price) || 0,
         currency: currency || 'GBP',
         otherCurrency: otherCurrency || null,
@@ -407,6 +417,53 @@ export default function TransportReservationModal({
                   ))}
                   <option value="Custom">Custom Flight Number...</option>
                 </select>
+              </div>
+
+              {/* Passenger Selector */}
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Passenger Name
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Search or Select Passenger..."
+                    value={passengerName}
+                    onChange={(e) => {
+                      setPassengerName(e.target.value);
+                      setPassengerId('');
+                    }}
+                    className="w-full text-xs py-1.5 pr-8 pl-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                  />
+                  {booking?.passengers?.length > 0 && (
+                    <select
+                      onChange={(e) => {
+                        const selectedId = e.target.value;
+                        const p = booking.passengers.find((pass: any) => pass.id === selectedId);
+                        if (p) {
+                          setPassengerId(p.id);
+                          setPassengerName(`${p.firstName} ${p.lastName}`);
+                        } else {
+                          setPassengerId('');
+                          setPassengerName('');
+                        }
+                      }}
+                      className="absolute right-0 top-0 bottom-0 w-8 opacity-0 cursor-pointer z-10"
+                      value=""
+                    >
+                      <option value="" disabled>Select</option>
+                      {booking.passengers.map((p: any) => (
+                        <option key={p.id} value={p.id}>
+                          {p.firstName} {p.lastName} ({p.age || p.role})
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  {/* Dropdown icon overlay */}
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                  </div>
+                </div>
               </div>
 
               {/* Custom Flight Number Input (if Custom selected) */}

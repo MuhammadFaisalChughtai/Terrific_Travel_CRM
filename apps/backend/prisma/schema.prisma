@@ -448,8 +448,8 @@ model AccommodationService {
   id                      String    @id @default(uuid())
   bookingId               String
   booking                 Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  vendorId                String
-  vendor                  Vendor    @relation(fields: [vendorId], references: [id])
+  vendorId                String?
+  vendor                  Vendor?   @relation(fields: [vendorId], references: [id])
   hotelName               String
   roomType                String
   checkInDate             DateTime
@@ -476,8 +476,8 @@ model FlightReservation {
   id          String          @id @default(uuid())
   bookingId   String
   booking     Booking         @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  vendorId    String
-  vendor      Vendor          @relation(fields: [vendorId], references: [id])
+  vendorId    String?
+  vendor      Vendor?         @relation(fields: [vendorId], references: [id])
   pnr         String
   issueDate   DateTime?
   currency    String          @default("GBP")
@@ -497,8 +497,8 @@ model FlightService {
   flightReservationId  String?
   flightReservation    FlightReservation? @relation(fields: [flightReservationId], references: [id], onDelete: Cascade)
   date                 DateTime
-  vendorId             String
-  vendor               Vendor             @relation(fields: [vendorId], references: [id])
+  vendorId             String?
+  vendor               Vendor?            @relation(fields: [vendorId], references: [id])
   flightNo             String
   pnr                  String             @default("")
   departedFrom         String
@@ -521,8 +521,8 @@ model TransportService {
   id                   String    @id @default(uuid())
   bookingId            String
   booking              Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  vendorId             String
-  vendor               Vendor    @relation(fields: [vendorId], references: [id])
+  vendorId             String?
+  vendor               Vendor?   @relation(fields: [vendorId], references: [id])
   vehicleType          String
   departureDestination String
   arrivalDestination   String
@@ -530,6 +530,8 @@ model TransportService {
   departureTime        String
   arrivalTime          String
   flightNo             String?
+  passengerId          String?
+  passengerName        String?
   price                Float
   currency             String
   otherCurrency        String?
@@ -543,8 +545,8 @@ model VisaService {
   id             String    @id @default(uuid())
   bookingId      String
   booking        Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  vendorId       String
-  vendor         Vendor    @relation(fields: [vendorId], references: [id])
+  vendorId       String?
+  vendor         Vendor?   @relation(fields: [vendorId], references: [id])
   passportNumber String
   visaType       String
   visaNumber     String?
@@ -617,8 +619,8 @@ model BookingVendorPayment {
   id               String   @id @default(uuid())
   bookingId        String
   booking          Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  vendorId         String
-  vendor           Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  vendorId         String?
+  vendor           Vendor?  @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   originalCost     Float
   amountPaid       Float    @default(0.0)
   remainingBalance Float

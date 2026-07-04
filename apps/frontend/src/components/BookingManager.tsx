@@ -1748,9 +1748,28 @@ export default function BookingManager({
                   {booking.flightServices?.length > 0 ? (
                     (() => {
                       const sortedFlights = [...booking.flightServices].sort(
-                        (a: any, b: any) =>
-                          new Date(a.date).getTime() -
-                          new Date(b.date).getTime(),
+                        (a: any, b: any) => {
+                          const dateA = new Date(a.date).getTime();
+                          const dateB = new Date(b.date).getTime();
+                          if (dateA !== dateB) return dateA - dateB;
+
+                          const parseTime = (timeStr: string) => {
+                            if (!timeStr) return 0;
+                            const t = timeStr.trim().toUpperCase();
+                            const isPM = t.includes('P');
+                            const isAM = t.includes('A');
+                            let raw = t.replace(/[APM:\s]/g, '');
+                            if (raw.length === 3) raw = "0" + raw;
+                            if (raw.length < 4) return 0;
+                            let hours = parseInt(raw.substring(0, 2), 10);
+                            const minutes = parseInt(raw.substring(2, 4), 10);
+                            if (isPM && hours < 12) hours += 12;
+                            if (isAM && hours === 12) hours = 0;
+                            return (hours * 60) + (isNaN(minutes) ? 0 : minutes);
+                          };
+
+                          return parseTime(a.departTime) - parseTime(b.departTime);
+                        }
                       );
                       return sortedFlights.map((fs: any, idx: number) => {
                         const nextFlight = sortedFlights[idx + 1];
@@ -2250,6 +2269,11 @@ export default function BookingManager({
                               {ts.flightNo && (
                                 <p className="text-primary font-medium">
                                   Flight: {ts.flightNo}
+                                </p>
+                              )}
+                              {ts.passengerName && (
+                                <p className="text-emerald-600 font-medium">
+                                  Passenger: {ts.passengerName}
                                 </p>
                               )}
                             </div>

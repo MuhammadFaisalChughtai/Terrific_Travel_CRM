@@ -399,8 +399,31 @@ export class VendorsService {
         }
       });
 
-      // Ensure BookingVendorPayment records exist for all selected bookings
-      for (const bId of bookingIds) {
+      let targetBookingIds: string[] = bookingIds || [];
+
+      // If no bookings were explicitly selected, we are in FIFO mode.
+      // We must gather ALL booking IDs that have services from this vendor to ensure their ledger rows exist.
+      if (!targetBookingIds || targetBookingIds.length === 0) {
+        const [acc, fli, tra, vis, add] = await Promise.all([
+          tx.accommodationService.findMany({ where: { vendorId: actualVendorId }, select: { bookingId: true } }),
+          tx.flightService.findMany({ where: { vendorId: actualVendorId }, select: { bookingId: true } }),
+          tx.transportService.findMany({ where: { vendorId: actualVendorId }, select: { bookingId: true } }),
+          tx.visaService.findMany({ where: { vendorId: actualVendorId }, select: { bookingId: true } }),
+          tx.additionalService.findMany({ where: { vendorId: actualVendorId }, select: { bookingId: true } })
+        ]);
+        
+        const allBookingIds = new Set<string>();
+        acc.forEach((s: any) => allBookingIds.add(s.bookingId));
+        fli.forEach((s: any) => allBookingIds.add(s.bookingId));
+        tra.forEach((s: any) => allBookingIds.add(s.bookingId));
+        vis.forEach((s: any) => allBookingIds.add(s.bookingId));
+        add.forEach((s: any) => allBookingIds.add(s.bookingId));
+        
+        targetBookingIds = Array.from(allBookingIds);
+      }
+
+      // Ensure BookingVendorPayment records exist for all target bookings
+      for (const bId of targetBookingIds) {
         const existingBVP = await tx.bookingVendorPayment.findFirst({
           where: { bookingId: bId, vendorId: actualVendorId }
         });
@@ -438,12 +461,17 @@ export class VendorsService {
         }
       }
 
-      // 4. Fetch selected bookings ordered oldest first
+      // 4. Fetch selected bookings (or all unpaid if none selected) ordered oldest first
+      const outstandingWhere: any = { vendorId: actualVendorId };
+      if (bookingIds && bookingIds.length > 0) {
+        outstandingWhere.bookingId = { in: bookingIds };
+      } else {
+        outstandingWhere.status = { not: 'PAID' };
+      }
+
       const outstanding = await tx.bookingVendorPayment.findMany({
-        where: {
-          vendorId: actualVendorId,
-          bookingId: { in: bookingIds }
-        },
+        where: outstandingWhere,
+
         include: {
           booking: true
         },

@@ -577,6 +577,20 @@ export class BookingsService {
       });
     }
 
+    if (query.search) {
+      const searchTerm = query.search.trim();
+      andFilters.push({
+        OR: [
+          { bookingReference: { contains: searchTerm, mode: 'insensitive' } },
+          { user: { firstName: { contains: searchTerm, mode: 'insensitive' } } },
+          { user: { lastName: { contains: searchTerm, mode: 'insensitive' } } },
+          { user: { email: { contains: searchTerm, mode: 'insensitive' } } },
+          { passengers: { some: { firstName: { contains: searchTerm, mode: 'insensitive' } } } },
+          { passengers: { some: { lastName: { contains: searchTerm, mode: 'insensitive' } } } },
+        ]
+      });
+    }
+
     if (andFilters.length > 0) {
       where.AND = andFilters;
     }
@@ -1102,6 +1116,8 @@ export class BookingsService {
         departureTime: data.departureTime || '',
         arrivalTime: data.arrivalTime || '',
         flightNo: data.flightNo || null,
+        passengerId: data.passengerId || null,
+        passengerName: data.passengerName || null,
         price: Number(data.price) || 0,
         currency: data.currency || 'GBP',
         otherCurrency: data.otherCurrency || null,
@@ -1140,6 +1156,8 @@ export class BookingsService {
         departureTime: data.departureTime !== undefined ? data.departureTime : undefined,
         arrivalTime: data.arrivalTime !== undefined ? data.arrivalTime : undefined,
         flightNo: data.flightNo !== undefined ? data.flightNo : undefined,
+        passengerId: data.passengerId !== undefined ? data.passengerId : undefined,
+        passengerName: data.passengerName !== undefined ? data.passengerName : undefined,
         price: data.price !== undefined ? (Number(data.price) || 0) : undefined,
         currency: data.currency !== undefined ? data.currency : undefined,
         otherCurrency: data.otherCurrency !== undefined ? data.otherCurrency : undefined,
@@ -1961,16 +1979,15 @@ export class BookingsService {
       where: search ? {
         hotelName: { contains: search, mode: 'insensitive' }
       } : undefined,
-      select: { hotelName: true, city: true },
-      distinct: ['hotelName'],
-      take: 20
+      select: { hotelName: true, city: true, hotelAddress: true },
+      take: 100
     });
 
     const hotelDb = await prisma.hotel.findMany({
       where: search ? {
         name: { contains: search, mode: 'insensitive' }
       } : undefined,
-      select: { name: true, city: true },
+      select: { name: true, city: true, address: true },
       take: 20
     });
 
@@ -1979,10 +1996,22 @@ export class BookingsService {
     // Add past bookings
     accommodations.forEach(a => {
       if (a.hotelName && a.hotelName.trim() !== '') {
-        combinedMap.set(a.hotelName.toLowerCase(), {
-          name: a.hotelName,
-          city: a.city || ''
-        });
+        const lowerName = a.hotelName.toLowerCase();
+        const existing = combinedMap.get(lowerName);
+        if (!existing) {
+          combinedMap.set(lowerName, {
+            name: a.hotelName,
+            city: a.city || '',
+            address: a.hotelAddress || ''
+          });
+        } else {
+          if (!existing.address && a.hotelAddress) {
+            existing.address = a.hotelAddress;
+          }
+          if (!existing.city && a.city) {
+            existing.city = a.city;
+          }
+        }
       }
     });
 
@@ -1992,7 +2021,8 @@ export class BookingsService {
         if (!combinedMap.has(h.name.toLowerCase())) {
           combinedMap.set(h.name.toLowerCase(), {
             name: h.name,
-            city: h.city || ''
+            city: h.city || '',
+            address: h.address || ''
           });
         }
       }
@@ -2001,7 +2031,8 @@ export class BookingsService {
     return Array.from(combinedMap.values()).map((h, i) => ({
       id: `prev-${i}`,
       name: h.name,
-      city: h.city
+      city: h.city,
+      address: h.address
     })).slice(0, 20);
   }
 }

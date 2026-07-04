@@ -44,43 +44,36 @@ function getCabinClassFromCode(code: string): string {
   return "Economy Class";
 }
 
-export function parsePNRText(text: string, defaultYear: number): ParsedFlight | null {
-  if (!text) return null;
+export function parseAllPNRText(text: string, defaultYear: number): ParsedFlight[] {
+  if (!text) return [];
 
-  // Standard Amadeus/Galileo
-  const amadeusRegex = /([A-Z0-9]{2})\s*([0-9]{1,4})\s+([A-Z])\s+([0-9]{1,2})([A-Z]{3})\s+([A-Z]{3})[\s/]*([A-Z]{3})\s*(?:[A-Z]{2}\d+)?\s*([0-9]{2}:?[0-9]{2})\s+([#+*]?\s*[0-9]{2}:?[0-9]{2}(?:\s*[#+*]\s*\d)?)/i;
-  
-  // Sabre Format (e.g. EK 36K 28JUL T NCLDXB*HK5 215P 1230A)
-  const sabreRegex = /([A-Z0-9]{2})\s*([0-9]{1,4})\s*([A-Z])\s+([0-9]{1,2})([A-Z]{3})\s+(?:[A-Z]{1,3}\s+)?([A-Z]{3})[\s/]*([A-Z]{3})(?:\*[A-Z]{2}\d+)?\s+([0-9]{3,4}[APap]?)\s+([0-9]{3,4}[APap]?)/i;
+  const results: ParsedFlight[] = [];
 
-  let match = text.match(amadeusRegex);
-  if (!match) {
-    match = text.match(sabreRegex);
+  // 1. Find global PNR
+  let globalPnr = '';
+  const rlMatch = text.match(/(?:RL|RECORD|LOCATOR|BOOKING REF|PNR)[:\s]+([A-Z0-9]{6})/i);
+  if (rlMatch) {
+    globalPnr = rlMatch[1].toUpperCase();
+  } else {
+    const allSixCharWords = text.match(/\b([A-Z0-9]{6})\b/g);
+    if (allSixCharWords) {
+      const candidate = allSixCharWords.find(w => !/^\d+$/.test(w));
+      if (candidate) {
+        globalPnr = candidate.toUpperCase();
+      }
+    }
   }
-  
-  if (!match) return null;
 
-  const airline = match[1].toUpperCase();
-  const flightNum = match[2];
-  const flightClass = match[3].toUpperCase();
-  const day = parseInt(match[4], 10);
-  const monthStr = match[5].toUpperCase();
-  const departedFrom = match[6].toUpperCase();
-  const arrivedAt = match[7].toUpperCase();
-  const rawDepartTime = match[8];
-  const rawArrivalTime = match[9];
+  // 2. Find all flight segments
+  const amadeusRegex = /([A-Z0-9]{2})\s*([0-9]{1,4})\s+([A-Z])\s+([0-9]{1,2})([A-Z]{3})\s+([A-Z]{3})[\s/]*([A-Z]{3})\s*(?:[A-Z]{2}\d+)?\s*([0-9]{2}:?[0-9]{2})\s+([#+*]?\s*[0-9]{2}:?[0-9]{2}(?:\s*[#+*]\s*\d)?)/gi;
+  const sabreRegex = /([A-Z0-9]{2})\s*([0-9]{1,4})\s*([A-Z])\s+([0-9]{1,2})([A-Z]{3})\s+(?:[A-Z]{1,3}\s+)?([A-Z]{3})[\s/]*([A-Z]{3})(?:\*[A-Z]{2}\d+)?\s+([0-9]{3,4}[APap]?)\s+([0-9]{3,4}[APap]?)/gi;
 
-  // Parse Month
+  let matches = [...text.matchAll(amadeusRegex)];
+  if (matches.length === 0) {
+    matches = [...text.matchAll(sabreRegex)];
+  }
+
   const monthNames = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
-  const monthIndex = monthNames.indexOf(monthStr);
-  let formattedDate = '';
-  if (monthIndex !== -1) {
-    const d = new Date(defaultYear, monthIndex, day);
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
-    formattedDate = `${yyyy}-${mm}-${dd}`;
-  }
 
   const formatTime = (t: string) => {
     const ampmMatch = t.match(/([0-9]{1,4})\s*([AP][M]?)/i);
@@ -100,97 +93,67 @@ export function parsePNRText(text: string, defaultYear: number): ParsedFlight | 
     return `${clean.substring(0, 2)}:${clean.substring(2, 4)}`;
   };
 
-  // Try to find a 6-character PNR record locator
-  let pnr = '';
-  const rlMatch = text.match(/(?:RL|RECORD|LOCATOR|BOOKING REF|PNR)[:\s]+([A-Z0-9]{6})/i);
-  if (rlMatch) {
-    pnr = rlMatch[1].toUpperCase();
-  } else {
-    const allSixCharWords = text.match(/\b([A-Z0-9]{6})\b/g);
-    if (allSixCharWords) {
-      const candidate = allSixCharWords.find(w => {
-        const isRoute = w === `${departedFrom}${arrivedAt}` || w === `${arrivedAt}${departedFrom}`;
-        return !isRoute && !/^\d+$/.test(w);
-      });
-      if (candidate) {
-        pnr = candidate.toUpperCase();
-      }
-    }
-  }
+  for (const match of matches) {
+    const airline = match[1].toUpperCase();
+    const flightNum = match[2];
+    const flightClass = match[3].toUpperCase();
+    const day = parseInt(match[4], 10);
+    const monthStr = match[5].toUpperCase();
+    const departedFrom = match[6].toUpperCase();
+    const arrivedAt = match[7].toUpperCase();
+    const rawDepartTime = match[8];
+    const rawArrivalTime = match[9];
 
-  // Detect Flight Arrival Date (defaulting to the departure date if no rollover is found)
-  let arrivalDate = formattedDate;
-  if (formattedDate && monthIndex !== -1) {
-    let rolloverDays = 0;
-    
-    // Process the raw arrival time
-    const timeMatch = rawArrivalTime.match(/[0-9]{2}:?[0-9]{2}/);
-    const timeStr = timeMatch ? timeMatch[0] : "";
-    const remaining = rawArrivalTime.replace(timeStr, "").trim();
-
-    if (remaining) {
-      const numMatch = remaining.match(/(\d+)/);
-      if (numMatch && parseInt(numMatch[1], 10) > 0) {
-        rolloverDays = parseInt(numMatch[1], 10);
-      } else if (/[#+*]/.test(remaining)) {
-        rolloverDays = 1;
-      }
+    const monthIndex = monthNames.indexOf(monthStr);
+    let formattedDate = '';
+    if (monthIndex !== -1) {
+      const d = new Date(defaultYear, monthIndex, day);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      formattedDate = `${yyyy}-${mm}-${dd}`;
     }
 
-    const arrivalTimeIndex = text.indexOf(rawArrivalTime);
-    if (arrivalTimeIndex !== -1 && rolloverDays === 0) {
-      const postTimeText = text.substring(arrivalTimeIndex + rawArrivalTime.length, arrivalTimeIndex + rawArrivalTime.length + 10);
-      const rolloverMatch = postTimeText.match(/^[\s(+*#]*\+?([1-9])\b/);
-      if (rolloverMatch) {
-        rolloverDays = parseInt(rolloverMatch[1], 10);
-      }
-    }
+    let arrivalDate = formattedDate;
+    if (formattedDate && monthIndex !== -1) {
+      let rolloverDays = 0;
+      const timeMatch = rawArrivalTime.match(/[0-9]{2}:?[0-9]{2}/);
+      const timeStr = timeMatch ? timeMatch[0] : "";
+      const remaining = rawArrivalTime.replace(timeStr, "").trim();
 
-    // Also look for a second date string in the text (e.g. 18JUN) that is after the departure monthStr
-    const allDates = [...text.matchAll(/\b([0-9]{1,2})(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\b/gi)];
-    if (allDates.length > 1) {
-      const secondMatch = allDates[1];
-      const arrDay = parseInt(secondMatch[1], 10);
-      const arrMonthStr = secondMatch[2].toUpperCase();
-      const arrMonthIndex = monthNames.indexOf(arrMonthStr);
-      if (arrMonthIndex !== -1) {
-        let arrYear = defaultYear;
-        // Check for cross-year roll-over: e.g. departure is DEC, arrival is JAN
-        if (monthIndex === 11 && arrMonthIndex === 0) {
-          arrYear = defaultYear + 1;
-        } else if (monthIndex === 0 && arrMonthIndex === 11) {
-          arrYear = defaultYear - 1;
+      if (remaining) {
+        const numMatch = remaining.match(/(\d+)/);
+        if (numMatch && parseInt(numMatch[1], 10) > 0) {
+          rolloverDays = parseInt(numMatch[1], 10);
+        } else if (/[#+*]/.test(remaining)) {
+          rolloverDays = 1;
         }
-        const arrDateObj = new Date(arrYear, arrMonthIndex, arrDay);
-        const yyyy = arrDateObj.getFullYear();
-        const mm = String(arrDateObj.getMonth() + 1).padStart(2, '0');
-        const dd = String(arrDateObj.getDate()).padStart(2, '0');
+      }
+
+      if (rolloverDays > 0) {
+        const depDateObj = new Date(defaultYear, monthIndex, day);
+        depDateObj.setDate(depDateObj.getDate() + rolloverDays);
+        const yyyy = depDateObj.getFullYear();
+        const mm = String(depDateObj.getMonth() + 1).padStart(2, '0');
+        const dd = String(depDateObj.getDate()).padStart(2, '0');
         arrivalDate = `${yyyy}-${mm}-${dd}`;
-        rolloverDays = 0; // second date override
       }
     }
 
-    if (rolloverDays > 0) {
-      const depDateObj = new Date(defaultYear, monthIndex, day);
-      depDateObj.setDate(depDateObj.getDate() + rolloverDays);
-      const yyyy = depDateObj.getFullYear();
-      const mm = String(depDateObj.getMonth() + 1).padStart(2, '0');
-      const dd = String(depDateObj.getDate()).padStart(2, '0');
-      arrivalDate = `${yyyy}-${mm}-${dd}`;
-    }
+    results.push({
+      flightNo: `${airline} ${flightNum}`,
+      pnr: globalPnr,
+      departedFrom,
+      arrivedAt,
+      departTime: formatTime(rawDepartTime),
+      arrivalTime: formatTime(rawArrivalTime),
+      date: formattedDate,
+      arrivalDate,
+      flightClass
+    });
   }
 
-  return {
-    flightNo: `${airline} ${flightNum}`,
-    pnr,
-    departedFrom,
-    arrivedAt,
-    departTime: formatTime(rawDepartTime),
-    arrivalTime: formatTime(rawArrivalTime),
-    date: formattedDate,
-    arrivalDate,
-    flightClass
-  };
+  return results;
 }
 
 export default function PnrFlightModal({
@@ -362,30 +325,26 @@ export default function PnrFlightModal({
 
   const flightVendors = vendorsData?.filter((v: any) => v.vendorType?.toLowerCase() === 'flight') || [];
 
-  // Fetch All Bookings for Import/Search by Customer
+  // Fetch Bookings based on search query
   const { data: allBookings, isLoading: isAllBookingsLoading } = useQuery({
-    queryKey: ['bookings-search-modal'],
+    queryKey: ['bookings-search-modal', searchQuery],
     queryFn: async () => {
-      const res = await apiClient.get('/bookings?limit=1000');
+      const queryParams = new URLSearchParams();
+      queryParams.append('limit', '10');
+      if (searchQuery.trim()) {
+        queryParams.append('search', searchQuery.trim());
+      }
+      const res = await apiClient.get(`/bookings?${queryParams.toString()}`);
       return res.data.data.items || [];
     },
     enabled: isOpen && step === 'search'
   });
 
-  // Filter Bookings locally
+  // Backend handles filtering, just pass through
   const filteredSearchBookings = useMemo(() => {
-    if (!allBookings || !searchQuery.trim()) return [];
-    const q = searchQuery.toLowerCase().trim();
-    return allBookings.filter((b: any) => {
-      const customerName = `${b.user?.firstName || ""} ${b.user?.lastName || ""}`.toLowerCase();
-      const matchesCustomer = customerName.includes(q);
-      const matchesPassenger = b.passengers?.some((p: any) =>
-        `${p.firstName || ""} ${p.lastName || ""}`.toLowerCase().includes(q)
-      );
-      const matchesRef = b.bookingReference?.toLowerCase().includes(q);
-      return matchesCustomer || matchesPassenger || matchesRef;
-    });
-  }, [allBookings, searchQuery]);
+    if (!allBookings) return [];
+    return allBookings;
+  }, [allBookings]);
 
   const handleDepartedFromChange = async (val: string) => {
     setDepartedFrom(val);
@@ -416,44 +375,92 @@ export default function PnrFlightModal({
   };
 
   const handleConvert = async () => {
-    const parsed = parsePNRText(pnrText, bookingYear);
-    if (parsed) {
-      setFlightNo(parsed.flightNo);
-      setPnr(parsed.pnr);
+    if (!pnrText.trim()) {
+      toast.error("Please paste a PNR block first");
+      return;
+    }
+    const parsedFlights = parseAllPNRText(pnrText, bookingYear);
+    if (!parsedFlights || parsedFlights.length === 0) {
+      toast.error("Could not parse any flight segments. Please check format.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      // Find default Polani vendor
+      const polaniVendor = flightVendors.find((v: any) => v.name.toLowerCase().includes('polani'));
+      const defaultVendorId = polaniVendor ? polaniVendor.id : (flightVendors[0]?.id || "");
+
+      if (!defaultVendorId) {
+        toast.error("No flight vendors found. Please create a vendor first.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      let successCount = 0;
+      for (const parsed of parsedFlights) {
+        let finalDeparted = parsed.departedFrom;
+        let finalArrived = parsed.arrivedAt;
+
+        try {
+          const depRes = await apiClient.get(`/flights/airports/${parsed.departedFrom}`);
+          if (depRes.data?.success && depRes.data?.data?.name) {
+            finalDeparted = `${depRes.data.data.name} (${depRes.data.data.code.toUpperCase()})`;
+          }
+        } catch (err) {
+          console.warn(`Failed to fetch departure airport for code: ${parsed.departedFrom}`, err);
+        }
+
+        try {
+          const arrRes = await apiClient.get(`/flights/airports/${parsed.arrivedAt}`);
+          if (arrRes.data?.success && arrRes.data?.data?.name) {
+            finalArrived = `${arrRes.data.data.name} (${arrRes.data.data.code.toUpperCase()})`;
+          }
+        } catch (err) {
+          console.warn(`Failed to fetch arrival airport for code: ${parsed.arrivedAt}`, err);
+        }
+
+        const payload = {
+          vendorId: defaultVendorId,
+          flightNo: parsed.flightNo,
+          pnr: parsed.pnr,
+          departedFrom: finalDeparted,
+          arrivedAt: finalArrived,
+          departTime: parsed.departTime,
+          arrivalTime: parsed.arrivalTime,
+          date: new Date(parsed.date).toISOString(),
+          flightClass: getCabinClassFromCode(parsed.flightClass),
+          price: 0,
+          refundAmount: 0,
+          fineAmount: 0,
+          baggage: "23 KG",
+          carryOnBaggage: "7 KG",
+          checkedBaggage: null,
+          notes: JSON.stringify({
+            isConnecting: false,
+            depTerminal: "",
+            arrTerminal: "",
+            actualNotes: "",
+            arrivalDate: parsed.arrivalDate || parsed.date,
+          }),
+          issueDate: null,
+        };
+
+        await apiClient.post(`/bookings/${bookingId}/flights`, payload);
+        successCount++;
+      }
+
+      toast.success(`${successCount} flight segment(s) added successfully!`);
+      onSuccess();
+      onClose();
       
-      let finalDeparted = parsed.departedFrom;
-      let finalArrived = parsed.arrivedAt;
-
-      try {
-        const depRes = await apiClient.get(`/flights/airports/${parsed.departedFrom}`);
-        if (depRes.data?.success && depRes.data?.data?.name) {
-          finalDeparted = `${depRes.data.data.name} (${depRes.data.data.code.toUpperCase()})`;
-        }
-      } catch (err) {
-        console.warn(`Failed to fetch departure airport for code: ${parsed.departedFrom}`, err);
-      }
-
-      try {
-        const arrRes = await apiClient.get(`/flights/airports/${parsed.arrivedAt}`);
-        if (arrRes.data?.success && arrRes.data?.data?.name) {
-          finalArrived = `${arrRes.data.data.name} (${arrRes.data.data.code.toUpperCase()})`;
-        }
-      } catch (err) {
-        console.warn(`Failed to fetch arrival airport for code: ${parsed.arrivedAt}`, err);
-      }
-
-      setDepartedFrom(finalDeparted);
-      setArrivedAt(finalArrived);
-      setDepartTime(parsed.departTime);
-      setArrivalTime(parsed.arrivalTime);
-      setDate(parsed.date);
-      setArrivalDate(parsed.arrivalDate || parsed.date);
-      setFlightClass(getCabinClassFromCode(parsed.flightClass));
-      toast.success("PNR converted successfully!");
-      setStep('form');
-    } else {
-      toast.error("Could not parse PNR format. You can fill the details manually.");
-      setStep('form');
+      // Reset Modal State
+      setStep('pnr');
+      setPnrText('');
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to add flight segments");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -626,11 +633,13 @@ export default function PnrFlightModal({
               GDS PNR Raw Data
             </h4>
             <p className="text-[10px] text-muted-foreground mb-2">
-              Paste your raw GDS PNR segment details (Amadeus, Sabre, Galileo format) to auto-populate the form.
+              Paste your entire multi-leg GDS PNR block (Amadeus, Sabre, Galileo format) to instantly auto-fill all flight segments.
             </p>
             <textarea
-              className="w-full h-32 p-2.5 border border-border rounded-lg text-xs focus:ring-1 focus:ring-primary focus:border-primary bg-background text-foreground shadow-inner"
-              placeholder="e.g. 1.SV 116 Y 17JUN JEDRUH DK1 1230 1400"
+              className="w-full h-32 p-2.5 border border-border rounded-lg text-xs focus:ring-1 focus:ring-primary focus:border-primary bg-background text-foreground shadow-inner placeholder:text-muted-foreground/60 whitespace-pre"
+              placeholder="e.g.
+1 . QR 330 T 20OCT LGWDOH HK1 0900 1740 O* TU 1
+2 . QR 1188 T 20OCT DOHJED HK1 1835 2105 O* TU 1"
               value={pnrText}
               onChange={(e) => setPnrText(e.target.value)}
             />

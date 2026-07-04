@@ -1,0 +1,524 @@
+Error in query (7): ERROR: null value in column "departureTime" of relation "TransportService" violates not-null constraint
+DETAIL: Failing row contains (81c6dfd2-7846-43f2-a891-f0f40e2e7ee6, dc9c339b-1abd-454f-8b69-8b4d11a126f4, 3, Coaster Share with TT00576, EMAAR AL MANAR MAKKAH, MAKKAH ZIARAT, 2025-08-11 23:00:00, null, , null, 0, GBP, null, null, null, 0, 0).
+
+INSERT INTO "TransportService" ("id", "bookingId", "vendorId", "vehicleType", "departureDestination", "arrivalDestination", "date", "departureTime", "arrivalTime", "flightNo", "price", "currency", "otherCurrency", "conversionRate", "issueDate", "refundAmount", "fineAmount") VALUES (
+      'd9b9a16e-05b0-41fb-bd6a-ed683358bb98', 'dc9c339b-1abd-454f-8b69-8b4d11a126f4', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'al sultan' LIMIT 1), 'Coaster Share with TT00576', 'EMAAR AL MANAR MAKKAH', 'SWISS INTERNATIONAL MADINAH', '2025-08-03T23:00:00.000Z', '1200 pm', '', NULL, 0, 'GBP', NULL, NULL, NULL, 0, 0
+    )
+
+Error in query (7): ERROR: null value in column "departureTime" of relation "TransportService" violates not-null constraint
+DETAIL: Failing row contains (51fbdbf5-6db7-4889-8470-0fbd712c817f, dc9c339b-1abd-454f-8b69-8b4d11a126f4, 3, Coaster Share with TT00576, SWISS INTERNATIONAL MADINAH, MADINAH ZIARAT, 2025-08-08 23:00:00, null, , null, 0, GBP, null, null, null, 0, 0).
+
+INSERT INTO "AccommodationService" ("id", "bookingId", "vendorId", "hotelName", "roomType", "checkInDate", "checkOutDate", "mealType", "reservationNumber", "qty", "price", "currency", "otherCurrency", "conversionRate", "issueDate", "refundAmount", "fineAmount", "hotelConfirmationNumber", "hotelAddress", "lastCancellationDate") VALUES (
+      '2f0b68d4-ff49-4111-beaa-5ab5b13327f1', 'dc9c339b-1abd-454f-8b69-8b4d11a126f4', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'tbo' LIMIT 1), 'EMAAR MANAR MAKKAH', 'TRIPLES', '2025-07-29T23:00:00.000Z', '2025-08-03T23:00:00.000Z', 'BREAKFAST', 'ZMZ-F37HF', 2, 454.69, 'GBP', NULL, NULL, NULL, 0, 0, NULL, NULL, NULL
+    )
+
+Error in query (7): ERROR: null value in column "date" of relation "TransportService" violates not-null constraint
+DETAIL: Failing row contains (0e00e93d-d6d4-47bb-ad50-da1250ad4099, a94d5a3d-7e43-4edd-9ff5-65f4926ff05d, 3, Saloon, King Abdulaziz International Airport, Worth Elite Makkah, null, null, , null, 0, GBP, null, null, null, 0, 0).
+
+INSERT INTO "AccommodationService" ("id", "bookingId", "vendorId", "hotelName", "roomType", "checkInDate", "checkOutDate", "mealType", "reservationNumber", "qty", "price", "currency", "otherCurrency", "conversionRate", "issueDate", "refundAmount", "fineAmount", "hotelConfirmationNumber", "hotelAddress", "lastCancellationDate") VALUES (
+      '153d8b37-1b7d-44a3-8068-5e28f55c22e9', 'a94d5a3d-7e43-4edd-9ff5-65f4926ff05d', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'emaar group' LIMIT 1), 'Worth Elite', 'Double Room', '2025-09-10T23:00:00.000Z', '2025-09-15T23:00:00.000Z', 'R/O', 'BK/2025/May/H/11641', 1, 302.02, 'GBP', '1450', 4.8, NULL, 0, 0, NULL, NULL, NULL
+    )
+Error in query (7): ERROR: null value in column "visaType" of relation "VisaService" violates not-null constraint
+DETAIL: Failing row contains (07bc39e6-54ad-428a-8439-21314881170e, 2c278bf3-d6db-408e-844d-7356bbae9e8e, 5b1c3814-1aea-42f5-8d66-b1028793c018, , null, 4 Tourist Visa, null, null, 324, GBP, null, null, 0, 0).
+
+INSERT INTO "BookingVendorPayment" ("id", "bookingId", "vendorId", "originalCost", "amountPaid", "remainingBalance", "status", "updatedAt") VALUES (
+      '2a8fbe8b-762e-4e1c-bc9d-b0f4bd22fa52', '2c278bf3-d6db-408e-844d-7356bbae9e8e', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'maysan group' LIMIT 1), 375.51, 375.51, 0, 'PAID', NOW()
+    )
+
+INSERT INTO "FlightService" ("id", "bookingId", "vendorId", "date", "flightNo", "pnr", "departedFrom", "arrivedAt", "departTime", "arrivalTime", "price", "currency", "issueDate", "refundAmount", "fineAmount", "baggage", "carryOnBaggage", "checkedBaggage", "flightClass") VALUES (
+      'ca9df1ce-6201-4a1d-bf60-0828cffdd175', '6301e3f6-8918-4153-9dfc-bf5adcb1c7e6', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'polani travel ltd' LIMIT 1), '2025-10-12T23:00:00.000Z', 'Qatar Airways 34', '', 'Birmingham Airport (BHX)', 'Doha Hamad Intl Airport (DOH)', NULL, NULL, 629.02, 'GBP', NULL, 0, 0, '46KG', NULL, NULL, 'Economy'
+    )
+Error in query (7): ERROR: null value in column "departTime" of relation "FlightService" violates not-null constraint
+DETAIL: Failing row contains (ca9df1ce-6201-4a1d-bf60-0828cffdd175, 6301e3f6-8918-4153-9dfc-bf5adcb1c7e6, null, 2025-10-12 23:00:00, 5, Qatar Airways 34, , Birmingham Airport (BHX), Doha Hamad Intl Airport (DOH), null, null, 629.02, GBP, null, 0, 0, 46KG, null, null, Economy, null).
+
+Error in query (7): ERROR: null value in column "roomType" of relation "AccommodationService" violates not-null constraint
+DETAIL: Failing row contains (0032367d-780b-454b-93e3-69e14366b822, d6e35fe8-f754-479c-a0e5-6b7099736b0d, 30, Densineyland Park, null, null, null, null, 1, 1, 249.3, GBP, null, null, null, 0, 0, null, null, null, null, 16:00, 12:00).
+
+INSERT INTO "BookingTransaction" ("id", "bookingId", "amount", "paymentMethod", "paidOn", "notes") VALUES (
+      'da7ea339-2cd3-4ba0-b156-5861c93074c9', 'd6e35fe8-f754-479c-a0e5-6b7099736b0d', 500, 'CASH', '2025-08-05T23:00:00.000Z', 'Cash Payment'
+    )
+
+INSERT INTO "TransportService" ("id", "bookingId", "vendorId", "vehicleType", "departureDestination", "arrivalDestination", "date", "departureTime", "arrivalTime", "flightNo", "price", "currency", "otherCurrency", "conversionRate", "issueDate", "refundAmount", "fineAmount") VALUES (
+      'b763a9f8-fb5c-4811-b701-71a0c0ca4506', 'fc5ad9bb-4892-4a59-850c-258fae4b07d7', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'al sultan' LIMIT 1), NULL, 'Pullman Zamzam Madina', 'Prince Mohammad Bin Abdulaziz Airport, Madinah, (MED)', NULL, '10:00', '12:00', NULL, 0, 'GBP', NULL, NULL, NULL, 0, 0
+    )
+Error in query (7): ERROR: null value in column "vehicleType" of relation "TransportService" violates not-null constraint
+DETAIL: Failing row contains (b763a9f8-fb5c-4811-b701-71a0c0ca4506, fc5ad9bb-4892-4a59-850c-258fae4b07d7, 3, null, Pullman Zamzam Madina, Prince Mohammad Bin Abdulaziz Airport, Madinah, (MED), null, 10:00, 12:00, null, 0, GBP, null, null, null, 0, 0).
+INSERT INTO "FlightService" ("id", "bookingId", "vendorId", "date", "flightNo", "pnr", "departedFrom", "arrivedAt", "departTime", "arrivalTime", "price", "currency", "issueDate", "refundAmount", "fineAmount", "baggage", "carryOnBaggage", "checkedBaggage", "flightClass") VALUES (
+      '11c8774f-59bf-4791-aa99-97b7937d5539', '25eb25db-d5b1-4fd2-aa2d-77a8a8fce671', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'polani travel ltd' LIMIT 1), '2025-11-01T00:00:00.000Z', 'Saudia 100', '', 'London Gatwick Airport (LGW)', 'Jeddah King Abdulaziz Intl Airport (JED)', NULL, NULL, 0, 'GBP', NULL, 0, 0, NULL, NULL, NULL, 'Economy'
+    )
+Error in query (7): ERROR: null value in column "departTime" of relation "FlightService" violates not-null constraint
+DETAIL: Failing row contains (11c8774f-59bf-4791-aa99-97b7937d5539, 25eb25db-d5b1-4fd2-aa2d-77a8a8fce671, null, 2025-11-01 00:00:00, 5, Saudia 100, , London Gatwick Airport (LGW), Jeddah King Abdulaziz Intl Airport (JED), null, null, 0, GBP, null, 0, 0, null, null, null, Economy, null).
+
+Error in query (7): ERROR: duplicate key value violates unique constraint "Booking_bookingReference_key"
+DETAIL: Key ("bookingReference")=(TT00640) already exists.
+
+INSERT INTO "Passenger" ("id", "bookingId", "title", "firstName", "lastName", "age", "email", "phoneNumber", "passportExpiryDate", "agentId", "role") VALUES (
+      '0ee205b6-160c-44af-84f6-99236bc5419a', '7fcb21a6-48b6-41ac-96f0-72b05186f204', 'MR', 'NOOR SHAH', 'KHALID', '44', 'NOORSHAH00@GMAIL.COM', '+44 7492 854856', NULL, (SELECT id FROM "Agent" WHERE LOWER(name) = 'raffay naveed' LIMIT 1), 'Leader'
+    )Error in query (7): ERROR: insert or update on table "Passenger" violates foreign key constraint "Passenger_bookingId_fkey"
+DETAIL: Key (bookingId)=(7fcb21a6-48b6-41ac-96f0-72b05186f204) is not present in table "Booking".
+
+INSERT INTO "Passenger" ("id", "bookingId", "title", "firstName", "lastName", "age", "email", "phoneNumber", "passportExpiryDate", "agentId", "role") VALUES (
+      '865219a0-7e87-42f9-845f-f79d0ee5ddfb', '7fcb21a6-48b6-41ac-96f0-72b05186f204', 'MISS', 'SUMAYA', 'KHAN', '33', 'SUMAYAKHAN@mail.com', '+44 7492 854856', NULL, (SELECT id FROM "Agent" WHERE LOWER(name) = 'raffay naveed' LIMIT 1), 'Family Member'
+    )
+Error in query (7): ERROR: insert or update on table "Passenger" violates foreign key constraint "Passenger_bookingId_fkey"
+DETAIL: Key (bookingId)=(7fcb21a6-48b6-41ac-96f0-72b05186f204) is not present in table "Booking".
+
+INSERT INTO "Passenger" ("id", "bookingId", "title", "firstName", "lastName", "age", "email", "phoneNumber", "passportExpiryDate", "agentId", "role") VALUES (
+      '7798001b-27f1-4a62-a875-50e7f9715585', '7fcb21a6-48b6-41ac-96f0-72b05186f204', 'mstr', 'muhammad', 'umer', '9', 'muhammadumer@gmail.com', '+44 7492 854856', NULL, (SELECT id FROM "Agent" WHERE LOWER(name) = 'raffay naveed' LIMIT 1), 'Family Member'
+    )
+Error in query (7): ERROR: insert or update on table "Passenger" violates foreign key constraint "Passenger_bookingId_fkey"
+DETAIL: Key (bookingId)=(7fcb21a6-48b6-41ac-96f0-72b05186f204) is not present in table "Booking".
+
+INSERT INTO "Passenger" ("id", "bookingId", "title", "firstName", "lastName", "age", "email", "phoneNumber", "passportExpiryDate", "agentId", "role") VALUES (
+      'edc193ac-e222-41e2-af4a-e279756727a3', '7fcb21a6-48b6-41ac-96f0-72b05186f204', 'MSTR', 'ANAYA KHALID', 'KHAN', '07', 'ANAYAKHAN@GMAIL.COM', '+44 7492 854856', NULL, (SELECT id FROM "Agent" WHERE LOWER(name) = 'raffay naveed' LIMIT 1), 'Family Member'
+    )
+Error in query (7): ERROR: insert or update on table "Passenger" violates foreign key constraint "Passenger_bookingId_fkey"
+DETAIL: Key (bookingId)=(7fcb21a6-48b6-41ac-96f0-72b05186f204) is not present in table "Booking".
+
+INSERT INTO "Passenger" ("id", "bookingId", "title", "firstName", "lastName", "age", "email", "phoneNumber", "passportExpiryDate", "agentId", "role") VALUES (
+      'f9284896-8f19-4a67-b569-ac970bdaa2f7', '7fcb21a6-48b6-41ac-96f0-72b05186f204', 'MSTR', 'MARIHA KHALID', 'KHAN', '13', 'MAHIRA@GMAIL.COM', '+44 7492 854856', NULL, (SELECT id FROM "Agent" WHERE LOWER(name) = 'raffay naveed' LIMIT 1), 'Family Member'
+    )
+Error in query (7): ERROR: insert or update on table "Passenger" violates foreign key constraint "Passenger_bookingId_fkey"
+DETAIL: Key (bookingId)=(7fcb21a6-48b6-41ac-96f0-72b05186f204) is not present in table "Booking".
+
+INSERT INTO "Passenger" ("id", "bookingId", "title", "firstName", "lastName", "age", "email", "phoneNumber", "passportExpiryDate", "agentId", "role") VALUES (
+      'd20fc815-1af4-4343-ab80-a0239362460f', '7fcb21a6-48b6-41ac-96f0-72b05186f204', 'MSTR', 'MAYLA KHALID', 'KHAN', '14', 'MAYLA@GMAIL.COM', '+44 7492 854856', NULL, (SELECT id FROM "Agent" WHERE LOWER(name) = 'raffay naveed' LIMIT 1), 'Family Member'
+    )
+Error in query (7): ERROR: insert or update on table "Passenger" violates foreign key constraint "Passenger_bookingId_fkey"
+DETAIL: Key (bookingId)=(7fcb21a6-48b6-41ac-96f0-72b05186f204) is not present in table "Booking".
+
+INSERT INTO "Passenger" ("id", "bookingId", "title", "firstName", "lastName", "age", "email", "phoneNumber", "passportExpiryDate", "agentId", "role") VALUES (
+      'ffe379b3-9145-4b29-b314-1e87a793927c', '7fcb21a6-48b6-41ac-96f0-72b05186f204', 'MSTR', 'MUHAMMAD HASSAN', 'AMMAR', '8 MONTHS', 'MHASSAN@GMAIL.COM', '+44 7492 854856', NULL, (SELECT id FROM "Agent" WHERE LOWER(name) = 'raffay naveed' LIMIT 1), 'Family Member'
+    )
+Error in query (7): ERROR: insert or update on table "Passenger" violates foreign key constraint "Passenger_bookingId_fkey"
+DETAIL: Key (bookingId)=(7fcb21a6-48b6-41ac-96f0-72b05186f204) is not present in table "Booking".
+
+INSERT INTO "FlightService" ("id", "bookingId", "vendorId", "date", "flightNo", "pnr", "departedFrom", "arrivedAt", "departTime", "arrivalTime", "price", "currency", "issueDate", "refundAmount", "fineAmount", "baggage", "carryOnBaggage", "checkedBaggage", "flightClass") VALUES (
+      'c5458ca0-130c-4b1a-b732-e38a26037110', '7fcb21a6-48b6-41ac-96f0-72b05186f204', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'brightsun travel ltd' LIMIT 1), '2025-12-18T00:00:00.000Z', '114', 'DDL6YF', 'London Stansted Airport (STN)', 'Queen Alia Airport, Amman (AMM)', '14:45', '23:00', 4604.42, 'gbp', '2025-09-13T23:00:00.000Z', 0, 0, '1x baggage', NULL, NULL, 'Economy'
+    )
+Error in query (7): ERROR: insert or update on table "FlightService" violates foreign key constraint "FlightService_bookingId_fkey"
+DETAIL: Key (bookingId)=(7fcb21a6-48b6-41ac-96f0-72b05186f204) is not present in table "Booking".
+
+INSERT INTO "FlightService" ("id", "bookingId", "vendorId", "date", "flightNo", "pnr", "departedFrom", "arrivedAt", "departTime", "arrivalTime", "price", "currency", "issueDate", "refundAmount", "fineAmount", "baggage", "carryOnBaggage", "checkedBaggage", "flightClass") VALUES (
+      'b1497633-e4c9-43e6-b238-615615e7f309', '7fcb21a6-48b6-41ac-96f0-72b05186f204', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'brightsun travel ltd' LIMIT 1), '2025-12-19T00:00:00.000Z', '704', '', 'Queen Alia Airport, Amman (AMM)', 'Jeddah King Abdulaziz Intl Airport (JED)', '01:35', '03:45', 0, 'GBP', NULL, 0, 0, '1x baggage', NULL, NULL, 'Economy'
+    )
+Error in query (7): ERROR: insert or update on table "FlightService" violates foreign key constraint "FlightService_bookingId_fkey"
+DETAIL: Key (bookingId)=(7fcb21a6-48b6-41ac-96f0-72b05186f204) is not present in table "Booking".
+
+INSERT INTO "FlightService" ("id", "bookingId", "vendorId", "date", "flightNo", "pnr", "departedFrom", "arrivedAt", "departTime", "arrivalTime", "price", "currency", "issueDate", "refundAmount", "fineAmount", "baggage", "carryOnBaggage", "checkedBaggage", "flightClass") VALUES (
+      '4b3b6995-68b0-4ab1-bab7-fa799df8fe09', '7fcb21a6-48b6-41ac-96f0-72b05186f204', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'brightsun travel ltd' LIMIT 1), '2025-12-29T00:00:00.000Z', '723', '', 'Prince Mohammad Bin Abdulaziz Airport, Madinah (MED)', 'Queen Alia Airport, Amman (AMM)', '07:00', '09:10', 0, 'GBP', NULL, 0, 0, '1x baggage', NULL, NULL, 'Economy'
+    )
+Error in query (7): ERROR: insert or update on table "FlightService" violates foreign key constraint "FlightService_bookingId_fkey"
+DETAIL: Key (bookingId)=(7fcb21a6-48b6-41ac-96f0-72b05186f204) is not present in table "Booking".
+
+INSERT INTO "FlightService" ("id", "bookingId", "vendorId", "date", "flightNo", "pnr", "departedFrom", "arrivedAt", "departTime", "arrivalTime", "price", "currency", "issueDate", "refundAmount", "fineAmount", "baggage", "carryOnBaggage", "checkedBaggage", "flightClass") VALUES (
+      '3e3eed88-2453-43be-9792-eb90f119f8fc', '7fcb21a6-48b6-41ac-96f0-72b05186f204', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'brightsun travel ltd' LIMIT 1), '2025-12-29T00:00:00.000Z', '113', '', 'Queen Alia Airport, Amman (AMM)', 'London Stansted Airport (STN)', '10:50', '13:35', 0, 'GBP', NULL, 0, 0, '1x baggage', NULL, NULL, 'Economy'
+    )
+Error in query (7): ERROR: insert or update on table "FlightService" violates foreign key constraint "FlightService_bookingId_fkey"
+DETAIL: Key (bookingId)=(7fcb21a6-48b6-41ac-96f0-72b05186f204) is not present in table "Booking".
+
+INSERT INTO "TransportService" ("id", "bookingId", "vendorId", "vehicleType", "departureDestination", "arrivalDestination", "date", "departureTime", "arrivalTime", "flightNo", "price", "currency", "otherCurrency", "conversionRate", "issueDate", "refundAmount", "fineAmount") VALUES (
+      '6be1738e-8760-484d-8e1b-94dc3e963ecf', '7fcb21a6-48b6-41ac-96f0-72b05186f204', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'al sultan' LIMIT 1), 'HIACE', 'Jeddah King Abdulaziz Intl Airport (JED)', 'Voco Makkah an IHG Hotel', '2025-12-19T00:00:00.000Z', '04:20', '06:00', '704', 270.83, 'gbp', '1300', 4.8, '2025-12-18T00:00:00.000Z', 0, 0
+    )
+Error in query (7): ERROR: insert or update on table "TransportService" violates foreign key constraint "TransportService_bookingId_fkey"
+DETAIL: Key (bookingId)=(7fcb21a6-48b6-41ac-96f0-72b05186f204) is not present in table "Booking".
+
+INSERT INTO "TransportService" ("id", "bookingId", "vendorId", "vehicleType", "departureDestination", "arrivalDestination", "date", "departureTime", "arrivalTime", "flightNo", "price", "currency", "otherCurrency", "conversionRate", "issueDate", "refundAmount", "fineAmount") VALUES (
+      '2d326265-19df-4779-8ad9-809c02c69b8d', '7fcb21a6-48b6-41ac-96f0-72b05186f204', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'al sultan' LIMIT 1), 'HIACE', 'Voco Hotel Makkah', 'Artal Taiba Madinah', '2025-12-24T00:00:00.000Z', '12:00', '17:00', NULL, 0, 'GBP', NULL, NULL, NULL, 0, 0
+    )
+Error in query (7): ERROR: insert or update on table "TransportService" violates foreign key constraint "TransportService_bookingId_fkey"
+DETAIL: Key (bookingId)=(7fcb21a6-48b6-41ac-96f0-72b05186f204) is not present in table "Booking".
+
+INSERT INTO "TransportService" ("id", "bookingId", "vendorId", "vehicleType", "departureDestination", "arrivalDestination", "date", "departureTime", "arrivalTime", "flightNo", "price", "currency", "otherCurrency", "conversionRate", "issueDate", "refundAmount", "fineAmount") VALUES (
+      '942a4239-50d1-443d-bf0c-2b0434799333', '7fcb21a6-48b6-41ac-96f0-72b05186f204', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'al sultan' LIMIT 1), 'HIACE', 'Artal Taibah Madinah', 'Prince Mohammad Bin Abdulaziz Airport, Madinah (MED)', '2025-12-29T00:00:00.000Z', '04:00', '17:20', '723', 0, 'GBP', NULL, NULL, NULL, 0, 0
+    )
+Error in query (7): ERROR: insert or update on table "TransportService" violates foreign key constraint "TransportService_bookingId_fkey"
+DETAIL: Key (bookingId)=(7fcb21a6-48b6-41ac-96f0-72b05186f204) is not present in table "Booking".
+
+INSERT INTO "AccommodationService" ("id", "bookingId", "vendorId", "hotelName", "roomType", "checkInDate", "checkOutDate", "mealType", "reservationNumber", "qty", "price", "currency", "otherCurrency", "conversionRate", "issueDate", "refundAmount", "fineAmount", "hotelConfirmationNumber", "hotelAddress", "lastCancellationDate") VALUES (
+      'cd80f9f0-6521-43e7-b611-b6f48fef2b54', '7fcb21a6-48b6-41ac-96f0-72b05186f204', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'al nazway group' LIMIT 1), 'Voco Hotel Makkah', 'quad', '2025-12-18T00:00:00.000Z', '2025-12-24T00:00:00.000Z', 'BB', '80004', 1, 550, 'GBP', '2640', 4.8, '2025-12-08T00:00:00.000Z', 0, 0, '1380260', NULL, NULL
+    )
+Error in query (7): ERROR: insert or update on table "AccommodationService" violates foreign key constraint "AccommodationService_bookingId_fkey"
+DETAIL: Key (bookingId)=(7fcb21a6-48b6-41ac-96f0-72b05186f204) is not present in table "Booking".
+
+INSERT INTO "AccommodationService" ("id", "bookingId", "vendorId", "hotelName", "roomType", "checkInDate", "checkOutDate", "mealType", "reservationNumber", "qty", "price", "currency", "otherCurrency", "conversionRate", "issueDate", "refundAmount", "fineAmount", "hotelConfirmationNumber", "hotelAddress", "lastCancellationDate") VALUES (
+      'e1591efc-76e9-4112-b195-4f8eaf59909c', '7fcb21a6-48b6-41ac-96f0-72b05186f204', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'tbo' LIMIT 1), 'Artal Taiba Madinah', 'Quad', '2025-12-24T00:00:00.000Z', '2025-12-29T00:00:00.000Z', 'BB', 'ZMZ-GX20G', 1, 698.42, 'GBP', NULL, NULL, '2025-12-08T00:00:00.000Z', 0, 0, NULL, NULL, NULL
+    )
+Error in query (7): ERROR: insert or update on table "AccommodationService" violates foreign key constraint "AccommodationService_bookingId_fkey"
+DETAIL: Key (bookingId)=(7fcb21a6-48b6-41ac-96f0-72b05186f204) is not present in table "Booking".
+
+INSERT INTO "VisaService" ("id", "bookingId", "vendorId", "passportNumber", "visaType", "visaNumber", "issueDate", "expiryDate", "price", "currency", "otherCurrency", "conversionRate", "refundAmount", "fineAmount") VALUES (
+      '756b4469-8420-4c88-965a-6adcbc9f7c4e', '7fcb21a6-48b6-41ac-96f0-72b05186f204', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'mofa' LIMIT 1), '133906079', 'e waiver visa', NULL, '2022-07-05T23:00:00.000Z', '2032-07-05T23:00:00.000Z', 35, 'GBP', NULL, NULL, 0, 0
+    )
+Error in query (7): ERROR: insert or update on table "VisaService" violates foreign key constraint "VisaService_bookingId_fkey"
+DETAIL: Key (bookingId)=(7fcb21a6-48b6-41ac-96f0-72b05186f204) is not present in table "Booking".
+
+INSERT INTO "VisaService" ("id", "bookingId", "vendorId", "passportNumber", "visaType", "visaNumber", "issueDate", "expiryDate", "price", "currency", "otherCurrency", "conversionRate", "refundAmount", "fineAmount") VALUES (
+      '90c2e6c6-0fa4-4bf7-b3ef-27d5e5f15781', '7fcb21a6-48b6-41ac-96f0-72b05186f204', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'mofa' LIMIT 1), '141905973', 'e waiver visa', NULL, '2023-07-31T23:00:00.000Z', '2033-07-31T23:00:00.000Z', 35, 'GBP', NULL, NULL, 0, 0
+    )
+Error in query (7): ERROR: insert or update on table "VisaService" violates foreign key constraint "VisaService_bookingId_fkey"
+DETAIL: Key (bookingId)=(7fcb21a6-48b6-41ac-96f0-72b05186f204) is not present in table "Booking".
+
+INSERT INTO "VisaService" ("id", "bookingId", "vendorId", "passportNumber", "visaType", "visaNumber", "issueDate", "expiryDate", "price", "currency", "otherCurrency", "conversionRate", "refundAmount", "fineAmount") VALUES (
+      'e4fb8b09-fcd3-4ba0-9ce8-411c15c7a9b2', '7fcb21a6-48b6-41ac-96f0-72b05186f204', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'mofa' LIMIT 1), '134148219', 'e waiver visa', NULL, '2022-06-30T23:00:00.000Z', '2027-06-30T23:00:00.000Z', 35, 'GBP', NULL, NULL, 0, 0
+    )
+Error in query (7): ERROR: insert or update on table "VisaService" violates foreign key constraint "VisaService_bookingId_fkey"
+DETAIL: Key (bookingId)=(7fcb21a6-48b6-41ac-96f0-72b05186f204) is not present in table "Booking".
+
+INSERT INTO "VisaService" ("id", "bookingId", "vendorId", "passportNumber", "visaType", "visaNumber", "issueDate", "expiryDate", "price", "currency", "otherCurrency", "conversionRate", "refundAmount", "fineAmount") VALUES (
+      '7063fb46-2569-463c-a388-1f6bca7aa76d', '7fcb21a6-48b6-41ac-96f0-72b05186f204', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'mofa' LIMIT 1), '135000232', 'e waiver visa', NULL, '2022-09-19T23:00:00.000Z', '2027-09-19T23:00:00.000Z', 35, 'GBP', NULL, NULL, 0, 0
+    )
+Error in query (7): ERROR: insert or update on table "VisaService" violates foreign key constraint "VisaService_bookingId_fkey"
+DETAIL: Key (bookingId)=(7fcb21a6-48b6-41ac-96f0-72b05186f204) is not present in table "Booking".
+
+INSERT INTO "VisaService" ("id", "bookingId", "vendorId", "passportNumber", "visaType", "visaNumber", "issueDate", "expiryDate", "price", "currency", "otherCurrency", "conversionRate", "refundAmount", "fineAmount") VALUES (
+      'db9103d1-c9d9-492d-bdc6-881c614df69f', '7fcb21a6-48b6-41ac-96f0-72b05186f204', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'mofa' LIMIT 1), '124727575', 'e waiver visa', NULL, '2021-02-06T00:00:00.000Z', '2026-02-06T00:00:00.000Z', 35, 'GBP', NULL, NULL, 0, 0
+    )
+Error in query (7): ERROR: insert or update on table "VisaService" violates foreign key constraint "VisaService_bookingId_fkey"
+DETAIL: Key (bookingId)=(7fcb21a6-48b6-41ac-96f0-72b05186f204) is not present in table "Booking".
+
+INSERT INTO "VisaService" ("id", "bookingId", "vendorId", "passportNumber", "visaType", "visaNumber", "issueDate", "expiryDate", "price", "currency", "otherCurrency", "conversionRate", "refundAmount", "fineAmount") VALUES (
+      '74028f09-7ab0-4356-ba32-c05735df23bf', '7fcb21a6-48b6-41ac-96f0-72b05186f204', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'mofa' LIMIT 1), '123210552', 'e waiver visa', NULL, '2021-02-04T00:00:00.000Z', '2026-02-04T00:00:00.000Z', 35, 'GBP', NULL, NULL, 0, 0
+    )
+Error in query (7): ERROR: insert or update on table "VisaService" violates foreign key constraint "VisaService_bookingId_fkey"
+DETAIL: Key (bookingId)=(7fcb21a6-48b6-41ac-96f0-72b05186f204) is not present in table "Booking".
+
+INSERT INTO "VisaService" ("id", "bookingId", "vendorId", "passportNumber", "visaType", "visaNumber", "issueDate", "expiryDate", "price", "currency", "otherCurrency", "conversionRate", "refundAmount", "fineAmount") VALUES (
+      'd4344087-cd9b-4d00-bf41-4205287ee9c1', '7fcb21a6-48b6-41ac-96f0-72b05186f204', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'mofa' LIMIT 1), '154504314', 'e waiver visa', NULL, '2025-03-26T00:00:00.000Z', '2030-03-26T00:00:00.000Z', 35, 'GBP', NULL, NULL, 0, 0
+    )
+Error in query (7): ERROR: insert or update on table "VisaService" violates foreign key constraint "VisaService_bookingId_fkey"
+DETAIL: Key (bookingId)=(7fcb21a6-48b6-41ac-96f0-72b05186f204) is not present in table "Booking".
+
+INSERT INTO "BookingTransaction" ("id", "bookingId", "amount", "paymentMethod", "paidOn", "notes") VALUES (
+      'c7d85ea9-ffc1-4a00-82ad-4e416148d06f', '7fcb21a6-48b6-41ac-96f0-72b05186f204', 4140, 'Cash', '2025-09-14T23:00:00.000Z', 'Total paid balance was 6620. But we are adjust 2480 amount on previous credit. Date is 11 Oct 2025'
+    )
+Error in query (7): ERROR: insert or update on table "BookingTransaction" violates foreign key constraint "BookingTransaction_bookingId_fkey"
+DETAIL: Key (bookingId)=(7fcb21a6-48b6-41ac-96f0-72b05186f204) is not present in table "Booking".
+
+INSERT INTO "BookingTransaction" ("id", "bookingId", "amount", "paymentMethod", "paidOn", "notes") VALUES (
+      'fdd46acc-7386-4365-a3dd-15eca5860ed4', '7fcb21a6-48b6-41ac-96f0-72b05186f204', 100, 'Bank Transfer', '2025-12-08T00:00:00.000Z', 'AAA Birmingham Limited Paid 1500 Adjust 100 Here 1400 Adjust in Haider Zada'
+    )
+Error in query (7): ERROR: insert or update on table "BookingTransaction" violates foreign key constraint "BookingTransaction_bookingId_fkey"
+DETAIL: Key (bookingId)=(7fcb21a6-48b6-41ac-96f0-72b05186f204) is not present in table "Booking".
+
+INSERT INTO "BookingTransaction" ("id", "bookingId", "amount", "paymentMethod", "paidOn", "notes") VALUES (
+      '84024111-a252-43cf-9080-a199a0eb2d29', '7fcb21a6-48b6-41ac-96f0-72b05186f204', 2200, 'Bank Transfer', '2025-12-14T00:00:00.000Z', 'AAAbirmingham lim'
+    )
+Error in query (7): ERROR: insert or update on table "BookingTransaction" violates foreign key constraint "BookingTransaction_bookingId_fkey"
+DETAIL: Key (bookingId)=(7fcb21a6-48b6-41ac-96f0-72b05186f204) is not present in table "Booking".
+
+INSERT INTO "BookingTransaction" ("id", "bookingId", "amount", "paymentMethod", "paidOn", "notes") VALUES (
+      'b3ddb552-6712-4811-8ee3-6f8108564a96', '7fcb21a6-48b6-41ac-96f0-72b05186f204', 380, 'Cash', '2025-12-21T00:00:00.000Z', NULL
+    )
+Error in query (7): ERROR: insert or update on table "BookingTransaction" violates foreign key constraint "BookingTransaction_bookingId_fkey"
+DETAIL: Key (bookingId)=(7fcb21a6-48b6-41ac-96f0-72b05186f204) is not present in table "Booking".
+
+INSERT INTO "BookingVendorPayment" ("id", "bookingId", "vendorId", "originalCost", "amountPaid", "remainingBalance", "status", "updatedAt") VALUES (
+      '9a179ccd-20c2-48e9-8f8d-9404be84ae28', '7fcb21a6-48b6-41ac-96f0-72b05186f204', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'mofa' LIMIT 1), 595, 245, 350, 'PAID', NOW()
+    )
+Error in query (7): ERROR: insert or update on table "BookingVendorPayment" violates foreign key constraint "BookingVendorPayment_bookingId_fkey"
+DETAIL: Key (bookingId)=(7fcb21a6-48b6-41ac-96f0-72b05186f204) is not present in table "Booking".
+
+INSERT INTO "BookingVendorPayment" ("id", "bookingId", "vendorId", "originalCost", "amountPaid", "remainingBalance", "status", "updatedAt") VALUES (
+      'b5e0b9b5-0905-43ff-8b70-5d0921a9b802', '7fcb21a6-48b6-41ac-96f0-72b05186f204', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'tbo' LIMIT 1), 698.42, 0, 698.42, 'PAID', NOW()
+    )
+Error in query (7): ERROR: insert or update on table "BookingVendorPayment" violates foreign key constraint "BookingVendorPayment_bookingId_fkey"
+DETAIL: Key (bookingId)=(7fcb21a6-48b6-41ac-96f0-72b05186f204) is not present in table "Booking".
+
+INSERT INTO "BookingVendorPayment" ("id", "bookingId", "vendorId", "originalCost", "amountPaid", "remainingBalance", "status", "updatedAt") VALUES (
+      '7195e848-34ac-44c6-b1fe-2c98ab39e448', '7fcb21a6-48b6-41ac-96f0-72b05186f204', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'brightsun travel ltd' LIMIT 1), 4604.42, 4604.42, 0, 'PAID', NOW()
+    )
+Error in query (7): ERROR: insert or update on table "BookingVendorPayment" violates foreign key constraint "BookingVendorPayment_bookingId_fkey"
+DETAIL: Key (bookingId)=(7fcb21a6-48b6-41ac-96f0-72b05186f204) is not present in table "Booking".
+
+INSERT INTO "BookingVendorPayment" ("id", "bookingId", "vendorId", "originalCost", "amountPaid", "remainingBalance", "status", "updatedAt") VALUES (
+      '4add3ab8-c02a-44a6-98c3-474458d9961b', '7fcb21a6-48b6-41ac-96f0-72b05186f204', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'al sultan' LIMIT 1), 270.83, 0, 270.83, 'PENDING', NOW()
+    )
+Error in query (7): ERROR: insert or update on table "BookingVendorPayment" violates foreign key constraint "BookingVendorPayment_bookingId_fkey"
+DETAIL: Key (bookingId)=(7fcb21a6-48b6-41ac-96f0-72b05186f204) is not present in table "Booking".
+
+INSERT INTO "BookingVendorPayment" ("id", "bookingId", "vendorId", "originalCost", "amountPaid", "remainingBalance", "status", "updatedAt") VALUES (
+      '7507ab3d-1f9c-4dc2-8fa2-62b013affed5', '7fcb21a6-48b6-41ac-96f0-72b05186f204', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'al nazway group' LIMIT 1), 550, 0, 550, 'PENDING', NOW()
+    )
+Error in query (7): ERROR: insert or update on table "BookingVendorPayment" violates foreign key constraint "BookingVendorPayment_bookingId_fkey"
+DETAIL: Key (bookingId)=(7fcb21a6-48b6-41ac-96f0-72b05186f204) is not present in table "Booking".
+
+INSERT INTO "Booking" ("id", "userId", "bookingReference", "bookingDate", "departureDate", "totalPrice", "paidAmount", "refundAmount", "cardPaymentCharges", "cancellationCharges", "remainingAmount", "paymentStatus", "lockedStatus", "status", "agentId", "updatedAt") VALUES (
+    'f7b75048-11ff-4c06-8fc0-d23796d22bf6', 'c8fb18b0-04ae-4460-9267-a321aac805c6', 'TT00641', '2025-09-10T23:00:00.000Z', '2025-10-09T23:00:00.000Z', 2990, 2990, 0, 0, 0, 0, 'PAID', 'LOCKED', 'CONFIRMED', '1e85f3e9-37fc-4704-8650-ce423408044e', NOW()
+  )
+Error in query (7): ERROR: duplicate key value violates unique constraint "Booking_bookingReference_key"
+DETAIL: Key ("bookingReference")=(TT00641) already exists.
+
+INSERT INTO "Passenger" ("id", "bookingId", "title", "firstName", "lastName", "age", "email", "phoneNumber", "passportExpiryDate", "agentId", "role") VALUES (
+      'a104d110-0756-4b88-8399-e852dad48529', 'f7b75048-11ff-4c06-8fc0-d23796d22bf6', 'Mr', 'SHAHJEE AZAM', 'KHAN', 'ADULT', 'Ayaz13801@gmail.com', '+44 7427 057020', NULL, '1e85f3e9-37fc-4704-8650-ce423408044e', 'Leader'
+    )
+Error in query (7): ERROR: insert or update on table "Passenger" violates foreign key constraint "Passenger_bookingId_fkey"
+DETAIL: Key (bookingId)=(f7b75048-11ff-4c06-8fc0-d23796d22bf6) is not present in table "Booking".
+
+INSERT INTO "Passenger" ("id", "bookingId", "title", "firstName", "lastName", "age", "email", "phoneNumber", "passportExpiryDate", "agentId", "role") VALUES (
+      '8cb8707e-f83e-48e0-8734-ea5ff86bf936', 'f7b75048-11ff-4c06-8fc0-d23796d22bf6', 'MISS', 'TWAHEARA', 'BEGUM', 'ADULT', 'Ayaz13801@gmail.com', '+44 7427 057020', NULL, '1e85f3e9-37fc-4704-8650-ce423408044e', 'Family Member'
+    )
+Error in query (7): ERROR: insert or update on table "Passenger" violates foreign key constraint "Passenger_bookingId_fkey"
+DETAIL: Key (bookingId)=(f7b75048-11ff-4c06-8fc0-d23796d22bf6) is not present in table "Booking".
+
+INSERT INTO "Passenger" ("id", "bookingId", "title", "firstName", "lastName", "age", "email", "phoneNumber", "passportExpiryDate", "agentId", "role") VALUES (
+      'f973bd14-1764-4fdf-a064-d892e1d7e6b0', 'f7b75048-11ff-4c06-8fc0-d23796d22bf6', 'MISS', 'SAFIA', 'BIBI', 'ADULT', 'Ayaz13801@gmail.com', '+44 7427 057020', NULL, '1e85f3e9-37fc-4704-8650-ce423408044e', 'Family Member'
+    )
+Error in query (7): ERROR: insert or update on table "Passenger" violates foreign key constraint "Passenger_bookingId_fkey"
+DETAIL: Key (bookingId)=(f7b75048-11ff-4c06-8fc0-d23796d22bf6) is not present in table "Booking".
+
+INSERT INTO "Passenger" ("id", "bookingId", "title", "firstName", "lastName", "age", "email", "phoneNumber", "passportExpiryDate", "agentId", "role") VALUES (
+      'f56be418-da0e-421a-a47b-acc8ba90bba9', 'f7b75048-11ff-4c06-8fc0-d23796d22bf6', 'MR', 'IBRAR', 'MUHAMMAD', 'ADULT', 'Ayaz13801@gmail.com', '+44 7427 057020', NULL, '1e85f3e9-37fc-4704-8650-ce423408044e', 'Family Member'
+    )
+Error in query (7): ERROR: insert or update on table "Passenger" violates foreign key constraint "Passenger_bookingId_fkey"
+DETAIL: Key (bookingId)=(f7b75048-11ff-4c06-8fc0-d23796d22bf6) is not present in table "Booking".
+
+INSERT INTO "FlightService" ("id", "bookingId", "vendorId", "date", "flightNo", "pnr", "departedFrom", "arrivedAt", "departTime", "arrivalTime", "price", "currency", "issueDate", "refundAmount", "fineAmount", "baggage", "carryOnBaggage", "checkedBaggage", "flightClass") VALUES (
+      '698d2ea2-2610-4de8-9174-180df4570cb8', 'f7b75048-11ff-4c06-8fc0-d23796d22bf6', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'brightsun travel ltd' LIMIT 1), '2025-10-09T23:00:00.000Z', 'PC 1184', 'HGIPVH', 'BIRMIINGHAM', 'Istanbul Sabiha Gökçen', '13:40', '19:35', 834.48, '0', '2025-10-09T23:00:00.000Z', 0, 0, '20 KG', NULL, NULL, 'Economy'
+    )
+Error in query (7): ERROR: insert or update on table "FlightService" violates foreign key constraint "FlightService_bookingId_fkey"
+DETAIL: Key (bookingId)=(f7b75048-11ff-4c06-8fc0-d23796d22bf6) is not present in table "Booking".
+
+INSERT INTO "FlightService" ("id", "bookingId", "vendorId", "date", "flightNo", "pnr", "departedFrom", "arrivedAt", "departTime", "arrivalTime", "price", "currency", "issueDate", "refundAmount", "fineAmount", "baggage", "carryOnBaggage", "checkedBaggage", "flightClass") VALUES (
+      'c9bcc02b-e067-4171-9a31-7e9c2bf10d87', 'f7b75048-11ff-4c06-8fc0-d23796d22bf6', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'brightsun travel ltd' LIMIT 1), '2025-10-09T23:00:00.000Z', 'PC 694', 'GJLOTT', 'Istanbul Sabiha Gökçen', 'Jeddah', '21:20', '01:10', 1060.4, 'GBP', '2025-09-10T23:00:00.000Z', 0, 0, '20 KG', NULL, NULL, 'Economy'
+    )
+Error in query (7): ERROR: insert or update on table "FlightService" violates foreign key constraint "FlightService_bookingId_fkey"
+DETAIL: Key (bookingId)=(f7b75048-11ff-4c06-8fc0-d23796d22bf6) is not present in table "Booking".
+
+INSERT INTO "FlightService" ("id", "bookingId", "vendorId", "date", "flightNo", "pnr", "departedFrom", "arrivedAt", "departTime", "arrivalTime", "price", "currency", "issueDate", "refundAmount", "fineAmount", "baggage", "carryOnBaggage", "checkedBaggage", "flightClass") VALUES (
+      '15632847-143d-4117-b849-f3a1b20edccc', 'f7b75048-11ff-4c06-8fc0-d23796d22bf6', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'brightsun travel ltd' LIMIT 1), '2025-10-16T23:00:00.000Z', 'QR 1175', '0', 'Madinah Abdulaziz', 'DOHA', '04:45', '07:00', 0, 'GBP', NULL, 0, 0, '30 KG', NULL, NULL, 'Economy'
+    )
+Error in query (7): ERROR: insert or update on table "FlightService" violates foreign key constraint "FlightService_bookingId_fkey"
+DETAIL: Key (bookingId)=(f7b75048-11ff-4c06-8fc0-d23796d22bf6) is not present in table "Booking".
+
+INSERT INTO "TransportService" ("id", "bookingId", "vendorId", "vehicleType", "departureDestination", "arrivalDestination", "date", "departureTime", "arrivalTime", "flightNo", "price", "currency", "otherCurrency", "conversionRate", "issueDate", "refundAmount", "fineAmount") VALUES (
+      'd4fb3418-b3ec-411b-84e9-b4e7ce2d8838', 'f7b75048-11ff-4c06-8fc0-d23796d22bf6', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'al sultan' LIMIT 1), 'H1', 'Jeddah Airport', 'Al Ebaa Hotel', '2025-10-10T23:00:00.000Z', '01:10', '01:10', 'PC 694', 218.75, '0', '1050', 4.8, '2025-09-10T23:00:00.000Z', 0, 0
+    )
+Error in query (7): ERROR: insert or update on table "TransportService" violates foreign key constraint "TransportService_bookingId_fkey"
+DETAIL: Key (bookingId)=(f7b75048-11ff-4c06-8fc0-d23796d22bf6) is not present in table "Booking".
+
+INSERT INTO "TransportService" ("id", "bookingId", "vendorId", "vehicleType", "departureDestination", "arrivalDestination", "date", "departureTime", "arrivalTime", "flightNo", "price", "currency", "otherCurrency", "conversionRate", "issueDate", "refundAmount", "fineAmount") VALUES (
+      '089a2b72-ba7d-466f-bebf-a0e5cfc283b0', 'f7b75048-11ff-4c06-8fc0-d23796d22bf6', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'al sultan' LIMIT 1), 'H1', 'Al Ebaa Hotel', 'Zowar International Hotel', '2025-10-13T23:00:00.000Z', '12:00', '12:00', NULL, 0, '0', NULL, NULL, NULL, 0, 0
+    )
+Error in query (7): ERROR: insert or update on table "TransportService" violates foreign key constraint "TransportService_bookingId_fkey"
+DETAIL: Key (bookingId)=(f7b75048-11ff-4c06-8fc0-d23796d22bf6) is not present in table "Booking".
+
+INSERT INTO "TransportService" ("id", "bookingId", "vendorId", "vehicleType", "departureDestination", "arrivalDestination", "date", "departureTime", "arrivalTime", "flightNo", "price", "currency", "otherCurrency", "conversionRate", "issueDate", "refundAmount", "fineAmount") VALUES (
+      '47702667-a05e-47cf-af8f-6b26d5aaeb7d', 'f7b75048-11ff-4c06-8fc0-d23796d22bf6', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'al sultan' LIMIT 1), 'H1', 'Zowar International Hotel', 'Madinah Airport', '2025-10-16T23:00:00.000Z', '01:30', '12:00', 'QR 1175', 0, '0', '0', NULL, NULL, 0, 0
+    )
+Error in query (7): ERROR: insert or update on table "TransportService" violates foreign key constraint "TransportService_bookingId_fkey"
+DETAIL: Key (bookingId)=(f7b75048-11ff-4c06-8fc0-d23796d22bf6) is not present in table "Booking".
+
+INSERT INTO "AccommodationService" ("id", "bookingId", "vendorId", "hotelName", "roomType", "checkInDate", "checkOutDate", "mealType", "reservationNumber", "qty", "price", "currency", "otherCurrency", "conversionRate", "issueDate", "refundAmount", "fineAmount", "hotelConfirmationNumber", "hotelAddress", "lastCancellationDate") VALUES (
+      '7d95e968-9665-4c1e-9db5-b755d3700ac8', 'f7b75048-11ff-4c06-8fc0-d23796d22bf6', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'al nazway group' LIMIT 1), 'Zowar International Hotel', 'Tiple', '2025-10-13T23:00:00.000Z', '2025-10-16T23:00:00.000Z', 'N/A', 'NE77995', 1, 243.75, '0', '1170', 4.8, '2025-09-25T23:00:00.000Z', 0, 0, NULL, NULL, NULL
+    )
+Error in query (7): ERROR: insert or update on table "AccommodationService" violates foreign key constraint "AccommodationService_bookingId_fkey"
+DETAIL: Key (bookingId)=(f7b75048-11ff-4c06-8fc0-d23796d22bf6) is not present in table "Booking".
+
+INSERT INTO "AccommodationService" ("id", "bookingId", "vendorId", "hotelName", "roomType", "checkInDate", "checkOutDate", "mealType", "reservationNumber", "qty", "price", "currency", "otherCurrency", "conversionRate", "issueDate", "refundAmount", "fineAmount", "hotelConfirmationNumber", "hotelAddress", "lastCancellationDate") VALUES (
+      '1a7394c2-9f54-4ee0-884d-ca607f86a035', 'f7b75048-11ff-4c06-8fc0-d23796d22bf6', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'al ebaa makkah' LIMIT 1), 'Al Ebaa Hotel', 'Tiple', '2025-10-09T23:00:00.000Z', '2025-10-13T23:00:00.000Z', 'N/A', '1604521', 1, 245.83, '0', '1180', 4.8, '2025-09-10T23:00:00.000Z', 0, 0, NULL, NULL, NULL
+    )
+Error in query (7): ERROR: insert or update on table "AccommodationService" violates foreign key constraint "AccommodationService_bookingId_fkey"
+DETAIL: Key (bookingId)=(f7b75048-11ff-4c06-8fc0-d23796d22bf6) is not present in table "Booking".
+
+INSERT INTO "VisaService" ("id", "bookingId", "vendorId", "passportNumber", "visaType", "visaNumber", "issueDate", "expiryDate", "price", "currency", "otherCurrency", "conversionRate", "refundAmount", "fineAmount") VALUES (
+      '749d4f82-7101-4be2-bbb5-7e930f52beea', 'f7b75048-11ff-4c06-8fc0-d23796d22bf6', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'mofa' LIMIT 1), '', '4 E Wavier visa', NULL, NULL, NULL, 140, 'GBP', NULL, NULL, 0, 0
+    )
+Error in query (7): ERROR: insert or update on table "VisaService" violates foreign key constraint "VisaService_bookingId_fkey"
+DETAIL: Key (bookingId)=(f7b75048-11ff-4c06-8fc0-d23796d22bf6) is not present in table "Booking".
+
+INSERT INTO "BookingTransaction" ("id", "bookingId", "amount", "paymentMethod", "paidOn", "notes") VALUES (
+      'd8081fa3-ed26-45da-8853-e71d20a25f9c', 'f7b75048-11ff-4c06-8fc0-d23796d22bf6', 2400, 'Cash', '2025-09-10T23:00:00.000Z', NULL
+    )
+Error in query (7): ERROR: insert or update on table "BookingTransaction" violates foreign key constraint "BookingTransaction_bookingId_fkey"
+DETAIL: Key (bookingId)=(f7b75048-11ff-4c06-8fc0-d23796d22bf6) is not present in table "Booking".
+
+INSERT INTO "BookingTransaction" ("id", "bookingId", "amount", "paymentMethod", "paidOn", "notes") VALUES (
+      '92cba3c8-5e96-4c11-a051-08819df5d861', 'f7b75048-11ff-4c06-8fc0-d23796d22bf6', 590, 'Cash', '2025-09-14T23:00:00.000Z', NULL
+    )
+Error in query (7): ERROR: insert or update on table "BookingTransaction" violates foreign key constraint "BookingTransaction_bookingId_fkey"
+DETAIL: Key (bookingId)=(f7b75048-11ff-4c06-8fc0-d23796d22bf6) is not present in table "Booking".
+
+INSERT INTO "BookingVendorPayment" ("id", "bookingId", "vendorId", "originalCost", "amountPaid", "remainingBalance", "status", "updatedAt") VALUES (
+      'fbace3b2-e675-4a2f-a863-dd4e5e2f47bd', 'f7b75048-11ff-4c06-8fc0-d23796d22bf6', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'al nazway group' LIMIT 1), 243.75, 0, 243.75, 'PENDING', NOW()
+    )
+Error in query (7): ERROR: insert or update on table "BookingVendorPayment" violates foreign key constraint "BookingVendorPayment_bookingId_fkey"
+DETAIL: Key (bookingId)=(f7b75048-11ff-4c06-8fc0-d23796d22bf6) is not present in table "Booking".
+
+INSERT INTO "BookingVendorPayment" ("id", "bookingId", "vendorId", "originalCost", "amountPaid", "remainingBalance", "status", "updatedAt") VALUES (
+      'b8a181cd-8e01-43cd-991b-8694fb66a994', 'f7b75048-11ff-4c06-8fc0-d23796d22bf6', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'al ebaa makkah' LIMIT 1), 245.83, 245.83, 0, 'PAID', NOW()
+    )
+Error in query (7): ERROR: insert or update on table "BookingVendorPayment" violates foreign key constraint "BookingVendorPayment_bookingId_fkey"
+DETAIL: Key (bookingId)=(f7b75048-11ff-4c06-8fc0-d23796d22bf6) is not present in table "Booking".
+
+INSERT INTO "BookingVendorPayment" ("id", "bookingId", "vendorId", "originalCost", "amountPaid", "remainingBalance", "status", "updatedAt") VALUES (
+      '50c2074f-9c30-442c-8196-7a1d90a8a62d', 'f7b75048-11ff-4c06-8fc0-d23796d22bf6', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'brightsun travel ltd' LIMIT 1), 1894.88, 1894.88, 0, 'PAID', NOW()
+    )
+Error in query (7): ERROR: insert or update on table "BookingVendorPayment" violates foreign key constraint "BookingVendorPayment_bookingId_fkey"
+DETAIL: Key (bookingId)=(f7b75048-11ff-4c06-8fc0-d23796d22bf6) is not present in table "Booking".
+
+INSERT INTO "BookingVendorPayment" ("id", "bookingId", "vendorId", "originalCost", "amountPaid", "remainingBalance", "status", "updatedAt") VALUES (
+      '6c5600f0-7e24-48cc-ace5-8fffbadb96d0', 'f7b75048-11ff-4c06-8fc0-d23796d22bf6', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'mofa' LIMIT 1), 140, 0, 140, 'PENDING', NOW()
+    )
+Error in query (7): ERROR: insert or update on table "BookingVendorPayment" violates foreign key constraint "BookingVendorPayment_bookingId_fkey"
+DETAIL: Key (bookingId)=(f7b75048-11ff-4c06-8fc0-d23796d22bf6) is not present in table "Booking".
+
+INSERT INTO "BookingVendorPayment" ("id", "bookingId", "vendorId", "originalCost", "amountPaid", "remainingBalance", "status", "updatedAt") VALUES (
+      '516734db-fe05-4da6-a9bb-074c166c42be', 'f7b75048-11ff-4c06-8fc0-d23796d22bf6', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'al sultan' LIMIT 1), 218.75, 218.75, 0, 'PAID', NOW()
+    )
+Error in query (7): ERROR: insert or update on table "BookingVendorPayment" violates foreign key constraint "BookingVendorPayment_bookingId_fkey"
+DETAIL: Key (bookingId)=(f7b75048-11ff-4c06-8fc0-d23796d22bf6) is not present in table "Booking".
+
+INSERT INTO "Booking" ("id", "userId", "bookingReference", "bookingDate", "departureDate", "totalPrice", "paidAmount", "refundAmount", "cardPaymentCharges", "cancellationCharges", "remainingAmount", "paymentStatus", "lockedStatus", "status", "agentId", "updatedAt") VALUES (
+    'd9e1d847-e478-4b34-a6be-58f437113a48', 'c8fb18b0-04ae-4460-9267-a321aac805c6', 'TT00645', '2025-09-14T23:00:00.000Z', '2025-12-02T00:00:00.000Z', 4590, 4590, 0, 0, 0, 0, 'PAID', 'LOCKED', 'CONFIRMED', '1e85f3e9-37fc-4704-8650-ce423408044e', NOW()
+  )
+Error in query (7): ERROR: duplicate key value violates unique constraint "Booking_bookingReference_key"
+DETAIL: Key ("bookingReference")=(TT00645) already exists.
+
+INSERT INTO "Passenger" ("id", "bookingId", "title", "firstName", "lastName", "age", "email", "phoneNumber", "passportExpiryDate", "agentId", "role") VALUES (
+      '4c246650-7bfd-4133-85c3-9b1f05b2d430', 'd9e1d847-e478-4b34-a6be-58f437113a48', 'MISS', 'KULSOOM', 'BI', 'ADULT', '0', '00447417530180', '2026-08-06T23:00:00.000Z', '1e85f3e9-37fc-4704-8650-ce423408044e', 'Leader'
+    )
+Error in query (7): ERROR: insert or update on table "Passenger" violates foreign key constraint "Passenger_bookingId_fkey"
+DETAIL: Key (bookingId)=(d9e1d847-e478-4b34-a6be-58f437113a48) is not present in table "Booking".
+
+INSERT INTO "Passenger" ("id", "bookingId", "title", "firstName", "lastName", "age", "email", "phoneNumber", "passportExpiryDate", "agentId", "role") VALUES (
+      '05ff3dea-60da-4ebd-ad52-ece0e09734c9', 'd9e1d847-e478-4b34-a6be-58f437113a48', 'MR', 'SUDAIS ULLAH', 'KHAN', 'ADULT', '0', '0', '2026-09-18T23:00:00.000Z', '1e85f3e9-37fc-4704-8650-ce423408044e', 'Family Member'
+    )
+Error in query (7): ERROR: insert or update on table "Passenger" violates foreign key constraint "Passenger_bookingId_fkey"
+DETAIL: Key (bookingId)=(d9e1d847-e478-4b34-a6be-58f437113a48) is not present in table "Booking".
+
+INSERT INTO "Passenger" ("id", "bookingId", "title", "firstName", "lastName", "age", "email", "phoneNumber", "passportExpiryDate", "agentId", "role") VALUES (
+      'd682f76f-31e3-4701-8ed4-238d988bac9c', 'd9e1d847-e478-4b34-a6be-58f437113a48', 'MISS', 'ASMA', 'BIBI', 'ADULT', '0', '0', '2026-12-19T00:00:00.000Z', '1e85f3e9-37fc-4704-8650-ce423408044e', 'Family Member'
+    )
+Error in query (7): ERROR: insert or update on table "Passenger" violates foreign key constraint "Passenger_bookingId_fkey"
+DETAIL: Key (bookingId)=(d9e1d847-e478-4b34-a6be-58f437113a48) is not present in table "Booking".
+
+INSERT INTO "Passenger" ("id", "bookingId", "title", "firstName", "lastName", "age", "email", "phoneNumber", "passportExpiryDate", "agentId", "role") VALUES (
+      '36b77d98-9742-485c-b6c3-afa77d9024b7', 'd9e1d847-e478-4b34-a6be-58f437113a48', 'MR', 'AYAAN ULLAH', 'KHAN', 'YOUTH', '0', '0', '2026-12-26T00:00:00.000Z', '1e85f3e9-37fc-4704-8650-ce423408044e', 'Family Member'
+    )
+Error in query (7): ERROR: insert or update on table "Passenger" violates foreign key constraint "Passenger_bookingId_fkey"
+DETAIL: Key (bookingId)=(d9e1d847-e478-4b34-a6be-58f437113a48) is not present in table "Booking".
+
+INSERT INTO "Passenger" ("id", "bookingId", "title", "firstName", "lastName", "age", "email", "phoneNumber", "passportExpiryDate", "agentId", "role") VALUES (
+      '71d55539-89bb-419b-a5be-58702976baa2', 'd9e1d847-e478-4b34-a6be-58f437113a48', 'MISS', 'AYAT', 'USMAN', 'CHILD', '0', '0', '2027-03-05T00:00:00.000Z', '1e85f3e9-37fc-4704-8650-ce423408044e', 'Family Member'
+    )
+Error in query (7): ERROR: insert or update on table "Passenger" violates foreign key constraint "Passenger_bookingId_fkey"
+DETAIL: Key (bookingId)=(d9e1d847-e478-4b34-a6be-58f437113a48) is not present in table "Booking".
+
+INSERT INTO "FlightService" ("id", "bookingId", "vendorId", "date", "flightNo", "pnr", "departedFrom", "arrivedAt", "departTime", "arrivalTime", "price", "currency", "issueDate", "refundAmount", "fineAmount", "baggage", "carryOnBaggage", "checkedBaggage", "flightClass") VALUES (
+      '79d2c2db-d922-48f2-90bb-397eb310fc56', 'd9e1d847-e478-4b34-a6be-58f437113a48', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'polani travel ltd' LIMIT 1), '2025-12-02T00:00:00.000Z', 'TK 1968', 'QYJOMP', 'BIRMIINGHAM', 'Istanbul', '11:05', '18:15', 2599.6, '0', '2025-09-16T23:00:00.000Z', 0, 0, '46KG', NULL, NULL, 'Economy'
+    )
+Error in query (7): ERROR: insert or update on table "FlightService" violates foreign key constraint "FlightService_bookingId_fkey"
+DETAIL: Key (bookingId)=(d9e1d847-e478-4b34-a6be-58f437113a48) is not present in table "Booking".
+
+INSERT INTO "FlightService" ("id", "bookingId", "vendorId", "date", "flightNo", "pnr", "departedFrom", "arrivedAt", "departTime", "arrivalTime", "price", "currency", "issueDate", "refundAmount", "fineAmount", "baggage", "carryOnBaggage", "checkedBaggage", "flightClass") VALUES (
+      '47c572af-632f-4a72-b63a-ff50ed327748', 'd9e1d847-e478-4b34-a6be-58f437113a48', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'polani travel ltd' LIMIT 1), '2025-12-03T00:00:00.000Z', 'TK 94', '0', 'Istanbul', 'Jeddah', '21:10', '00:50', 0, 'GBP', NULL, 0, 0, '46 KG', NULL, NULL, 'Economy'
+    )
+Error in query (7): ERROR: insert or update on table "FlightService" violates foreign key constraint "FlightService_bookingId_fkey"
+DETAIL: Key (bookingId)=(d9e1d847-e478-4b34-a6be-58f437113a48) is not present in table "Booking".
+
+INSERT INTO "FlightService" ("id", "bookingId", "vendorId", "date", "flightNo", "pnr", "departedFrom", "arrivedAt", "departTime", "arrivalTime", "price", "currency", "issueDate", "refundAmount", "fineAmount", "baggage", "carryOnBaggage", "checkedBaggage", "flightClass") VALUES (
+      'e32bb2ec-fdde-4f51-8cce-e3547fcc82f5', 'd9e1d847-e478-4b34-a6be-58f437113a48', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'polani travel ltd' LIMIT 1), '2025-12-14T00:00:00.000Z', 'TK 137', '0', 'Madinah Abdulaziz', 'Istanbul', '02:00', '05:50', 0, '0', NULL, 0, 0, '46 KG', NULL, NULL, 'Economy'
+    )
+Error in query (7): ERROR: insert or update on table "FlightService" violates foreign key constraint "FlightService_bookingId_fkey"
+DETAIL: Key (bookingId)=(d9e1d847-e478-4b34-a6be-58f437113a48) is not present in table "Booking".
+
+INSERT INTO "FlightService" ("id", "bookingId", "vendorId", "date", "flightNo", "pnr", "departedFrom", "arrivedAt", "departTime", "arrivalTime", "price", "currency", "issueDate", "refundAmount", "fineAmount", "baggage", "carryOnBaggage", "checkedBaggage", "flightClass") VALUES (
+      'b0d14f49-8877-432e-9511-ba259936416f', 'd9e1d847-e478-4b34-a6be-58f437113a48', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'polani travel ltd' LIMIT 1), '2025-12-14T00:00:00.000Z', 'TK 1967', '0', 'Istanbul', 'Birmingham', '08:50', '10:05', 0, '0', NULL, 0, 0, '46 KG', NULL, NULL, 'Economy'
+    )
+Error in query (7): ERROR: insert or update on table "FlightService" violates foreign key constraint "FlightService_bookingId_fkey"
+DETAIL: Key (bookingId)=(d9e1d847-e478-4b34-a6be-58f437113a48) is not present in table "Booking".
+
+INSERT INTO "TransportService" ("id", "bookingId", "vendorId", "vehicleType", "departureDestination", "arrivalDestination", "date", "departureTime", "arrivalTime", "flightNo", "price", "currency", "otherCurrency", "conversionRate", "issueDate", "refundAmount", "fineAmount") VALUES (
+      'ba494e47-f776-499d-aa9f-cc21f2c9344e', 'd9e1d847-e478-4b34-a6be-58f437113a48', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'al sultan' LIMIT 1), 'H1', 'Jeddah Airport', 'Al Ebaa Hotel', '2025-12-03T00:00:00.000Z', '00:50', '14:55', 'TK 94', 218.75, 'gbp', '0', 4.8, '2025-12-02T00:00:00.000Z', 0, 0
+    )
+Error in query (7): ERROR: insert or update on table "TransportService" violates foreign key constraint "TransportService_bookingId_fkey"
+DETAIL: Key (bookingId)=(d9e1d847-e478-4b34-a6be-58f437113a48) is not present in table "Booking".
+
+INSERT INTO "TransportService" ("id", "bookingId", "vendorId", "vehicleType", "departureDestination", "arrivalDestination", "date", "departureTime", "arrivalTime", "flightNo", "price", "currency", "otherCurrency", "conversionRate", "issueDate", "refundAmount", "fineAmount") VALUES (
+      'e7551c96-13bc-4ab2-83e1-6516576c5557', 'd9e1d847-e478-4b34-a6be-58f437113a48', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'al sultan' LIMIT 1), 'H1', 'Al Ebaa Hotel', 'Zowar International Hotel', '2025-12-09T00:00:00.000Z', '12:00', '12:00', NULL, 0, '0', '0', 0, NULL, 0, 0
+    )
+Error in query (7): ERROR: insert or update on table "TransportService" violates foreign key constraint "TransportService_bookingId_fkey"
+DETAIL: Key (bookingId)=(d9e1d847-e478-4b34-a6be-58f437113a48) is not present in table "Booking".
+
+INSERT INTO "TransportService" ("id", "bookingId", "vendorId", "vehicleType", "departureDestination", "arrivalDestination", "date", "departureTime", "arrivalTime", "flightNo", "price", "currency", "otherCurrency", "conversionRate", "issueDate", "refundAmount", "fineAmount") VALUES (
+      '01455030-4cbe-41ea-8fea-1151f5c93c97', 'd9e1d847-e478-4b34-a6be-58f437113a48', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'al sultan' LIMIT 1), 'H1', 'Zowar International Hotel', 'Madinah Airport', '2025-12-14T00:00:00.000Z', '23:30', '01:05', 'TK 137', 0, '0', '0', 0, NULL, 0, 0
+    )
+Error in query (7): ERROR: insert or update on table "TransportService" violates foreign key constraint "TransportService_bookingId_fkey"
+DETAIL: Key (bookingId)=(d9e1d847-e478-4b34-a6be-58f437113a48) is not present in table "Booking".
+
+INSERT INTO "AccommodationService" ("id", "bookingId", "vendorId", "hotelName", "roomType", "checkInDate", "checkOutDate", "mealType", "reservationNumber", "qty", "price", "currency", "otherCurrency", "conversionRate", "issueDate", "refundAmount", "fineAmount", "hotelConfirmationNumber", "hotelAddress", "lastCancellationDate") VALUES (
+      '5852a144-aab7-452b-99d8-8f6038105d57', 'd9e1d847-e478-4b34-a6be-58f437113a48', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'tbo' LIMIT 1), 'Zowar International Hotel', 'Quad', '2025-12-09T00:00:00.000Z', '2025-12-14T00:00:00.000Z', 'With BREAKFAST', 'ZMZ-QE41Q', 1, 624.3, 'gbp', '0', 0, '2025-09-30T23:00:00.000Z', 0, 0, NULL, NULL, NULL
+    )
+Error in query (7): ERROR: insert or update on table "AccommodationService" violates foreign key constraint "AccommodationService_bookingId_fkey"
+DETAIL: Key (bookingId)=(d9e1d847-e478-4b34-a6be-58f437113a48) is not present in table "Booking".
+
+INSERT INTO "AccommodationService" ("id", "bookingId", "vendorId", "hotelName", "roomType", "checkInDate", "checkOutDate", "mealType", "reservationNumber", "qty", "price", "currency", "otherCurrency", "conversionRate", "issueDate", "refundAmount", "fineAmount", "hotelConfirmationNumber", "hotelAddress", "lastCancellationDate") VALUES (
+      'cf08150d-c2cd-4664-b67a-436f130eb502', 'd9e1d847-e478-4b34-a6be-58f437113a48', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'al ebaa makkah' LIMIT 1), 'Al Ebaa Hotel', 'Quad', '2025-12-02T00:00:00.000Z', '2025-12-09T00:00:00.000Z', 'BREAKFAST', '1605632', 1, 619.79, '0', '2975', 0, '2025-09-16T23:00:00.000Z', 0, 0, NULL, NULL, NULL
+    )
+Error in query (7): ERROR: insert or update on table "AccommodationService" violates foreign key constraint "AccommodationService_bookingId_fkey"
+DETAIL: Key (bookingId)=(d9e1d847-e478-4b34-a6be-58f437113a48) is not present in table "Booking".
+
+INSERT INTO "VisaService" ("id", "bookingId", "vendorId", "passportNumber", "visaType", "visaNumber", "issueDate", "expiryDate", "price", "currency", "otherCurrency", "conversionRate", "refundAmount", "fineAmount") VALUES (
+      'fb2e2a69-6fda-40d2-909b-3a04c0e6b5a8', 'd9e1d847-e478-4b34-a6be-58f437113a48', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'mofa' LIMIT 1), 'British', 'E-VISA', '5', NULL, NULL, 175, 'gbp', NULL, NULL, 0, 0
+    )
+Error in query (7): ERROR: insert or update on table "VisaService" violates foreign key constraint "VisaService_bookingId_fkey"
+DETAIL: Key (bookingId)=(d9e1d847-e478-4b34-a6be-58f437113a48) is not present in table "Booking".
+
+INSERT INTO "BookingTransaction" ("id", "bookingId", "amount", "paymentMethod", "paidOn", "notes") VALUES (
+      '35010aca-476f-4e13-a8a5-fa77a4b375bf', 'd9e1d847-e478-4b34-a6be-58f437113a48', 4590, 'Cash', '2025-09-25T23:00:00.000Z', NULL
+    )
+Error in query (7): ERROR: insert or update on table "BookingTransaction" violates foreign key constraint "BookingTransaction_bookingId_fkey"
+DETAIL: Key (bookingId)=(d9e1d847-e478-4b34-a6be-58f437113a48) is not present in table "Booking".
+
+INSERT INTO "BookingVendorPayment" ("id", "bookingId", "vendorId", "originalCost", "amountPaid", "remainingBalance", "status", "updatedAt") VALUES (
+      'c8d40320-999a-460f-8d59-43c5f18fb499', 'd9e1d847-e478-4b34-a6be-58f437113a48', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'al ebaa makkah' LIMIT 1), 619.79, 0, 619.79, 'PENDING', NOW()
+    )
+Error in query (7): ERROR: insert or update on table "BookingVendorPayment" violates foreign key constraint "BookingVendorPayment_bookingId_fkey"
+DETAIL: Key (bookingId)=(d9e1d847-e478-4b34-a6be-58f437113a48) is not present in table "Booking".
+
+INSERT INTO "BookingVendorPayment" ("id", "bookingId", "vendorId", "originalCost", "amountPaid", "remainingBalance", "status", "updatedAt") VALUES (
+      '19810d22-1342-475b-8cd9-5e2ec61a8bd9', 'd9e1d847-e478-4b34-a6be-58f437113a48', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'polani travel ltd' LIMIT 1), 2599.6, 868.89, 1730.71, 'PAID', NOW()
+    )
+Error in query (7): ERROR: insert or update on table "BookingVendorPayment" violates foreign key constraint "BookingVendorPayment_bookingId_fkey"
+DETAIL: Key (bookingId)=(d9e1d847-e478-4b34-a6be-58f437113a48) is not present in table "Booking".
+
+INSERT INTO "BookingVendorPayment" ("id", "bookingId", "vendorId", "originalCost", "amountPaid", "remainingBalance", "status", "updatedAt") VALUES (
+      '486b0ba9-9b78-439a-88aa-92cbe672d1b0', 'd9e1d847-e478-4b34-a6be-58f437113a48', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'mofa' LIMIT 1), 175, 0, 175, 'PENDING', NOW()
+    )
+Error in query (7): ERROR: insert or update on table "BookingVendorPayment" violates foreign key constraint "BookingVendorPayment_bookingId_fkey"
+DETAIL: Key (bookingId)=(d9e1d847-e478-4b34-a6be-58f437113a48) is not present in table "Booking".
+
+INSERT INTO "BookingVendorPayment" ("id", "bookingId", "vendorId", "originalCost", "amountPaid", "remainingBalance", "status", "updatedAt") VALUES (
+      '82f05346-74a8-494a-8689-0941d25cdfc1', 'd9e1d847-e478-4b34-a6be-58f437113a48', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'al sultan' LIMIT 1), 218.75, 0, 218.75, 'PENDING', NOW()
+    )
+Error in query (7): ERROR: insert or update on table "BookingVendorPayment" violates foreign key constraint "BookingVendorPayment_bookingId_fkey"
+DETAIL: Key (bookingId)=(d9e1d847-e478-4b34-a6be-58f437113a48) is not present in table "Booking".
+
+INSERT INTO "BookingVendorPayment" ("id", "bookingId", "vendorId", "originalCost", "amountPaid", "remainingBalance", "status", "updatedAt") VALUES (
+      'f07979d3-ffe1-47fa-99b5-0323786325da', 'd9e1d847-e478-4b34-a6be-58f437113a48', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'tbo' LIMIT 1), 624.3, 0, 624.3, 'PENDING', NOW()
+    )
+Error in query (7): ERROR: insert or update on table "BookingVendorPayment" violates foreign key constraint "BookingVendorPayment_bookingId_fkey"
+DETAIL: Key (bookingId)=(d9e1d847-e478-4b34-a6be-58f437113a48) is not present in table "Booking".
+
+INSERT INTO "TransportService" ("id", "bookingId", "vendorId", "vehicleType", "departureDestination", "arrivalDestination", "date", "departureTime", "arrivalTime", "flightNo", "price", "currency", "otherCurrency", "conversionRate", "issueDate", "refundAmount", "fineAmount") VALUES (
+      '5615dc93-1244-4d89-862f-9ece4f34bc93', 'e2e9bfab-57c4-43c7-8d96-bb9b36857f2b', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'flix bus' LIMIT 1), 'BUS', 'Birmingham City', 'London Stansted', '2025-10-03T23:00:00.000Z', NULL, '', NULL, 22.5, 'GBP', NULL, NULL, '2025-09-21T23:00:00.000Z', 0, 0
+    )
+Error in query (7): ERROR: null value in column "departureTime" of relation "TransportService" violates not-null constraint
+DETAIL: Failing row contains (5615dc93-1244-4d89-862f-9ece4f34bc93, e2e9bfab-57c4-43c7-8d96-bb9b36857f2b, 28, BUS, Birmingham City, London Stansted, 2025-10-03 23:00:00, null, , null, 22.5, GBP, null, null, 2025-09-21 23:00:00, 0, 0).
+INSERT INTO "FlightService" ("id", "bookingId", "vendorId", "date", "flightNo", "pnr", "departedFrom", "arrivedAt", "departTime", "arrivalTime", "price", "currency", "issueDate", "refundAmount", "fineAmount", "baggage", "carryOnBaggage", "checkedBaggage", "flightClass") VALUES (
+      'f4d16d47-692a-4940-91bc-10d865d15ff7', 'b00a77da-3566-4cee-87e2-4a7bce6a91b8', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'brightsun travel ltd' LIMIT 1), NULL, NULL, '', NULL, NULL, NULL, NULL, 51.41, 'GBP', NULL, 0, 0, NULL, NULL, NULL, 'Economy'
+    )
+Error in query (7): ERROR: null value in column "date" of relation "FlightService" violates not-null constraint
+DETAIL: Failing row contains (f4d16d47-692a-4940-91bc-10d865d15ff7, b00a77da-3566-4cee-87e2-4a7bce6a91b8, null, null, 1, null, , null, null, null, null, 51.41, GBP, null, 0, 0, null, null, null, Economy, null).
+INSERT INTO "VisaService" ("id", "bookingId", "vendorId", "passportNumber", "visaType", "visaNumber", "issueDate", "expiryDate", "price", "currency", "otherCurrency", "conversionRate", "refundAmount", "fineAmount") VALUES (
+      '6cfc916d-8ed9-4387-a3e3-7cc5d61f3177', '1c1d612c-3517-4e4e-b5a3-026a8bef75ba', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'al sultan visa' LIMIT 1), 'P63091808', NULL, NULL, NULL, NULL, 0, 'GBP', NULL, NULL, 0, 0
+    )
+Error in query (7): ERROR: null value in column "visaType" of relation "VisaService" violates not-null constraint
+DETAIL: Failing row contains (6cfc916d-8ed9-4387-a3e3-7cc5d61f3177, 1c1d612c-3517-4e4e-b5a3-026a8bef75ba, 27, P63091808, null, null, null, null, 0, GBP, null, null, 0, 0).
+
+INSERT INTO "TransportService" ("id", "bookingId", "vendorId", "vehicleType", "departureDestination", "arrivalDestination", "date", "departureTime", "arrivalTime", "flightNo", "price", "currency", "otherCurrency", "conversionRate", "issueDate", "refundAmount", "fineAmount") VALUES (
+      'a3700418-dc21-4d6b-80a7-ea80fa5183e6', 'd8bc7f1c-d8ee-45bd-8a1e-670051ec0f3f', (SELECT id FROM "Vendor" WHERE LOWER(name) = 'flix bus' LIMIT 1), 'H1 Car', 'Luton', 'London Stansted Airport', '2025-12-14T00:00:00.000Z', NULL, '', NULL, 100, 'GBP', NULL, NULL, NULL, 0, 0
+    )
+Error in query (7): ERROR: null value in column "departureTime" of relation "TransportService" violates not-null constraint
+DETAIL: Failing row contains (a3700418-dc21-4d6b-80a7-ea80fa5183e6, d8bc7f1c-d8ee-45bd-8a1e-670051ec0f3f, 28, H1 Car, Luton, London Stansted Airport, 2025-12-14 00:00:00, null, , null, 100, GBP, null, null, null, 0, 0).

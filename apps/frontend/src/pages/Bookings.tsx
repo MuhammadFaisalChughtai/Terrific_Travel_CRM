@@ -574,8 +574,8 @@ export default function Bookings() {
                         transportsCost +
                         visasCost;
                       const totalPaidToVendors =
-                        booking.vendorPayments?.reduce(
-                          (sum: number, vp: any) => sum + vp.amount,
+                        booking.bookingVendorPayments?.reduce(
+                          (sum: number, bvp: any) => sum + (bvp.amountPaid || 0),
                           0,
                         ) || 0;
                       const vendorRemaining =

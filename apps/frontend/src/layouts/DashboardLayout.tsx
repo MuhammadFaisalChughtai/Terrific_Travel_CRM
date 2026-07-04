@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "../store/auth.store";
 import { apiClient } from "../api/client";
 import { useThemeStore } from "../store/theme.store";
@@ -36,6 +37,15 @@ export default function DashboardLayout() {
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const clearAuth = useAuthStore((state) => state.clearAuth);
+
+  const { data: pendingApprovals } = useQuery({
+    queryKey: ['payment-requests', 'PENDING'],
+    queryFn: async () => {
+      const res = await apiClient.get('/payments/requests?status=PENDING');
+      return res.data.data;
+    },
+    enabled: !!user && user.role === "Admin",
+  });
 
   useEffect(() => {
     if (user?.id) {
@@ -177,7 +187,7 @@ export default function DashboardLayout() {
               <Link
                 key={item.name}
                 to={item.path}
-                className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all ${
+                className={`relative flex items-center gap-4 px-4 py-3 rounded-xl transition-all ${
                   isActive
                     ? "bg-primary text-primary-foreground font-medium shadow-lg shadow-primary/20"
                     : "text-muted-foreground hover:bg-secondary hover:text-foreground"
@@ -185,7 +195,17 @@ export default function DashboardLayout() {
               >
                 <Icon size={20} className="shrink-0" />
                 {sidebarOpen && (
-                  <span className="text-sm whitespace-nowrap">{item.name}</span>
+                  <span className="text-sm whitespace-nowrap flex-1 flex items-center justify-between w-full">
+                    <span>{item.name}</span>
+                    {item.name === "Payment Approvals" && pendingApprovals && pendingApprovals.length > 0 && (
+                      <span className={`ml-2 px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none flex items-center justify-center ${isActive ? "bg-white text-primary" : "bg-primary text-primary-foreground"}`}>
+                        {pendingApprovals.length}
+                      </span>
+                    )}
+                  </span>
+                )}
+                {!sidebarOpen && item.name === "Payment Approvals" && pendingApprovals && pendingApprovals.length > 0 && (
+                  <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-card shadow-sm" />
                 )}
               </Link>
             );

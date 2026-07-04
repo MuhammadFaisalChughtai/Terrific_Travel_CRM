@@ -1,0 +1,1 @@
+const { PrismaClient } = require('@prisma/client'); const prisma = new PrismaClient(); async function main() { const acc = await prisma.accommodationService.findMany({ where: { hotelName: { contains: 'Pullman', mode: 'insensitive' } }, select: { hotelName: true, hotelAddress: true } }); console.log(acc); } main();  

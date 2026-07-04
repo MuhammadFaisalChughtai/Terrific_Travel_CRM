@@ -40,12 +40,43 @@ const userMap = {
   'zain ali': { userId: 'c8fb18b0-04ae-4460-9267-a321aac805c6', agentId: '1e85f3e9-37fc-4704-8650-ce423408044e' }
 };
 
-const defaultUserId = "'baf4459c-aeb3-464e-b39e-7a1b26430b59'"; // Admin
+const defaultUserId = "'0d0e0c8c-ea2a-4091-a063-a896ee12b810'"; // Umrah Packages
+const processedRefs = new Set();
+
+const uniqueVendors = new Set();
+data.bookings.forEach(b => {
+  b.flight_services?.forEach(f => f.vendor && uniqueVendors.add(f.vendor.trim()));
+  b.transport_services?.forEach(t => t.vendor && uniqueVendors.add(t.vendor.trim()));
+  b.accommodation_services?.forEach(a => a.vendor && uniqueVendors.add(a.vendor.trim()));
+  b.visa_services?.forEach(v => v.vendor && uniqueVendors.add(v.vendor.trim()));
+  b.vendor_payments?.forEach(vp => vp.vendor && uniqueVendors.add(vp.vendor.trim()));
+});
+
+sql = `-- Generated SQL for Terrific Travel Data Migration\n\n`;
+
+sql += `-- Vendors\n`;
+sql += `INSERT INTO "Vendor" ("id", "name", "phoneNumber", "vendorType", "walletBalance", "createdAt", "updatedAt")\nSELECT '${uuidv4()}', 'Unknown Vendor', '0000000000', 'general', 0, NOW(), NOW()\nWHERE NOT EXISTS (SELECT 1 FROM "Vendor" WHERE LOWER("name") = 'unknown vendor');\n\n`;
+
+uniqueVendors.forEach(vName => {
+  const vId = uuidv4();
+  const escapedName = escapeStr(vName);
+  sql += `INSERT INTO "Vendor" ("id", "name", "phoneNumber", "vendorType", "walletBalance", "createdAt", "updatedAt")\nSELECT '${vId}', ${escapedName}, '0000000000', 'general', 0, NOW(), NOW()\nWHERE NOT EXISTS (SELECT 1 FROM "Vendor" WHERE LOWER("name") = LOWER(${escapedName}));\n`;
+});
+sql += `\n`;
+
+const defaultVendorSubquery = `(SELECT id FROM "Vendor" WHERE LOWER(name) = 'unknown vendor' LIMIT 1)`;
 
 sql += `\n-- Bookings\n`;
 data.bookings.forEach(b => {
-  const bookingId = uuidv4();
   const d = b.booking_details;
+  if (!d || !d.booking_reference) return;
+  const ref = d.booking_reference.trim();
+  if (processedRefs.has(ref)) {
+    return; // Skip duplicate booking
+  }
+  processedRefs.add(ref);
+
+  const bookingId = uuidv4();
   
   const bDate = escapeDate(d.date);
   const depDate = escapeDate(d.departure_date);
@@ -56,9 +87,39 @@ data.bookings.forEach(b => {
   const agentId = mappedUser && mappedUser.agentId !== 'NULL' ? `'${mappedUser.agentId}'` : 
                  (agentName ? `(SELECT id FROM "Agent" WHERE LOWER(name) = ${escapeStr(agentName)} LIMIT 1)` : 'NULL');
   
-  sql += `INSERT INTO "Booking" ("id", "userId", "bookingReference", "bookingDate", "departureDate", "totalPrice", "paidAmount", "refundAmount", "cardPaymentCharges", "cancellationCharges", "remainingAmount", "paymentStatus", "lockedStatus", "status", "agentId", "updatedAt") VALUES (
-    ${escapeStr(bookingId)}, ${userId}, ${escapeStr(d.booking_reference)}, ${bDate}, ${depDate}, ${escapeNum(d.total_price, 0)}, ${escapeNum(d.paid_amount, 0)}, ${escapeNum(d.refund_amount, 0)}, ${escapeNum(d.card_payment_charges, 0)}, ${escapeNum(d.cancellation_charges, 0)}, ${escapeNum(d.remaining_amount, 0)}, ${escapeStr(d.payment_status || 'UNPAID')}, ${escapeStr(d.locked_status || 'UNLOCKED')}, 'CONFIRMED', ${agentId}, NOW()
-  );\n`;
+  const bookingRef = escapeStr(d.booking_reference);
+
+  sql += `
+-- Booking ${bookingRef}
+INSERT INTO "Booking" ("id", "userId", "bookingReference", "bookingDate", "departureDate", "totalPrice", "paidAmount", "refundAmount", "cardPaymentCharges", "cancellationCharges", "remainingAmount", "paymentStatus", "lockedStatus", "status", "agentId", "updatedAt") VALUES (
+  ${escapeStr(bookingId)}, ${userId}, ${bookingRef}, ${bDate}, ${depDate}, ${escapeNum(d.total_price, 0)}, ${escapeNum(d.paid_amount, 0)}, ${escapeNum(d.refund_amount, 0)}, ${escapeNum(d.card_payment_charges, 0)}, ${escapeNum(d.cancellation_charges, 0)}, ${escapeNum(d.remaining_amount, 0)}, ${escapeStr(d.payment_status || 'UNPAID')}, ${escapeStr(d.locked_status || 'UNLOCKED')}, 'CONFIRMED', ${agentId}, NOW()
+)
+ON CONFLICT ("bookingReference") DO UPDATE SET
+  "userId" = EXCLUDED."userId",
+  "bookingDate" = EXCLUDED."bookingDate",
+  "departureDate" = EXCLUDED."departureDate",
+  "totalPrice" = EXCLUDED."totalPrice",
+  "paidAmount" = EXCLUDED."paidAmount",
+  "refundAmount" = EXCLUDED."refundAmount",
+  "cardPaymentCharges" = EXCLUDED."cardPaymentCharges",
+  "cancellationCharges" = EXCLUDED."cancellationCharges",
+  "remainingAmount" = EXCLUDED."remainingAmount",
+  "paymentStatus" = EXCLUDED."paymentStatus",
+  "lockedStatus" = EXCLUDED."lockedStatus",
+  "status" = EXCLUDED."status",
+  "agentId" = EXCLUDED."agentId",
+  "updatedAt" = NOW();
+
+DELETE FROM "Passenger" WHERE "bookingId" = (SELECT id FROM "Booking" WHERE "bookingReference" = ${bookingRef});
+DELETE FROM "FlightService" WHERE "bookingId" = (SELECT id FROM "Booking" WHERE "bookingReference" = ${bookingRef});
+DELETE FROM "TransportService" WHERE "bookingId" = (SELECT id FROM "Booking" WHERE "bookingReference" = ${bookingRef});
+DELETE FROM "AccommodationService" WHERE "bookingId" = (SELECT id FROM "Booking" WHERE "bookingReference" = ${bookingRef});
+DELETE FROM "VisaService" WHERE "bookingId" = (SELECT id FROM "Booking" WHERE "bookingReference" = ${bookingRef});
+DELETE FROM "BookingTransaction" WHERE "bookingId" = (SELECT id FROM "Booking" WHERE "bookingReference" = ${bookingRef});
+DELETE FROM "BookingVendorPayment" WHERE "bookingId" = (SELECT id FROM "Booking" WHERE "bookingReference" = ${bookingRef});
+`;
+
+  const getBookingIdSql = `(SELECT id FROM "Booking" WHERE "bookingReference" = ${bookingRef})`;
 
   // Passengers
   b.passengers?.forEach(p => {
@@ -69,43 +130,43 @@ data.bookings.forEach(b => {
                     (pAgentName ? `(SELECT id FROM "Agent" WHERE LOWER(name) = ${escapeStr(pAgentName)} LIMIT 1)` : 'NULL');
                     
     sql += `INSERT INTO "Passenger" ("id", "bookingId", "title", "firstName", "lastName", "age", "email", "phoneNumber", "passportExpiryDate", "agentId", "role") VALUES (
-      ${escapeStr(passId)}, ${escapeStr(bookingId)}, ${escapeStr(p.title || '')}, ${escapeStr(p.first_name || '')}, ${escapeStr(p.last_name || '')}, ${escapeStr(p.age || 'Adult')}, ${escapeStr(p.email)}, ${escapeStr(p.phone_number)}, ${escapeDate(p.passport_expiry_date)}, ${pAgentId}, ${escapeStr(p.role || 'Family Member')}
+      ${escapeStr(passId)}, ${getBookingIdSql}, ${escapeStr(p.title || '')}, ${escapeStr(p.first_name || '')}, ${escapeStr(p.last_name || '')}, ${escapeStr(p.age || 'Adult')}, ${escapeStr(p.email)}, ${escapeStr(p.phone_number)}, ${escapeDate(p.passport_expiry_date)}, ${pAgentId}, ${escapeStr(p.role || 'Family Member')}
     );\n`;
   });
 
   // Flight Services
   b.flight_services?.forEach(f => {
     const fsId = uuidv4();
-    const vIdSubquery = f.vendor ? `(SELECT id FROM "Vendor" WHERE LOWER(name) = ${escapeStr(f.vendor.toLowerCase())} LIMIT 1)` : 'NULL';
+    const vIdSubquery = f.vendor ? `(SELECT id FROM "Vendor" WHERE LOWER(name) = ${escapeStr(f.vendor.toLowerCase())} LIMIT 1)` : defaultVendorSubquery;
     sql += `INSERT INTO "FlightService" ("id", "bookingId", "vendorId", "date", "flightNo", "pnr", "departedFrom", "arrivedAt", "departTime", "arrivalTime", "price", "currency", "issueDate", "refundAmount", "fineAmount", "baggage", "carryOnBaggage", "checkedBaggage", "flightClass") VALUES (
-      ${escapeStr(fsId)}, ${escapeStr(bookingId)}, ${vIdSubquery}, ${escapeDate(f.date)}, ${escapeStr(f.flight_no)}, ${escapeStr(f.pnr || '')}, ${escapeStr(f.departed_from)}, ${escapeStr(f.arrived_at)}, ${escapeStr(f.depart_time)}, ${escapeStr(f.arrival_time)}, ${escapeNum(f.price, 0)}, ${escapeStr(f.currency || 'GBP')}, ${escapeDate(f.issue_date)}, ${escapeNum(f.refund_amount, 0)}, ${escapeNum(f.fine_amount, 0)}, ${escapeStr(f.baggage)}, ${escapeStr(f.carry_on_baggage)}, ${escapeStr(f.checked_baggage)}, ${escapeStr(f.flight_class)}
+      ${escapeStr(fsId)}, ${getBookingIdSql}, ${vIdSubquery}, ${escapeDate(f.date || '1970-01-01T00:00:00.000Z')}, ${escapeStr(f.flight_no || '')}, ${escapeStr(f.pnr || '')}, ${escapeStr(f.departed_from || '')}, ${escapeStr(f.arrived_at || '')}, ${escapeStr(f.depart_time || '')}, ${escapeStr(f.arrival_time || '')}, ${escapeNum(f.price, 0)}, ${escapeStr(f.currency || 'GBP')}, ${escapeDate(f.issue_date)}, ${escapeNum(f.refund_amount, 0)}, ${escapeNum(f.fine_amount, 0)}, ${escapeStr(f.baggage)}, ${escapeStr(f.carry_on_baggage)}, ${escapeStr(f.checked_baggage)}, ${escapeStr(f.flight_class || 'Economy')}
     );\n`;
   });
 
   // Transport Services
   b.transport_services?.forEach(t => {
     const tsId = uuidv4();
-    const vIdSubquery = t.vendor ? `(SELECT id FROM "Vendor" WHERE LOWER(name) = ${escapeStr(t.vendor.toLowerCase())} LIMIT 1)` : 'NULL';
+    const vIdSubquery = t.vendor ? `(SELECT id FROM "Vendor" WHERE LOWER(name) = ${escapeStr(t.vendor.toLowerCase())} LIMIT 1)` : defaultVendorSubquery;
     sql += `INSERT INTO "TransportService" ("id", "bookingId", "vendorId", "vehicleType", "departureDestination", "arrivalDestination", "date", "departureTime", "arrivalTime", "flightNo", "price", "currency", "otherCurrency", "conversionRate", "issueDate", "refundAmount", "fineAmount") VALUES (
-      ${escapeStr(tsId)}, ${escapeStr(bookingId)}, ${vIdSubquery}, ${escapeStr(t.vehicle_type)}, ${escapeStr(t.departure_destination)}, ${escapeStr(t.arrival_destination)}, ${escapeDate(t.date)}, ${escapeStr(t.departure_time)}, ${escapeStr(t.arrival_time || '')}, ${escapeStr(t.flight_no)}, ${escapeNum(t.price, 0)}, ${escapeStr(t.currency || 'GBP')}, ${escapeStr(t.other_currency)}, ${escapeNum(t.conversion_rate)}, ${escapeDate(t.issue_date)}, ${escapeNum(t.refund_amount, 0)}, ${escapeNum(t.fine_amount, 0)}
+      ${escapeStr(tsId)}, ${getBookingIdSql}, ${vIdSubquery}, ${escapeStr(t.vehicle_type || '')}, ${escapeStr(t.departure_destination || '')}, ${escapeStr(t.arrival_destination || '')}, ${escapeDate(t.date || '1970-01-01T00:00:00.000Z')}, ${escapeStr(t.departure_time || '')}, ${escapeStr(t.arrival_time || '')}, ${escapeStr(t.flight_no)}, ${escapeNum(t.price, 0)}, ${escapeStr(t.currency || 'GBP')}, ${escapeStr(t.other_currency)}, ${escapeNum(t.conversion_rate)}, ${escapeDate(t.issue_date)}, ${escapeNum(t.refund_amount, 0)}, ${escapeNum(t.fine_amount, 0)}
     );\n`;
   });
 
   // Accommodation Services
   b.accommodation_services?.forEach(a => {
     const asId = uuidv4();
-    const vIdSubquery = a.vendor ? `(SELECT id FROM "Vendor" WHERE LOWER(name) = ${escapeStr(a.vendor.toLowerCase())} LIMIT 1)` : 'NULL';
+    const vIdSubquery = a.vendor ? `(SELECT id FROM "Vendor" WHERE LOWER(name) = ${escapeStr(a.vendor.toLowerCase())} LIMIT 1)` : defaultVendorSubquery;
     sql += `INSERT INTO "AccommodationService" ("id", "bookingId", "vendorId", "hotelName", "roomType", "checkInDate", "checkOutDate", "mealType", "reservationNumber", "qty", "price", "currency", "otherCurrency", "conversionRate", "issueDate", "refundAmount", "fineAmount", "hotelConfirmationNumber", "hotelAddress", "lastCancellationDate") VALUES (
-      ${escapeStr(asId)}, ${escapeStr(bookingId)}, ${vIdSubquery}, ${escapeStr(a.hotel_name)}, ${escapeStr(a.room_type)}, ${escapeDate(a.check_in_date)}, ${escapeDate(a.check_out_date)}, ${escapeStr(a.meal_type)}, ${escapeStr(a.reservation_number)}, ${escapeNum(a.qty || 1, 1)}, ${escapeNum(a.price, 0)}, ${escapeStr(a.currency || 'GBP')}, ${escapeStr(a.other_currency)}, ${escapeNum(a.conversion_rate)}, ${escapeDate(a.issue_date)}, ${escapeNum(a.refund_amount, 0)}, ${escapeNum(a.fine_amount, 0)}, ${escapeStr(a.hotel_confirmation_number)}, ${escapeStr(a.hotel_address)}, ${escapeDate(a.last_cancellation_date)}
+      ${escapeStr(asId)}, ${getBookingIdSql}, ${vIdSubquery}, ${escapeStr(a.hotel_name || '')}, ${escapeStr(a.room_type || '')}, ${escapeDate(a.check_in_date || '1970-01-01T00:00:00.000Z')}, ${escapeDate(a.check_out_date || '1970-01-01T00:00:00.000Z')}, ${escapeStr(a.meal_type || '')}, ${escapeStr(a.reservation_number)}, ${escapeNum(a.qty || 1, 1)}, ${escapeNum(a.price, 0)}, ${escapeStr(a.currency || 'GBP')}, ${escapeStr(a.other_currency)}, ${escapeNum(a.conversion_rate)}, ${escapeDate(a.issue_date)}, ${escapeNum(a.refund_amount, 0)}, ${escapeNum(a.fine_amount, 0)}, ${escapeStr(a.hotel_confirmation_number)}, ${escapeStr(a.hotel_address)}, ${escapeDate(a.last_cancellation_date)}
     );\n`;
   });
   
   // Visa Services
   b.visa_services?.forEach(v => {
     const vsId = uuidv4();
-    const vIdSubquery = v.vendor ? `(SELECT id FROM "Vendor" WHERE LOWER(name) = ${escapeStr(v.vendor.toLowerCase())} LIMIT 1)` : 'NULL';
+    const vIdSubquery = v.vendor ? `(SELECT id FROM "Vendor" WHERE LOWER(name) = ${escapeStr(v.vendor.toLowerCase())} LIMIT 1)` : defaultVendorSubquery;
     sql += `INSERT INTO "VisaService" ("id", "bookingId", "vendorId", "passportNumber", "visaType", "visaNumber", "issueDate", "expiryDate", "price", "currency", "otherCurrency", "conversionRate", "refundAmount", "fineAmount") VALUES (
-      ${escapeStr(vsId)}, ${escapeStr(bookingId)}, ${vIdSubquery}, ${escapeStr(v.passport_number || '')}, ${escapeStr(v.visa_type)}, ${escapeStr(v.visa_number)}, ${escapeDate(v.issue_date)}, ${escapeDate(v.expiry_date)}, ${escapeNum(v.price, 0)}, ${escapeStr(v.currency || 'GBP')}, ${escapeStr(v.other_currency)}, ${escapeNum(v.conversion_rate)}, ${escapeNum(v.refund_amount, 0)}, ${escapeNum(v.fine_amount, 0)}
+      ${escapeStr(vsId)}, ${getBookingIdSql}, ${vIdSubquery}, ${escapeStr(v.passport_number || '')}, ${escapeStr(v.visa_type || '')}, ${escapeStr(v.visa_number || '')}, ${escapeDate(v.issue_date)}, ${escapeDate(v.expiry_date)}, ${escapeNum(v.price, 0)}, ${escapeStr(v.currency || 'GBP')}, ${escapeStr(v.other_currency)}, ${escapeNum(v.conversion_rate)}, ${escapeNum(v.refund_amount, 0)}, ${escapeNum(v.fine_amount, 0)}
     );\n`;
   });
 
@@ -113,7 +174,7 @@ data.bookings.forEach(b => {
   b.booking_transactions?.forEach(t => {
     const txId = uuidv4();
     sql += `INSERT INTO "BookingTransaction" ("id", "bookingId", "amount", "paymentMethod", "paidOn", "notes") VALUES (
-      ${escapeStr(txId)}, ${escapeStr(bookingId)}, ${escapeNum(t.amount, 0)}, ${escapeStr(t.payment_method || 'CASH')}, ${escapeDate(t.paid_on)}, ${escapeStr(t.notes)}
+      ${escapeStr(txId)}, ${getBookingIdSql}, ${escapeNum(t.amount, 0)}, ${escapeStr(t.payment_method || 'CASH')}, ${escapeDate(t.paid_on)}, ${escapeStr(t.notes)}
     );\n`;
   });
 
@@ -141,7 +202,7 @@ data.bookings.forEach(b => {
     const vpId = uuidv4();
     const vIdSubquery = `(SELECT id FROM "Vendor" WHERE LOWER(name) = ${escapeStr(vName)} LIMIT 1)`;
     sql += `INSERT INTO "BookingVendorPayment" ("id", "bookingId", "vendorId", "originalCost", "amountPaid", "remainingBalance", "status", "updatedAt") VALUES (
-      ${escapeStr(vpId)}, ${escapeStr(bookingId)}, ${vIdSubquery}, ${escapeNum(vp.originalCost, 0)}, ${escapeNum(vp.amountPaid, 0)}, ${escapeNum(vp.remainingBalance, 0)}, ${escapeStr(vp.status)}, NOW()
+      ${escapeStr(vpId)}, ${getBookingIdSql}, ${vIdSubquery}, ${escapeNum(vp.originalCost, 0)}, ${escapeNum(vp.amountPaid, 0)}, ${escapeNum(vp.remainingBalance, 0)}, ${escapeStr(vp.status)}, NOW()
     );\n`;
   });
 });
