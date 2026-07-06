@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import Pagination from "../components/Pagination";
 import { apiClient } from "../api/client";
 import { formatCurrency } from "@tms/shared-utils";
 import {
@@ -113,11 +114,21 @@ export default function VendorPage() {
   // ----------------------------------------------------
   // Queries
   // ----------------------------------------------------
+  const [vendorsPage, setVendorsPage] = useState(1);
+  const [ledgerPage, setLedgerPage] = useState(1);
+  const [walletPage, setWalletPage] = useState(1);
+  const [paymentsPage, setPaymentsPage] = useState(1);
+  const limit = 10;
+
+  // ----------------------------------------------------
+  // Queries
+  // ----------------------------------------------------
   const { data: vendorsData, isLoading: isVendorsLoading } = useQuery({
-    queryKey: ["vendors"],
+    queryKey: ["vendors", vendorsPage, searchTerm],
     queryFn: async () => {
-      const res = await apiClient.get("/vendors");
-      return res.data.data.items as Vendor[];
+      const offset = (vendorsPage - 1) * limit;
+      const res = await apiClient.get(`/vendors?limit=${limit}&offset=${offset}&search=${searchTerm}`);
+      return res.data.data;
     },
   });
 
@@ -141,33 +152,36 @@ export default function VendorPage() {
     enabled: !!viewingVendorId,
   });
 
-  const { data: ledgerEntries, refetch: refetchLedger } = useQuery({
-    queryKey: ["vendor-ledger", viewingVendorId],
+  const { data: ledgerEntriesResult, refetch: refetchLedger } = useQuery({
+    queryKey: ["vendor-ledger", viewingVendorId, ledgerPage],
     queryFn: async () => {
-      const res = await apiClient.get(`/vendors/${viewingVendorId}/ledger`);
+      const offset = (ledgerPage - 1) * limit;
+      const res = await apiClient.get(`/vendors/${viewingVendorId}/ledger?limit=${limit}&offset=${offset}`);
       return res.data.data;
     },
     enabled: !!viewingVendorId,
   });
 
-  const { data: walletHistory, refetch: refetchWallet } = useQuery({
-    queryKey: ["vendor-wallet", viewingVendorId],
+  const { data: walletHistoryResult, refetch: refetchWallet } = useQuery({
+    queryKey: ["vendor-wallet", viewingVendorId, walletPage],
     queryFn: async () => {
+      const offset = (walletPage - 1) * limit;
       const res = await apiClient.get(
-        `/vendors/${viewingVendorId}/wallet-history`,
+        `/vendors/${viewingVendorId}/wallet-history?limit=${limit}&offset=${offset}`,
       );
       return res.data.data;
     },
     enabled: !!viewingVendorId,
   });
 
-  const { data: paymentsHistory, refetch: refetchPayments } = useQuery({
-    queryKey: ["vendor-payments-history", viewingVendorId],
+  const { data: paymentsHistoryResult, refetch: refetchPayments } = useQuery({
+    queryKey: ["vendor-payments-history", viewingVendorId, paymentsPage],
     queryFn: async () => {
+      const offset = (paymentsPage - 1) * limit;
       const res = await apiClient.get(
-        `/vendors/payments?vendorId=${viewingVendorId}`,
+        `/vendors/payments?vendorId=${viewingVendorId}&limit=${limit}&offset=${offset}`,
       );
-      return res.data.data.items;
+      return res.data.data;
     },
     enabled: !!viewingVendorId,
   });
@@ -352,12 +366,19 @@ export default function VendorPage() {
     });
   };
 
-  // Filter list based on search
-  const filteredVendors = vendorsData?.filter(
-    (vendor) =>
-      vendor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      vendor.vendorType.toLowerCase().includes(searchTerm.toLowerCase()),
-  );
+  // Main vendors list items & total count
+  const filteredVendors = vendorsData?.items || [];
+  const totalVendors = vendorsData?.total || 0;
+
+  // Detail view lists
+  const ledgerEntries = ledgerEntriesResult?.items || [];
+  const totalLedgerEntries = ledgerEntriesResult?.total || 0;
+
+  const walletHistory = walletHistoryResult?.items || [];
+  const totalWalletHistory = walletHistoryResult?.total || 0;
+
+  const paymentsHistory = paymentsHistoryResult?.items || [];
+  const totalPaymentsHistory = paymentsHistoryResult?.total || 0;
 
   // ════════════════════════════════════════════════════════════
   // RENDER DETAILED VENDOR DASHBOARD
@@ -653,6 +674,13 @@ export default function VendorPage() {
                   </tbody>
                 </table>
               </div>
+              <Pagination
+                currentPage={ledgerPage}
+                totalItems={totalLedgerEntries}
+                itemsPerPage={limit}
+                onPageChange={setLedgerPage}
+                itemName="ledger entries"
+              />
             </div>
           )}
 
@@ -736,6 +764,13 @@ export default function VendorPage() {
                   </tbody>
                 </table>
               </div>
+              <Pagination
+                currentPage={walletPage}
+                totalItems={totalWalletHistory}
+                itemsPerPage={limit}
+                onPageChange={setWalletPage}
+                itemName="transactions"
+              />
             </div>
           )}
 
@@ -836,6 +871,13 @@ export default function VendorPage() {
                   </tbody>
                 </table>
               </div>
+              <Pagination
+                currentPage={paymentsPage}
+                totalItems={totalPaymentsHistory}
+                itemsPerPage={limit}
+                onPageChange={setPaymentsPage}
+                itemName="payments"
+              />
             </div>
           )}
         </div>
@@ -931,7 +973,7 @@ export default function VendorPage() {
                     </td>
                   </tr>
                 ) : filteredVendors && filteredVendors.length > 0 ? (
-                  filteredVendors.map((vendor) => (
+                  filteredVendors.map((vendor: any) => (
                     <tr
                       key={vendor.id}
                       onClick={() => setViewingVendorId(vendor.id)}
@@ -1000,6 +1042,13 @@ export default function VendorPage() {
               </tbody>
             </table>
           </div>
+          <Pagination
+            currentPage={vendorsPage}
+            totalItems={totalVendors}
+            itemsPerPage={limit}
+            onPageChange={setVendorsPage}
+            itemName="vendors"
+          />
         </div>
       </div>
 

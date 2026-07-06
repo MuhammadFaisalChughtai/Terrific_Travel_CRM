@@ -5,10 +5,20 @@ export class VendorsService {
   async findAll(query: any) {
     const limit = Number(query.limit) || 100;
     const offset = Number(query.offset) || 0;
+    const search = query.search || '';
+
+    const where: any = {};
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { vendorType: { contains: search, mode: 'insensitive' } },
+      ];
+    }
 
     const [total, items] = await Promise.all([
-      prisma.vendor.count(),
+      prisma.vendor.count({ where }),
       prisma.vendor.findMany({
+        where,
         take: limit,
         skip: offset,
         orderBy: { createdAt: 'desc' },
@@ -881,11 +891,34 @@ export class VendorsService {
   }
 
   // Get complete ledger for vendor or all vendors
-  async getLedger(vendorId?: string) {
+  async getLedger(vendorId?: string, query?: any) {
     const where: any = {};
     if (vendorId) where.vendorId = vendorId;
 
-    const entries = await prisma.vendorLedger.findMany({
+    if (query?.typeFilter && query.typeFilter !== 'all') {
+      where.eventType = query.typeFilter;
+    }
+    if (query?.dateFrom || query?.dateTo) {
+      where.createdAt = {};
+      if (query.dateFrom) where.createdAt.gte = new Date(query.dateFrom);
+      if (query.dateTo) {
+        const toDate = new Date(query.dateTo);
+        toDate.setHours(23, 59, 59, 999);
+        where.createdAt.lte = toDate;
+      }
+    }
+    if (query?.searchQuery) {
+      const s = query.searchQuery.trim();
+      where.OR = [
+        { bookingReference: { contains: s, mode: 'insensitive' } },
+        { referenceNumber: { contains: s, mode: 'insensitive' } },
+        { notes: { contains: s, mode: 'insensitive' } },
+        { vendor: { name: { contains: s, mode: 'insensitive' } } }
+      ];
+    }
+
+    // Always fetch ALL entries matching the where clause to calculate period totals and opening balance
+    const allEntries = await prisma.vendorLedger.findMany({
       where,
       orderBy: { createdAt: 'desc' },
       include: {
@@ -894,7 +927,7 @@ export class VendorsService {
       }
     });
 
-    return entries.map(x => ({
+    const formattedAll = allEntries.map(x => ({
       id: x.id,
       timestamp: x.createdAt,
       bookingId: x.bookingId,
@@ -908,14 +941,89 @@ export class VendorsService {
       vendorName: x.vendor?.name || 'Client',
       adminName: `${x.createdBy.firstName} ${x.createdBy.lastName}`,
     }));
+
+    // Calculate opening balance using global records
+    let openingBalance = 0;
+    if (query?.dateFrom) {
+      const fromDate = new Date(query.dateFrom);
+      // Fetch the last entry before fromDate globally (ignoring date range filter)
+      const priorWhere: any = {};
+      if (vendorId) priorWhere.vendorId = vendorId;
+      priorWhere.createdAt = { lt: fromDate };
+      const priorEntry = await prisma.vendorLedger.findFirst({
+        where: priorWhere,
+        orderBy: { createdAt: 'desc' }
+      });
+      openingBalance = priorEntry?.runningBalance ?? 0;
+    }
+
+    const periodTotalDebit = formattedAll.reduce((s, e) => s + (e.debit || 0), 0);
+    const periodTotalCredit = formattedAll.reduce((s, e) => s + (e.credit || 0), 0);
+    const closingBalance = openingBalance + periodTotalDebit - periodTotalCredit;
+
+    const limit = query?.limit;
+    const offset = query?.offset;
+
+    if (limit !== undefined || offset !== undefined) {
+      const takeVal = Number(limit) || 10;
+      const skipVal = Number(offset) || 0;
+      const paginatedItems = formattedAll.slice(skipVal, skipVal + takeVal);
+
+      return {
+        total: formattedAll.length,
+        limit: takeVal,
+        offset: skipVal,
+        items: paginatedItems,
+        summary: {
+          openingBalance,
+          periodTotalDebit,
+          periodTotalCredit,
+          closingBalance
+        }
+      };
+    }
+
+    return formattedAll;
   }
 
   // Fetch wallet audit history
-  async getWalletHistory(vendorId: string) {
+  async getWalletHistory(vendorId: string, query?: any) {
     const wallet = await prisma.vendorWallet.findUnique({
       where: { vendorId }
     });
     if (!wallet) return [];
+
+    const limit = query?.limit;
+    const offset = query?.offset;
+
+    if (limit !== undefined || offset !== undefined) {
+      const takeVal = Number(limit) || 10;
+      const skipVal = Number(offset) || 0;
+
+      const [total, txs] = await Promise.all([
+        prisma.vendorWalletTransaction.count({ where: { walletId: wallet.id } }),
+        prisma.vendorWalletTransaction.findMany({
+          where: { walletId: wallet.id },
+          orderBy: { createdAt: 'desc' },
+          include: { createdBy: true },
+          take: takeVal,
+          skip: skipVal,
+        })
+      ]);
+
+      const items = txs.map(x => ({
+        id: x.id,
+        timestamp: x.createdAt,
+        amount: x.amount,
+        type: x.type,
+        reference: x.reference,
+        notes: x.notes,
+        runningBalance: 0.0, // simplified for pagination
+        adminName: `${x.createdBy.firstName} ${x.createdBy.lastName}`,
+      }));
+
+      return { total, limit: takeVal, offset: skipVal, items };
+    }
 
     const txs = await prisma.vendorWalletTransaction.findMany({
       where: { walletId: wallet.id },

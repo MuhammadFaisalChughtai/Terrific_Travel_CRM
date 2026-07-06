@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import Pagination from '../components/Pagination';
 import { apiClient } from '../api/client';
 import { useAuthStore } from '../store/auth.store';
 import { formatCurrency } from '@tms/shared-utils';
@@ -36,12 +37,16 @@ export default function Flights() {
 
   const isAdminOrAgent = user?.roles?.some(r => ['Admin', 'Manager', 'Agent', 'SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT'].includes(r));
 
+  const [page, setPage] = useState(1);
+  const limit = 10;
+
   // Query flights
   const { data: flightsResult, isLoading } = useQuery({
-    queryKey: ['flights', departureCity, arrivalCity, departureTime],
+    queryKey: ['flights', departureCity, arrivalCity, departureTime, page],
     queryFn: async () => {
+      const offset = (page - 1) * limit;
       const res = await apiClient.get('/flights', {
-        params: { departureCity, arrivalCity, departureTime },
+        params: { departureCity, arrivalCity, departureTime, limit, offset },
       });
       return res.data.data;
     },
@@ -106,6 +111,7 @@ export default function Flights() {
   };
 
   const flights = flightsResult?.items || [];
+  const totalFlights = flightsResult?.total || 0;
 
   return (
     <div className="space-y-6">
@@ -213,6 +219,13 @@ export default function Flights() {
               </div>
             </div>
           ))}
+          <Pagination
+            currentPage={page}
+            totalItems={totalFlights}
+            itemsPerPage={limit}
+            onPageChange={setPage}
+            itemName="flights"
+          />
         </div>
       )}
 

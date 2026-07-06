@@ -8,10 +8,22 @@ export class UsersService {
   async findAll(query: any) {
     const limit = Number(query.limit) || 100;
     const offset = Number(query.offset) || 0;
+    const search = query.search as string;
+
+    const where: any = {};
+    if (search) {
+      const q = search.trim();
+      where.OR = [
+        { firstName: { contains: q, mode: 'insensitive' } },
+        { lastName: { contains: q, mode: 'insensitive' } },
+        { email: { contains: q, mode: 'insensitive' } }
+      ];
+    }
     
     const [total, items] = await Promise.all([
-      prisma.user.count(),
+      prisma.user.count({ where }),
       prisma.user.findMany({
+        where,
         include: {
           userRoles: {
             include: {

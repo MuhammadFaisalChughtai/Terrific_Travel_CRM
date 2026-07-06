@@ -94,6 +94,23 @@ export class PaymentsService {
   }
 
   async findAll(query: any) {
+    const limit = query?.limit;
+    const offset = query?.offset;
+
+    if (limit !== undefined || offset !== undefined) {
+      const takeVal = Number(limit) || 10;
+      const skipVal = Number(offset) || 0;
+      const [total, items] = await Promise.all([
+        prisma.payment.count(),
+        prisma.payment.findMany({
+          orderBy: { createdAt: "desc" },
+          take: takeVal,
+          skip: skipVal,
+        })
+      ]);
+      return { total, limit: takeVal, offset: skipVal, items };
+    }
+
     return prisma.payment.findMany({
       orderBy: { createdAt: "desc" },
     });
@@ -444,10 +461,36 @@ export class PaymentsService {
   }
 
   async getPaymentRequests(query: any) {
-    const { status } = query;
+    const { status, limit, offset } = query;
     const whereClause: any = {};
     if (status) {
       whereClause.status = status;
+    }
+
+    if (limit !== undefined || offset !== undefined) {
+      const takeVal = Number(limit) || 10;
+      const skipVal = Number(offset) || 0;
+      const [total, items] = await Promise.all([
+        prisma.paymentRequest.count({ where: whereClause }),
+        prisma.paymentRequest.findMany({
+          where: whereClause,
+          include: {
+            booking: {
+              select: { bookingReference: true },
+            },
+            createdBy: {
+              select: { firstName: true, lastName: true },
+            },
+            reviewedBy: {
+              select: { firstName: true, lastName: true },
+            },
+          },
+          orderBy: { createdAt: "desc" },
+          take: takeVal,
+          skip: skipVal,
+        })
+      ]);
+      return { total, limit: takeVal, offset: skipVal, items };
     }
 
     return prisma.paymentRequest.findMany({

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import Pagination from '../components/Pagination';
 import { apiClient } from '../api/client';
 import { useAuthStore } from '../store/auth.store';
 import { formatCurrency } from '@tms/shared-utils';
@@ -34,12 +35,16 @@ export default function Hotels() {
 
   const isAdminOrAgent = user?.roles?.some(r => ['Admin', 'Manager', 'Agent', 'SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT'].includes(r));
 
+  const [page, setPage] = useState(1);
+  const limit = 10;
+
   // Query hotels
   const { data: hotelsResult, isLoading } = useQuery({
-    queryKey: ['hotels', city, country, rating],
+    queryKey: ['hotels', city, country, rating, page],
     queryFn: async () => {
+      const offset = (page - 1) * limit;
       const res = await apiClient.get('/hotels', {
-        params: { city, country, rating },
+        params: { city, country, rating, limit, offset },
       });
       return res.data.data;
     },
@@ -120,6 +125,7 @@ export default function Hotels() {
   };
 
   const hotels = hotelsResult?.items || [];
+  const totalHotels = hotelsResult?.total || 0;
 
   return (
     <div className="space-y-6">
@@ -255,6 +261,13 @@ export default function Hotels() {
               </div>
             </div>
           ))}
+          <Pagination
+            currentPage={page}
+            totalItems={totalHotels}
+            itemsPerPage={limit}
+            onPageChange={setPage}
+            itemName="hotels"
+          />
         </div>
       )}
 

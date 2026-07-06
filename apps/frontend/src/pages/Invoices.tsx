@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import Pagination from "../components/Pagination";
 import { apiClient } from "../api/client";
 import { formatCurrency } from "@tms/shared-utils";
 import {
@@ -77,35 +78,27 @@ export default function InvoicesPage() {
   const [printTicketSelectedPassenger, setPrintTicketSelectedPassenger] =
     useState<string>("all");
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
   // Fetch all bookings (invoices)
   const { data: bookingsResult, isLoading } = useQuery({
-    queryKey: ["invoices-list"],
+    queryKey: ["invoices-list", currentPage, searchTerm, paymentStatusFilter],
     queryFn: async () => {
-      const res = await apiClient.get("/bookings");
-      return res.data.data.items || [];
+      const offset = (currentPage - 1) * itemsPerPage;
+      const params = new URLSearchParams();
+      params.append("limit", itemsPerPage.toString());
+      params.append("offset", offset.toString());
+      if (searchTerm) params.append("search", searchTerm);
+      if (paymentStatusFilter !== "Any") params.append("paymentStatus", paymentStatusFilter);
+
+      const res = await apiClient.get(`/bookings?${params.toString()}`);
+      return res.data.data;
     },
   });
 
-  // Filter bookings on client side
-  const filteredBookings = (bookingsResult || []).filter((booking: any) => {
-    const refMatch = booking.bookingReference
-      ?.toLowerCase()
-      .includes(searchTerm.toLowerCase());
-
-    // Check passengers
-    const leadPassenger =
-      booking.passengers?.find((p: any) => p.role === "Leader") ||
-      booking.passengers?.[0];
-    const clientName = leadPassenger
-      ? `${leadPassenger.firstName} ${leadPassenger.lastName}`.toLowerCase()
-      : "";
-    const nameMatch = clientName.includes(searchTerm.toLowerCase());
-
-    const matchesSearch = refMatch || nameMatch;
-
-    if (paymentStatusFilter === "Any") return matchesSearch;
-    return matchesSearch && booking.paymentStatus === paymentStatusFilter;
-  });
+  const filteredBookings = bookingsResult?.items || [];
+  const totalBookings = bookingsResult?.total || 0;
 
   const toggleDropdown = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -496,6 +489,13 @@ export default function InvoicesPage() {
             </table>
           </div>
         )}
+        <Pagination
+          currentPage={currentPage}
+          totalItems={totalBookings}
+          itemsPerPage={itemsPerPage}
+          onPageChange={setCurrentPage}
+          itemName="invoices"
+        />
       </div>
 
       {/* Booking Manager Edit Modal */}

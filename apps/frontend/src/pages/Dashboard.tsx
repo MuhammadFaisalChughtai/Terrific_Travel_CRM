@@ -583,9 +583,6 @@ export default function Dashboard() {
                           {a.bookingsCount} booking(s)
                         </p>
                       </div>
-                      <span className="text-[11px] font-black text-emerald-600 dark:text-emerald-400">
-                        {formatCurrency(a.profit)}
-                      </span>
                     </div>
                   ))
                 ) : (
@@ -617,9 +614,6 @@ export default function Dashboard() {
                           {a.bookingsCount} booking(s)
                         </p>
                       </div>
-                      <span className="text-[11px] font-black text-blue-600 dark:text-blue-400">
-                        {formatCurrency(a.profit)}
-                      </span>
                     </div>
                   ))
                 ) : (
@@ -651,11 +645,6 @@ export default function Dashboard() {
                           {a.bookingsCount} booking(s)
                         </p>
                       </div>
-                      <span
-                        className={`text-[11px] font-black ${a.profit < 0 ? "text-red-500" : "text-foreground"}`}
-                      >
-                        {formatCurrency(a.profit)}
-                      </span>
                     </div>
                   ))
                 ) : (

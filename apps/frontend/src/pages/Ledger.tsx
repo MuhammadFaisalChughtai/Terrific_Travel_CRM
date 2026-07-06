@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import Pagination from "../components/Pagination";
 import { apiClient } from "../api/client";
 import { formatCurrency } from "@tms/shared-utils";
 import {
@@ -68,12 +69,32 @@ export default function LedgerPage() {
     },
   });
 
-  const { data: globalLedger, isLoading } = useQuery({
-    queryKey: ["global-ledger", selectedVendorId],
+  const [page, setPage] = useState(1);
+  const itemsPerPage = 10;
+
+  const { data: ledgerResult, isLoading } = useQuery({
+    queryKey: [
+      "global-ledger",
+      selectedVendorId,
+      page,
+      typeFilter,
+      dateFrom,
+      dateTo,
+      searchQuery
+    ],
     queryFn: async () => {
-      const url = selectedVendorId === "all" ? "/vendors/ledger" : `/vendors/${selectedVendorId}/ledger`;
+      const offset = (page - 1) * itemsPerPage;
+      const params = new URLSearchParams();
+      params.append("limit", itemsPerPage.toString());
+      params.append("offset", offset.toString());
+      if (typeFilter && typeFilter !== "all") params.append("typeFilter", typeFilter);
+      if (dateFrom) params.append("dateFrom", dateFrom);
+      if (dateTo) params.append("dateTo", dateTo);
+      if (searchQuery) params.append("searchQuery", searchQuery);
+
+      const url = selectedVendorId === "all" ? `/vendors/ledger?${params.toString()}` : `/vendors/${selectedVendorId}/ledger?${params.toString()}`;
       const res = await apiClient.get(url);
-      return res.data.data as any[];
+      return res.data.data;
     },
   });
 
@@ -83,60 +104,13 @@ export default function LedgerPage() {
 
   const ledgerTitle = selectedVendor ? `${selectedVendor.name} Ledger` : "Global Financial Ledger";
 
-  // Apply filters
-  const filteredLedger = useMemo(() => {
-    if (!globalLedger) return [];
-    return globalLedger.filter((entry) => {
-      // Type filter
-      if (typeFilter !== "all" && entry.eventType !== typeFilter) return false;
-
-      // Date range
-      const entryDate = new Date(entry.timestamp);
-      if (dateFrom && entryDate < new Date(dateFrom)) return false;
-      if (dateTo) {
-        const toDate = new Date(dateTo);
-        toDate.setHours(23, 59, 59, 999);
-        if (entryDate > toDate) return false;
-      }
-
-      // Search
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        return (
-          entry.vendorName?.toLowerCase().includes(q) ||
-          entry.bookingReference?.toLowerCase().includes(q) ||
-          entry.notes?.toLowerCase().includes(q) ||
-          entry.referenceNumber?.toLowerCase().includes(q) ||
-          entry.adminName?.toLowerCase().includes(q) ||
-          TYPE_LABELS[entry.eventType]?.toLowerCase().includes(q)
-        );
-      }
-      return true;
-    });
-  }, [globalLedger, typeFilter, dateFrom, dateTo, searchQuery]);
-
-  // Calculate opening balance = running balance of the record BEFORE our filtered window
-  const openingBalance = useMemo(() => {
-    if (!globalLedger || globalLedger.length === 0) return 0;
-    if (!dateFrom) {
-      // No start date = starting from 0
-      return 0;
-    }
-    // Find the last entry before our filtered set
-    const sortedAll = [...globalLedger].sort(
-      (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-    );
-    const fromDate = new Date(dateFrom);
-    const priorEntries = sortedAll.filter(
-      (e) => new Date(e.timestamp) < fromDate
-    );
-    return priorEntries.at(-1)?.runningBalance ?? 0;
-  }, [globalLedger, dateFrom]);
-
-  // Period totals
-  const periodTotalDebit = filteredLedger.reduce((s, e) => s + (e.debit || 0), 0);
-  const periodTotalCredit = filteredLedger.reduce((s, e) => s + (e.credit || 0), 0);
-  const closingBalance = openingBalance + periodTotalDebit - periodTotalCredit;
+  // Bind values from server-side query results
+  const filteredLedger = ledgerResult?.items || [];
+  const totalItems = ledgerResult?.total || 0;
+  const openingBalance = ledgerResult?.summary?.openingBalance || 0;
+  const periodTotalDebit = ledgerResult?.summary?.periodTotalDebit || 0;
+  const periodTotalCredit = ledgerResult?.summary?.periodTotalCredit || 0;
+  const closingBalance = ledgerResult?.summary?.closingBalance || 0;
 
   const handlePrint = () => {
     const content = printRef.current?.innerHTML;
@@ -174,7 +148,7 @@ export default function LedgerPage() {
     const rows = [
       ["Doc No", "Type", "Date", "Debit", "Credit", "Notes"],
       ["", "Opening Balance", "", openingBalance.toFixed(2), "0.00", ""],
-      ...filteredLedger.map((e) => [
+      ...filteredLedger.map((e: any) => [
         e.referenceNumber || "",
         TYPE_LABELS[e.eventType] || e.eventType,
         new Date(e.timestamp).toLocaleDateString("en-GB"),
@@ -186,7 +160,7 @@ export default function LedgerPage() {
       ["", "Closing Balance", "", closingBalance.toFixed(2), "0.00", ""],
       ["", "Final Closing Balance", "", closingBalance.toFixed(2), "0.00", ""],
     ];
-    const csv = rows.map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
+    const csv = rows.map((r) => r.map((c: any) => `"${c}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -495,6 +469,13 @@ export default function LedgerPage() {
             </table>
           </div>
         )}
+        <Pagination
+          currentPage={page}
+          totalItems={totalItems}
+          itemsPerPage={itemsPerPage}
+          onPageChange={setPage}
+          itemName="ledger entries"
+        />
       </div>
 
       {/* ── Count badge ── */}

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import Pagination from "../components/Pagination";
 import { apiClient } from "../api/client";
 import { useAuthStore } from "../store/auth.store";
 import { formatCurrency } from "@tms/shared-utils";
@@ -70,12 +71,16 @@ export default function Tours() {
     ].includes(r),
   );
 
+  const [catalogPage, setCatalogPage] = useState(1);
+  const catalogLimit = 10;
+
   // Query catalog tours
   const { data: toursResult, isLoading: isCatalogLoading } = useQuery({
-    queryKey: ["tours", category, duration],
+    queryKey: ["tours", category, duration, catalogPage],
     queryFn: async () => {
+      const offset = (catalogPage - 1) * catalogLimit;
       const res = await apiClient.get("/tours", {
-        params: { category, duration },
+        params: { category, duration, limit: catalogLimit, offset },
       });
       return res.data.data;
     },
@@ -151,6 +156,7 @@ export default function Tours() {
   };
 
   const tours = toursResult?.items || [];
+  const totalTours = toursResult?.total || 0;
   const upcomingBookings = upcomingResult?.items || [];
   const totalUpcoming = upcomingResult?.total || 0;
   const totalPages = Math.ceil(totalUpcoming / limit);
@@ -557,6 +563,13 @@ export default function Tours() {
               ))}
             </div>
           )}
+          <Pagination
+            currentPage={catalogPage}
+            totalItems={totalTours}
+            itemsPerPage={catalogLimit}
+            onPageChange={setCatalogPage}
+            itemName="tour packages"
+          />
         </div>
       )}
 

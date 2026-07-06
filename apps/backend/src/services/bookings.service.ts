@@ -2035,6 +2035,169 @@ export class BookingsService {
       address: h.address
     })).slice(0, 20);
   }
+
+  async getBookedServices(query: any) {
+    const limit = Number(query.limit) || 50;
+    const offset = Number(query.offset) || 0;
+    const search = query.search as string || '';
+    const type = query.type as string || 'all';
+
+    let accommodations: any[] = [];
+    let accomTotal = 0;
+    let flights: any[] = [];
+    let flightsTotal = 0;
+
+    const accomWhere: any = {};
+    if (search.trim()) {
+      const q = search.trim();
+      accomWhere.OR = [
+        { hotelName: { contains: q, mode: 'insensitive' } },
+        { roomType: { contains: q, mode: 'insensitive' } },
+        { reservationNumber: { contains: q, mode: 'insensitive' } },
+        { booking: { bookingReference: { contains: q, mode: 'insensitive' } } }
+      ];
+    }
+
+    const flightWhere: any = {};
+    if (search.trim()) {
+      const q = search.trim();
+      flightWhere.OR = [
+        { flightNo: { contains: q, mode: 'insensitive' } },
+        { pnr: { contains: q, mode: 'insensitive' } },
+        { departedFrom: { contains: q, mode: 'insensitive' } },
+        { arrivedAt: { contains: q, mode: 'insensitive' } },
+        { booking: { bookingReference: { contains: q, mode: 'insensitive' } } }
+      ];
+    }
+
+    if (type === 'all' || type === 'hotels') {
+      [accomTotal, accommodations] = await Promise.all([
+        prisma.accommodationService.count({ where: accomWhere }),
+        prisma.accommodationService.findMany({
+          where: accomWhere,
+          include: {
+            booking: {
+              include: {
+                agent: true
+              }
+            },
+            vendor: true
+          },
+          orderBy: { checkInDate: 'asc' },
+          take: limit,
+          skip: offset,
+        })
+      ]);
+    }
+
+    if (type === 'all' || type === 'flights') {
+      const bookingFlightWhere: any = {
+        flightServices: {
+          some: {}
+        }
+      };
+
+      if (search.trim()) {
+        const q = search.trim();
+        bookingFlightWhere.OR = [
+          { bookingReference: { contains: q, mode: 'insensitive' } },
+          {
+            flightServices: {
+              some: {
+                OR: [
+                  { flightNo: { contains: q, mode: 'insensitive' } },
+                  { pnr: { contains: q, mode: 'insensitive' } },
+                  { departedFrom: { contains: q, mode: 'insensitive' } },
+                  { arrivedAt: { contains: q, mode: 'insensitive' } }
+                ]
+              }
+            }
+          }
+        ];
+      }
+
+      let bookingsWithFlights: any[] = [];
+      const allBookingsWithFlights = await prisma.booking.findMany({
+        where: bookingFlightWhere,
+        include: {
+          flightServices: {
+            include: {
+              vendor: true
+            },
+            orderBy: { date: 'asc' }
+          },
+          agent: true
+        }
+      });
+
+      // Sort bookings by their first flight segment date (ascending)
+      allBookingsWithFlights.sort((a: any, b: any) => {
+        const dateA = a.flightServices[0]?.date ? new Date(a.flightServices[0].date).getTime() : 0;
+        const dateB = b.flightServices[0]?.date ? new Date(b.flightServices[0].date).getTime() : 0;
+        return dateA - dateB;
+      });
+
+      // Total count
+      flightsTotal = allBookingsWithFlights.length;
+
+      // Slice for pagination
+      bookingsWithFlights = allBookingsWithFlights.slice(offset, offset + limit);
+
+      flights = bookingsWithFlights.map(b => {
+        const segments = b.flightServices;
+        const firstSegment = segments[0] || {};
+        
+        const pnrs = Array.from(new Set(segments.map((s: any) => s.pnr).filter((p: any) => p && p.trim() !== '')));
+        const combinedPnr = pnrs.length > 0 ? pnrs.join(', ') : '';
+
+        let combinedRoute = '';
+        if (segments.length > 0) {
+          const stops = [segments[0].departedFrom];
+          segments.forEach((s: any) => {
+            if (s.arrivedAt && stops[stops.length - 1] !== s.arrivedAt) {
+              stops.push(s.arrivedAt);
+            }
+          });
+          combinedRoute = stops.join(' → ');
+        }
+
+        const totalPrice = segments.reduce((sum: number, s: any) => sum + (s.price || 0), 0);
+        const hasMissingPnr = segments.some((s: any) => !s.pnr || s.pnr.trim() === '' || s.pnr.toLowerCase() === 'pending' || s.pnr.toLowerCase() === 'n/a');
+
+        return {
+          id: b.id,
+          bookingId: b.id,
+          date: firstSegment.date || b.createdAt,
+          flightNo: segments.map((s: any) => s.flightNo).join(', '),
+          pnr: hasMissingPnr ? '' : combinedPnr,
+          departedFrom: firstSegment.departedFrom || '',
+          arrivedAt: segments[segments.length - 1]?.arrivedAt || '',
+          departTime: firstSegment.departTime || '',
+          arrivalTime: segments[segments.length - 1]?.arrivalTime || '',
+          price: totalPrice,
+          currency: firstSegment.currency || 'GBP',
+          booking: {
+            bookingReference: b.bookingReference,
+            agent: b.agent
+          },
+          vendor: firstSegment.vendor,
+          segmentsCount: segments.length,
+          combinedRoute
+        };
+      });
+    }
+
+    return {
+      accommodations: {
+        total: accomTotal,
+        items: accommodations
+      },
+      flights: {
+        total: flightsTotal,
+        items: flights
+      }
+    };
+  }
 }
 
 export const bookingsService = new BookingsService();

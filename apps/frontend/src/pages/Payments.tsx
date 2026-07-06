@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import Pagination from '../components/Pagination';
 import { apiClient } from '../api/client';
 import { formatCurrency } from '@tms/shared-utils';
 import { CreditCard, CheckCircle2, XCircle, Clock, Search, FileText, Check, X, Eye } from 'lucide-react';
@@ -11,19 +12,25 @@ export default function Payments() {
   const queryClient = useQueryClient();
   const addNotification = useNotificationStore((state) => state.addNotification);
 
-  const { data: requestsData, isLoading: isLoadingRequests } = useQuery({
-    queryKey: ['payment-requests', 'PENDING'],
+  const [requestsPage, setRequestsPage] = useState(1);
+  const [ledgerPage, setLedgerPage] = useState(1);
+  const limit = 10;
+
+  const { data: requestsResult, isLoading: isLoadingRequests } = useQuery({
+    queryKey: ['payment-requests', 'PENDING', requestsPage],
     queryFn: async () => {
-      const res = await apiClient.get('/payments/requests?status=PENDING');
+      const offset = (requestsPage - 1) * limit;
+      const res = await apiClient.get(`/payments/requests?status=PENDING&limit=${limit}&offset=${offset}`);
       return res.data.data;
     },
     enabled: activeTab === 'requests',
   });
 
-  const { data: paymentsData, isLoading: isLoadingPayments } = useQuery({
-    queryKey: ['payments-list'],
+  const { data: paymentsResult, isLoading: isLoadingPayments } = useQuery({
+    queryKey: ['payments-list', ledgerPage],
     queryFn: async () => {
-      const res = await apiClient.get('/payments');
+      const offset = (ledgerPage - 1) * limit;
+      const res = await apiClient.get(`/payments?limit=${limit}&offset=${offset}`);
       return res.data.data;
     },
     enabled: activeTab === 'ledger',
@@ -37,7 +44,7 @@ export default function Payments() {
       queryClient.invalidateQueries({ queryKey: ['payment-requests'] });
       queryClient.invalidateQueries({ queryKey: ['payments-list'] });
       toast.success('Payment request approved and transaction recorded!');
-      const req = requestsData?.find((r: any) => r.id === id);
+      const req = requests?.find((r: any) => r.id === id);
       const ref = req?.booking?.bookingReference || req?.bookingId?.substring(0, 8) || "Booking";
       addNotification('Payment Approved', `Payment request for ${ref} has been successfully approved and recorded.`);
     },
@@ -53,7 +60,7 @@ export default function Payments() {
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['payment-requests'] });
       toast.success('Payment request rejected.');
-      const req = requestsData?.find((r: any) => r.id === id);
+      const req = requests?.find((r: any) => r.id === id);
       const ref = req?.booking?.bookingReference || req?.bookingId?.substring(0, 8) || "Booking";
       addNotification('Payment Rejected', `Payment request for ${ref} was rejected.`);
     },
@@ -75,8 +82,11 @@ export default function Payments() {
     }
   };
 
-  const requests = requestsData || [];
-  const payments = paymentsData || [];
+  const requests = requestsResult?.items || [];
+  const totalRequests = requestsResult?.total || 0;
+
+  const payments = paymentsResult?.items || [];
+  const totalPayments = paymentsResult?.total || 0;
 
   return (
     <div className="p-6 bg-card border border-border rounded-2xl shadow-sm space-y-6">
@@ -177,6 +187,13 @@ export default function Payments() {
               </table>
             </div>
           )}
+          <Pagination
+            currentPage={requestsPage}
+            totalItems={totalRequests}
+            itemsPerPage={limit}
+            onPageChange={setRequestsPage}
+            itemName="pending requests"
+          />
         </div>
       )}
 
@@ -233,6 +250,13 @@ export default function Payments() {
               </table>
             </div>
           )}
+          <Pagination
+            currentPage={ledgerPage}
+            totalItems={totalPayments}
+            itemsPerPage={limit}
+            onPageChange={setLedgerPage}
+            itemName="transactions"
+          />
         </div>
       )}
     </div>

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import Pagination from "../components/Pagination";
 import { apiClient } from "../api/client";
 import {
   Users,
@@ -86,12 +87,16 @@ export default function UsersPage() {
     },
   });
 
+  const [page, setPage] = useState(1);
+  const limit = 10;
+
   // Fetch users list
   const { data: usersData, isLoading } = useQuery({
-    queryKey: ["users-list"],
+    queryKey: ["users-list", page, searchTerm],
     queryFn: async () => {
-      const res = await apiClient.get("/users");
-      return res.data.data.items as UserItem[];
+      const offset = (page - 1) * limit;
+      const res = await apiClient.get(`/users?limit=${limit}&offset=${offset}&search=${searchTerm}`);
+      return res.data.data;
     },
   });
 
@@ -249,15 +254,8 @@ export default function UsersPage() {
     }
   };
 
-  const filteredUsers = (usersData || []).filter((u) => {
-    const term = searchTerm.toLowerCase();
-    return (
-      u.firstName.toLowerCase().includes(term) ||
-      u.lastName.toLowerCase().includes(term) ||
-      u.email.toLowerCase().includes(term) ||
-      u.roles.some((r) => r.toLowerCase().includes(term))
-    );
-  });
+  const filteredUsers = usersData?.items || [];
+  const totalUsers = usersData?.total || 0;
 
   const targetRoleNames = ["Admin", "Manager", "Agent"];
   const displayedRoles = (rolesData || [])
@@ -369,7 +367,7 @@ export default function UsersPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60">
-                {filteredUsers.map((u) => {
+                {filteredUsers.map((u: any) => {
                   const isActiveLabel = u.isActive ? (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                       <UserCheck size={9} />
@@ -400,7 +398,7 @@ export default function UsersPage() {
                       <td className="px-5 py-3.5">
                         <div className="flex flex-col gap-1">
                           <div className="flex flex-wrap gap-1">
-                            {u.roles.map((r) => (
+                            {u.roles.map((r: any) => (
                               <span
                                 key={r}
                                 className="px-2 py-0.5 bg-secondary border border-border text-[9.5px] font-bold rounded-lg text-foreground"
@@ -462,6 +460,13 @@ export default function UsersPage() {
             </table>
           </div>
         )}
+        <Pagination
+          currentPage={page}
+          totalItems={totalUsers}
+          itemsPerPage={limit}
+          onPageChange={setPage}
+          itemName="users"
+        />
       </div>
 
       {/* Permission Matrix Guide Card */}

@@ -81,7 +81,7 @@ export const reverseVendorPayment = async (req: Request, res: Response, next: Ne
 
 export const getLedger = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const result = await vendorsService.getLedger(req.params.id);
+    const result = await vendorsService.getLedger(req.params.id, req.query);
     res.json({ success: true, data: result });
   } catch (error) {
     next(error);
@@ -90,7 +90,7 @@ export const getLedger = async (req: Request, res: Response, next: NextFunction)
 
 export const getWalletHistory = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const result = await vendorsService.getWalletHistory(req.params.id);
+    const result = await vendorsService.getWalletHistory(req.params.id, req.query);
     res.json({ success: true, data: result });
   } catch (error) {
     next(error);
@@ -117,7 +117,7 @@ export const getPayments = async (req: Request, res: Response, next: NextFunctio
 
 export const getGlobalLedger = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const result = await vendorsService.getLedger();
+    const result = await vendorsService.getLedger(undefined, req.query);
     res.json({ success: true, data: result });
   } catch (error) {
     next(error);

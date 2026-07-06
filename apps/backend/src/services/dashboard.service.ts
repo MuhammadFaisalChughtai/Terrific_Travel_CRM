@@ -165,9 +165,10 @@ export class DashboardService {
     } else if (period === 'weekly') {
       const day = now.getDay();
       const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Monday
-      startDate = new Date(now.setDate(diff));
+      startDate = new Date(now);
+      startDate.setDate(diff);
       startDate.setHours(0, 0, 0, 0);
-      endDate = new Date(now);
+      endDate = new Date();
     } else if (period === 'monthly') {
       startDate = new Date(now.getFullYear(), now.getMonth(), 1);
       endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);

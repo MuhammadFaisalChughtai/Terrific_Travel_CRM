@@ -27,6 +27,7 @@ import PassengerForm from "./pages/PassengerForm";
 import UsersPage from "./pages/Users";
 import Attendance from "./pages/Attendance";
 import AgentMargins from "./pages/AgentMargins";
+import BookedServices from "./pages/BookedServices";
 import { useAuthStore } from "./store/auth.store";
 
 const queryClient = new QueryClient({
@@ -78,6 +79,7 @@ function AppRouter() {
           <Route path="users" element={<UsersPage />} />
           <Route path="attendance" element={<Attendance />} />
           <Route path="agent-margins" element={<AgentMargins />} />
+          <Route path="booked-services" element={<BookedServices />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" />} />

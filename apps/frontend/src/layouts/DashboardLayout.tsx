@@ -31,6 +31,7 @@ import {
   DollarSign,
   Clock,
   Calculator,
+  ArrowRightLeft,
 } from "lucide-react";
 export default function DashboardLayout() {
   const location = useLocation();
@@ -44,7 +45,7 @@ export default function DashboardLayout() {
       const res = await apiClient.get('/payments/requests?status=PENDING');
       return res.data.data;
     },
-    enabled: !!user && user.role === "Admin",
+    enabled: !!user && (user.roles.includes("ADMIN") || user.roles.includes("SUPER_ADMIN")),
   });
 
   useEffect(() => {
@@ -143,6 +144,12 @@ export default function DashboardLayout() {
       path: "/agent-margins",
       icon: Calculator,
       roles: ["Admin", "Agent"],
+    },
+    {
+      name: "Booked Services",
+      path: "/booked-services",
+      icon: ArrowRightLeft,
+      roles: ["Admin"],
     },
     // {
     //   name: "Financials",

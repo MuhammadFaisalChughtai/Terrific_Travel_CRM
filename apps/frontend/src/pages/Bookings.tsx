@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { apiClient } from "../api/client";
 import { useBookingStore } from "../store/booking.store";
 import { useAuthStore } from "../store/auth.store";
@@ -37,6 +38,7 @@ import {
 export default function Bookings() {
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
+  const [searchParams] = useSearchParams();
   // True when the logged-in user is an agent (not admin/manager)
   const isAgent =
     !!user?.roles?.length &&
@@ -121,6 +123,15 @@ export default function Bookings() {
 
   // Applied parameters
   const [appliedFilters, setAppliedFilters] = useState<any>({});
+
+  // Auto-apply ?ref= query param on page load (deep-link from Booked Services Monitor)
+  useEffect(() => {
+    const refParam = searchParams.get("ref");
+    if (refParam) {
+      setFilterRefVal(refParam);
+      setAppliedFilters({ bookingReference: refParam });
+    }
+  }, [searchParams]);
 
   // Query existing bookings with dynamic parameters
   const { data: bookingsResult, isLoading } = useQuery({
@@ -341,9 +352,9 @@ export default function Bookings() {
     return 0;
   };
 
-  const calculateMargin = (price: number, slabs: any[]) => {
+  const calculateMargin = (price: number, profit: number, slabs: any[]) => {
     const rate = getCommissionRate(price, slabs);
-    return price * (rate / 100);
+    return profit > 0 ? profit * (rate / 100) : 0;
   };
 
   const bookings = bookingsResult?.items || [];
@@ -567,12 +578,18 @@ export default function Bookings() {
                           (sum: number, vs: any) => sum + vs.price,
                           0,
                         ) || 0;
+                      const additionalCost =
+                        booking.additionalServices?.reduce(
+                          (sum: number, as: any) => sum + (as.servicePrice || 0),
+                          0,
+                        ) || 0;
 
                       const totalVendorCost =
                         accommodationsCost +
                         flightsCost +
                         transportsCost +
-                        visasCost;
+                        visasCost +
+                        additionalCost;
                       const totalPaidToVendors =
                         booking.bookingVendorPayments?.reduce(
                           (sum: number, bvp: any) => sum + (bvp.amountPaid || 0),
@@ -581,11 +598,14 @@ export default function Bookings() {
                       const vendorRemaining =
                         totalVendorCost - totalPaidToVendors;
 
+                      const rawProfit = booking.totalPrice - totalVendorCost;
+
                       // Agent Margin calculation
                       const agentMargin =
                         booking.agentId && booking.agent
                           ? calculateMargin(
                               booking.totalPrice,
+                              rawProfit,
                               booking.agent.slabs,
                             )
                           : null;
@@ -959,99 +979,101 @@ export default function Bookings() {
               </select>
             </div>
 
-            {selectedAgentId && selectedAgent && (
-              <div className="border border-border/80 rounded-xl p-4 bg-secondary/10 space-y-3">
-                <div className="flex justify-between items-center text-xs">
-                  <div>
-                    <h4 className="font-bold text-foreground">
-                      {selectedAgent.name}
-                    </h4>
-                    <p className="text-[10px] text-muted-foreground">
-                      Client: {selectedAgent.client} | PCC: {selectedAgent.pcc}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-[10px] text-muted-foreground uppercase font-semibold">
-                      Wallet Balance
-                    </span>
-                    <p className="font-bold text-emerald-600 dark:text-emerald-400">
-                      {formatCurrency(selectedAgent.walletBalance || 0)}
-                    </p>
-                  </div>
-                </div>
+            {selectedAgentId && selectedAgent && (() => {
+              const accsCost = selectedBooking.accommodations?.reduce((sum: number, acc: any) => sum + acc.price, 0) || 0;
+              const flsCost = selectedBooking.flightServices?.reduce((sum: number, fs: any) => sum + fs.price, 0) || 0;
+              const trsCost = selectedBooking.transportServices?.reduce((sum: number, ts: any) => sum + ts.price, 0) || 0;
+              const vssCost = selectedBooking.visaServices?.reduce((sum: number, vs: any) => sum + vs.price, 0) || 0;
+              const addCost = selectedBooking.additionalServices?.reduce((sum: number, as: any) => sum + (as.servicePrice || 0), 0) || 0;
+              
+              const selectedVendorCost = accsCost + flsCost + trsCost + vssCost + addCost;
+              const selectedRawProfit = selectedBooking.totalPrice - selectedVendorCost;
+              const rate = getCommissionRate(selectedBooking.totalPrice, selectedAgent.slabs);
+              const marginAmount = calculateMargin(selectedBooking.totalPrice, selectedRawProfit, selectedAgent.slabs);
 
-                {/* Slabs list with matching one highlighted */}
-                <div className="space-y-1.5">
-                  <span className="block text-[9px] font-bold text-muted-foreground uppercase tracking-wide">
-                    Agent Commission Slabs
-                  </span>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px]">
-                    {selectedAgent.slabs?.map((slab: any) => {
-                      const isMatched =
-                        selectedBooking.totalPrice >= slab.minSales &&
-                        (slab.maxSales === null ||
-                          selectedBooking.totalPrice <= slab.maxSales);
-                      return (
-                        <div
-                          key={slab.id}
-                          className={`p-2 rounded-lg border flex items-center justify-between transition-all ${
-                            isMatched
-                              ? "bg-emerald-500/10 border-emerald-500/40 font-bold text-emerald-800 dark:text-emerald-300"
-                              : "bg-background border-border/50 text-muted-foreground"
-                          }`}
-                        >
-                          <span>
-                            {slab.maxSales !== null
-                              ? `${formatCurrency(slab.minSales)} - ${formatCurrency(slab.maxSales)}`
-                              : `${formatCurrency(slab.minSales)}+`}
-                          </span>
-                          <span
-                            className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+              return (
+                <div className="border border-border/80 rounded-xl p-4 bg-secondary/10 space-y-3">
+                  <div className="flex justify-between items-center text-xs">
+                    <div>
+                      <h4 className="font-bold text-foreground">
+                        {selectedAgent.name}
+                      </h4>
+                      <p className="text-[10px] text-muted-foreground">
+                        Client: {selectedAgent.client} | PCC: {selectedAgent.pcc}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] text-muted-foreground uppercase font-semibold">
+                        Wallet Balance
+                      </span>
+                      <p className="font-bold text-emerald-600 dark:text-emerald-400">
+                        {formatCurrency(selectedAgent.walletBalance || 0)}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Slabs list with matching one highlighted */}
+                  <div className="space-y-1.5">
+                    <span className="block text-[9px] font-bold text-muted-foreground uppercase tracking-wide">
+                      Agent Commission Slabs
+                    </span>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px]">
+                      {selectedAgent.slabs?.map((slab: any) => {
+                        const isMatched =
+                          selectedBooking.totalPrice >= slab.minSales &&
+                          (slab.maxSales === null ||
+                            selectedBooking.totalPrice <= slab.maxSales);
+                        return (
+                          <div
+                            key={slab.id}
+                            className={`p-2 rounded-lg border flex items-center justify-between transition-all ${
                               isMatched
-                                ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-300"
-                                : "bg-secondary text-muted-foreground"
+                                ? "bg-emerald-500/10 border-emerald-500/40 font-bold text-emerald-800 dark:text-emerald-300"
+                                : "bg-background border-border/50 text-muted-foreground"
                             }`}
                           >
-                            {slab.commissionRate}%
-                          </span>
-                        </div>
-                      );
-                    })}
+                            <span>
+                              {slab.maxSales !== null
+                                ? `${formatCurrency(slab.minSales)} - ${formatCurrency(slab.maxSales)}`
+                                : `${formatCurrency(slab.minSales)}+`}
+                            </span>
+                            <span
+                              className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                isMatched
+                                  ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-300"
+                                  : "bg-secondary text-muted-foreground"
+                              }`}
+                            >
+                              {slab.commissionRate}%
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
 
-                {/* Calculation breakdown */}
-                <div className="border-t border-border pt-3 flex justify-between items-center text-xs">
-                  <div>
-                    <span className="text-[9px] font-semibold uppercase text-muted-foreground">
-                      Calculated Commission
-                    </span>
-                    <p className="text-foreground">
-                      {formatCurrency(selectedBooking.totalPrice)} &times;{" "}
-                      {getCommissionRate(
-                        selectedBooking.totalPrice,
-                        selectedAgent.slabs,
-                      )}
-                      %
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-[9px] font-semibold uppercase text-muted-foreground">
-                      Margin to Deposit
-                    </span>
-                    <p className="text-lg font-black text-emerald-600 dark:text-emerald-400">
-                      +
-                      {formatCurrency(
-                        calculateMargin(
-                          selectedBooking.totalPrice,
-                          selectedAgent.slabs,
-                        ),
-                      )}
-                    </p>
+                  {/* Calculation breakdown */}
+                  <div className="border-t border-border pt-3 flex justify-between items-center text-xs">
+                    <div>
+                      <span className="text-[9px] font-semibold uppercase text-muted-foreground">
+                        Calculated Commission
+                      </span>
+                      <p className="text-foreground">
+                        {formatCurrency(selectedRawProfit)} (Profit) &times; {rate}%
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[9px] font-semibold uppercase text-muted-foreground">
+                        Margin to Deposit
+                      </span>
+                      <p className="text-lg font-black text-emerald-600 dark:text-emerald-400">
+                        + {formatCurrency(marginAmount)}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             <div className="flex gap-2 justify-end pt-3 border-t border-border/60 mt-4">
               <button

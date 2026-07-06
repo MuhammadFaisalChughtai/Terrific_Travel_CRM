@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import Pagination from "../components/Pagination";
 import { apiClient } from "../api/client";
 import { useAuthStore } from "../store/auth.store";
 import { formatCurrency, formatDate } from "@tms/shared-utils";
@@ -49,21 +50,27 @@ export default function AgentMargins() {
     enabled: isAdmin
   });
 
+  const [page, setPage] = useState(1);
+  const itemsPerPage = 10;
+
   // Fetch margins
-  const { data: margins, isLoading } = useQuery({
-    queryKey: ["agent-margins", startDate, endDate, agentId, status, isAdmin],
+  const { data: marginsResult, isLoading } = useQuery({
+    queryKey: ["agent-margins", startDate, endDate, agentId, status, isAdmin, page],
     queryFn: async () => {
       if (!isAdmin) {
         const res = await apiClient.get("/agent-margins/my-margins");
         return res.data.data as any[];
       }
+      const offset = (page - 1) * itemsPerPage;
       const params = new URLSearchParams();
       if (startDate) params.append("startDate", startDate);
       if (endDate) params.append("endDate", endDate);
       if (agentId !== "all") params.append("agentId", agentId);
       if (status !== "all") params.append("status", status);
+      params.append("limit", itemsPerPage.toString());
+      params.append("offset", offset.toString());
       const res = await apiClient.get(`/agent-margins?${params.toString()}`);
-      return res.data.data as any[];
+      return res.data.data;
     }
   });
 
@@ -93,11 +100,23 @@ export default function AgentMargins() {
     }
   });
 
+  const margins = useMemo(() => {
+    if (!marginsResult) return [];
+    if (Array.isArray(marginsResult)) return marginsResult;
+    return marginsResult.items || [];
+  }, [marginsResult]);
+
+  const totalMargins = useMemo(() => {
+    if (!marginsResult) return 0;
+    if (Array.isArray(marginsResult)) return marginsResult.length;
+    return marginsResult.total || 0;
+  }, [marginsResult]);
+
   const filteredMargins = useMemo(() => {
     if (!margins) return [];
     if (!searchQuery) return margins;
     const q = searchQuery.toLowerCase();
-    return margins.filter(m => 
+    return margins.filter((m: any) => 
       m.agent?.name?.toLowerCase().includes(q) ||
       m.status.toLowerCase().includes(q)
     );
@@ -296,6 +315,13 @@ export default function AgentMargins() {
             </tbody>
           </table>
         </div>
+        <Pagination
+          currentPage={page}
+          totalItems={totalMargins}
+          itemsPerPage={itemsPerPage}
+          onPageChange={setPage}
+          itemName="margin records"
+        />
       </div>
 
       {isBookingsModalOpen && selectedMargin && (

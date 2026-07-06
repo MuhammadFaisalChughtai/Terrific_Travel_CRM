@@ -186,7 +186,7 @@ export const agentMarginService = {
   },
 
   async getAllMargins(query: any) {
-    const { startDate, endDate, agentId, status } = query;
+    const { startDate, endDate, agentId, status, limit, offset } = query;
     const where: any = {};
 
     if (startDate) where.startDate = { gte: new Date(startDate) };
@@ -197,6 +197,34 @@ export const agentMarginService = {
     }
     if (agentId && agentId !== 'all') where.agentId = agentId;
     if (status && status !== 'all') where.status = status;
+
+    if (limit !== undefined || offset !== undefined) {
+      const takeVal = Number(limit) || 10;
+      const skipVal = Number(offset) || 0;
+
+      const [total, items] = await Promise.all([
+        prisma.agentMargin.count({ where }),
+        prisma.agentMargin.findMany({
+          where,
+          include: {
+            agent: {
+              select: { id: true, name: true, email: true }
+            },
+            paidBy: {
+              select: { id: true, firstName: true, lastName: true }
+            }
+          },
+          orderBy: [
+            { startDate: 'desc' },
+            { agent: { name: 'asc' } }
+          ],
+          take: takeVal,
+          skip: skipVal,
+        })
+      ]);
+
+      return { total, limit: takeVal, offset: skipVal, items };
+    }
 
     return prisma.agentMargin.findMany({
       where,
@@ -235,7 +263,7 @@ export const agentMarginService = {
             bookingReference: true,
             paidAmount: true,
             bookingVendorPayments: {
-              select: { amountPaid: true }
+              select: { originalCost: true }
             }
           }
         }
@@ -251,7 +279,7 @@ export const agentMarginService = {
     }
 
     const transactionsData = margin.bookings.map(b => {
-      const vendorCost = b.bookingVendorPayments.reduce((sum, vp) => sum + vp.amountPaid, 0);
+      const vendorCost = b.bookingVendorPayments.reduce((sum, vp) => sum + vp.originalCost, 0);
       const profit = b.paidAmount - vendorCost;
       const bookingMargin = profit * (margin.marginPercentage / 100);
 
@@ -373,7 +401,7 @@ export const agentMarginService = {
     });
 
     return bookings.map((b: any) => {
-      const vendorCost = b.bookingVendorPayments.reduce((sum: number, vp: any) => sum + vp.amountPaid, 0);
+      const vendorCost = b.bookingVendorPayments.reduce((sum: number, vp: any) => sum + vp.originalCost, 0);
       const profit = b.paidAmount - vendorCost;
       return {
         id: b.id,
