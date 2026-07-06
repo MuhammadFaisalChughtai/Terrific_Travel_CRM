@@ -183,7 +183,12 @@ export class DashboardService {
 
     const bookingWhere: any = {
       ...(agentId ? { agentId } : {}),
-      ...(startDate ? { createdAt: { gte: startDate, lte: endDate } } : {}),
+      ...(startDate ? { 
+        OR: [
+          { bookingDate: { gte: startDate, lte: endDate } },
+          { bookingDate: null, createdAt: { gte: startDate, lte: endDate } }
+        ]
+      } : {}),
     };
 
     const [bookings, flightBookings, hotelBookings, tourBookings] = await Promise.all([
@@ -283,7 +288,7 @@ export class DashboardService {
       const dateString = `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
 
       const dayBookings = bookings.filter(b => {
-        const bDate = new Date(b.createdAt);
+        const bDate = new Date(b.bookingDate || b.createdAt);
         return bDate.getFullYear() === d.getFullYear() &&
                bDate.getMonth() === d.getMonth() &&
                bDate.getDate() === d.getDate();
@@ -314,7 +319,7 @@ export class DashboardService {
       const label = `${String(start.getMonth() + 1).padStart(2, '0')}/${String(start.getDate()).padStart(2, '0')} - ${String(end.getMonth() + 1).padStart(2, '0')}/${String(end.getDate()).padStart(2, '0')}`;
 
       const weekBookings = bookings.filter(b => {
-        const bDate = new Date(b.createdAt);
+        const bDate = new Date(b.bookingDate || b.createdAt);
         return bDate >= start && bDate <= end;
       });
 
@@ -339,7 +344,7 @@ export class DashboardService {
       const label = `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
 
       const monthBookings = bookings.filter(b => {
-        const bDate = new Date(b.createdAt);
+        const bDate = new Date(b.bookingDate || b.createdAt);
         return bDate.getFullYear() === d.getFullYear() && bDate.getMonth() === d.getMonth();
       });
 
@@ -373,7 +378,7 @@ export class DashboardService {
       const label = `Q${q + 1} ${y}`;
 
       const qBookings = bookings.filter(b => {
-        const bDate = new Date(b.createdAt);
+        const bDate = new Date(b.bookingDate || b.createdAt);
         return bDate >= qStart && bDate <= qEnd;
       });
 
@@ -396,7 +401,7 @@ export class DashboardService {
       const label = `${targetYear}`;
 
       const yearBookings = bookings.filter(b => {
-        const bDate = new Date(b.createdAt);
+        const bDate = new Date(b.bookingDate || b.createdAt);
         return bDate.getFullYear() === targetYear;
       });
 

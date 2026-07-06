@@ -37,7 +37,7 @@ export const agentMarginService = {
     });
 
     return bookings.map(b => {
-      const vendorCost = b.bookingVendorPayments.reduce((acc: any, vp: any) => acc + (vp.amountPaid || 0), 0);
+      const vendorCost = b.bookingVendorPayments.reduce((acc: any, vp: any) => acc + (vp.originalCost || 0), 0);
       const profit = b.paidAmount - vendorCost;
       return {
         id: b.id,
@@ -81,7 +81,7 @@ export const agentMarginService = {
             SUM(b."paidAmount" - COALESCE(vp."totalVendorCost", 0))::float as "totalProfit"
           FROM "Booking" b
           LEFT JOIN (
-            SELECT "bookingId", SUM("amountPaid") as "totalVendorCost"
+            SELECT "bookingId", SUM("originalCost") as "totalVendorCost"
             FROM "BookingVendorPayment"
             GROUP BY "bookingId"
           ) vp ON vp."bookingId" = b.id
@@ -98,7 +98,7 @@ export const agentMarginService = {
           SUM(b."paidAmount" - COALESCE(vp."totalVendorCost", 0))::float as "totalProfit"
         FROM "Booking" b
         LEFT JOIN (
-          SELECT "bookingId", SUM("amountPaid") as "totalVendorCost"
+          SELECT "bookingId", SUM("originalCost") as "totalVendorCost"
           FROM "BookingVendorPayment"
           GROUP BY "bookingId"
         ) vp ON vp."bookingId" = b.id
