@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import Pagination from "../components/Pagination";
 import { apiClient } from "../api/client";
 import { formatCurrency } from "@tms/shared-utils";
 import {
@@ -69,24 +68,17 @@ export default function LedgerPage() {
     },
   });
 
-  const [page, setPage] = useState(1);
-  const itemsPerPage = 10;
-
   const { data: ledgerResult, isLoading } = useQuery({
     queryKey: [
       "global-ledger",
       selectedVendorId,
-      page,
       typeFilter,
       dateFrom,
       dateTo,
       searchQuery
     ],
     queryFn: async () => {
-      const offset = (page - 1) * itemsPerPage;
       const params = new URLSearchParams();
-      params.append("limit", itemsPerPage.toString());
-      params.append("offset", offset.toString());
       if (typeFilter && typeFilter !== "all") params.append("typeFilter", typeFilter);
       if (dateFrom) params.append("dateFrom", dateFrom);
       if (dateTo) params.append("dateTo", dateTo);
@@ -469,13 +461,6 @@ export default function LedgerPage() {
             </table>
           </div>
         )}
-        <Pagination
-          currentPage={page}
-          totalItems={totalItems}
-          itemsPerPage={itemsPerPage}
-          onPageChange={setPage}
-          itemName="ledger entries"
-        />
       </div>
 
       {/* ── Count badge ── */}

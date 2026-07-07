@@ -65,7 +65,7 @@ export class BookingsService {
         refundAmount: Number(data.refundAmount) || 0,
         cardPaymentCharges: Number(data.cardPaymentCharges) || 0,
         cancellationCharges: Number(data.cancellationCharges) || 0,
-        remainingAmount: Math.max(0, (Number(data.totalPrice) || 0) - (Number(data.paidAmount) || 0)),
+        remainingAmount: Math.max(0, (Number(data.totalPrice) || 0) - (Number(data.refundAmount) || 0) - (Number(data.paidAmount) || 0)),
         paymentStatus: data.paymentStatus || 'UNPAID',
         lockedStatus: data.lockedStatus || 'UNLOCKED',
         
@@ -693,7 +693,8 @@ export class BookingsService {
       updateData.totalPrice = newTotal;
       // Recalculate remaining amount based on what has already been paid
       const paidAmount = booking.paidAmount || 0;
-      updateData.remainingAmount = Math.max(0, newTotal - paidAmount);
+      const refundAmount = booking.refundAmount || 0;
+      updateData.remainingAmount = Math.max(0, (newTotal - refundAmount) - paidAmount);
     }
 
     if (data.agentId !== undefined) {
@@ -2071,23 +2072,48 @@ export class BookingsService {
     }
 
     if (type === 'all' || type === 'hotels') {
-      [accomTotal, accommodations] = await Promise.all([
-        prisma.accommodationService.count({ where: accomWhere }),
-        prisma.accommodationService.findMany({
-          where: accomWhere,
-          include: {
-            booking: {
-              include: {
-                agent: true
-              }
-            },
-            vendor: true
+      const allAccommodations = await prisma.accommodationService.findMany({
+        where: accomWhere,
+        include: {
+          booking: {
+            include: {
+              agent: true
+            }
           },
-          orderBy: { checkInDate: 'asc' },
-          take: limit,
-          skip: offset,
-        })
-      ]);
+          vendor: true
+        }
+      });
+
+      // Sort accommodations by checkInDate: upcoming (ascending), passed (descending)
+      allAccommodations.sort((a: any, b: any) => {
+        const dateA = a.checkInDate ? new Date(a.checkInDate) : null;
+        const dateB = b.checkInDate ? new Date(b.checkInDate) : null;
+
+        if (!dateA && !dateB) return 0;
+        if (!dateA) return 1;
+        if (!dateB) return -1;
+
+        const timeA = dateA.getTime();
+        const timeB = dateB.getTime();
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const isUpcomingA = timeA >= today.getTime();
+        const isUpcomingB = timeB >= today.getTime();
+
+        if (isUpcomingA && !isUpcomingB) return -1;
+        if (!isUpcomingA && isUpcomingB) return 1;
+
+        if (isUpcomingA && isUpcomingB) {
+          return timeA - timeB;
+        } else {
+          return timeB - timeA;
+        }
+      });
+
+      accomTotal = allAccommodations.length;
+      accommodations = allAccommodations.slice(offset, offset + limit);
     }
 
     if (type === 'all' || type === 'flights') {
@@ -2130,11 +2156,32 @@ export class BookingsService {
         }
       });
 
-      // Sort bookings by their first flight segment date (ascending)
+      // Sort bookings by their first flight segment date: upcoming (ascending), passed (descending)
       allBookingsWithFlights.sort((a: any, b: any) => {
-        const dateA = a.flightServices[0]?.date ? new Date(a.flightServices[0].date).getTime() : 0;
-        const dateB = b.flightServices[0]?.date ? new Date(b.flightServices[0].date).getTime() : 0;
-        return dateA - dateB;
+        const dateA = a.flightServices[0]?.date ? new Date(a.flightServices[0].date) : null;
+        const dateB = b.flightServices[0]?.date ? new Date(b.flightServices[0].date) : null;
+
+        if (!dateA && !dateB) return 0;
+        if (!dateA) return 1;
+        if (!dateB) return -1;
+
+        const timeA = dateA.getTime();
+        const timeB = dateB.getTime();
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const isUpcomingA = timeA >= today.getTime();
+        const isUpcomingB = timeB >= today.getTime();
+
+        if (isUpcomingA && !isUpcomingB) return -1;
+        if (!isUpcomingA && isUpcomingB) return 1;
+
+        if (isUpcomingA && isUpcomingB) {
+          return timeA - timeB;
+        } else {
+          return timeB - timeA;
+        }
       });
 
       // Total count

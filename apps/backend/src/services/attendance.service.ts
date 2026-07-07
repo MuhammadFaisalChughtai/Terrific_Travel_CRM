@@ -90,7 +90,7 @@ export class AttendanceService {
   }
 
   async getAllAttendance(filters: any) {
-    const { fromDate, toDate, agentId, status } = filters;
+    const { fromDate, toDate, agentId, status, limit, offset } = filters;
     
     let whereClause: any = {};
     if (fromDate || toDate) {
@@ -119,6 +119,29 @@ export class AttendanceService {
 
     console.log("getAllAttendance filters:", filters);
     console.log("getAllAttendance whereClause:", JSON.stringify(whereClause, null, 2));
+
+    if (limit !== undefined || offset !== undefined) {
+      const takeVal = Number(limit) || 10;
+      const skipVal = Number(offset) || 0;
+
+      const [total, items] = await Promise.all([
+        prisma.attendance.count({ where: whereClause }),
+        prisma.attendance.findMany({
+          where: whereClause,
+          include: {
+            agent: {
+              select: { name: true }
+            }
+          },
+          orderBy: { date: 'desc' },
+          take: takeVal,
+          skip: skipVal,
+        })
+      ]);
+
+      console.log(`Found ${items.length} paginated attendance records of ${total} total`);
+      return { total, limit: takeVal, offset: skipVal, items };
+    }
 
     const records = await prisma.attendance.findMany({
       where: whereClause,

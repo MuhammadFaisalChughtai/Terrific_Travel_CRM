@@ -964,26 +964,28 @@ export class VendorsService {
     const limit = query?.limit;
     const offset = query?.offset;
 
-    if (limit !== undefined || offset !== undefined) {
-      const takeVal = Number(limit) || 10;
-      const skipVal = Number(offset) || 0;
-      const paginatedItems = formattedAll.slice(skipVal, skipVal + takeVal);
+    let items = formattedAll;
+    let takeVal = formattedAll.length;
+    let skipVal = 0;
 
-      return {
-        total: formattedAll.length,
-        limit: takeVal,
-        offset: skipVal,
-        items: paginatedItems,
-        summary: {
-          openingBalance,
-          periodTotalDebit,
-          periodTotalCredit,
-          closingBalance
-        }
-      };
+    if (limit !== undefined || offset !== undefined) {
+      takeVal = Number(limit) || 10;
+      skipVal = Number(offset) || 0;
+      items = formattedAll.slice(skipVal, skipVal + takeVal);
     }
 
-    return formattedAll;
+    return {
+      total: formattedAll.length,
+      limit: takeVal,
+      offset: skipVal,
+      items,
+      summary: {
+        openingBalance,
+        periodTotalDebit,
+        periodTotalCredit,
+        closingBalance
+      }
+    };
   }
 
   // Fetch wallet audit history

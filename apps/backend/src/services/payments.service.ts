@@ -146,12 +146,13 @@ export class PaymentsService {
           });
 
           const newPaidAmount = booking.paidAmount + amount;
+          const netTotalPrice = booking.totalPrice - (booking.refundAmount || 0);
           const newRemainingAmount = Math.max(
             0,
-            booking.totalPrice - newPaidAmount,
+            netTotalPrice - newPaidAmount,
           );
           let paymentStatus = "UNPAID";
-          if (newPaidAmount >= booking.totalPrice) {
+          if (newPaidAmount >= netTotalPrice) {
             paymentStatus = "PAID";
           } else if (newPaidAmount > 0) {
             paymentStatus = "PARTIALLY_PAID";
@@ -320,12 +321,13 @@ export class PaymentsService {
           });
 
           const newPaidAmount = Math.max(0, booking.paidAmount - amount);
+          const netTotalPrice = booking.totalPrice - ((booking.refundAmount || 0) + amount);
           const newRemainingAmount = Math.max(
             0,
-            booking.totalPrice - newPaidAmount,
+            netTotalPrice - newPaidAmount,
           );
           let paymentStatus = "UNPAID";
-          if (newPaidAmount >= booking.totalPrice) {
+          if (newPaidAmount >= netTotalPrice) {
             paymentStatus = "PAID";
           } else if (newPaidAmount > 0) {
             paymentStatus = "PARTIALLY_PAID";

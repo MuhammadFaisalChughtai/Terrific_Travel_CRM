@@ -620,7 +620,7 @@ export default function BookingManager({
   // Financial Calculations
   const totalPrice = booking.totalPrice || 0;
   const paidAmount = booking.paidAmount || 0;
-  const remainingAmount = Math.max(0, totalPrice - paidAmount);
+  const remainingAmount = Math.max(0, (totalPrice - (booking.refundAmount || 0)) - paidAmount);
 
   // Vendor Cost Calculations
   const accommodationsCost =

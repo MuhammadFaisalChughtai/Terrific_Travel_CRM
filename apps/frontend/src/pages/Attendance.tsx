@@ -7,6 +7,7 @@ import { LogIn, LogOut, CheckCircle2, XCircle, Clock, Filter, ChevronDown, Users
 import { toast } from "sonner";
 import Modal from "../components/Modal";
 import EditAttendanceModal from "../components/EditAttendanceModal";
+import Pagination from "../components/Pagination";
 
 interface AttendanceRecord {
   id: string;
@@ -34,6 +35,13 @@ export default function Attendance() {
   
   const [selectedRecord, setSelectedRecord] = useState<any>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  const [page, setPage] = useState(1);
+  const itemsPerPage = 10;
+
+  useEffect(() => {
+    setPage(1);
+  }, [filters]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -66,21 +74,27 @@ export default function Attendance() {
   });
 
   // Admin: Get All Attendance
-  const { data: allAttendance, isLoading: loadingAll } = useQuery({
-    queryKey: ["attendance", "all", filters],
+  const { data: allAttendanceResult, isLoading: loadingAll } = useQuery({
+    queryKey: ["attendance", "all", filters, page],
     queryFn: async () => {
+      const offset = (page - 1) * itemsPerPage;
       const res = await apiClient.get(`/attendance/admin/all`, {
         params: { 
           agentId: filters.agentId,
           fromDate: filters.fromDate,
           toDate: filters.toDate,
-          status: filters.status
+          status: filters.status,
+          limit: itemsPerPage,
+          offset
         }
       });
-      return res.data.data as AttendanceRecord[];
+      return res.data.data;
     },
     enabled: isAdmin,
   });
+
+  const allAttendance = allAttendanceResult?.items || [];
+  const totalItems = allAttendanceResult?.total || 0;
 
   const checkInMutation = useMutation({
     mutationFn: async () => {
@@ -255,7 +269,7 @@ export default function Attendance() {
                       </td>
                     </tr>
                   ) : allAttendance && allAttendance.length > 0 ? (
-                    allAttendance.map((record) => {
+                    allAttendance.map((record: AttendanceRecord) => {
                       let duration = "-";
                       if (record.checkInTime && record.checkOutTime) {
                         const mins = differenceInMinutes(new Date(record.checkOutTime), new Date(record.checkInTime));
@@ -343,6 +357,17 @@ export default function Attendance() {
                 </tbody>
               </table>
             </div>
+            {isAdmin && totalItems > itemsPerPage && (
+              <div className="p-4 border-t border-border bg-card">
+                <Pagination
+                  currentPage={page}
+                  totalItems={totalItems}
+                  itemsPerPage={itemsPerPage}
+                  onPageChange={setPage}
+                  itemName="attendance records"
+                />
+              </div>
+            )}
           </div>
         </div>
 

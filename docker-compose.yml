@@ -148,7 +148,6 @@ services:
     depends_on:
       - backend
 
-
 volumes:
   postgres_data:
   redis_data:

@@ -29,6 +29,7 @@ import Attendance from "./pages/Attendance";
 import AgentMargins from "./pages/AgentMargins";
 import BookedServices from "./pages/BookedServices";
 import { useAuthStore } from "./store/auth.store";
+import { apiClient } from "./api/client";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -39,9 +40,62 @@ const queryClient = new QueryClient({
   },
 });
 
+function useSilentRefresh() {
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const refreshToken = useAuthStore((state) => state.refreshToken);
+  const clearAuth = useAuthStore((state) => state.clearAuth);
+
+  useEffect(() => {
+    if (!accessToken || !refreshToken) return;
+
+    const parseJwt = (token: string) => {
+      try {
+        const base64Url = token.split(".")[1];
+        const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+        const jsonPayload = decodeURIComponent(
+          window.atob(base64)
+            .split("")
+            .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+            .join("")
+        );
+        return JSON.parse(jsonPayload);
+      } catch (e) {
+        return null;
+      }
+    };
+
+    const payload = parseJwt(accessToken);
+    if (!payload || !payload.exp) return;
+
+    const expTime = payload.exp * 1000;
+    const timeLeft = expTime - Date.now();
+    
+    // Refresh 1 minute before expiration. If already close, refresh in 2 seconds.
+    const refreshBuffer = 60 * 1000; 
+    const delay = Math.max(2000, timeLeft - refreshBuffer);
+
+    const timer = setTimeout(async () => {
+      try {
+        const res = await apiClient.post("/auth/refresh", { refreshToken });
+        const newTokens = res.data.data;
+        useAuthStore.setState({
+          accessToken: newTokens.accessToken,
+          refreshToken: newTokens.refreshToken,
+        });
+      } catch (err) {
+        clearAuth();
+      }
+    }, delay);
+
+    return () => clearTimeout(timer);
+  }, [accessToken, refreshToken, clearAuth]);
+}
+
 function AppRouter() {
   const theme = useThemeStore((state) => state.theme);
   const user = useAuthStore((state) => state.user);
+
+  useSilentRefresh();
 
   useEffect(() => {
     const root = window.document.documentElement;
