@@ -202,6 +202,18 @@ export default function Bookings() {
   });
 
   useEffect(() => {
+    const refParam = searchParams.get("ref");
+    if (refParam && bookingsResult?.items) {
+      const matched = bookingsResult.items.find(
+        (b: any) => b.bookingReference === refParam
+      );
+      if (matched && selectedBookingId !== matched.id) {
+        setSelectedBookingId(matched.id);
+      }
+    }
+  }, [searchParams, bookingsResult, selectedBookingId]);
+
+  useEffect(() => {
     if (!tableRef.current) return;
     const resizeObserver = new ResizeObserver((entries) => {
       for (let entry of entries) {

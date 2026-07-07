@@ -8,19 +8,20 @@ import { toast } from "sonner";
 interface Props {
   startDate: string;
   endDate: string;
+  agentId: string;
   onClose: () => void;
 }
 
-export default function RecalculateMarginModal({ startDate, endDate, onClose }: Props) {
+export default function RecalculateMarginModal({ startDate, endDate, agentId, onClose }: Props) {
   const queryClient = useQueryClient();
   
   const [includedBookingIds, setIncludedBookingIds] = useState<Set<string>>(new Set());
 
   // Fetch eligible bookings
   const { data: bookings, isLoading, refetch } = useQuery({
-    queryKey: ["eligible-margin-bookings", startDate, endDate],
+    queryKey: ["eligible-margin-bookings", startDate, endDate, agentId],
     queryFn: async () => {
-      const res = await apiClient.get(`/agent-margins/eligible-bookings?startDate=${startDate}&endDate=${endDate}`);
+      const res = await apiClient.get(`/agent-margins/eligible-bookings?startDate=${startDate}&endDate=${endDate}&agentId=${agentId}`);
       return res.data.data as any[];
     },
     enabled: !!startDate && !!endDate
@@ -59,7 +60,8 @@ export default function RecalculateMarginModal({ startDate, endDate, onClose }: 
       return apiClient.post("/agent-margins/calculate", {
         startDate,
         endDate,
-        includedBookingIds: Array.from(includedBookingIds)
+        includedBookingIds: Array.from(includedBookingIds),
+        agentId: agentId !== 'all' ? agentId : undefined
       });
     },
     onSuccess: (res) => {
@@ -79,7 +81,7 @@ export default function RecalculateMarginModal({ startDate, endDate, onClose }: 
           <div>
             <h2 className="text-xl font-bold flex items-center gap-2">
               <Calculator className="h-5 w-5 text-primary" />
-              Recalculate Margin ({new Date(startDate).toLocaleDateString()} - {new Date(endDate).toLocaleDateString()})
+              Recalculate Margin ({new Date(startDate).toLocaleDateString(undefined, { timeZone: "UTC" })} - {new Date(endDate).toLocaleDateString(undefined, { timeZone: "UTC" })})
             </h2>
             <p className="text-sm text-muted-foreground mt-1">
               Choose which bookings to include in this round.

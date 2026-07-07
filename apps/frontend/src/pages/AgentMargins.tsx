@@ -246,7 +246,7 @@ export default function AgentMargins() {
                       </td>
                     )}
                     <td className="px-4 py-3 text-xs whitespace-nowrap">
-                      {new Date(m.startDate).toLocaleDateString()} - {new Date(m.endDate).toLocaleDateString()}
+                      {new Date(m.startDate).toLocaleDateString(undefined, { timeZone: "UTC" })} - {new Date(m.endDate).toLocaleDateString(undefined, { timeZone: "UTC" })}
                     </td>
                     <td className="px-4 py-3 text-right">
                       {m.bookingCount}
@@ -338,6 +338,7 @@ export default function AgentMargins() {
         <RecalculateMarginModal
           startDate={startDate}
           endDate={endDate}
+          agentId={agentId}
           onClose={() => setIsRecalculateModalOpen(false)}
         />
       )}

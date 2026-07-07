@@ -2,14 +2,14 @@ import { prisma } from '../config';
 import createError from 'http-errors';
 
 export const agentMarginService = {
-  async getEligibleBookings(startDate: string, endDate: string) {
+  async getEligibleBookings(startDate: string, endDate: string, agentId?: string) {
     const start = new Date(startDate);
     const end = new Date(endDate);
     end.setHours(23, 59, 59, 999);
 
     const bookings = await prisma.booking.findMany({
       where: {
-        agentId: { not: null },
+        agentId: agentId && agentId !== 'all' ? agentId : { not: null },
         status: { not: 'CANCELLED' },
         OR: [
           {
@@ -54,7 +54,7 @@ export const agentMarginService = {
     });
   },
 
-  async calculateAgentMargins(startDate: string, endDate: string, includedBookingIds?: string[]) {
+  async calculateAgentMargins(startDate: string, endDate: string, includedBookingIds?: string[], agentId?: string) {
     const start = new Date(startDate);
     const end = new Date(endDate);
     end.setHours(23, 59, 59, 999);
@@ -110,6 +110,10 @@ export const agentMarginService = {
       `;
     }
 
+    if (agentId && agentId !== 'all') {
+      eligibleBookingsRaw = eligibleBookingsRaw.filter((b: any) => b.agentId === agentId);
+    }
+
     const marginsCreated = [];
 
     // 3. Process each agent
@@ -120,6 +124,29 @@ export const agentMarginService = {
 
       const agent = agents.find((a: any) => a.id === agentId);
       if (!agent) continue;
+
+      // Find and clean up overlapping unpaid margins for this agent
+      const overlappingUnpaidMargins = await prisma.agentMargin.findMany({
+        where: {
+          agentId,
+          status: 'UNPAID',
+          startDate: { lte: end },
+          endDate: { gte: start }
+        }
+      });
+
+      for (const oldMargin of overlappingUnpaidMargins) {
+        // Set associated bookings' margin ID to null
+        await prisma.booking.updateMany({
+          where: { agentMarginId: oldMargin.id },
+          data: { agentMarginId: null }
+        });
+        
+        // Delete the old margin record
+        await prisma.agentMargin.delete({
+          where: { id: oldMargin.id }
+        });
+      }
 
       // Find applicable slab
       const slabs = agent.slabs;

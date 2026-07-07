@@ -4,13 +4,13 @@ import { asyncHandler } from '../middleware/async.middleware';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
 
 export const calculateAgentMargins = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  const { startDate, endDate, includedBookingIds } = req.body;
+  const { startDate, endDate, includedBookingIds, agentId } = req.body;
   
   if (!startDate || !endDate) {
     return res.status(400).json({ success: false, message: 'startDate and endDate are required' });
   }
 
-  const margins = await agentMarginService.calculateAgentMargins(startDate, endDate, includedBookingIds);
+  const margins = await agentMarginService.calculateAgentMargins(startDate, endDate, includedBookingIds, agentId);
   
   res.status(200).json({
     success: true,
@@ -20,13 +20,17 @@ export const calculateAgentMargins = asyncHandler(async (req: AuthenticatedReque
 });
 
 export const getEligibleBookings = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  const { startDate, endDate } = req.query;
+  const { startDate, endDate, agentId } = req.query;
   
   if (!startDate || !endDate) {
     return res.status(400).json({ success: false, message: 'startDate and endDate are required' });
   }
 
-  const bookings = await agentMarginService.getEligibleBookings(startDate as string, endDate as string);
+  const bookings = await agentMarginService.getEligibleBookings(
+    startDate as string, 
+    endDate as string,
+    agentId as string
+  );
   
   res.status(200).json({
     success: true,

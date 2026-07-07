@@ -456,7 +456,12 @@ export default function BookedServicesPage() {
                           }`}
                         >
                           <td className="px-4 py-3 font-bold text-foreground">
-                            {flight.booking.bookingReference}
+                            <Link
+                              to={`/bookings?ref=${flight.booking.bookingReference}`}
+                              className="text-primary hover:underline"
+                            >
+                              {flight.booking.bookingReference}
+                            </Link>
                           </td>
                           <td className="px-4 py-3 text-muted-foreground">
                             {formatDate(flight.date)}
@@ -576,7 +581,12 @@ export default function BookedServicesPage() {
                           }`}
                         >
                           <td className="px-4 py-3 font-bold text-foreground">
-                            {hotel.booking.bookingReference}
+                            <Link
+                              to={`/bookings?ref=${hotel.booking.bookingReference}`}
+                              className="text-primary hover:underline"
+                            >
+                              {hotel.booking.bookingReference}
+                            </Link>
                           </td>
                           <td className="px-4 py-3 font-semibold text-foreground">
                             {hotel.hotelName}
