@@ -70,22 +70,34 @@ interface AccommodationServiceItem {
 export default function BookedServicesPage() {
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
-  const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
-  const [selectedBookingRef, setSelectedBookingRef] = useState<string | null>(null);
-  const isAllowed = user?.roles?.some(r => {
+  const [selectedBookingId, setSelectedBookingId] = useState<string | null>(
+    null,
+  );
+  const [selectedBookingRef, setSelectedBookingRef] = useState<string | null>(
+    null,
+  );
+  const isAllowed = user?.roles?.some((r) => {
     const up = r.toUpperCase();
-    return ['SUPER_ADMIN', 'ADMIN', 'AGENT', 'TRAVEL_AGENT', 'MANAGER', 'BRANCH_MANAGER'].includes(up);
+    return [
+      "SUPER_ADMIN",
+      "ADMIN",
+      "AGENT",
+      "TRAVEL_AGENT",
+      "MANAGER",
+      "BRANCH_MANAGER",
+    ].includes(up);
   });
 
-  const isAgentOnly = !user?.roles?.some(r => {
+  const isAgentOnly = !user?.roles?.some((r) => {
     const up = r.toUpperCase();
-    return ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'BRANCH_MANAGER'].includes(up);
+    return ["SUPER_ADMIN", "ADMIN", "MANAGER", "BRANCH_MANAGER"].includes(up);
   });
 
   if (!isAllowed) {
     return (
       <div className="p-8 text-center text-rose-500 font-bold bg-rose-500/10 border border-rose-500/20 rounded-xl max-w-xl mx-auto mt-12">
-        Access Denied: This monitor page is only accessible to Admin, Manager or Agent users.
+        Access Denied: This monitor page is only accessible to Admin, Manager or
+        Agent users.
       </div>
     );
   }
@@ -135,16 +147,16 @@ export default function BookedServicesPage() {
     queryFn: async () => {
       const offset = (flightsPage - 1) * limit;
       const res = await apiClient.get(
-        `/bookings/booked-services?type=flights&limit=100&search=${searchTerm}`
+        `/bookings/booked-services?type=flights&limit=100&search=${searchTerm}`,
       );
       const data = res.data.data.flights;
-      
+
       // Client-side filter for "missing only"
       let items = data.items as FlightServiceItem[];
       if (showMissingOnly) {
         items = items.filter((f) => isFlightPnrMissing(f));
       }
-      
+
       // Client-side pagination slice
       const paginatedItems = items.slice(offset, offset + limit);
       return {
@@ -161,7 +173,7 @@ export default function BookedServicesPage() {
     queryFn: async () => {
       const offset = (hotelsPage - 1) * limit;
       const res = await apiClient.get(
-        `/bookings/booked-services?type=hotels&limit=100&search=${searchTerm}`
+        `/bookings/booked-services?type=hotels&limit=100&search=${searchTerm}`,
       );
       const data = res.data.data.accommodations;
 
@@ -185,28 +197,27 @@ export default function BookedServicesPage() {
   const { data: summaryCounts } = useQuery({
     queryKey: ["booked-services-summary"],
     queryFn: async () => {
-      const res = await apiClient.get(
-        `/bookings/booked-services?limit=1000`
-      );
+      const res = await apiClient.get(`/bookings/booked-services?limit=1000`);
       const flights = res.data.data.flights.items as FlightServiceItem[];
-      const hotels = res.data.data.accommodations.items as AccommodationServiceItem[];
+      const hotels = res.data.data.accommodations
+        .items as AccommodationServiceItem[];
 
       const missingFlightsCount = flights.filter(
         (f) =>
           !f.isDone &&
           (!f.pnr ||
-          f.pnr.trim() === "" ||
-          f.pnr.toLowerCase() === "pending" ||
-          f.pnr.toLowerCase() === "n/a")
+            f.pnr.trim() === "" ||
+            f.pnr.toLowerCase() === "pending" ||
+            f.pnr.toLowerCase() === "n/a"),
       ).length;
 
       const missingHotelsCount = hotels.filter(
         (h) =>
           !h.isDone &&
           (!h.reservationNumber ||
-          h.reservationNumber.trim() === "" ||
-          h.reservationNumber.toLowerCase() === "pending" ||
-          h.reservationNumber.toLowerCase() === "n/a")
+            h.reservationNumber.trim() === "" ||
+            h.reservationNumber.toLowerCase() === "pending" ||
+            h.reservationNumber.toLowerCase() === "n/a"),
       ).length;
 
       return {
@@ -222,7 +233,8 @@ export default function BookedServicesPage() {
     try {
       return new Intl.NumberFormat("en-GB", {
         style: "currency",
-        currency: currency && currency.length === 3 ? currency.toUpperCase() : "GBP",
+        currency:
+          currency && currency.length === 3 ? currency.toUpperCase() : "GBP",
       }).format(amount);
     } catch (e) {
       return `${currency || "GBP"} ${amount.toFixed(2)}`;
@@ -244,10 +256,10 @@ export default function BookedServicesPage() {
     const today = new Date();
     travelDate.setHours(0, 0, 0, 0);
     today.setHours(0, 0, 0, 0);
-    
+
     const diffTime = travelDate.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
+
     if (diffDays < 0) {
       return (
         <span className="text-[10px] text-muted-foreground/60 block">
@@ -283,8 +295,6 @@ export default function BookedServicesPage() {
     );
   };
 
-
-
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
     setFlightsPage(1);
@@ -309,7 +319,7 @@ export default function BookedServicesPage() {
           <p className="text-xs text-muted-foreground mt-0.5">
             {isAgentOnly
               ? "View and manage flight PNRs and hotel reservation confirmations for your bookings."
-              : "Super Admin operations desk to audit flights and hotel bookings."}
+              : "Operations desk to audit flights and hotel bookings."}
           </p>
         </div>
       </div>
@@ -480,7 +490,9 @@ export default function BookedServicesPage() {
                             <button
                               onClick={() => {
                                 setSelectedBookingId(flight.bookingId);
-                                setSelectedBookingRef(flight.booking.bookingReference);
+                                setSelectedBookingRef(
+                                  flight.booking.bookingReference,
+                                );
                               }}
                               className="text-primary hover:underline font-bold text-left"
                             >
@@ -498,17 +510,24 @@ export default function BookedServicesPage() {
                             {flight.combinedRoute ? (
                               <>
                                 <span>{flight.combinedRoute}</span>
-                                {flight.segmentsCount && flight.segmentsCount > 1 && (
-                                  <span className="text-[10px] text-muted-foreground block mt-0.5 font-bold text-primary">
-                                    {flight.segmentsCount} segments
-                                  </span>
-                                )}
+                                {flight.segmentsCount &&
+                                  flight.segmentsCount > 1 && (
+                                    <span className="text-[10px] text-muted-foreground block mt-0.5 font-bold text-primary">
+                                      {flight.segmentsCount} segments
+                                    </span>
+                                  )}
                               </>
                             ) : (
                               <>
-                                <span className="font-semibold">{flight.departedFrom}</span>
-                                <span className="mx-1 text-muted-foreground">→</span>
-                                <span className="font-semibold">{flight.arrivedAt}</span>
+                                <span className="font-semibold">
+                                  {flight.departedFrom}
+                                </span>
+                                <span className="mx-1 text-muted-foreground">
+                                  →
+                                </span>
+                                <span className="font-semibold">
+                                  {flight.arrivedAt}
+                                </span>
                                 <span className="text-[10px] text-muted-foreground block">
                                   {flight.departTime} - {flight.arrivalTime}
                                 </span>
@@ -550,7 +569,9 @@ export default function BookedServicesPage() {
                             <button
                               onClick={() => {
                                 setSelectedBookingId(flight.bookingId);
-                                setSelectedBookingRef(flight.booking.bookingReference);
+                                setSelectedBookingRef(
+                                  flight.booking.bookingReference,
+                                );
                               }}
                               className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline"
                             >
@@ -564,7 +585,7 @@ export default function BookedServicesPage() {
                 </table>
               </div>
             )}
-            
+
             {/* Pagination */}
             {flightsData && flightsData.total > limit && (
               <div className="p-4 border-t border-border bg-card">
@@ -622,7 +643,9 @@ export default function BookedServicesPage() {
                             <button
                               onClick={() => {
                                 setSelectedBookingId(hotel.bookingId);
-                                setSelectedBookingRef(hotel.booking.bookingReference);
+                                setSelectedBookingRef(
+                                  hotel.booking.bookingReference,
+                                );
                               }}
                               className="text-primary hover:underline font-bold text-left"
                             >
@@ -640,7 +663,9 @@ export default function BookedServicesPage() {
                           </td>
                           <td className="px-4 py-3 text-foreground font-medium">
                             {formatDate(hotel.checkInDate)}
-                            <span className="mx-1 text-muted-foreground">→</span>
+                            <span className="mx-1 text-muted-foreground">
+                              →
+                            </span>
                             {formatDate(hotel.checkOutDate)}
                             {getDaysLeftLabel(hotel.checkInDate)}
                           </td>
@@ -679,7 +704,9 @@ export default function BookedServicesPage() {
                             <button
                               onClick={() => {
                                 setSelectedBookingId(hotel.bookingId);
-                                setSelectedBookingRef(hotel.booking.bookingReference);
+                                setSelectedBookingRef(
+                                  hotel.booking.bookingReference,
+                                );
                               }}
                               className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline"
                             >
@@ -709,7 +736,7 @@ export default function BookedServicesPage() {
           </div>
         )}
       </div>
-      
+
       {/* Full Screen Booking Dashboard Modal */}
       <BookingManager
         isOpen={!!selectedBookingId}
@@ -720,7 +747,9 @@ export default function BookedServicesPage() {
           setSelectedBookingRef(null);
           queryClient.invalidateQueries({ queryKey: ["booked-flights"] });
           queryClient.invalidateQueries({ queryKey: ["booked-hotels"] });
-          queryClient.invalidateQueries({ queryKey: ["booked-services-summary"] });
+          queryClient.invalidateQueries({
+            queryKey: ["booked-services-summary"],
+          });
         }}
       />
     </div>

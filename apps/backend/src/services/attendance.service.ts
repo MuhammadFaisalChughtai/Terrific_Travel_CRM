@@ -3,8 +3,42 @@ import { BadRequestException, NotFoundException } from '../middleware/error.midd
 
 export class AttendanceService {
   async checkIn(userId: string) {
-    const user = await prisma.user.findUnique({ where: { id: userId }, include: { agent: true } });
-    if (!user || !user.agentId) throw new BadRequestException('User is not an agent');
+    let user = await prisma.user.findUnique({ where: { id: userId }, include: { agent: true } });
+    if (!user) throw new BadRequestException('User not found');
+
+    if (!user.agentId) {
+      let agent = await prisma.agent.findUnique({
+        where: { email: user.email }
+      });
+      
+      if (!agent) {
+        const agentName = `${user.firstName} ${user.lastName}`.trim() || 'Admin User';
+        agent = await prisma.agent.create({
+          data: {
+            name: agentName,
+            email: user.email,
+            phoneNumber: 'N/A',
+            gdsSystem: 'N/A',
+            client: 'N/A',
+            pcc: 'N/A',
+            passwordHash: user.passwordHash || 'N/A',
+          }
+        });
+      }
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { agentId: agent.id }
+      });
+
+      user = await prisma.user.findUnique({ where: { id: userId }, include: { agent: true } }) as any;
+    }
+
+    if (!user || !user.agentId) {
+      throw new BadRequestException('User agent link failed');
+    }
+
+    const agentId = user.agentId;
 
     // Get today's date (start of day UTC)
     const today = new Date();
@@ -13,7 +47,7 @@ export class AttendanceService {
     const existingRecord = await prisma.attendance.findUnique({
       where: {
         agentId_date: {
-          agentId: user.agentId,
+          agentId,
           date: today,
         }
       }
@@ -32,7 +66,7 @@ export class AttendanceService {
 
     return prisma.attendance.create({
       data: {
-        agentId: user.agentId,
+        agentId,
         date: today,
         checkInTime: new Date(),
         status: 'PRESENT'
@@ -42,7 +76,8 @@ export class AttendanceService {
 
   async checkOut(userId: string) {
     const user = await prisma.user.findUnique({ where: { id: userId }, include: { agent: true } });
-    if (!user || !user.agentId) throw new BadRequestException('User is not an agent');
+    if (!user) throw new BadRequestException('User not found');
+    if (!user.agentId) throw new BadRequestException('You must check in first');
 
     const today = new Date();
     today.setUTCHours(0, 0, 0, 0);
@@ -50,7 +85,7 @@ export class AttendanceService {
     const existingRecord = await prisma.attendance.findUnique({
       where: {
         agentId_date: {
-          agentId: user.agentId,
+          agentId: user.agentId!,
           date: today,
         }
       }

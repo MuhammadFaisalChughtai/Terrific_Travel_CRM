@@ -40,12 +40,14 @@ export default function DashboardLayout() {
   const clearAuth = useAuthStore((state) => state.clearAuth);
 
   const { data: pendingApprovals } = useQuery({
-    queryKey: ['payment-requests', 'PENDING'],
+    queryKey: ["payment-requests", "PENDING"],
     queryFn: async () => {
-      const res = await apiClient.get('/payments/requests?status=PENDING');
+      const res = await apiClient.get("/payments/requests?status=PENDING");
       return res.data.data;
     },
-    enabled: !!user && (user.roles.includes("ADMIN") || user.roles.includes("SUPER_ADMIN")),
+    enabled:
+      !!user &&
+      (user.roles.includes("ADMIN") || user.roles.includes("SUPER_ADMIN")),
   });
 
   useEffect(() => {
@@ -112,19 +114,19 @@ export default function DashboardLayout() {
       name: "Vendors",
       path: "/vendors",
       icon: Store,
-      roles: ["Admin", "Manager"],
+      roles: ["Admin"],
     },
     {
       name: "Ledger",
       path: "/ledger",
       icon: BookOpen,
-      roles: ["Admin", "Manager"],
+      roles: ["Admin"],
     },
     {
       name: "Templates",
       path: "/invoice-templates",
       icon: Layers,
-      roles: ["Admin", "Manager"],
+      roles: ["Admin"],
     },
     { name: "Users", path: "/users", icon: User, roles: ["Admin"] },
     {
@@ -137,7 +139,7 @@ export default function DashboardLayout() {
       name: "Attendance",
       path: "/attendance",
       icon: Clock,
-      roles: ["Admin", "Agent"], // Assuming we want both to see it
+      roles: ["Admin", "Manager", "Agent"],
     },
     {
       name: "Agent Margins",
@@ -204,16 +206,23 @@ export default function DashboardLayout() {
                 {sidebarOpen && (
                   <span className="text-sm whitespace-nowrap flex-1 flex items-center justify-between w-full">
                     <span>{item.name}</span>
-                    {item.name === "Payment Approvals" && pendingApprovals && pendingApprovals.length > 0 && (
-                      <span className={`ml-2 px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none flex items-center justify-center ${isActive ? "bg-white text-primary" : "bg-primary text-primary-foreground"}`}>
-                        {pendingApprovals.length}
-                      </span>
-                    )}
+                    {item.name === "Payment Approvals" &&
+                      pendingApprovals &&
+                      pendingApprovals.length > 0 && (
+                        <span
+                          className={`ml-2 px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none flex items-center justify-center ${isActive ? "bg-white text-primary" : "bg-primary text-primary-foreground"}`}
+                        >
+                          {pendingApprovals.length}
+                        </span>
+                      )}
                   </span>
                 )}
-                {!sidebarOpen && item.name === "Payment Approvals" && pendingApprovals && pendingApprovals.length > 0 && (
-                  <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-card shadow-sm" />
-                )}
+                {!sidebarOpen &&
+                  item.name === "Payment Approvals" &&
+                  pendingApprovals &&
+                  pendingApprovals.length > 0 && (
+                    <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-card shadow-sm" />
+                  )}
               </Link>
             );
           })}

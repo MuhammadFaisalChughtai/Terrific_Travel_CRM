@@ -9,10 +9,10 @@ const router = Router();
 
 router.use(authMiddleware as any);
 
-// Agent routes
-router.post('/check-in', requireRoles('Agent', 'TRAVEL_AGENT') as any, checkIn);
-router.post('/check-out', requireRoles('Agent', 'TRAVEL_AGENT') as any, checkOut);
-router.get('/today', requireRoles('Agent', 'TRAVEL_AGENT') as any, getTodayStatus);
+// Agent & Staff routes
+router.post('/check-in', requireRoles('Agent', 'TRAVEL_AGENT', 'Admin', 'SUPER_ADMIN', 'ADMIN', 'Manager', 'MANAGER') as any, checkIn);
+router.post('/check-out', requireRoles('Agent', 'TRAVEL_AGENT', 'Admin', 'SUPER_ADMIN', 'ADMIN', 'Manager', 'MANAGER') as any, checkOut);
+router.get('/today', requireRoles('Agent', 'TRAVEL_AGENT', 'Admin', 'SUPER_ADMIN', 'ADMIN', 'Manager', 'MANAGER') as any, getTodayStatus);
 
 // Admin routes
 router.get('/admin/all', requireRoles('SUPER_ADMIN', 'ADMIN') as any, getAllAttendance);

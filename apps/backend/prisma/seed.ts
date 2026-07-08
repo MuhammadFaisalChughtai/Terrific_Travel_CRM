@@ -78,35 +78,62 @@ async function main() {
     { name: 'reports:read_all', description: 'View all company financial reports' },
     { name: 'reports:read_own', description: 'View personal performance reports' },
     // Users
-    { name: 'users:manage', description: 'Create and edit users, reset passwords, activate/deactivate users' },
-    { name: 'roles:assign', description: 'Assign roles' },
-    { name: 'permissions:manage', description: 'Manage permissions' },
+    { name: 'users:read', description: 'View all system operators' },
+    { name: 'users:manage', description: 'Create, edit, reset passwords, activate/deactivate users' },
+    // Roles & Permissions
+    { name: 'roles:read', description: 'View system roles and metadata' },
+    { name: 'roles:assign', description: 'Assign roles to operators' },
+    { name: 'permissions:manage', description: 'Manage access control policies and permission matrix' },
     // Settings
-    { name: 'settings:manage', description: 'Full system settings access' },
+    { name: 'settings:read', description: 'View system configurations' },
+    { name: 'settings:manage', description: 'Edit system configurations' },
+    // Attendance
+    { name: 'attendance:read', description: 'View staff attendance records' },
+    { name: 'attendance:log', description: 'Log own attendance (check-in/check-out)' },
+    { name: 'attendance:manage', description: 'Edit and manage all staff attendance logs' },
+    // Vendors
+    { name: 'vendors:read', description: 'View vendors and SLAs' },
+    { name: 'vendors:manage', description: 'Create, edit, and deactivate vendors' },
+    // Ledger
+    { name: 'ledger:read', description: 'View financial ledger records' },
+    { name: 'ledger:manage', description: 'Create and edit financial ledger records' },
   ];
 
   // Map permissions to roles
   const adminPermissions = [
-    'bookings:read', 'bookings:create', 'bookings:edit_any', 'bookings:edit_own',
-    'invoices:read', 'invoices:edit', 'invoices:download', 'invoices:print',
-    'customers:read', 'customers:create', 'customers:edit',
+    'bookings:read', 'bookings:create', 'bookings:edit_any', 'bookings:edit_own', 'bookings:delete',
+    'invoices:read', 'invoices:edit', 'invoices:delete', 'invoices:download', 'invoices:print',
+    'customers:read', 'customers:create', 'customers:edit', 'customers:delete',
     'reports:read_all', 'reports:read_own',
-    'users:manage', 'roles:assign', 'permissions:manage',
-    'settings:manage'
+    'users:read', 'users:manage',
+    'roles:read', 'roles:assign', 'permissions:manage',
+    'settings:read', 'settings:manage',
+    'attendance:read', 'attendance:log', 'attendance:manage',
+    'vendors:read', 'vendors:manage',
+    'ledger:read', 'ledger:manage'
   ];
 
   const managerPermissions = [
     'bookings:read', 'bookings:create', 'bookings:edit_any', 'bookings:edit_own',
     'invoices:read', 'invoices:edit', 'invoices:download', 'invoices:print',
     'customers:read', 'customers:create', 'customers:edit',
-    'reports:read_all', 'reports:read_own'
+    'reports:read_all', 'reports:read_own',
+    'users:read',
+    'roles:read',
+    'settings:read',
+    'attendance:read', 'attendance:log', 'attendance:manage',
+    'vendors:read', 'vendors:manage',
+    'ledger:read', 'ledger:manage'
   ];
 
   const agentPermissions = [
     'bookings:read', 'bookings:create', 'bookings:edit_own',
     'invoices:read', 'invoices:download', 'invoices:print',
     'customers:read', 'customers:create',
-    'reports:read_own'
+    'reports:read_own',
+    'attendance:log',
+    'vendors:read',
+    'ledger:read'
   ];
 
   for (const perm of permissionsList) {

@@ -74,6 +74,10 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password.');
     }
 
+    if (!user.isActive) {
+      throw new UnauthorizedException('Your account has been deactivated.');
+    }
+
     const roles = user.userRoles.map((ur: any) => ur.role.name);
     const permissions = Array.from(
       new Set(
@@ -132,6 +136,9 @@ export class AuthService {
     }
 
     const user = storedToken.user;
+    if (!user.isActive) {
+      throw new UnauthorizedException('Your account has been deactivated.');
+    }
     const roles = user.userRoles.map((ur: any) => ur.role.name);
     const permissions = Array.from(
       new Set(
