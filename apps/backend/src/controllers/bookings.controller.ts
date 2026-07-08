@@ -395,6 +395,12 @@ export const getUniqueHotels = asyncHandler(async (req: AuthenticatedRequest, re
 });
 
 export const getBookedServices = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  const result = await bookingsService.getBookedServices(req.query);
+  const result = await bookingsService.getBookedServices(req.user!, req.query);
+  res.status(200).json({ success: true, data: result });
+});
+
+export const toggleBookedServiceDone = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id } = req.params;
+  const result = await bookingsService.toggleBookedServiceDone(id);
   res.status(200).json({ success: true, data: result });
 });

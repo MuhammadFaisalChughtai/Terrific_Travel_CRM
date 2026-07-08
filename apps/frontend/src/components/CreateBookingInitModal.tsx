@@ -29,6 +29,7 @@ export default function CreateBookingInitModal({
 }: CreateBookingInitModalProps) {
   const [agentId, setAgentId] = useState("");
   const [bookingDate, setBookingDate] = useState("");
+  const [departureDate, setDepartureDate] = useState("");
   const [totalPrice, setTotalPrice] = useState("");
   const [bookingReference, setBookingReference] = useState("");
 
@@ -78,6 +79,7 @@ export default function CreateBookingInitModal({
       // Reset on close
       setAgentId("");
       setBookingDate("");
+      setDepartureDate("");
       setTotalPrice("");
       setBookingReference("");
     }
@@ -96,6 +98,7 @@ export default function CreateBookingInitModal({
       // Reset form
       setAgentId("");
       setBookingDate("");
+      setDepartureDate("");
       setTotalPrice("");
     },
     onError: (err: any) => {
@@ -113,6 +116,7 @@ export default function CreateBookingInitModal({
     createMutation.mutate({
       agentId: agentId || null,
       bookingDate: bookingDate || new Date().toISOString(),
+      departureDate: departureDate || null,
       totalPrice: Number(totalPrice) || 0,
       bookingReference: (bookingReference || "").trim().toUpperCase() || null,
       status: "PENDING",
@@ -250,6 +254,24 @@ export default function CreateBookingInitModal({
               onChange={(e) => setBookingDate(e.target.value)}
               className="w-full pl-9 pr-4 py-1.5 bg-card border border-border rounded-xl text-xs font-medium text-foreground shadow-sm hover:border-primary/50 focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all cursor-pointer"
               required
+            />
+          </div>
+        </div>
+
+        {/* Travel Date */}
+        <div>
+          <label className="block text-[11px] font-bold text-foreground mb-1">
+            Travel Date (Departure)
+          </label>
+          <div className="relative group">
+            <div className="absolute left-0 top-0 bottom-0 w-9 flex items-center justify-center text-muted-foreground group-focus-within:text-primary transition-colors pointer-events-none">
+              <CalendarRange size={14} />
+            </div>
+            <input
+              type="date"
+              value={departureDate}
+              onChange={(e) => setDepartureDate(e.target.value)}
+              className="w-full pl-9 pr-4 py-1.5 bg-card border border-border rounded-xl text-xs font-medium text-foreground shadow-sm hover:border-primary/50 focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all cursor-pointer"
             />
           </div>
         </div>

@@ -1,7 +1,9 @@
 import React, { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../api/client";
 import Pagination from "../components/Pagination";
+import BookingManager from "../components/BookingManager";
+import { toast } from "sonner";
 import {
   Plane,
   Building,
@@ -38,6 +40,7 @@ interface FlightServiceItem {
   } | null;
   combinedRoute?: string;
   segmentsCount?: number;
+  isDone?: boolean;
 }
 
 interface AccommodationServiceItem {
@@ -52,6 +55,7 @@ interface AccommodationServiceItem {
   qty: number;
   price: number;
   currency: string;
+  isDone?: boolean;
   booking: {
     bookingReference: string;
     agent?: {
@@ -64,16 +68,19 @@ interface AccommodationServiceItem {
 }
 
 export default function BookedServicesPage() {
+  const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
-  const isSuperAdminOrAdmin = user?.roles?.some(r => {
+  const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
+  const [selectedBookingRef, setSelectedBookingRef] = useState<string | null>(null);
+  const isAllowed = user?.roles?.some(r => {
     const up = r.toUpperCase();
-    return up === 'SUPER_ADMIN' || up === 'ADMIN';
+    return ['SUPER_ADMIN', 'ADMIN', 'AGENT', 'TRAVEL_AGENT', 'MANAGER', 'BRANCH_MANAGER'].includes(up);
   });
 
-  if (!isSuperAdminOrAdmin) {
+  if (!isAllowed) {
     return (
       <div className="p-8 text-center text-rose-500 font-bold bg-rose-500/10 border border-rose-500/20 rounded-xl max-w-xl mx-auto mt-12">
-        Access Denied: This monitor page is only accessible to Admin or Super Admin users.
+        Access Denied: This monitor page is only accessible to Admin, Manager or Agent users.
       </div>
     );
   }
@@ -84,6 +91,38 @@ export default function BookedServicesPage() {
   const [flightsPage, setFlightsPage] = useState(1);
   const [hotelsPage, setHotelsPage] = useState(1);
   const limit = 10;
+
+  const isFlightPnrMissing = (flight: FlightServiceItem) => {
+    if (flight.isDone) return false;
+    return (
+      !flight.pnr ||
+      flight.pnr.trim() === "" ||
+      flight.pnr.toLowerCase() === "pending" ||
+      flight.pnr.toLowerCase() === "n/a"
+    );
+  };
+
+  const isHotelResMissing = (hotel: AccommodationServiceItem) => {
+    if (hotel.isDone) return false;
+    return (
+      !hotel.reservationNumber ||
+      hotel.reservationNumber.trim() === "" ||
+      hotel.reservationNumber.toLowerCase() === "pending" ||
+      hotel.reservationNumber.toLowerCase() === "n/a"
+    );
+  };
+
+  const handleToggleDone = async (id: string) => {
+    try {
+      await apiClient.patch(`/bookings/booked-services/${id}/toggle-done`);
+      queryClient.invalidateQueries({ queryKey: ["booked-flights"] });
+      queryClient.invalidateQueries({ queryKey: ["booked-hotels"] });
+      queryClient.invalidateQueries({ queryKey: ["booked-services-summary"] });
+      toast.success("Status updated successfully!");
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || "Failed to update status");
+    }
+  };
 
   // Fetch Flights query
   const { data: flightsData, isLoading: flightsLoading } = useQuery({
@@ -98,13 +137,7 @@ export default function BookedServicesPage() {
       // Client-side filter for "missing only"
       let items = data.items as FlightServiceItem[];
       if (showMissingOnly) {
-        items = items.filter(
-          (f) =>
-            !f.pnr ||
-            f.pnr.trim() === "" ||
-            f.pnr.toLowerCase() === "pending" ||
-            f.pnr.toLowerCase() === "n/a"
-        );
+        items = items.filter((f) => isFlightPnrMissing(f));
       }
       
       // Client-side pagination slice
@@ -130,13 +163,7 @@ export default function BookedServicesPage() {
       // Client-side filter for "missing only"
       let items = data.items as AccommodationServiceItem[];
       if (showMissingOnly) {
-        items = items.filter(
-          (h) =>
-            !h.reservationNumber ||
-            h.reservationNumber.trim() === "" ||
-            h.reservationNumber.toLowerCase() === "pending" ||
-            h.reservationNumber.toLowerCase() === "n/a"
-        );
+        items = items.filter((h) => isHotelResMissing(h));
       }
 
       // Client-side pagination slice
@@ -161,18 +188,20 @@ export default function BookedServicesPage() {
 
       const missingFlightsCount = flights.filter(
         (f) =>
-          !f.pnr ||
+          !f.isDone &&
+          (!f.pnr ||
           f.pnr.trim() === "" ||
           f.pnr.toLowerCase() === "pending" ||
-          f.pnr.toLowerCase() === "n/a"
+          f.pnr.toLowerCase() === "n/a")
       ).length;
 
       const missingHotelsCount = hotels.filter(
         (h) =>
-          !h.reservationNumber ||
+          !h.isDone &&
+          (!h.reservationNumber ||
           h.reservationNumber.trim() === "" ||
           h.reservationNumber.toLowerCase() === "pending" ||
-          h.reservationNumber.toLowerCase() === "n/a"
+          h.reservationNumber.toLowerCase() === "n/a")
       ).length;
 
       return {
@@ -249,23 +278,7 @@ export default function BookedServicesPage() {
     );
   };
 
-  const isFlightPnrMissing = (flight: FlightServiceItem) => {
-    return (
-      !flight.pnr ||
-      flight.pnr.trim() === "" ||
-      flight.pnr.toLowerCase() === "pending" ||
-      flight.pnr.toLowerCase() === "n/a"
-    );
-  };
 
-  const isHotelResMissing = (hotel: AccommodationServiceItem) => {
-    return (
-      !hotel.reservationNumber ||
-      hotel.reservationNumber.trim() === "" ||
-      hotel.reservationNumber.toLowerCase() === "pending" ||
-      hotel.reservationNumber.toLowerCase() === "n/a"
-    );
-  };
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
@@ -439,6 +452,7 @@ export default function BookedServicesPage() {
                       <th className="px-4 py-3">PNR</th>
                       <th className="px-4 py-3">Vendor</th>
                       <th className="px-4 py-3">Agent</th>
+                      <th className="px-4 py-3 text-center">Fine</th>
                       <th className="px-4 py-3 text-right">Cost</th>
                       <th className="px-4 py-3 text-center">Actions</th>
                     </tr>
@@ -456,12 +470,15 @@ export default function BookedServicesPage() {
                           }`}
                         >
                           <td className="px-4 py-3 font-bold text-foreground">
-                            <Link
-                              to={`/bookings?ref=${flight.booking.bookingReference}`}
-                              className="text-primary hover:underline"
+                            <button
+                              onClick={() => {
+                                setSelectedBookingId(flight.bookingId);
+                                setSelectedBookingRef(flight.booking.bookingReference);
+                              }}
+                              className="text-primary hover:underline font-bold text-left"
                             >
                               {flight.booking.bookingReference}
-                            </Link>
+                            </button>
                           </td>
                           <td className="px-4 py-3 text-muted-foreground">
                             {formatDate(flight.date)}
@@ -509,16 +526,27 @@ export default function BookedServicesPage() {
                           <td className="px-4 py-3 text-muted-foreground">
                             {flight.booking.agent?.name || "-"}
                           </td>
+                          <td className="px-4 py-3 text-center">
+                            <input
+                              type="checkbox"
+                              checked={!!flight.isDone}
+                              onChange={() => handleToggleDone(flight.id)}
+                              className="w-4 h-4 rounded border-border text-primary focus:ring-primary cursor-pointer"
+                            />
+                          </td>
                           <td className="px-4 py-3 text-right font-semibold text-foreground">
                             {formatCurrency(flight.price, flight.currency)}
                           </td>
                           <td className="px-4 py-3 text-center">
-                            <Link
-                              to={`/bookings?ref=${flight.booking.bookingReference}`}
+                            <button
+                              onClick={() => {
+                                setSelectedBookingId(flight.bookingId);
+                                setSelectedBookingRef(flight.booking.bookingReference);
+                              }}
                               className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline"
                             >
                               Manage <ExternalLink size={11} />
-                            </Link>
+                            </button>
                           </td>
                         </tr>
                       );
@@ -564,6 +592,7 @@ export default function BookedServicesPage() {
                       <th className="px-4 py-3">Reservation No</th>
                       <th className="px-4 py-3">Vendor</th>
                       <th className="px-4 py-3">Agent</th>
+                      <th className="px-4 py-3 text-center">Fine</th>
                       <th className="px-4 py-3 text-right">Cost</th>
                       <th className="px-4 py-3 text-center">Actions</th>
                     </tr>
@@ -581,12 +610,15 @@ export default function BookedServicesPage() {
                           }`}
                         >
                           <td className="px-4 py-3 font-bold text-foreground">
-                            <Link
-                              to={`/bookings?ref=${hotel.booking.bookingReference}`}
-                              className="text-primary hover:underline"
+                            <button
+                              onClick={() => {
+                                setSelectedBookingId(hotel.bookingId);
+                                setSelectedBookingRef(hotel.booking.bookingReference);
+                              }}
+                              className="text-primary hover:underline font-bold text-left"
                             >
                               {hotel.booking.bookingReference}
-                            </Link>
+                            </button>
                           </td>
                           <td className="px-4 py-3 font-semibold text-foreground">
                             {hotel.hotelName}
@@ -621,16 +653,27 @@ export default function BookedServicesPage() {
                           <td className="px-4 py-3 text-muted-foreground">
                             {hotel.booking.agent?.name || "-"}
                           </td>
+                          <td className="px-4 py-3 text-center">
+                            <input
+                              type="checkbox"
+                              checked={!!hotel.isDone}
+                              onChange={() => handleToggleDone(hotel.id)}
+                              className="w-4 h-4 rounded border-border text-primary focus:ring-primary cursor-pointer"
+                            />
+                          </td>
                           <td className="px-4 py-3 text-right font-semibold text-foreground">
                             {formatCurrency(hotel.price, hotel.currency)}
                           </td>
                           <td className="px-4 py-3 text-center">
-                            <Link
-                              to={`/bookings?ref=${hotel.booking.bookingReference}`}
+                            <button
+                              onClick={() => {
+                                setSelectedBookingId(hotel.bookingId);
+                                setSelectedBookingRef(hotel.booking.bookingReference);
+                              }}
                               className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline"
                             >
                               Manage <ExternalLink size={11} />
-                            </Link>
+                            </button>
                           </td>
                         </tr>
                       );
@@ -655,6 +698,20 @@ export default function BookedServicesPage() {
           </div>
         )}
       </div>
+      
+      {/* Full Screen Booking Dashboard Modal */}
+      <BookingManager
+        isOpen={!!selectedBookingId}
+        bookingId={selectedBookingId}
+        bookingReference={selectedBookingRef || undefined}
+        onClose={() => {
+          setSelectedBookingId(null);
+          setSelectedBookingRef(null);
+          queryClient.invalidateQueries({ queryKey: ["booked-flights"] });
+          queryClient.invalidateQueries({ queryKey: ["booked-hotels"] });
+          queryClient.invalidateQueries({ queryKey: ["booked-services-summary"] });
+        }}
+      />
     </div>
   );
 }

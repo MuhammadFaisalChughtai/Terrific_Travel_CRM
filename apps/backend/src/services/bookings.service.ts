@@ -60,7 +60,7 @@ export class BookingsService {
         status: data.status || BookingStatus.PENDING,
         agentId: data.agentId || null,
         bookingDate: data.bookingDate ? new Date(data.bookingDate) : new Date(),
-        departureDate: null,
+        departureDate: data.departureDate ? new Date(data.departureDate) : null,
         paidAmount: Number(data.paidAmount) || 0,
         refundAmount: Number(data.refundAmount) || 0,
         cardPaymentCharges: Number(data.cardPaymentCharges) || 0,
@@ -2037,38 +2037,80 @@ export class BookingsService {
     })).slice(0, 20);
   }
 
-  async getBookedServices(query: any) {
+  async getBookedServices(user: any, query: any) {
     const limit = Number(query.limit) || 50;
     const offset = Number(query.offset) || 0;
     const search = query.search as string || '';
     const type = query.type as string || 'all';
+
+    const isAdmin = user.roles.some((role: string) => 
+      ['SUPER_ADMIN', 'ADMIN', 'Admin'].includes(role)
+    );
+    const isManager = user.roles.some((role: string) => 
+      ['Manager'].includes(role)
+    );
+    const isAgent = user.roles.some((role: string) => 
+      ['Agent', 'TRAVEL_AGENT'].includes(role)
+    );
 
     let accommodations: any[] = [];
     let accomTotal = 0;
     let flights: any[] = [];
     let flightsTotal = 0;
 
-    const accomWhere: any = {};
-    if (search.trim()) {
-      const q = search.trim();
-      accomWhere.OR = [
-        { hotelName: { contains: q, mode: 'insensitive' } },
-        { roomType: { contains: q, mode: 'insensitive' } },
-        { reservationNumber: { contains: q, mode: 'insensitive' } },
-        { booking: { bookingReference: { contains: q, mode: 'insensitive' } } }
-      ];
+    // Fetch SystemSetting for done/fine booked services
+    const setting = await prisma.systemSetting.findUnique({
+      where: { key: 'booked_services_done' }
+    });
+    let doneIds: string[] = [];
+    if (setting) {
+      try {
+        doneIds = JSON.parse(setting.value);
+      } catch (e) {
+        doneIds = [];
+      }
     }
 
-    const flightWhere: any = {};
+    const accomWhere: any = {};
+    const accomAndFilters: any[] = [];
+
     if (search.trim()) {
       const q = search.trim();
-      flightWhere.OR = [
-        { flightNo: { contains: q, mode: 'insensitive' } },
-        { pnr: { contains: q, mode: 'insensitive' } },
-        { departedFrom: { contains: q, mode: 'insensitive' } },
-        { arrivedAt: { contains: q, mode: 'insensitive' } },
-        { booking: { bookingReference: { contains: q, mode: 'insensitive' } } }
-      ];
+      accomAndFilters.push({
+        OR: [
+          { hotelName: { contains: q, mode: 'insensitive' } },
+          { roomType: { contains: q, mode: 'insensitive' } },
+          { reservationNumber: { contains: q, mode: 'insensitive' } },
+          { booking: { bookingReference: { contains: q, mode: 'insensitive' } } }
+        ]
+      });
+    }
+
+    if (!isAdmin) {
+      if (isAgent || isManager) {
+        if (user.agentId) {
+          accomAndFilters.push({
+            booking: {
+              OR: [
+                { agentId: user.agentId },
+                { createdById: user.id }
+              ]
+            }
+          });
+        } else {
+          accomAndFilters.push({
+            booking: { createdById: user.id }
+          });
+        }
+      } else {
+        accomAndFilters.push({
+          booking: { userId: user.id }
+        });
+      }
+    }
+
+    if (accomAndFilters.length > 0) {
+      accomWhere.AND = accomAndFilters;
     }
 
     if (type === 'all' || type === 'hotels') {
@@ -2113,7 +2155,10 @@ export class BookingsService {
       });
 
       accomTotal = allAccommodations.length;
-      accommodations = allAccommodations.slice(offset, offset + limit);
+      accommodations = allAccommodations.slice(offset, offset + limit).map((a: any) => ({
+        ...a,
+        isDone: doneIds.includes(a.id)
+      }));
     }
 
     if (type === 'all' || type === 'flights') {
@@ -2123,23 +2168,48 @@ export class BookingsService {
         }
       };
 
+      const flightAndFilters: any[] = [];
+
       if (search.trim()) {
         const q = search.trim();
-        bookingFlightWhere.OR = [
-          { bookingReference: { contains: q, mode: 'insensitive' } },
-          {
-            flightServices: {
-              some: {
-                OR: [
-                  { flightNo: { contains: q, mode: 'insensitive' } },
-                  { pnr: { contains: q, mode: 'insensitive' } },
-                  { departedFrom: { contains: q, mode: 'insensitive' } },
-                  { arrivedAt: { contains: q, mode: 'insensitive' } }
-                ]
+        flightAndFilters.push({
+          OR: [
+            { bookingReference: { contains: q, mode: 'insensitive' } },
+            {
+              flightServices: {
+                some: {
+                  OR: [
+                    { flightNo: { contains: q, mode: 'insensitive' } },
+                    { pnr: { contains: q, mode: 'insensitive' } },
+                    { departedFrom: { contains: q, mode: 'insensitive' } },
+                    { arrivedAt: { contains: q, mode: 'insensitive' } }
+                  ]
+                }
               }
             }
+          ]
+        });
+      }
+
+      if (!isAdmin) {
+        if (isAgent || isManager) {
+          if (user.agentId) {
+            flightAndFilters.push({
+              OR: [
+                { agentId: user.agentId },
+                { createdById: user.id }
+              ]
+            });
+          } else {
+            flightAndFilters.push({ createdById: user.id });
           }
-        ];
+        } else {
+          flightAndFilters.push({ userId: user.id });
+        }
+      }
+
+      if (flightAndFilters.length > 0) {
+        bookingFlightWhere.AND = flightAndFilters;
       }
 
       let bookingsWithFlights: any[] = [];
@@ -2229,7 +2299,8 @@ export class BookingsService {
           },
           vendor: firstSegment.vendor,
           segmentsCount: segments.length,
-          combinedRoute
+          combinedRoute,
+          isDone: doneIds.includes(b.id)
         };
       });
     }
@@ -2244,6 +2315,47 @@ export class BookingsService {
         items: flights
       }
     };
+  }
+
+  async toggleBookedServiceDone(serviceId: string) {
+    let setting = await prisma.systemSetting.findUnique({
+      where: { key: 'booked_services_done' }
+    });
+
+    let doneIds: string[] = [];
+    if (setting) {
+      try {
+        doneIds = JSON.parse(setting.value);
+      } catch (e) {
+        doneIds = [];
+      }
+    }
+
+    const index = doneIds.indexOf(serviceId);
+    let isDone = false;
+    if (index > -1) {
+      doneIds.splice(index, 1);
+    } else {
+      doneIds.push(serviceId);
+      isDone = true;
+    }
+
+    if (setting) {
+      await prisma.systemSetting.update({
+        where: { id: setting.id },
+        data: { value: JSON.stringify(doneIds) }
+      });
+    } else {
+      await prisma.systemSetting.create({
+        data: {
+          key: 'booked_services_done',
+          value: JSON.stringify(doneIds),
+          description: 'JSON array of booked service IDs marked as done/fine'
+        }
+      });
+    }
+
+    return { serviceId, isDone };
   }
 }
 
