@@ -5,10 +5,10 @@ export const formatCurrency = (amount: number): string => {
   // 1. Read from static define or Node.js environment variables (highest priority)
   let sysCode = '';
   let sysSymbol = '';
-  if (typeof process !== 'undefined' && process.env) {
+  try {
     sysCode = process.env.CURRENCY || process.env.VITE_CURRENCY || '';
     sysSymbol = process.env.CURRENCY_SYMBOL || process.env.VITE_CURRENCY_SYMBOL || '';
-  }
+  } catch (e) {}
 
   // 2. Read from Vite environment variables (compile-time/runtime config files)
   let viteCode = '';

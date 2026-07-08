@@ -25,6 +25,14 @@ export default defineConfig(({ mode }) => {
     env.VITE_CURRENCY_SYMBOL ||
     "";
 
+  console.log("VITE BUILD ENV LOADING:", {
+    "process.env.CURRENCY": process.env.CURRENCY,
+    "rootEnv.CURRENCY": rootEnv.CURRENCY,
+    "env.VITE_CURRENCY": env.VITE_CURRENCY,
+    "final_currency": currency,
+    "final_symbol": currencySymbol
+  });
+
   // Public MinIO URL:
   //   Dev:  http://localhost:9000      (set MINIO_PUBLIC_URL in .env)
   //   Prod: https://cdn.terrifictravel.co.uk  (set in .env.production)
