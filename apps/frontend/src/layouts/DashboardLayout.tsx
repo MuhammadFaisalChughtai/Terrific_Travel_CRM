@@ -149,7 +149,7 @@ export default function DashboardLayout() {
       name: "Booked Services",
       path: "/booked-services",
       icon: ArrowRightLeft,
-      roles: ["Admin"],
+      roles: ["Admin", "Manager", "Agent"],
     },
     // {
     //   name: "Financials",
