@@ -77,6 +77,11 @@ export default function BookedServicesPage() {
     return ['SUPER_ADMIN', 'ADMIN', 'AGENT', 'TRAVEL_AGENT', 'MANAGER', 'BRANCH_MANAGER'].includes(up);
   });
 
+  const isAgentOnly = !user?.roles?.some(r => {
+    const up = r.toUpperCase();
+    return ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'BRANCH_MANAGER'].includes(up);
+  });
+
   if (!isAllowed) {
     return (
       <div className="p-8 text-center text-rose-500 font-bold bg-rose-500/10 border border-rose-500/20 rounded-xl max-w-xl mx-auto mt-12">
@@ -299,10 +304,12 @@ export default function BookedServicesPage() {
         <div>
           <h1 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
             <ArrowRightLeft className="text-primary" size={24} />
-            Booked Services Monitor
+            {isAgentOnly ? "My Booked Services" : "Booked Services Monitor"}
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Super Admin operations desk to audit flights and hotel bookings.
+            {isAgentOnly
+              ? "View and manage flight PNRs and hotel reservation confirmations for your bookings."
+              : "Super Admin operations desk to audit flights and hotel bookings."}
           </p>
         </div>
       </div>
@@ -451,7 +458,7 @@ export default function BookedServicesPage() {
                       <th className="px-4 py-3">Route</th>
                       <th className="px-4 py-3">PNR</th>
                       <th className="px-4 py-3">Vendor</th>
-                      <th className="px-4 py-3">Agent</th>
+                      {!isAgentOnly && <th className="px-4 py-3">Agent</th>}
                       <th className="px-4 py-3 text-center">Fine</th>
                       <th className="px-4 py-3 text-right">Cost</th>
                       <th className="px-4 py-3 text-center">Actions</th>
@@ -523,9 +530,11 @@ export default function BookedServicesPage() {
                           <td className="px-4 py-3 text-muted-foreground">
                             {flight.vendor?.name || "-"}
                           </td>
-                          <td className="px-4 py-3 text-muted-foreground">
-                            {flight.booking.agent?.name || "-"}
-                          </td>
+                          {!isAgentOnly && (
+                            <td className="px-4 py-3 text-muted-foreground">
+                              {flight.booking.agent?.name || "-"}
+                            </td>
+                          )}
                           <td className="px-4 py-3 text-center">
                             <input
                               type="checkbox"
@@ -591,7 +600,7 @@ export default function BookedServicesPage() {
                       <th className="px-4 py-3">Check-In / Out</th>
                       <th className="px-4 py-3">Reservation No</th>
                       <th className="px-4 py-3">Vendor</th>
-                      <th className="px-4 py-3">Agent</th>
+                      {!isAgentOnly && <th className="px-4 py-3">Agent</th>}
                       <th className="px-4 py-3 text-center">Fine</th>
                       <th className="px-4 py-3 text-right">Cost</th>
                       <th className="px-4 py-3 text-center">Actions</th>
@@ -650,9 +659,11 @@ export default function BookedServicesPage() {
                           <td className="px-4 py-3 text-muted-foreground">
                             {hotel.vendor?.name || "-"}
                           </td>
-                          <td className="px-4 py-3 text-muted-foreground">
-                            {hotel.booking.agent?.name || "-"}
-                          </td>
+                          {!isAgentOnly && (
+                            <td className="px-4 py-3 text-muted-foreground">
+                              {hotel.booking.agent?.name || "-"}
+                            </td>
+                          )}
                           <td className="px-4 py-3 text-center">
                             <input
                               type="checkbox"
