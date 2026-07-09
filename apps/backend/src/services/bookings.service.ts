@@ -733,20 +733,6 @@ export class BookingsService {
         throw new BadRequestException('Invalid total price value');
       }
       updateData.totalPrice = newTotal;
-      // Recalculate remaining amount based on what has already been paid
-      const paidAmount = booking.paidAmount || 0;
-      const refundAmount = booking.refundAmount || 0;
-      const remainingAmount = Math.max(0, (newTotal - refundAmount) - paidAmount);
-      updateData.remainingAmount = remainingAmount;
-
-      // Recalculate payment status
-      if (remainingAmount <= 0 && paidAmount > 0) {
-        updateData.paymentStatus = 'PAID';
-      } else if (paidAmount > 0) {
-        updateData.paymentStatus = 'PARTIALLY_PAID';
-      } else {
-        updateData.paymentStatus = 'UNPAID';
-      }
     }
 
     if (data.agentId !== undefined) {
@@ -755,6 +741,22 @@ export class BookingsService {
 
     if (data.departureDate !== undefined) {
       updateData.departureDate = data.departureDate ? new Date(data.departureDate) : null;
+    }
+
+    // Recalculate remaining amount and payment status unconditionally
+    const activeTotal = updateData.totalPrice !== undefined ? updateData.totalPrice : (booking.totalPrice || 0);
+    const paidAmount = booking.paidAmount || 0;
+    const refundAmount = booking.refundAmount || 0;
+    const remainingAmount = Math.max(0, (activeTotal - refundAmount) - paidAmount);
+    updateData.remainingAmount = remainingAmount;
+
+    // Recalculate payment status
+    if (remainingAmount <= 0 && paidAmount > 0) {
+      updateData.paymentStatus = 'PAID';
+    } else if (paidAmount > 0) {
+      updateData.paymentStatus = 'PARTIALLY_PAID';
+    } else {
+      updateData.paymentStatus = 'UNPAID';
     }
 
     const updated = await prisma.booking.update({

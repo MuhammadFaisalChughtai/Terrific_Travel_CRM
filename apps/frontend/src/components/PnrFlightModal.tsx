@@ -29,6 +29,9 @@ interface ParsedFlight {
 
 function getCabinClassFromCode(code: string): string {
   if (!code) return "Economy Class";
+  if (code.toLowerCase() === "cancelled") {
+    return "Cancelled";
+  }
   if (code.toLowerCase().includes("class")) {
     return code;
   }
@@ -995,6 +998,7 @@ export default function PnrFlightModal({
                     <option value="Premium Economy Class">Premium Economy Class</option>
                     <option value="Business Class">Business Class</option>
                     <option value="First Class">First Class</option>
+                    <option value="Cancelled">Cancelled</option>
                   </select>
                 </div>
 
