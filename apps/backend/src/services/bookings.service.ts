@@ -436,11 +436,20 @@ export class BookingsService {
       return { total, limit, offset, items: paginatedItems };
     }
 
-    const isOperator = user.roles.some((role: string) => 
-      ['SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT', 'Admin', 'Manager', 'Agent'].includes(role)
-    );
-    if (!isOperator) {
-      where.userId = user.id;
+    // Apply role-based visibility boundaries using variables declared at top of method
+    if (!isAdmin) {
+      if (isManager || isAgent) {
+        if (user.agentId) {
+          where.OR = [
+            { agentId: user.agentId },
+            { createdById: user.id }
+          ];
+        } else {
+          where.createdById = user.id;
+        }
+      } else {
+        where.userId = user.id;
+      }
     }
 
     // 1. ID Filter
@@ -458,12 +467,10 @@ export class BookingsService {
     if (createdAtFrom || createdAtTo) {
       where.createdAt = {};
       if (createdAtFrom) {
-        where.createdAt.gte = new Date(createdAtFrom);
+        where.createdAt.gte = new Date(`${createdAtFrom}T00:00:00.000Z`);
       }
       if (createdAtTo) {
-        const toDate = new Date(createdAtTo);
-        toDate.setHours(23, 59, 59, 999);
-        where.createdAt.lte = toDate;
+        where.createdAt.lte = new Date(`${createdAtTo}T23:59:59.999Z`);
       }
     }
 
@@ -471,12 +478,10 @@ export class BookingsService {
     if (query.departureDateFrom || query.departureDateTo) {
       where.departureDate = {};
       if (query.departureDateFrom) {
-        where.departureDate.gte = new Date(query.departureDateFrom);
+        where.departureDate.gte = new Date(`${query.departureDateFrom}T00:00:00.000Z`);
       }
       if (query.departureDateTo) {
-        const toDate = new Date(query.departureDateTo);
-        toDate.setHours(23, 59, 59, 999);
-        where.departureDate.lte = toDate;
+        where.departureDate.lte = new Date(`${query.departureDateTo}T23:59:59.999Z`);
       }
     }
 
@@ -510,38 +515,44 @@ export class BookingsService {
 
     if (query.customerName) {
       const nameTerm = query.customerName.trim();
-      andFilters.push({
-        OR: [
-          // Match passenger firstName
-          {
-            passengers: {
-              some: {
-                firstName: { contains: nameTerm, mode: 'insensitive' }
+      const parts = nameTerm.split(/\s+/).filter(Boolean);
+      if (parts.length > 1) {
+        andFilters.push({
+          OR: [
+            {
+              passengers: {
+                some: {
+                  AND: parts.map((part: string) => ({
+                    OR: [
+                      { firstName: { contains: part, mode: 'insensitive' } },
+                      { lastName: { contains: part, mode: 'insensitive' } }
+                    ]
+                  }))
+                }
+              }
+            },
+            {
+              user: {
+                AND: parts.map((part: string) => ({
+                  OR: [
+                    { firstName: { contains: part, mode: 'insensitive' } },
+                    { lastName: { contains: part, mode: 'insensitive' } }
+                  ]
+                }))
               }
             }
-          },
-          // Match passenger lastName
-          {
-            passengers: {
-              some: {
-                lastName: { contains: nameTerm, mode: 'insensitive' }
-              }
-            }
-          },
-          // Match booking creator (user) firstName
-          {
-            user: {
-              firstName: { contains: nameTerm, mode: 'insensitive' }
-            }
-          },
-          // Match booking creator (user) lastName
-          {
-            user: {
-              lastName: { contains: nameTerm, mode: 'insensitive' }
-            }
-          },
-        ]
-      });
+          ]
+        });
+      } else {
+        andFilters.push({
+          OR: [
+            { passengers: { some: { firstName: { contains: nameTerm, mode: 'insensitive' } } } },
+            { passengers: { some: { lastName: { contains: nameTerm, mode: 'insensitive' } } } },
+            { user: { firstName: { contains: nameTerm, mode: 'insensitive' } } },
+            { user: { lastName: { contains: nameTerm, mode: 'insensitive' } } },
+          ]
+        });
+      }
     }
 
     if (query.customerEmail) {
@@ -579,16 +590,47 @@ export class BookingsService {
 
     if (query.search) {
       const searchTerm = query.search.trim();
-      andFilters.push({
-        OR: [
-          { bookingReference: { contains: searchTerm, mode: 'insensitive' } },
-          { user: { firstName: { contains: searchTerm, mode: 'insensitive' } } },
-          { user: { lastName: { contains: searchTerm, mode: 'insensitive' } } },
-          { user: { email: { contains: searchTerm, mode: 'insensitive' } } },
-          { passengers: { some: { firstName: { contains: searchTerm, mode: 'insensitive' } } } },
-          { passengers: { some: { lastName: { contains: searchTerm, mode: 'insensitive' } } } },
-        ]
-      });
+      const parts = searchTerm.split(/\s+/).filter(Boolean);
+      if (parts.length > 1) {
+        andFilters.push({
+          OR: [
+            { bookingReference: { contains: searchTerm, mode: 'insensitive' } },
+            {
+              passengers: {
+                some: {
+                  AND: parts.map((part: string) => ({
+                    OR: [
+                      { firstName: { contains: part, mode: 'insensitive' } },
+                      { lastName: { contains: part, mode: 'insensitive' } }
+                    ]
+                  }))
+                }
+              }
+            },
+            {
+              user: {
+                AND: parts.map((part: string) => ({
+                  OR: [
+                    { firstName: { contains: part, mode: 'insensitive' } },
+                    { lastName: { contains: part, mode: 'insensitive' } }
+                  ]
+                }))
+              }
+            }
+          ]
+        });
+      } else {
+        andFilters.push({
+          OR: [
+            { bookingReference: { contains: searchTerm, mode: 'insensitive' } },
+            { user: { firstName: { contains: searchTerm, mode: 'insensitive' } } },
+            { user: { lastName: { contains: searchTerm, mode: 'insensitive' } } },
+            { user: { email: { contains: searchTerm, mode: 'insensitive' } } },
+            { passengers: { some: { firstName: { contains: searchTerm, mode: 'insensitive' } } } },
+            { passengers: { some: { lastName: { contains: searchTerm, mode: 'insensitive' } } } },
+          ]
+        });
+      }
     }
 
     if (andFilters.length > 0) {

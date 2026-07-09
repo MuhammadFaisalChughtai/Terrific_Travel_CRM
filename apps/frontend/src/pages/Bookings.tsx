@@ -711,16 +711,12 @@ export default function Bookings() {
                             {formatCurrency(booking.totalPrice)}
                           </td>
                           <td className="px-4 py-3.5 whitespace-nowrap text-right font-semibold text-emerald-600 dark:text-emerald-400 align-middle">
-                            {formatCurrency(booking.paidAmount)}
+                            {formatCurrency(
+                              (booking.paidAmount || 0) + (booking.refundAmount || 0),
+                            )}
                           </td>
                           <td className="px-4 py-3.5 whitespace-nowrap text-right font-semibold text-muted-foreground align-middle">
-                            {formatCurrency(
-                              Math.max(
-                                0,
-                                (booking.totalPrice || 0) -
-                                  (booking.paidAmount || 0),
-                              ),
-                            )}
+                            {formatCurrency(booking.remainingAmount || 0)}
                           </td>
                           {!isAgent && (
                             <td className="px-4 py-3.5 whitespace-nowrap text-right font-semibold text-blue-600 dark:text-blue-400 align-middle">

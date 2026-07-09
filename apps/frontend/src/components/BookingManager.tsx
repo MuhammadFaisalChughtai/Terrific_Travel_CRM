@@ -1013,7 +1013,7 @@ export default function BookingManager({
                       </span>
                     </div>
                     <span className="text-[15px] font-bold text-emerald-600 dark:text-emerald-400">
-                      {formatCurrency(paidAmount)}
+                      {formatCurrency(paidAmount + clientRefund)}
                     </span>
                   </div>
 
