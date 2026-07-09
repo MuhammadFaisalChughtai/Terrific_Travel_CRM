@@ -2295,7 +2295,8 @@ export class BookingsService {
           currency: firstSegment.currency || 'GBP',
           booking: {
             bookingReference: b.bookingReference,
-            agent: b.agent
+            agent: b.agent,
+            lockedStatus: b.lockedStatus
           },
           vendor: firstSegment.vendor,
           segmentsCount: segments.length,

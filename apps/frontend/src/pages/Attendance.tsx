@@ -26,10 +26,7 @@ export default function Attendance() {
     const up = r.toUpperCase();
     return ['SUPER_ADMIN', 'ADMIN'].includes(up);
   });
-  const canViewAudit = user?.roles.some(r => {
-    const up = r.toUpperCase();
-    return ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'BRANCH_MANAGER'].includes(up);
-  });
+  const canViewAudit = isAdmin;
 
   const [activeTab, setActiveTab] = useState<"log" | "sheet">(canViewAudit ? "sheet" : "log");
 

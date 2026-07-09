@@ -13,6 +13,7 @@ import {
   Loader2,
   ArrowRightLeft,
   ExternalLink,
+  Lock,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuthStore } from "../store/auth.store";
@@ -31,6 +32,7 @@ interface FlightServiceItem {
   currency: string;
   booking: {
     bookingReference: string;
+    lockedStatus?: string;
     agent?: {
       name: string;
     } | null;
@@ -58,6 +60,7 @@ interface AccommodationServiceItem {
   isDone?: boolean;
   booking: {
     bookingReference: string;
+    lockedStatus?: string;
     agent?: {
       name: string;
     } | null;
@@ -92,6 +95,18 @@ export default function BookedServicesPage() {
     const up = r.toUpperCase();
     return ["SUPER_ADMIN", "ADMIN", "MANAGER", "BRANCH_MANAGER"].includes(up);
   });
+
+  const handleOpenBooking = (bookingId: string, bookingRef: string, lockedStatus?: string) => {
+    if (isAgentOnly && lockedStatus === "LOCKED") {
+      toast.error(
+        "This booking is locked by the administrator and cannot be accessed.",
+        { duration: 4000 }
+      );
+      return;
+    }
+    setSelectedBookingId(bookingId);
+    setSelectedBookingRef(bookingRef);
+  };
 
   if (!isAllowed) {
     return (
@@ -489,14 +504,20 @@ export default function BookedServicesPage() {
                           <td className="px-4 py-3 font-bold text-foreground">
                             <button
                               onClick={() => {
-                                setSelectedBookingId(flight.bookingId);
-                                setSelectedBookingRef(
+                                handleOpenBooking(
+                                  flight.bookingId,
                                   flight.booking.bookingReference,
+                                  flight.booking.lockedStatus
                                 );
                               }}
-                              className="text-primary hover:underline font-bold text-left"
+                              className={`hover:underline font-bold text-left flex items-center gap-1.5 ${
+                                isAgentOnly && flight.booking.lockedStatus === "LOCKED"
+                                  ? "text-rose-500 cursor-not-allowed"
+                                  : "text-primary"
+                              }`}
                             >
                               {flight.booking.bookingReference}
+                              {isAgentOnly && flight.booking.lockedStatus === "LOCKED" && <Lock size={11} />}
                             </button>
                           </td>
                           <td className="px-4 py-3 text-muted-foreground">
@@ -568,12 +589,17 @@ export default function BookedServicesPage() {
                           <td className="px-4 py-3 text-center">
                             <button
                               onClick={() => {
-                                setSelectedBookingId(flight.bookingId);
-                                setSelectedBookingRef(
+                                handleOpenBooking(
+                                  flight.bookingId,
                                   flight.booking.bookingReference,
+                                  flight.booking.lockedStatus
                                 );
                               }}
-                              className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline"
+                              className={`inline-flex items-center gap-1 text-[11px] font-bold hover:underline ${
+                                isAgentOnly && flight.booking.lockedStatus === "LOCKED"
+                                  ? "text-rose-500 cursor-not-allowed opacity-60"
+                                  : "text-primary"
+                              }`}
                             >
                               Manage <ExternalLink size={11} />
                             </button>
@@ -642,14 +668,20 @@ export default function BookedServicesPage() {
                           <td className="px-4 py-3 font-bold text-foreground">
                             <button
                               onClick={() => {
-                                setSelectedBookingId(hotel.bookingId);
-                                setSelectedBookingRef(
+                                handleOpenBooking(
+                                  hotel.bookingId,
                                   hotel.booking.bookingReference,
+                                  hotel.booking.lockedStatus
                                 );
                               }}
-                              className="text-primary hover:underline font-bold text-left"
+                              className={`hover:underline font-bold text-left flex items-center gap-1.5 ${
+                                isAgentOnly && hotel.booking.lockedStatus === "LOCKED"
+                                  ? "text-rose-500 cursor-not-allowed"
+                                  : "text-primary"
+                              }`}
                             >
                               {hotel.booking.bookingReference}
+                              {isAgentOnly && hotel.booking.lockedStatus === "LOCKED" && <Lock size={11} />}
                             </button>
                           </td>
                           <td className="px-4 py-3 font-semibold text-foreground">
@@ -703,12 +735,17 @@ export default function BookedServicesPage() {
                           <td className="px-4 py-3 text-center">
                             <button
                               onClick={() => {
-                                setSelectedBookingId(hotel.bookingId);
-                                setSelectedBookingRef(
+                                handleOpenBooking(
+                                  hotel.bookingId,
                                   hotel.booking.bookingReference,
+                                  hotel.booking.lockedStatus
                                 );
                               }}
-                              className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline"
+                              className={`inline-flex items-center gap-1 text-[11px] font-bold hover:underline ${
+                                isAgentOnly && hotel.booking.lockedStatus === "LOCKED"
+                                  ? "text-rose-500 cursor-not-allowed opacity-60"
+                                  : "text-primary"
+                              }`}
                             >
                               Manage <ExternalLink size={11} />
                             </button>
