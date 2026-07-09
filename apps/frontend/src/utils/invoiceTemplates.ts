@@ -530,57 +530,130 @@ function generateTimelineHtml(booking: any): string {
     });
   };
 
-  // Flights
+  // Flights — grouped by PNR so each journey's layovers stay isolated
   if (booking.flightServices && booking.flightServices.length > 0) {
-    const sortedFlights = [...booking.flightServices].sort(
-      (a: any, b: any) =>
-        new Date(a.date).getTime() - new Date(b.date).getTime(),
-    );
-    sortedFlights.forEach((f: any, idx: number) => {
-      const nextFlight = sortedFlights[idx + 1];
-      const isConnecting = getIsConnecting(f, nextFlight);
-      const layoverStr =
-        isConnecting && nextFlight ? calculateLayover(f, nextFlight) : "";
+    // 1. Group by PNR key
+    const flightGroups: { [key: string]: any[] } = {};
+    booking.flightServices.forEach((f: any) => {
+      const rawPnr = (f.pnr || "").trim();
+      const pnrKey =
+        !rawPnr ||
+        rawPnr.toLowerCase() === "pending" ||
+        rawPnr.toLowerCase() === "n/a"
+          ? "No PNR Assigned"
+          : rawPnr.toUpperCase();
+      if (!flightGroups[pnrKey]) flightGroups[pnrKey] = [];
+      flightGroups[pnrKey].push(f);
+    });
 
-      const extractCode = (str: string) => {
-        const match = str.match(/\(([^)]+)\)/);
-        return match ? match[1].toUpperCase() : str.toUpperCase();
-      };
-      const transitHub = extractCode(f.arrivedAt || "");
-
-      items.push({
-        type: "FLIGHT",
-        date: f.date ? new Date(f.date) : new Date(booking.createdAt),
-        title: `${f.flightType || "Outbound"} Flight: ${f.departedFrom} to ${f.arrivedAt}`,
-        icon: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-1.1.1-1.4.5l-.3.3c-.4.4-.4 1.1 0 1.5L9 12l-5.5 5.5H2v2l2 2h2v-1.5L11.5 15l3.5 5.7c.4.4 1.1.4 1.5 0l.3-.3c.4-.3.6-.9.5-1.4Z"/></svg>`,
-        badgeClass: "flight",
-        details: `
-          <div class="timeline-detail-item">Flight: <strong>${f.flightNo}</strong> (PNR: ${f.pnr || "—"})</div>
-          <div class="timeline-detail-item">Departure: <strong>${f.departTime || "—"}</strong> | Arrival: <strong>${f.arrivalTime || "—"}</strong></div>
-          <div class="timeline-detail-item">Class: <strong>${f.flightClass || "Economy"}</strong> | Baggage: <strong>${f.baggage || "23 KG"}</strong></div>
-        `,
-        notes: f.notes,
-        // Tag each flight with its sorted index so layovers can reference it
-        flightIdx: idx,
+    // 2. Sort flights within each group chronologically
+    Object.keys(flightGroups).forEach((key) => {
+      flightGroups[key].sort((a: any, b: any) => {
+        const dA = new Date(a.date).getTime();
+        const dB = new Date(b.date).getTime();
+        if (dA !== dB) return dA - dB;
+        const parseTime = (s: string) => {
+          if (!s) return 0;
+          const t = s.trim().toUpperCase();
+          const isPM = t.includes("P");
+          const isAM = t.includes("A");
+          let raw = t.replace(/[APM:\s]/g, "");
+          if (raw.length === 3) raw = "0" + raw;
+          if (raw.length < 4) return 0;
+          let h = parseInt(raw.substring(0, 2), 10);
+          const m = parseInt(raw.substring(2, 4), 10);
+          if (isPM && h < 12) h += 12;
+          if (isAM && h === 12) h = 0;
+          return h * 60 + (isNaN(m) ? 0 : m);
+        };
+        return parseTime(a.departTime) - parseTime(b.departTime);
       });
+    });
 
-      if (isConnecting && layoverStr) {
-        const layoverDate = f.date
-          ? new Date(new Date(f.date).getTime() + 1000)
-          : new Date(new Date(booking.createdAt).getTime() + 1000);
+    // 3. Order the groups by earliest departure date
+    const sortedPnrKeys = Object.keys(flightGroups).sort((keyA, keyB) => {
+      if (keyA === "No PNR Assigned") return 1;
+      if (keyB === "No PNR Assigned") return -1;
+      return (
+        new Date(flightGroups[keyA][0].date).getTime() -
+        new Date(flightGroups[keyB][0].date).getTime()
+      );
+    });
+
+    // 4. Push each group with a header separator item
+    const multipleGroups = sortedPnrKeys.length > 1;
+    sortedPnrKeys.forEach((pnrKey) => {
+      const groupFlights = flightGroups[pnrKey];
+
+      // Track the global flight index offset so layover afterFlightIdx is correct
+      // Must be computed BEFORE pushing the PNR_HEADER so the header knows which flight follows it
+      const groupFlightStartIdx = items.filter(
+        (i: any) => i.type === "FLIGHT"
+      ).length;
+
+      // Insert a PNR_HEADER divider if there are multiple PNR groups
+      if (multipleGroups) {
+        const firstFlight = groupFlights[0];
         items.push({
-          type: "LAYOVER",
-          date: layoverDate,
-          title: `Transit Connection at ${transitHub}`,
-          icon: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="display:block; color:#D97706;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
-          badgeClass: "layover",
-          details: `Connection layover of <strong>${layoverStr}</strong> before the next flight.`,
-          notes: "",
-          isLayoverCard: true,
-          // Remember which flight index this layover follows
-          afterFlightIdx: idx,
+          type: "PNR_HEADER",
+          date: firstFlight.date
+            ? new Date(firstFlight.date)
+            : new Date(booking.createdAt),
+          pnrKey,
+          phase: 3.5, // between visa/special and flights
+          // Anchor this header before the flight with this global index
+          _firstFlightGlobalIdx: groupFlightStartIdx,
         });
       }
+
+      groupFlights.forEach((f: any, idx: number) => {
+        const nextFlight = groupFlights[idx + 1];
+        const isConnecting = getIsConnecting(f, nextFlight);
+        const layoverStr =
+          isConnecting && nextFlight ? calculateLayover(f, nextFlight) : "";
+
+        const extractCode = (str: string) => {
+          const match = str.match(/\(([^)]+)\)/);
+          return match ? match[1].toUpperCase() : str.toUpperCase();
+        };
+        const transitHub = extractCode(f.arrivedAt || "");
+
+        const globalFlightIdx = groupFlightStartIdx + idx;
+
+        items.push({
+          type: "FLIGHT",
+          date: f.date ? new Date(f.date) : new Date(booking.createdAt),
+          title: `${f.flightType || "Outbound"} Flight: ${f.departedFrom} to ${f.arrivedAt}`,
+          icon: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-1.1.1-1.4.5l-.3.3c-.4.4-.4 1.1 0 1.5L9 12l-5.5 5.5H2v2l2 2h2v-1.5L11.5 15l3.5 5.7c.4.4 1.1.4 1.5 0l.3-.3c.4-.3.6-.9.5-1.4Z"/></svg>`,
+          badgeClass: "flight",
+          details: `
+            <div class="timeline-detail-item">Flight: <strong>${f.flightNo}</strong> (PNR: ${f.pnr || "—"})</div>
+            <div class="timeline-detail-item">Departure: <strong>${f.departTime || "—"}</strong> | Arrival: <strong>${f.arrivalTime || "—"}</strong></div>
+            <div class="timeline-detail-item">Class: <strong>${f.flightClass || "Economy"}</strong> | Baggage: <strong>${f.baggage || "23 KG"}</strong></div>
+          `,
+          notes: f.notes,
+          // Tag each flight with its global index so layovers can reference it
+          flightIdx: globalFlightIdx,
+        });
+
+        if (isConnecting && layoverStr) {
+          const layoverDate = f.date
+            ? new Date(new Date(f.date).getTime() + 1000)
+            : new Date(new Date(booking.createdAt).getTime() + 1000);
+          items.push({
+            type: "LAYOVER",
+            date: layoverDate,
+            title: `Transit Connection at ${transitHub}`,
+            icon: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="display:block; color:#D97706;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+            badgeClass: "layover",
+            details: `Connection layover of <strong>${layoverStr}</strong> before the next flight.`,
+            notes: "",
+            isLayoverCard: true,
+            // Match against the global flight index
+            afterFlightIdx: globalFlightIdx,
+          });
+        }
+      });
     });
   }
 
@@ -677,10 +750,13 @@ function generateTimelineHtml(booking: any): string {
     return `<div class="text-center" style="color: #64748B; padding: 24px; background: #F8FAFC; border: 1px dashed #E2E8F0; border-radius: 8px;">No travel itinerary components registered.</div>`;
   }
 
-  // Separate layover cards from regular items so that chronological sort
-  // does not move them away from their adjacent flight segments.
+  // Separate layover cards AND PNR headers from regular items so that
+  // chronological sort does not displace them from their adjacent segments.
   const layoverCards = items.filter((i) => i.isLayoverCard);
-  const regularItems = items.filter((i) => !i.isLayoverCard);
+  const pnrHeaders = items.filter((i) => i.type === "PNR_HEADER");
+  const regularItems = items.filter(
+    (i) => !i.isLayoverCard && i.type !== "PNR_HEADER"
+  );
 
   // 1. Assign a base sorting date, parse exact time if available, and assign fallback phase
   regularItems.forEach((item) => {
@@ -722,19 +798,26 @@ function generateTimelineHtml(booking: any): string {
   });
 
   // Re-insert each layover card immediately AFTER the flight it belongs to.
-  // Each layover card carries `afterFlightIdx` — the sorted index of the flight
-  // it should follow — so matching is purely by index, immune to same-day dates.
+  // Re-insert each PNR header immediately BEFORE the first flight of its group.
+  // Both use the global flightIdx to anchor themselves correctly.
   const orderedItems: any[] = [];
   let orderedFlightCount = 0;
   regularItems.forEach((item) => {
-    orderedItems.push(item);
     if (item.type === "FLIGHT") {
       const currentFlightIdx = orderedFlightCount;
+      // Insert PNR header before this flight if one is "anchored" before its first flight
+      // (a PNR header appears before the first flight that has flightIdx === this flight's flightIdx)
+      pnrHeaders
+        .filter((ph) => ph._firstFlightGlobalIdx === currentFlightIdx)
+        .forEach((ph) => orderedItems.push(ph));
+      orderedItems.push(item);
       orderedFlightCount++;
       // Insert any layover card whose `afterFlightIdx` matches this flight
       layoverCards
         .filter((lc) => lc.afterFlightIdx === currentFlightIdx)
         .forEach((lc) => orderedItems.push(lc));
+    } else {
+      orderedItems.push(item);
     }
   });
 
@@ -742,6 +825,19 @@ function generateTimelineHtml(booking: any): string {
     <div class="timeline-container">
       ${orderedItems
         .map((item) => {
+          if (item.type === "PNR_HEADER") {
+            const label =
+              item.pnrKey === "No PNR Assigned"
+                ? "No PNR Assigned"
+                : `Journey · PNR: <strong style="color:#0F172A;">${item.pnrKey}</strong>`;
+            return `
+              <div style="display:flex; align-items:center; gap:8px; margin: 16px 0 8px; padding: 6px 12px; background: linear-gradient(90deg,#EFF6FF,#F8FAFC); border-left: 3px solid #3B82F6; border-radius: 0 6px 6px 0;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-1.1.1-1.4.5l-.3.3c-.4.4-.4 1.1 0 1.5L9 12l-5.5 5.5H2v2l2 2h2v-1.5L11.5 15l3.5 5.7c.4.4 1.1.4 1.5 0l.3-.3c.4-.3.6-.9.5-1.4Z"/></svg>
+                <span style="font-size:10px; font-weight:700; color:#1E40AF; text-transform:uppercase; letter-spacing:0.06em;">${label}</span>
+              </div>
+            `;
+          }
+
           if (item.isLayoverCard) {
             return `
               <div class="timeline-item">

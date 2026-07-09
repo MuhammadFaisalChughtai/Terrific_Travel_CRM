@@ -43,6 +43,8 @@ interface FlightServiceItem {
   combinedRoute?: string;
   segmentsCount?: number;
   isDone?: boolean;
+  status?: string;
+  pnrMissing?: boolean;
 }
 
 interface AccommodationServiceItem {
@@ -126,12 +128,7 @@ export default function BookedServicesPage() {
 
   const isFlightPnrMissing = (flight: FlightServiceItem) => {
     if (flight.isDone) return false;
-    return (
-      !flight.pnr ||
-      flight.pnr.trim() === "" ||
-      flight.pnr.toLowerCase() === "pending" ||
-      flight.pnr.toLowerCase() === "n/a"
-    );
+    return !!flight.pnrMissing;
   };
 
   const isHotelResMissing = (hotel: AccommodationServiceItem) => {
@@ -524,8 +521,21 @@ export default function BookedServicesPage() {
                             {formatDate(flight.date)}
                             {getDaysLeftLabel(flight.date)}
                           </td>
-                          <td className="px-4 py-3 font-semibold text-foreground">
-                            {flight.flightNo}
+                          <td className="px-4 py-3">
+                            <div className="font-semibold text-foreground">
+                              {flight.flightNo}
+                            </div>
+                            <div className="mt-1 flex items-center gap-1.5">
+                              {flight.status === "CANCELLED" ? (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-900/50 uppercase">
+                                  Cancelled
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-900/50 uppercase">
+                                  Confirmed
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="px-4 py-3 text-foreground font-medium">
                             {flight.combinedRoute ? (
@@ -556,15 +566,23 @@ export default function BookedServicesPage() {
                             )}
                           </td>
                           <td className="px-4 py-3">
-                            {pnrMissing ? (
+                            {!flight.pnr ? (
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/15 text-rose-600 dark:text-rose-400">
                                 <AlertTriangle size={10} />
                                 MISSING PNR
                               </span>
                             ) : (
-                              <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 tracking-wider">
-                                {flight.pnr}
-                              </span>
+                              <div className="flex flex-col gap-1">
+                                <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 tracking-wider block">
+                                  {flight.pnr}
+                                </span>
+                                {flight.pnrMissing && (
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-rose-500/15 text-rose-600 dark:text-rose-400 w-max uppercase">
+                                    <AlertTriangle size={9} />
+                                    Missing other PNR
+                                  </span>
+                                )}
+                              </div>
                             )}
                           </td>
                           <td className="px-4 py-3 text-muted-foreground">

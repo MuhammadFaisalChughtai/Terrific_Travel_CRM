@@ -1747,8 +1747,25 @@ export default function BookingManager({
                 <div className="space-y-2">
                   {booking.flightServices?.length > 0 ? (
                     (() => {
-                      const sortedFlights = [...booking.flightServices].sort(
-                        (a: any, b: any) => {
+                      // 1. Group flight segments by PNR (case-insensitive, fallback to "No PNR Assigned" if empty)
+                      const groups: { [key: string]: any[] } = {};
+                      booking.flightServices.forEach((fs: any) => {
+                        const rawPnr = (fs.pnr || "").trim();
+                        const pnrKey =
+                          !rawPnr ||
+                          rawPnr.toLowerCase() === "pending" ||
+                          rawPnr.toLowerCase() === "n/a"
+                            ? "No PNR Assigned"
+                            : rawPnr.toUpperCase();
+                        if (!groups[pnrKey]) {
+                          groups[pnrKey] = [];
+                        }
+                        groups[pnrKey].push(fs);
+                      });
+
+                      // Helper to sort flights chronologically
+                      const sortFlightsChronologically = (flights: any[]) => {
+                        return [...flights].sort((a: any, b: any) => {
                           const dateA = new Date(a.date).getTime();
                           const dateB = new Date(b.date).getTime();
                           if (dateA !== dateB) return dateA - dateB;
@@ -1769,237 +1786,229 @@ export default function BookingManager({
                           };
 
                           return parseTime(a.departTime) - parseTime(b.departTime);
-                        }
-                      );
-                      return sortedFlights.map((fs: any, idx: number) => {
-                        const nextFlight = sortedFlights[idx + 1];
-                        const isConnecting = getIsConnectingFlight(
-                          fs,
-                          nextFlight,
-                        );
-                        const layoverTime = isConnecting
-                          ? calculateLayoverTime(fs, nextFlight)
-                          : "";
+                        });
+                      };
 
-                        // Extract codes for simple display in layover text
-                        const extractCode = (str: string) => {
-                          const match = str.match(/\(([^)]+)\)/);
-                          return match
-                            ? match[1].toUpperCase()
-                            : str.toUpperCase();
-                        };
-                        const transitHub = extractCode(fs.arrivedAt || "");
+                      // 2. Sort flights inside each group
+                      const sortedGroups: { [key: string]: any[] } = {};
+                      Object.keys(groups).forEach((key) => {
+                        sortedGroups[key] = sortFlightsChronologically(groups[key]);
+                      });
 
+                      // 3. Sort PNR groups by the earliest flight date/time of the group
+                      const sortedPnrKeys = Object.keys(sortedGroups).sort((keyA, keyB) => {
+                        if (keyA === "No PNR Assigned") return 1;
+                        if (keyB === "No PNR Assigned") return -1;
+                        
+                        const dateA = new Date(sortedGroups[keyA][0].date).getTime();
+                        const dateB = new Date(sortedGroups[keyB][0].date).getTime();
+                        return dateA - dateB;
+                      });
+
+                      // 4. Render the groups
+                      return sortedPnrKeys.map((pnrKey) => {
+                        const sortedFlights = sortedGroups[pnrKey];
                         return (
-                          <React.Fragment key={fs.id}>
-                            {/* Improved Flight Card */}
-                            <div className="border border-border bg-gradient-to-r from-card to-secondary/10 rounded-xl p-3.5 flex justify-between items-center gap-3 hover:border-primary/30 transition-all text-[12px] shadow-sm relative overflow-hidden group">
-                              {/* Left Accent line if it is part of a connection */}
-                              {isConnecting && (
-                                <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-500"></div>
-                              )}
-                              {idx > 0 &&
-                                getIsConnectingFlight(
-                                  sortedFlights[idx - 1],
-                                  fs,
-                                ) && (
-                                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-sky-500"></div>
+                          <div key={pnrKey} className="space-y-2 border-b border-border/40 pb-3 last:border-0 last:pb-0">
+                            {/* PNR Header */}
+                            <div className="flex items-center justify-between bg-secondary/30 px-3 py-1.5 rounded-lg border border-border/50">
+                              <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse"></span>
+                                {pnrKey === "No PNR Assigned" ? (
+                                  "No PNR Assigned"
+                                ) : (
+                                  <>
+                                    PNR Journey: <strong className="text-foreground">{pnrKey}</strong>
+                                  </>
                                 )}
-
-                              <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 bg-primary/5 text-primary border border-primary/10 rounded-xl flex items-center justify-center font-bold text-[11px] shadow-inner">
-                                  <Plane
-                                    size={14}
-                                    className="text-primary group-hover:rotate-12 transition-transform"
-                                  />
-                                </div>
-                                <div>
-                                  <div className="flex items-center gap-1.5">
-                                    <h4 className="font-extrabold text-foreground text-[14px] tracking-tight">
-                                      {fs.flightNo}
-                                    </h4>
-                                    <span className="text-[9px] bg-secondary text-muted-foreground border-border px-1.5 py-0.5 rounded font-extrabold uppercase border">
-                                      {fs.flightClass || "Y"}
-                                    </span>
-                                    {fs.status === "CANCELLED" && (
-                                      <span className="text-[9px] bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-900/50 px-1.5 py-0.5 rounded font-black uppercase">
-                                        Cancelled
-                                      </span>
-                                    )}
-                                    {isConnecting && (
-                                      <span className="text-[9px] bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded font-black uppercase">
-                                        Connecting
-                                      </span>
-                                    )}
-                                  </div>
-                                  <p className="text-[10px] text-muted-foreground mt-0.5 font-mono">
-                                    PNR:{" "}
-                                    <strong className="text-foreground font-bold">
-                                      {fs.pnr || "—"}
-                                    </strong>
-                                  </p>
-                                  {fs.date && (
-                                    <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1 font-medium">
-                                      <span>Date:</span>
-                                      <strong className="text-foreground">
-                                        {new Date(fs.date).toLocaleDateString(
-                                          "en-US",
-                                          {
-                                            month: "short",
-                                            day: "2-digit",
-                                            year: "numeric",
-                                          },
-                                        )}
-                                      </strong>
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* Flight route & schedule segment */}
-                              <div className="flex items-center gap-4 flex-1 justify-center max-w-md">
-                                <div className="text-right flex-1">
-                                  <p className="font-extrabold text-foreground text-[14px]">
-                                    {fs.departTime || "—"}
-                                  </p>
-                                  <p
-                                    className="text-[10px] text-muted-foreground font-extrabold tracking-wide uppercase truncate max-w-[150px]"
-                                    title={fs.departedFrom}
-                                  >
-                                    {fs.departedFrom}
-                                    {(() => {
-                                      if (fs.notes) {
-                                        try {
-                                          const parsed = JSON.parse(fs.notes);
-                                          if (parsed.depTerminal) {
-                                            return (
-                                              <span className="text-[8px] bg-rose-50 text-rose-600 px-1 py-0.5 rounded font-black ml-1 uppercase border border-rose-200">
-                                                T{parsed.depTerminal}
-                                              </span>
-                                            );
-                                          }
-                                        } catch (e) {}
-                                      }
-                                      return null;
-                                    })()}
-                                  </p>
-                                </div>
-                                <div className="flex flex-col items-center w-16 relative">
-                                  <div className="h-[2px] w-full bg-gradient-to-r from-primary/10 via-primary/30 to-primary/10 absolute top-1/2 -translate-y-1/2"></div>
-                                  <PlaneTakeoff
-                                    size={12}
-                                    className="text-primary absolute top-1/2 -translate-y-1/2 bg-card p-0.5 rounded-full border border-border shadow-sm group-hover:translate-x-1 transition-transform"
-                                  />
-                                </div>
-                                <div className="text-left flex-1">
-                                  <p className="font-extrabold text-foreground text-[14px]">
-                                    {fs.arrivalTime || "—"}
-                                  </p>
-                                  <p
-                                    className="text-[10px] text-muted-foreground font-extrabold tracking-wide uppercase truncate max-w-[150px]"
-                                    title={fs.arrivedAt}
-                                  >
-                                    {fs.arrivedAt}
-                                    {(() => {
-                                      if (fs.notes) {
-                                        try {
-                                          const parsed = JSON.parse(fs.notes);
-                                          if (parsed.arrTerminal) {
-                                            return (
-                                              <span className="text-[8px] bg-rose-50 text-rose-600 px-1 py-0.5 rounded font-black ml-1 uppercase border border-rose-200">
-                                                T{parsed.arrTerminal}
-                                              </span>
-                                            );
-                                          }
-                                        } catch (e) {}
-                                      }
-                                      return null;
-                                    })()}
-                                  </p>
-                                </div>
-                              </div>
-
-                              {/* Price & Actions */}
-                              <div className="text-right flex items-center gap-3">
-                                <div className="text-right">
-                                  <p className="font-black text-foreground text-[15px] tracking-tight">
-                                    {formatCurrency(fs.price)}
-                                  </p>
-                                  {fs.baggage && (
-                                    <p className="text-[9px] text-muted-foreground font-bold uppercase mt-0.5">
-                                      🎒 {fs.baggage}
-                                    </p>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-1 border-l border-border/80 pl-2">
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setPrintTicketSelectedFlight(fs);
-                                      setPrintTicketSelectedPassenger("all");
-                                      setIsPrintTicketModalOpen(true);
-                                    }}
-                                    className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-emerald-600 transition-all cursor-pointer"
-                                    title="Print E-Ticket"
-                                  >
-                                    <Printer size={13} />
-                                  </button>
-                                  {isOwner && (
-                                    <>
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setEditingFlight(fs);
-                                          setPnrModalStep("form");
-                                          setIsPnrModalOpen(true);
-                                        }}
-                                        className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-primary transition-all cursor-pointer"
-                                        title="Edit Flight"
-                                      >
-                                        <Pencil size={13} />
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleDeleteFlight(fs.id);
-                                        }}
-                                        className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-rose-600 transition-all cursor-pointer"
-                                        title="Delete Flight"
-                                      >
-                                        <Trash2 size={13} />
-                                      </button>
-                                    </>
-                                  )}
-                                </div>
-                              </div>
+                              </span>
+                              <span className="text-[9px] bg-primary/10 text-primary px-2 py-0.5 rounded-md font-extrabold uppercase">
+                                {sortedFlights.length} {sortedFlights.length === 1 ? "segment" : "segments"}
+                              </span>
                             </div>
 
-                            {/* Layover Connector Strip if next segment exists */}
-                            {isConnecting && (
-                              <div className="flex items-center justify-center py-2 relative my-1">
-                                <div className="absolute left-1/2 -translate-x-1/2 top-0 bottom-0 w-[2px] bg-gradient-to-b from-amber-500 to-sky-500 opacity-30 z-0"></div>
-                                <div className="flex items-center gap-1.5 px-4 py-1.5 bg-amber-50/90 border border-amber-200/80 rounded-full text-amber-800 text-[10.5px] font-bold shadow-sm relative z-10 hover:scale-[1.02] transition-transform backdrop-blur-sm">
-                                  <Clock
-                                    size={12}
-                                    className="text-amber-600 animate-pulse"
-                                  />
-                                  <span>
-                                    Layover:{" "}
-                                    <strong className="text-amber-950 font-black">
-                                      {layoverTime}
-                                    </strong>{" "}
-                                    in transit at{" "}
-                                    <strong className="text-amber-950 font-black">
-                                      {transitHub}
-                                    </strong>
-                                  </span>
-                                </div>
-                              </div>
-                            )}
-                          </React.Fragment>
+                            {/* Group Segment Cards */}
+                            <div className="space-y-2 pl-1">
+                              {sortedFlights.map((fs: any, idx: number) => {
+                                const nextFlight = sortedFlights[idx + 1];
+                                const isConnecting = getIsConnectingFlight(fs, nextFlight);
+                                const layoverTime = isConnecting ? calculateLayoverTime(fs, nextFlight) : "";
+
+                                const extractCode = (str: string) => {
+                                  const match = str.match(/\(([^)]+)\)/);
+                                  return match ? match[1].toUpperCase() : str.toUpperCase();
+                                };
+                                const transitHub = extractCode(fs.arrivedAt || "");
+
+                                return (
+                                  <React.Fragment key={fs.id}>
+                                    <div className="border border-border bg-gradient-to-r from-card to-secondary/10 rounded-xl p-3.5 flex justify-between items-center gap-3 hover:border-primary/30 transition-all text-[12px] shadow-sm relative overflow-hidden group">
+                                      {isConnecting && (
+                                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-500"></div>
+                                      )}
+                                      {idx > 0 && getIsConnectingFlight(sortedFlights[idx - 1], fs) && (
+                                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-sky-500"></div>
+                                      )}
+
+                                      <div className="flex items-center gap-3">
+                                        <div className="w-9 h-9 bg-primary/5 text-primary border border-primary/10 rounded-xl flex items-center justify-center font-bold text-[11px] shadow-inner">
+                                          <Plane size={14} className="text-primary group-hover:rotate-12 transition-transform" />
+                                        </div>
+                                        <div>
+                                          <div className="flex items-center gap-1.5">
+                                            <h4 className="font-extrabold text-foreground text-[14px] tracking-tight">
+                                              {fs.flightNo}
+                                            </h4>
+                                            <span className="text-[9px] bg-secondary text-muted-foreground border-border px-1.5 py-0.5 rounded font-extrabold uppercase border">
+                                              {fs.flightClass || "Y"}
+                                            </span>
+                                            {fs.status === "CANCELLED" && (
+                                              <span className="text-[9px] bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-900/50 px-1.5 py-0.5 rounded font-black uppercase">
+                                                Cancelled
+                                              </span>
+                                            )}
+                                            {isConnecting && (
+                                              <span className="text-[9px] bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded font-black uppercase">
+                                                Connecting
+                                              </span>
+                                            )}
+                                          </div>
+                                          <p className="text-[10px] text-muted-foreground mt-0.5 font-mono">
+                                            PNR: <strong className="text-foreground font-bold">{fs.pnr || "—"}</strong>
+                                          </p>
+                                          {fs.date && (
+                                            <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1 font-medium">
+                                              <span>Date:</span>
+                                              <strong className="text-foreground">
+                                                {new Date(fs.date).toLocaleDateString("en-US", {
+                                                  month: "short",
+                                                  day: "2-digit",
+                                                  year: "numeric",
+                                                })}
+                                              </strong>
+                                            </p>
+                                          )}
+                                        </div>
+                                      </div>
+
+                                      <div className="flex items-center gap-4 flex-1 justify-center max-w-md">
+                                        <div className="text-right flex-1">
+                                          <p className="font-extrabold text-foreground text-[14px]">{fs.departTime || "—"}</p>
+                                          <p className="text-[10px] text-muted-foreground font-extrabold tracking-wide uppercase truncate max-w-[150px]" title={fs.departedFrom}>
+                                            {fs.departedFrom}
+                                            {(() => {
+                                              if (fs.notes) {
+                                                try {
+                                                  const parsed = JSON.parse(fs.notes);
+                                                  if (parsed.depTerminal) {
+                                                    return (
+                                                      <span className="text-[8px] bg-rose-50 text-rose-600 px-1 py-0.5 rounded font-black ml-1 uppercase border border-rose-200">
+                                                        T{parsed.depTerminal}
+                                                      </span>
+                                                    );
+                                                  }
+                                                } catch (e) {}
+                                              }
+                                              return null;
+                                            })()}
+                                          </p>
+                                        </div>
+                                        <div className="flex flex-col items-center w-16 relative">
+                                          <div className="h-[2px] w-full bg-gradient-to-r from-primary/10 via-primary/30 to-primary/10 absolute top-1/2 -translate-y-1/2"></div>
+                                          <PlaneTakeoff size={12} className="text-primary absolute top-1/2 -translate-y-1/2 bg-card p-0.5 rounded-full border border-border shadow-sm group-hover:translate-x-1 transition-transform" />
+                                        </div>
+                                        <div className="text-left flex-1">
+                                          <p className="font-extrabold text-foreground text-[14px]">{fs.arrivalTime || "—"}</p>
+                                          <p className="text-[10px] text-muted-foreground font-extrabold tracking-wide uppercase truncate max-w-[150px]" title={fs.arrivedAt}>
+                                            {fs.arrivedAt}
+                                            {(() => {
+                                              if (fs.notes) {
+                                                try {
+                                                  const parsed = JSON.parse(fs.notes);
+                                                  if (parsed.arrTerminal) {
+                                                    return (
+                                                      <span className="text-[8px] bg-rose-50 text-rose-600 px-1 py-0.5 rounded font-black ml-1 uppercase border border-rose-200">
+                                                        T{parsed.arrTerminal}
+                                                      </span>
+                                                    );
+                                                  }
+                                                } catch (e) {}
+                                              }
+                                              return null;
+                                            })()}
+                                          </p>
+                                        </div>
+                                      </div>
+
+                                      <div className="text-right flex items-center gap-3">
+                                        <div className="text-right">
+                                          <p className="font-black text-foreground text-[15px] tracking-tight">{formatCurrency(fs.price)}</p>
+                                          {fs.baggage && (
+                                            <p className="text-[9px] text-muted-foreground font-bold uppercase mt-0.5">🎒 {fs.baggage}</p>
+                                          )}
+                                        </div>
+                                        <div className="flex items-center gap-1 border-l border-border/80 pl-2">
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setPrintTicketSelectedFlight(fs);
+                                              setPrintTicketSelectedPassenger("all");
+                                              setIsPrintTicketModalOpen(true);
+                                            }}
+                                            className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-emerald-600 transition-all cursor-pointer"
+                                            title="Print E-Ticket"
+                                          >
+                                            <Printer size={13} />
+                                          </button>
+                                          {isOwner && (
+                                            <>
+                                              <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  setEditingFlight(fs);
+                                                  setPnrModalStep("form");
+                                                  setIsPnrModalOpen(true);
+                                                }}
+                                                className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-primary transition-all cursor-pointer"
+                                                title="Edit Flight"
+                                              >
+                                                <Pencil size={13} />
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  handleDeleteFlight(fs.id);
+                                                }}
+                                                className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-rose-600 transition-all cursor-pointer"
+                                                title="Delete Flight"
+                                              >
+                                                <Trash2 size={13} />
+                                              </button>
+                                            </>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    {isConnecting && (
+                                      <div className="flex items-center justify-center py-2 relative my-1">
+                                        <div className="absolute left-1/2 -translate-x-1/2 top-0 bottom-0 w-[2px] bg-gradient-to-b from-amber-500 to-sky-500 opacity-30 z-0"></div>
+                                        <div className="flex items-center gap-1.5 px-4 py-1.5 bg-amber-50/90 border border-amber-200/80 rounded-full text-amber-800 text-[10.5px] font-bold shadow-sm relative z-10 hover:scale-[1.02] transition-transform backdrop-blur-sm">
+                                          <Clock size={12} className="text-amber-600 animate-pulse" />
+                                          <span>
+                                            Transit Time: <strong className="text-amber-950 font-black">{layoverTime}</strong> in transit at <strong className="text-amber-950 font-black">{transitHub}</strong>
+                                          </span>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </React.Fragment>
+                                );
+                              })}
+                            </div>
+                          </div>
                         );
                       });
                     })()

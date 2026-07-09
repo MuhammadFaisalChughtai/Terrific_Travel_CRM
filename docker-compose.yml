@@ -134,9 +134,6 @@ services:
     build:
       context: .
       dockerfile: docker/frontend/Dockerfile.prod
-      args:
-        CURRENCY: ${CURRENCY:-GBP}
-        CURRENCY_SYMBOL: ${CURRENCY_SYMBOL:-£}
     container_name: tms-frontend
     restart: always
     ports:

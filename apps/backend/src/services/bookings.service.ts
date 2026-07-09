@@ -2320,7 +2320,13 @@ export class BookingsService {
         const segments = b.flightServices;
         const firstSegment = segments[0] || {};
         
-        const pnrs = Array.from(new Set(segments.map((s: any) => s.pnr).filter((p: any) => p && p.trim() !== '')));
+        const pnrs = Array.from(
+          new Set(
+            segments
+              .map((s: any) => s.pnr)
+              .filter((p: any) => p && p.trim() !== '' && p.toLowerCase() !== 'pending' && p.toLowerCase() !== 'n/a')
+          )
+        );
         const combinedPnr = pnrs.length > 0 ? pnrs.join(', ') : '';
 
         let combinedRoute = '';
@@ -2336,13 +2342,16 @@ export class BookingsService {
 
         const totalPrice = segments.reduce((sum: number, s: any) => sum + (s.price || 0), 0);
         const hasMissingPnr = segments.some((s: any) => !s.pnr || s.pnr.trim() === '' || s.pnr.toLowerCase() === 'pending' || s.pnr.toLowerCase() === 'n/a');
+        const hasCancelledSegment = segments.some((s: any) => s.status === 'CANCELLED');
+        const collapsedStatus = hasCancelledSegment ? 'CANCELLED' : 'CONFIRMED';
 
         return {
           id: b.id,
           bookingId: b.id,
           date: firstSegment.date || b.createdAt,
           flightNo: segments.map((s: any) => s.flightNo).join(', '),
-          pnr: hasMissingPnr ? '' : combinedPnr,
+          pnr: combinedPnr,
+          pnrMissing: hasMissingPnr,
           departedFrom: firstSegment.departedFrom || '',
           arrivedAt: segments[segments.length - 1]?.arrivedAt || '',
           departTime: firstSegment.departTime || '',
@@ -2357,7 +2366,8 @@ export class BookingsService {
           vendor: firstSegment.vendor,
           segmentsCount: segments.length,
           combinedRoute,
-          isDone: doneIds.includes(b.id)
+          isDone: doneIds.includes(b.id),
+          status: collapsedStatus
         };
       });
     }
