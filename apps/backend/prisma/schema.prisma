@@ -515,6 +515,7 @@ model FlightService {
   checkedBaggage       String?
   flightClass          String?
   notes                String?
+  status               String             @default("CONFIRMED")
 }
 
 model TransportService {

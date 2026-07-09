@@ -1818,13 +1818,14 @@ export default function BookingManager({
                                     <h4 className="font-extrabold text-foreground text-[14px] tracking-tight">
                                       {fs.flightNo}
                                     </h4>
-                                    <span className={`text-[9px] px-1.5 py-0.5 rounded font-extrabold uppercase border ${
-                                      fs.flightClass === "Cancelled"
-                                        ? "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-900/50"
-                                        : "bg-secondary text-muted-foreground border-border"
-                                    }`}>
+                                    <span className="text-[9px] bg-secondary text-muted-foreground border-border px-1.5 py-0.5 rounded font-extrabold uppercase border">
                                       {fs.flightClass || "Y"}
                                     </span>
+                                    {fs.status === "CANCELLED" && (
+                                      <span className="text-[9px] bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-900/50 px-1.5 py-0.5 rounded font-black uppercase">
+                                        Cancelled
+                                      </span>
+                                    )}
                                     {isConnecting && (
                                       <span className="text-[9px] bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded font-black uppercase">
                                         Connecting

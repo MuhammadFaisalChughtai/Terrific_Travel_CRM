@@ -188,6 +188,7 @@ export default function PnrFlightModal({
   const [date, setDate] = useState('');
   const [arrivalDate, setArrivalDate] = useState('');
   const [flightClass, setFlightClass] = useState('Economy Class');
+  const [status, setStatus] = useState('CONFIRMED');
   const [price, setPrice] = useState('0');
   const [baggage, setBaggage] = useState('23 KG');
   const [carryOnBaggage, setCarryOnBaggage] = useState('7 KG');
@@ -286,6 +287,7 @@ export default function PnrFlightModal({
           formattedIssueDate = `${yyyy}-${mm}-${dd}`;
         }
         setIssueDate(formattedIssueDate);
+        setStatus(flightToEdit.status || 'CONFIRMED');
       } else {
         setStep(initialStep);
         setPnrText('');
@@ -299,6 +301,7 @@ export default function PnrFlightModal({
         setDate('');
         setArrivalDate('');
         setFlightClass('Economy Class');
+        setStatus('CONFIRMED');
         setPrice('0');
         setBaggage('23 KG');
         setCarryOnBaggage('7 KG');
@@ -547,6 +550,7 @@ export default function PnrFlightModal({
         checkedBaggage: checkedBaggage || null,
         notes: notesJson,
         issueDate: issueDate ? new Date(issueDate).toISOString() : null,
+        status,
       };
 
       if (flightToEdit) {
@@ -573,6 +577,7 @@ export default function PnrFlightModal({
       setDate('');
       setArrivalDate('');
       setFlightClass('Y');
+      setStatus('CONFIRMED');
       setPrice('0');
       setBaggage('');
       setCarryOnBaggage('');
@@ -998,7 +1003,21 @@ export default function PnrFlightModal({
                     <option value="Premium Economy Class">Premium Economy Class</option>
                     <option value="Business Class">Business Class</option>
                     <option value="First Class">First Class</option>
-                    <option value="Cancelled">Cancelled</option>
+                  </select>
+                </div>
+
+                {/* Flight Status */}
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                    Flight Status
+                  </label>
+                  <select
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value)}
+                    className="text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                  >
+                    <option value="CONFIRMED">CONFIRMED</option>
+                    <option value="CANCELLED">CANCELLED</option>
                   </select>
                 </div>
 

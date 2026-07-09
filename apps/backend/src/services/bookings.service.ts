@@ -975,6 +975,7 @@ export class BookingsService {
         issueDate: data.issueDate ? new Date(data.issueDate) : null,
         refundAmount: Number(data.refundAmount) || 0,
         fineAmount: Number(data.fineAmount) || 0,
+        status: data.status || "CONFIRMED",
       },
       include: {
         vendor: true
@@ -1016,6 +1017,7 @@ export class BookingsService {
         issueDate: data.issueDate !== undefined ? (data.issueDate ? new Date(data.issueDate) : null) : undefined,
         refundAmount: data.refundAmount !== undefined ? (Number(data.refundAmount) || 0) : undefined,
         fineAmount: data.fineAmount !== undefined ? (Number(data.fineAmount) || 0) : undefined,
+        status: data.status !== undefined ? data.status : undefined,
       },
       include: {
         vendor: true
