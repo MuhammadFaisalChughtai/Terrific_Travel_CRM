@@ -134,6 +134,9 @@ services:
     build:
       context: .
       dockerfile: docker/frontend/Dockerfile.prod
+      args:
+        CURRENCY: ${CURRENCY:-GBP}
+        CURRENCY_SYMBOL: ${CURRENCY_SYMBOL:-£}
     container_name: tms-frontend
     restart: always
     ports:
@@ -143,8 +146,8 @@ services:
     environment:
       VITE_API_URL: /api
       VITE_BACKEND_URL: http://backend:3000
-      VITE_CURRENCY: ${CURRENCY:-USD}
-      VITE_CURRENCY_SYMBOL: ${CURRENCY_SYMBOL:-$}
+      VITE_CURRENCY: ${CURRENCY:-GBP}
+      VITE_CURRENCY_SYMBOL: ${CURRENCY_SYMBOL:-£}
     depends_on:
       - backend
 
