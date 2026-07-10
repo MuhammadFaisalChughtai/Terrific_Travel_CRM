@@ -36,6 +36,7 @@ interface FlightServiceItem {
     agent?: {
       name: string;
     } | null;
+    paymentStatus?: string;
   };
   vendor?: {
     name: string;
@@ -66,6 +67,7 @@ interface AccommodationServiceItem {
     agent?: {
       name: string;
     } | null;
+    paymentStatus?: string;
   };
   vendor?: {
     name: string;
@@ -126,6 +128,21 @@ export default function BookedServicesPage() {
   const [hotelsPage, setHotelsPage] = useState(1);
   const limit = 10;
 
+  const [selectedVendor, setSelectedVendor] = useState("");
+  const [vendorSortDir, setVendorSortDir] = useState<"asc" | "desc" | null>(null);
+
+  const handleToggleVendorSort = () => {
+    if (vendorSortDir === null) {
+      setVendorSortDir("asc");
+    } else if (vendorSortDir === "asc") {
+      setVendorSortDir("desc");
+    } else {
+      setVendorSortDir(null);
+    }
+    setFlightsPage(1);
+    setHotelsPage(1);
+  };
+
   const isFlightPnrMissing = (flight: FlightServiceItem) => {
     if (flight.isDone) return false;
     return !!flight.pnrMissing;
@@ -153,9 +170,25 @@ export default function BookedServicesPage() {
     }
   };
 
+  // Fetch all vendors for the filter dropdown
+  const { data: vendors } = useQuery({
+    queryKey: ["vendors-list-booked-services"],
+    queryFn: async () => {
+      const res = await apiClient.get("/vendors?limit=1000");
+      return res.data.data.items as any[];
+    },
+  });
+
   // Fetch Flights query
   const { data: flightsData, isLoading: flightsLoading } = useQuery({
-    queryKey: ["booked-flights", flightsPage, searchTerm, showMissingOnly],
+    queryKey: [
+      "booked-flights", 
+      flightsPage, 
+      searchTerm, 
+      showMissingOnly, 
+      selectedVendor, 
+      vendorSortDir
+    ],
     queryFn: async () => {
       const offset = (flightsPage - 1) * limit;
       const res = await apiClient.get(
@@ -167,6 +200,24 @@ export default function BookedServicesPage() {
       let items = data.items as FlightServiceItem[];
       if (showMissingOnly) {
         items = items.filter((f) => isFlightPnrMissing(f));
+      }
+
+      // Client-side filter for selected vendor
+      if (selectedVendor) {
+        items = items.filter((f) => f.vendor?.name === selectedVendor);
+      }
+
+      // Client-side sorting by vendor name
+      if (vendorSortDir) {
+        items.sort((a, b) => {
+          const nameA = a.vendor?.name || "";
+          const nameB = b.vendor?.name || "";
+          if (vendorSortDir === "asc") {
+            return nameA.localeCompare(nameB);
+          } else {
+            return nameB.localeCompare(nameA);
+          }
+        });
       }
 
       // Client-side pagination slice
@@ -181,7 +232,14 @@ export default function BookedServicesPage() {
 
   // Fetch Hotels query
   const { data: hotelsData, isLoading: hotelsLoading } = useQuery({
-    queryKey: ["booked-hotels", hotelsPage, searchTerm, showMissingOnly],
+    queryKey: [
+      "booked-hotels", 
+      hotelsPage, 
+      searchTerm, 
+      showMissingOnly, 
+      selectedVendor, 
+      vendorSortDir
+    ],
     queryFn: async () => {
       const offset = (hotelsPage - 1) * limit;
       const res = await apiClient.get(
@@ -195,6 +253,24 @@ export default function BookedServicesPage() {
         items = items.filter((h) => isHotelResMissing(h));
       }
 
+      // Client-side filter for selected vendor
+      if (selectedVendor) {
+        items = items.filter((h) => h.vendor?.name === selectedVendor);
+      }
+
+      // Client-side sorting by vendor name
+      if (vendorSortDir) {
+        items.sort((a, b) => {
+          const nameA = a.vendor?.name || "";
+          const nameB = b.vendor?.name || "";
+          if (vendorSortDir === "asc") {
+            return nameA.localeCompare(nameB);
+          } else {
+            return nameB.localeCompare(nameA);
+          }
+        });
+      }
+
       // Client-side pagination slice
       const paginatedItems = items.slice(offset, offset + limit);
       return {
@@ -203,9 +279,7 @@ export default function BookedServicesPage() {
       };
     },
     enabled: activeTab === "hotels",
-  });
-
-  // Aggregate totals (non-paginated quick counts)
+  });  // Aggregate totals (non-paginated quick counts)
   const { data: summaryCounts } = useQuery({
     queryKey: ["booked-services-summary"],
     queryFn: async () => {
@@ -303,6 +377,29 @@ export default function BookedServicesPage() {
     return (
       <span className="text-[10px] text-muted-foreground block mt-0.5">
         {diffDays} days left
+      </span>
+    );
+  };
+
+  const getPaymentStatusBadge = (status: string | undefined) => {
+    const s = (status || "UNPAID").toUpperCase();
+    if (s === "PAID") {
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 uppercase">
+          Paid
+        </span>
+      );
+    }
+    if (s === "PARTIALLY_PAID" || s === "PARTIAL") {
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20 uppercase">
+          Partial
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/20 uppercase">
+        Unpaid
       </span>
     );
   };
@@ -439,6 +536,24 @@ export default function BookedServicesPage() {
             {showMissingOnly ? "Showing Missing Only" : "Show Missing Only"}
           </button>
 
+          {/* Vendor Filter */}
+          <select
+            value={selectedVendor}
+            onChange={(e) => {
+              setSelectedVendor(e.target.value);
+              setFlightsPage(1);
+              setHotelsPage(1);
+            }}
+            className="px-3 py-1.5 bg-background border border-border rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-foreground min-w-[150px]"
+          >
+            <option value="">All Vendors</option>
+            {vendors?.map((v: any) => (
+              <option key={v.id} value={v.name}>
+                {v.name}
+              </option>
+            ))}
+          </select>
+
           {/* Search box */}
           <div className="relative w-64">
             <Search
@@ -479,8 +594,19 @@ export default function BookedServicesPage() {
                       <th className="px-4 py-3">Flight No</th>
                       <th className="px-4 py-3">Route</th>
                       <th className="px-4 py-3">PNR</th>
-                      <th className="px-4 py-3">Vendor</th>
+                      <th 
+                        className="px-4 py-3 cursor-pointer select-none hover:text-foreground transition-colors"
+                        onClick={handleToggleVendorSort}
+                      >
+                        <div className="flex items-center gap-1">
+                          Vendor
+                          {vendorSortDir === "asc" && <span className="text-[10px]">▲</span>}
+                          {vendorSortDir === "desc" && <span className="text-[10px]">▼</span>}
+                          {vendorSortDir === null && <span className="text-[10px] opacity-40">⇅</span>}
+                        </div>
+                      </th>
                       {!isAgentOnly && <th className="px-4 py-3">Agent</th>}
+                      <th className="px-4 py-3 text-center">Payment</th>
                       <th className="px-4 py-3 text-center">Fine</th>
                       <th className="px-4 py-3 text-right">Cost</th>
                       <th className="px-4 py-3 text-center">Actions</th>
@@ -594,6 +720,9 @@ export default function BookedServicesPage() {
                             </td>
                           )}
                           <td className="px-4 py-3 text-center">
+                            {getPaymentStatusBadge(flight.booking.paymentStatus)}
+                          </td>
+                          <td className="px-4 py-3 text-center">
                             <input
                               type="checkbox"
                               checked={!!flight.isDone}
@@ -664,8 +793,19 @@ export default function BookedServicesPage() {
                       <th className="px-4 py-3">Room Type</th>
                       <th className="px-4 py-3">Check-In / Out</th>
                       <th className="px-4 py-3">Reservation No</th>
-                      <th className="px-4 py-3">Vendor</th>
+                      <th 
+                        className="px-4 py-3 cursor-pointer select-none hover:text-foreground transition-colors"
+                        onClick={handleToggleVendorSort}
+                      >
+                        <div className="flex items-center gap-1">
+                          Vendor
+                          {vendorSortDir === "asc" && <span className="text-[10px]">▲</span>}
+                          {vendorSortDir === "desc" && <span className="text-[10px]">▼</span>}
+                          {vendorSortDir === null && <span className="text-[10px] opacity-40">⇅</span>}
+                        </div>
+                      </th>
                       {!isAgentOnly && <th className="px-4 py-3">Agent</th>}
+                      <th className="px-4 py-3 text-center">Payment</th>
                       <th className="px-4 py-3 text-center">Fine</th>
                       <th className="px-4 py-3 text-right">Cost</th>
                       <th className="px-4 py-3 text-center">Actions</th>
@@ -739,6 +879,9 @@ export default function BookedServicesPage() {
                               {hotel.booking.agent?.name || "-"}
                             </td>
                           )}
+                          <td className="px-4 py-3 text-center">
+                            {getPaymentStatusBadge(hotel.booking.paymentStatus)}
+                          </td>
                           <td className="px-4 py-3 text-center">
                             <input
                               type="checkbox"

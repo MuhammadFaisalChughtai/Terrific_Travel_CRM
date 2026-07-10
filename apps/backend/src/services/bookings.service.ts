@@ -2361,7 +2361,8 @@ export class BookingsService {
           booking: {
             bookingReference: b.bookingReference,
             agent: b.agent,
-            lockedStatus: b.lockedStatus
+            lockedStatus: b.lockedStatus,
+            paymentStatus: b.paymentStatus
           },
           vendor: firstSegment.vendor,
           segmentsCount: segments.length,
