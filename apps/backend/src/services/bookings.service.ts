@@ -753,10 +753,13 @@ export class BookingsService {
     // Recalculate payment status
     if (remainingAmount <= 0 && paidAmount > 0) {
       updateData.paymentStatus = 'PAID';
+      updateData.fullyPaidAt = booking.fullyPaidAt || new Date();
     } else if (paidAmount > 0) {
       updateData.paymentStatus = 'PARTIALLY_PAID';
+      updateData.fullyPaidAt = null;
     } else {
       updateData.paymentStatus = 'UNPAID';
+      updateData.fullyPaidAt = null;
     }
 
     const updated = await prisma.booking.update({

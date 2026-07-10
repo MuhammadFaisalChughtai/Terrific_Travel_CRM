@@ -152,8 +152,10 @@ export class PaymentsService {
             netTotalPrice - newPaidAmount,
           );
           let paymentStatus = "UNPAID";
+          let fullyPaidAt = null;
           if (newPaidAmount >= netTotalPrice) {
             paymentStatus = "PAID";
+            fullyPaidAt = booking.fullyPaidAt || new Date();
           } else if (newPaidAmount > 0) {
             paymentStatus = "PARTIALLY_PAID";
           }
@@ -166,6 +168,7 @@ export class PaymentsService {
               remainingAmount: newRemainingAmount,
               paidAmount: newPaidAmount,
               paymentStatus,
+              fullyPaidAt,
             },
           });
 
@@ -327,8 +330,10 @@ export class PaymentsService {
             netTotalPrice - newPaidAmount,
           );
           let paymentStatus = "UNPAID";
+          let fullyPaidAt = null;
           if (newPaidAmount >= netTotalPrice) {
             paymentStatus = "PAID";
+            fullyPaidAt = booking.fullyPaidAt || new Date();
           } else if (newPaidAmount > 0) {
             paymentStatus = "PARTIALLY_PAID";
           }
@@ -340,6 +345,7 @@ export class PaymentsService {
               remainingAmount: newRemainingAmount,
               paidAmount: newPaidAmount,
               paymentStatus,
+              fullyPaidAt,
             },
           });
 

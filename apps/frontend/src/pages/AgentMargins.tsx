@@ -33,6 +33,7 @@ export default function AgentMargins() {
   });
   const [agentId, setAgentId] = useState("all");
   const [status, setStatus] = useState("all");
+  const [dateType, setDateType] = useState("booking");
 
   const [searchQuery, setSearchQuery] = useState("");
   
@@ -55,7 +56,7 @@ export default function AgentMargins() {
 
   // Fetch margins
   const { data: marginsResult, isLoading } = useQuery({
-    queryKey: ["agent-margins", startDate, endDate, agentId, status, isAdmin, page],
+    queryKey: ["agent-margins", startDate, endDate, agentId, status, dateType, isAdmin, page],
     queryFn: async () => {
       if (!isAdmin) {
         const res = await apiClient.get("/agent-margins/my-margins");
@@ -67,6 +68,7 @@ export default function AgentMargins() {
       if (endDate) params.append("endDate", endDate);
       if (agentId !== "all") params.append("agentId", agentId);
       if (status !== "all") params.append("status", status);
+      if (dateType) params.append("dateType", dateType);
       params.append("limit", itemsPerPage.toString());
       params.append("offset", offset.toString());
       const res = await apiClient.get(`/agent-margins?${params.toString()}`);
@@ -179,6 +181,17 @@ export default function AgentMargins() {
             onChange={(e) => setEndDate(e.target.value)}
             className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-ring"
           />
+        </div>
+        <div className="flex-1 min-w-[150px]">
+          <label className="text-xs font-medium text-muted-foreground mb-1 block">Date Type</label>
+          <select
+            value={dateType}
+            onChange={(e) => setDateType(e.target.value)}
+            className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-ring"
+          >
+            <option value="booking">Booking Date</option>
+            <option value="fullyPaid">Fully Paid Date</option>
+          </select>
         </div>
         {isAdmin && (
           <div className="flex-1 min-w-[150px]">
@@ -339,6 +352,7 @@ export default function AgentMargins() {
           startDate={startDate}
           endDate={endDate}
           agentId={agentId}
+          dateType={dateType}
           onClose={() => setIsRecalculateModalOpen(false)}
         />
       )}

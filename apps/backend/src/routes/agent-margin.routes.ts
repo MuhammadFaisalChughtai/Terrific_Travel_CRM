@@ -6,7 +6,8 @@ import {
   markMarginAsPaid, 
   resetMarginPayment, 
   getMarginBookings,
-  getEligibleBookings
+  getEligibleBookings,
+  toggleMarginVoid
 } from '../controllers/agent-margin.controller';
 import { authMiddleware as authenticate } from '../middleware/auth.middleware';
 import { requireRoles as authorize } from '../middleware/rbac.middleware';
@@ -24,6 +25,7 @@ router.get('/eligible-bookings', authorize('SUPER_ADMIN', 'ADMIN'), getEligibleB
 router.post('/calculate', authorize('SUPER_ADMIN', 'ADMIN'), calculateAgentMargins);
 router.get('/', authorize('SUPER_ADMIN', 'ADMIN'), getAllAgentMargins);
 router.get('/:id/bookings', authorize('SUPER_ADMIN', 'ADMIN', 'AGENT'), getMarginBookings);
+router.patch('/bookings/:bookingId/toggle-void', authorize('SUPER_ADMIN', 'ADMIN'), toggleMarginVoid);
 router.put('/:id/pay', authorize('SUPER_ADMIN', 'ADMIN'), markMarginAsPaid);
 router.put('/:id/reset', authorize('SUPER_ADMIN', 'ADMIN'), resetMarginPayment);
 

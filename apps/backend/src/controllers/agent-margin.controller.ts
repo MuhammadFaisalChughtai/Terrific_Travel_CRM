@@ -4,13 +4,13 @@ import { asyncHandler } from '../middleware/async.middleware';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
 
 export const calculateAgentMargins = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  const { startDate, endDate, includedBookingIds, agentId } = req.body;
+  const { startDate, endDate, includedBookingIds, agentId, dateType } = req.body;
   
   if (!startDate || !endDate) {
     return res.status(400).json({ success: false, message: 'startDate and endDate are required' });
   }
 
-  const margins = await agentMarginService.calculateAgentMargins(startDate, endDate, includedBookingIds, agentId);
+  const margins = await agentMarginService.calculateAgentMargins(startDate, endDate, includedBookingIds, agentId, dateType);
   
   res.status(200).json({
     success: true,
@@ -20,7 +20,7 @@ export const calculateAgentMargins = asyncHandler(async (req: AuthenticatedReque
 });
 
 export const getEligibleBookings = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  const { startDate, endDate, agentId } = req.query;
+  const { startDate, endDate, agentId, dateType } = req.query;
   
   if (!startDate || !endDate) {
     return res.status(400).json({ success: false, message: 'startDate and endDate are required' });
@@ -29,7 +29,8 @@ export const getEligibleBookings = asyncHandler(async (req: AuthenticatedRequest
   const bookings = await agentMarginService.getEligibleBookings(
     startDate as string, 
     endDate as string,
-    agentId as string
+    agentId as string,
+    dateType as string
   );
   
   res.status(200).json({
@@ -92,5 +93,15 @@ export const getMarginBookings = asyncHandler(async (req: AuthenticatedRequest, 
   res.status(200).json({
     success: true,
     data: bookings
+  });
+});
+
+export const toggleMarginVoid = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { bookingId } = req.params;
+  const booking = await agentMarginService.toggleMarginVoid(bookingId);
+  res.status(200).json({
+    success: true,
+    data: booking,
+    message: 'Booking margin status successfully updated'
   });
 });

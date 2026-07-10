@@ -719,12 +719,12 @@ export default function BookingManager({
     (tx: any) => tx.paymentMethod === "AGENT PAYOUT" || tx.paymentMethod === "AGENT_PAYOUT"
   ) || (booking.agentMargin && booking.agentMargin.status === "PAID");
 
-  if (hasAgentPayout) {
+  if (hasAgentPayout || booking.agentMarginVoided) {
     agentMargin = 0;
   }
 
-  // Total Profit: subtract originalAgentMargin so we don't recalculate profit when payout is recorded
-  const profit = rawProfit - originalAgentMargin;
+  // Total Profit: if voided, company profit is the full rawProfit. Otherwise, subtract originalAgentMargin
+  const profit = booking.agentMarginVoided ? rawProfit : (rawProfit - originalAgentMargin);
 
   return (
     <Modal
@@ -1065,6 +1065,11 @@ export default function BookingManager({
                         {hasAgentPayout && (
                           <span className="text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide mt-0.5">
                             Paid
+                          </span>
+                        )}
+                        {booking.agentMarginVoided && (
+                          <span className="text-[10px] font-extrabold text-red-600 dark:text-red-400 uppercase tracking-wide mt-0.5">
+                            Voided / Not Qualify
                           </span>
                         )}
                       </div>

@@ -624,9 +624,9 @@ export default function Bookings() {
 
                       const hasAgentPayout = booking.transactions?.some(
                         (tx: any) => tx.paymentMethod === "AGENT PAYOUT" || tx.paymentMethod === "AGENT_PAYOUT"
-                      ) || (booking.agentMargin && booking.agentMargin.status === "PAID");
+                      ) || (booking.agentMargin && booking.agentMargin.status === "PAID") || booking.agentMarginVoided;
 
-                      if (hasAgentPayout && agentMargin !== null) {
+                      if ((hasAgentPayout || booking.agentMarginVoided) && agentMargin !== null) {
                         agentMargin = 0;
                       }
 

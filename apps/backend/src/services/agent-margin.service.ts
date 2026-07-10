@@ -2,31 +2,53 @@ import { prisma } from '../config';
 import createError from 'http-errors';
 
 export const agentMarginService = {
-  async getEligibleBookings(startDate: string, endDate: string, agentId?: string) {
+  async getEligibleBookings(startDate: string, endDate: string, agentId?: string, dateType?: string) {
     const start = new Date(startDate);
     const end = new Date(endDate);
     end.setHours(23, 59, 59, 999);
 
-    const bookings = await prisma.booking.findMany({
-      where: {
-        agentId: agentId && agentId !== 'all' ? agentId : { not: null },
-        status: { not: 'CANCELLED' },
-        OR: [
-          {
-            bookingDate: {
-              gte: start,
-              lte: end
-            }
-          },
-          {
-            bookingDate: null,
-            createdAt: {
-              gte: start,
-              lte: end
-            }
+    const where: any = {
+      agentId: agentId && agentId !== 'all' ? agentId : { not: null },
+      status: { not: 'CANCELLED' }
+    };
+
+    if (dateType === 'fullyPaid') {
+      where.paymentStatus = 'PAID';
+      where.OR = [
+        {
+          fullyPaidAt: {
+            gte: start,
+            lte: end
           }
-        ]
-      },
+        },
+        {
+          fullyPaidAt: null,
+          createdAt: {
+            gte: start,
+            lte: end
+          }
+        }
+      ];
+    } else {
+      where.OR = [
+        {
+          bookingDate: {
+            gte: start,
+            lte: end
+          }
+        },
+        {
+          bookingDate: null,
+          createdAt: {
+            gte: start,
+            lte: end
+          }
+        }
+      ];
+    }
+
+    const bookings = await prisma.booking.findMany({
+      where,
       include: {
         agent: { select: { name: true } },
         passengers: { select: { firstName: true, lastName: true }, take: 1 },
@@ -38,7 +60,7 @@ export const agentMarginService = {
 
     return bookings.map(b => {
       const vendorCost = b.bookingVendorPayments.reduce((acc: any, vp: any) => acc + (vp.originalCost || 0), 0);
-      const profit = b.paidAmount - vendorCost;
+      const profit = b.paidAmount - vendorCost - (b.refundAmount || 0) - (b.cardPaymentCharges || 0);
       return {
         id: b.id,
         bookingReference: b.bookingReference,
@@ -47,14 +69,17 @@ export const agentMarginService = {
         leadPassenger: b.passengers[0] ? `${b.passengers[0].firstName} ${b.passengers[0].lastName}` : 'Unknown',
         totalPrice: b.totalPrice,
         paidAmount: b.paidAmount,
+        refundAmount: b.refundAmount || 0,
+        cardPaymentCharges: b.cardPaymentCharges || 0,
         vendorCost,
         profit,
-        marginStatus: b.agentMargin?.status
+        marginStatus: b.agentMargin?.status,
+        agentMarginVoided: b.agentMarginVoided
       };
     });
   },
 
-  async calculateAgentMargins(startDate: string, endDate: string, includedBookingIds?: string[], agentId?: string) {
+  async calculateAgentMargins(startDate: string, endDate: string, includedBookingIds?: string[], agentId?: string, dateType?: string) {
     const start = new Date(startDate);
     const end = new Date(endDate);
     end.setHours(23, 59, 59, 999);
@@ -78,7 +103,7 @@ export const agentMarginService = {
             b."agentId",
             COUNT(b.id)::int as "bookingCount",
             array_agg(b.id) as "bookingIds",
-            SUM(b."paidAmount" - COALESCE(vp."totalVendorCost", 0))::float as "totalProfit"
+            SUM(b."paidAmount" - COALESCE(vp."totalVendorCost", 0) - COALESCE(b."refundAmount", 0) - COALESCE(b."cardPaymentCharges", 0))::float as "totalProfit"
           FROM "Booking" b
           LEFT JOIN (
             SELECT "bookingId", SUM("originalCost") as "totalVendorCost"
@@ -86,28 +111,56 @@ export const agentMarginService = {
             GROUP BY "bookingId"
           ) vp ON vp."bookingId" = b.id
           WHERE b.id = ANY(${includedBookingIds})
+            AND b."agentMarginVoided" = false
           GROUP BY b."agentId"
         `;
       }
     } else {
-      eligibleBookingsRaw = await prisma.$queryRaw`
-        SELECT 
-          b."agentId",
-          COUNT(b.id)::int as "bookingCount",
-          array_agg(b.id) as "bookingIds",
-          SUM(b."paidAmount" - COALESCE(vp."totalVendorCost", 0))::float as "totalProfit"
-        FROM "Booking" b
-        LEFT JOIN (
-          SELECT "bookingId", SUM("originalCost") as "totalVendorCost"
-          FROM "BookingVendorPayment"
-          GROUP BY "bookingId"
-        ) vp ON vp."bookingId" = b.id
-        WHERE b."agentId" IS NOT NULL
-          AND b.status != 'CANCELLED'
-          AND COALESCE(b."bookingDate", b."createdAt") >= ${start}
-          AND COALESCE(b."bookingDate", b."createdAt") <= ${end}
-        GROUP BY b."agentId"
-      `;
+      if (dateType === 'fullyPaid') {
+        eligibleBookingsRaw = await prisma.$queryRaw`
+          SELECT 
+            b."agentId",
+            COUNT(b.id)::int as "bookingCount",
+            array_agg(b.id) as "bookingIds",
+            SUM(b."paidAmount" - COALESCE(vp."totalVendorCost", 0) - COALESCE(b."refundAmount", 0) - COALESCE(b."cardPaymentCharges", 0))::float as "totalProfit"
+          FROM "Booking" b
+          LEFT JOIN (
+            SELECT "bookingId", SUM("originalCost") as "totalVendorCost"
+            FROM "BookingVendorPayment"
+            GROUP BY "bookingId"
+          ) vp ON vp."bookingId" = b.id
+          WHERE b."agentId" IS NOT NULL
+            AND b.status != 'CANCELLED'
+            AND b."agentMarginVoided" = false
+            AND b."paymentStatus" = 'PAID'
+            AND (
+              (b."fullyPaidAt" IS NOT NULL AND b."fullyPaidAt" >= ${start} AND b."fullyPaidAt" <= ${end})
+              OR
+              (b."fullyPaidAt" IS NULL AND b."createdAt" >= ${start} AND b."createdAt" <= ${end})
+            )
+          GROUP BY b."agentId"
+        `;
+      } else {
+        eligibleBookingsRaw = await prisma.$queryRaw`
+          SELECT 
+            b."agentId",
+            COUNT(b.id)::int as "bookingCount",
+            array_agg(b.id) as "bookingIds",
+            SUM(b."paidAmount" - COALESCE(vp."totalVendorCost", 0) - COALESCE(b."refundAmount", 0) - COALESCE(b."cardPaymentCharges", 0))::float as "totalProfit"
+          FROM "Booking" b
+          LEFT JOIN (
+            SELECT "bookingId", SUM("originalCost") as "totalVendorCost"
+            FROM "BookingVendorPayment"
+            GROUP BY "bookingId"
+          ) vp ON vp."bookingId" = b.id
+          WHERE b."agentId" IS NOT NULL
+            AND b.status != 'CANCELLED'
+            AND b."agentMarginVoided" = false
+            AND COALESCE(b."bookingDate", b."createdAt") >= ${start}
+            AND COALESCE(b."bookingDate", b."createdAt") <= ${end}
+          GROUP BY b."agentId"
+        `;
+      }
     }
 
     if (agentId && agentId !== 'all') {
@@ -429,17 +482,96 @@ export const agentMarginService = {
 
     return bookings.map((b: any) => {
       const vendorCost = b.bookingVendorPayments.reduce((sum: number, vp: any) => sum + vp.originalCost, 0);
-      const profit = b.paidAmount - vendorCost;
+      const profit = b.paidAmount - vendorCost - (b.refundAmount || 0) - (b.cardPaymentCharges || 0);
       return {
         id: b.id,
         bookingReference: b.bookingReference,
         customerName: b.user ? `${b.user.firstName} ${b.user.lastName}` : 'Unknown',
         createdAt: b.createdAt,
         paidAmount: b.paidAmount,
+        refundAmount: b.refundAmount || 0,
+        cardPaymentCharges: b.cardPaymentCharges || 0,
         vendorCost,
         profit,
-        destination: '' // Can be populated if needed
+        agentMarginVoided: b.agentMarginVoided,
+        destination: ''
       };
+    });
+  },
+
+  async toggleMarginVoid(bookingId: string) {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId }
+    });
+    if (!booking) throw createError(404, 'Booking not found');
+
+    const updated = await prisma.booking.update({
+      where: { id: bookingId },
+      data: {
+        agentMarginVoided: !booking.agentMarginVoided
+      }
+    });
+
+    if (booking.agentMarginId) {
+      await this.recalculateMarginRecord(booking.agentMarginId);
+    }
+
+    return updated;
+  },
+
+  async recalculateMarginRecord(marginId: string) {
+    const margin = await prisma.agentMargin.findUnique({
+      where: { id: marginId },
+      include: {
+        bookings: {
+          include: {
+            bookingVendorPayments: true
+          }
+        }
+      }
+    });
+
+    if (!margin) return;
+
+    // Filter to only non-voided bookings to recalculate margin details
+    const nonVoidedBookings = margin.bookings.filter(b => !b.agentMarginVoided);
+    const nonVoidedCount = nonVoidedBookings.length;
+
+    let nonVoidedProfit = 0;
+    for (const b of nonVoidedBookings) {
+      const vendorCost = b.bookingVendorPayments.reduce((sum: number, vp: any) => sum + (vp.originalCost || 0), 0);
+      const profit = b.paidAmount - vendorCost - (b.refundAmount || 0) - (b.cardPaymentCharges || 0);
+      nonVoidedProfit += profit;
+    }
+
+    // Find agent's applicable slab based on the non-voided/qualified profit
+    const agent = await prisma.agent.findUnique({
+      where: { id: margin.agentId },
+      include: {
+        slabs: { orderBy: { minSales: 'asc' } }
+      }
+    });
+
+    let marginPercentage = 0;
+    if (agent) {
+      for (const slab of agent.slabs) {
+        if (nonVoidedProfit >= slab.minSales && (slab.maxSales === null || nonVoidedProfit <= slab.maxSales)) {
+          marginPercentage = slab.commissionRate;
+          break;
+        }
+      }
+    }
+
+    const marginAmount = nonVoidedProfit * (marginPercentage / 100);
+
+    await prisma.agentMargin.update({
+      where: { id: marginId },
+      data: {
+        bookingCount: nonVoidedCount,
+        totalProfit: nonVoidedProfit,
+        marginPercentage,
+        marginAmount
+      }
     });
   }
 };

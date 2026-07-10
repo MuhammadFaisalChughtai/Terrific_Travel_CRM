@@ -9,19 +9,20 @@ interface Props {
   startDate: string;
   endDate: string;
   agentId: string;
+  dateType: string;
   onClose: () => void;
 }
 
-export default function RecalculateMarginModal({ startDate, endDate, agentId, onClose }: Props) {
+export default function RecalculateMarginModal({ startDate, endDate, agentId, dateType, onClose }: Props) {
   const queryClient = useQueryClient();
   
   const [includedBookingIds, setIncludedBookingIds] = useState<Set<string>>(new Set());
 
   // Fetch eligible bookings
   const { data: bookings, isLoading, refetch } = useQuery({
-    queryKey: ["eligible-margin-bookings", startDate, endDate, agentId],
+    queryKey: ["eligible-margin-bookings", startDate, endDate, agentId, dateType],
     queryFn: async () => {
-      const res = await apiClient.get(`/agent-margins/eligible-bookings?startDate=${startDate}&endDate=${endDate}&agentId=${agentId}`);
+      const res = await apiClient.get(`/agent-margins/eligible-bookings?startDate=${startDate}&endDate=${endDate}&agentId=${agentId}&dateType=${dateType}`);
       return res.data.data as any[];
     },
     enabled: !!startDate && !!endDate
@@ -61,7 +62,8 @@ export default function RecalculateMarginModal({ startDate, endDate, agentId, on
         startDate,
         endDate,
         includedBookingIds: Array.from(includedBookingIds),
-        agentId: agentId !== 'all' ? agentId : undefined
+        agentId: agentId !== 'all' ? agentId : undefined,
+        dateType
       });
     },
     onSuccess: (res) => {

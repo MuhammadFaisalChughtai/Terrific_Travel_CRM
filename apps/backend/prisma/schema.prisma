@@ -250,6 +250,8 @@ model Booking {
 
   agentMarginId       String?
   agentMargin         AgentMargin?           @relation(fields: [agentMarginId], references: [id])
+  agentMarginVoided   Boolean                @default(false)
+  fullyPaidAt         DateTime?
 
   @@index([bookingReference])
 }
