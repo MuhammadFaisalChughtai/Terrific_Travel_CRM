@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import multer from 'multer';
-import { create, getNextReference, findAll, findOne, updateStatus, updateBookingDetails, toggleLock, cancel, finalizeMargin, addFlightService, updateFlightService, deleteFlightService, addAccommodationService, updateAccommodationService, deleteAccommodationService, addPassenger, updatePassenger, deletePassenger, getPassengerForm, submitPassengerForm, sendPassengerLink, uploadPassengerPassportScan, getPassengerPassportScan, deletePassengerPassportScan, addPassengerDocument, getPassengerDocumentFile, deletePassengerDocument, addPassengerByFormToken, deletePassengerByFormToken, adminUploadPassportScan, adminGetPassportScan, adminDeletePassportScan, adminAddPassengerDocument, adminGetPassengerDocumentFile, adminDeletePassengerDocument, searchAllPassengers, addTransportService, updateTransportService, deleteTransportService, addVisaService, updateVisaService, deleteVisaService, addAdditionalService, updateAdditionalService, deleteAdditionalService, deleteVendorPayment, getUniqueHotels, getBookedServices, toggleBookedServiceDone } from '../controllers/bookings.controller';
+import { create, getNextReference, findAll, findOne, updateStatus, updateBookingDetails, toggleLock, cancel, finalizeMargin, addFlightService, updateFlightService, deleteFlightService, addAccommodationService, updateAccommodationService, deleteAccommodationService, addPassenger, updatePassenger, deletePassenger, getPassengerForm, submitPassengerForm, sendPassengerLink, uploadPassengerPassportScan, getPassengerPassportScan, deletePassengerPassportScan, addPassengerDocument, getPassengerDocumentFile, deletePassengerDocument, addPassengerByFormToken, deletePassengerByFormToken, adminUploadPassportScan, adminGetPassportScan, adminDeletePassportScan, adminAddPassengerDocument, adminGetPassengerDocumentFile, adminDeletePassengerDocument, searchAllPassengers, addTransportService, updateTransportService, deleteTransportService, addVisaService, updateVisaService, deleteVisaService, addAdditionalService, updateAdditionalService, deleteAdditionalService, deleteVendorPayment, getUniqueHotels, getBookedServices, toggleBookedServiceDone, updateVendorPaymentStatus } from '../controllers/bookings.controller';
 import { authMiddleware } from '../middleware/auth.middleware';
 import { requireRoles, requirePermissions, requireBookingOwnership } from '../middleware/rbac.middleware';
 
@@ -28,6 +28,7 @@ router.get('/passengers/global-search', requirePermissions('bookings:read') as a
 router.get('/accommodations/unique-hotels', requirePermissions('bookings:read') as any, getUniqueHotels);
 router.get('/booked-services', getBookedServices);
 router.patch('/booked-services/:id/toggle-done', toggleBookedServiceDone);
+router.patch('/booked-services/vendor-payment-status', updateVendorPaymentStatus);
 
 router.post('/', requirePermissions('bookings:create') as any, create);
 router.get('/next-reference', requirePermissions('bookings:create') as any, getNextReference);

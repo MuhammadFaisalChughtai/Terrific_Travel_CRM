@@ -613,7 +613,7 @@ export default function Bookings() {
                       const rawProfit = booking.totalPrice - totalVendorCost;
 
                       // Agent Margin calculation
-                      const agentMargin =
+                      let agentMargin =
                         booking.agentId && booking.agent
                           ? calculateMargin(
                               booking.totalPrice,
@@ -621,6 +621,14 @@ export default function Bookings() {
                               booking.agent.slabs,
                             )
                           : null;
+
+                      const hasAgentPayout = booking.transactions?.some(
+                        (tx: any) => tx.paymentMethod === "AGENT PAYOUT" || tx.paymentMethod === "AGENT_PAYOUT"
+                      ) || (booking.agentMargin && booking.agentMargin.status === "PAID");
+
+                      if (hasAgentPayout && agentMargin !== null) {
+                        agentMargin = 0;
+                      }
 
                       // Lock Status Styling - matching user image (dark teal-green or rose-red block)
                       const isLocked = booking.lockedStatus === "LOCKED";

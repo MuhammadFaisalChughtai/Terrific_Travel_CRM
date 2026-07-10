@@ -2175,7 +2175,8 @@ export class BookingsService {
         include: {
           booking: {
             include: {
-              agent: true
+              agent: true,
+              bookingVendorPayments: true
             }
           },
           vendor: true
@@ -2211,10 +2212,14 @@ export class BookingsService {
       });
 
       accomTotal = allAccommodations.length;
-      accommodations = allAccommodations.slice(offset, offset + limit).map((a: any) => ({
-        ...a,
-        isDone: doneIds.includes(a.id)
-      }));
+      accommodations = allAccommodations.slice(offset, offset + limit).map((a: any) => {
+        const vp = a.booking.bookingVendorPayments?.find((p: any) => p.vendorId === a.vendorId);
+        return {
+          ...a,
+          isDone: doneIds.includes(a.id),
+          vendorPaymentStatus: vp ? vp.status : 'PENDING'
+        };
+      });
     }
 
     if (type === 'all' || type === 'flights') {
@@ -2278,7 +2283,8 @@ export class BookingsService {
             },
             orderBy: { date: 'asc' }
           },
-          agent: true
+          agent: true,
+          bookingVendorPayments: true
         }
       });
 
@@ -2345,6 +2351,7 @@ export class BookingsService {
         const hasCancelledSegment = segments.some((s: any) => s.status === 'CANCELLED');
         const collapsedStatus = hasCancelledSegment ? 'CANCELLED' : 'CONFIRMED';
 
+        const vp = b.bookingVendorPayments?.find((p: any) => p.vendorId === firstSegment.vendorId);
         return {
           id: b.id,
           bookingId: b.id,
@@ -2368,7 +2375,8 @@ export class BookingsService {
           segmentsCount: segments.length,
           combinedRoute,
           isDone: doneIds.includes(b.id),
-          status: collapsedStatus
+          status: collapsedStatus,
+          vendorPaymentStatus: vp ? vp.status : 'PENDING'
         };
       });
     }
@@ -2424,6 +2432,40 @@ export class BookingsService {
     }
 
     return { serviceId, isDone };
+  }
+
+  async updateVendorPaymentStatus(data: { bookingId: string; vendorId: string; status: string }) {
+    const { bookingId, vendorId, status } = data;
+    if (!bookingId || !vendorId || !status) {
+      throw new BadRequestException('bookingId, vendorId, and status are required');
+    }
+
+    const validStatuses = ['PENDING', 'PARTIAL', 'PAID'];
+    if (!validStatuses.includes(status.toUpperCase())) {
+      throw new BadRequestException('Invalid status. Must be PENDING, PARTIAL, or PAID');
+    }
+
+    // Upsert the BookingVendorPayment record
+    const result = await prisma.bookingVendorPayment.upsert({
+      where: {
+        bookingId_vendorId: {
+          bookingId,
+          vendorId
+        }
+      },
+      update: {
+        status: status.toUpperCase()
+      },
+      create: {
+        bookingId,
+        vendorId,
+        status: status.toUpperCase(),
+        originalCost: 0,
+        remainingBalance: 0
+      }
+    });
+
+    return result;
   }
 }
 

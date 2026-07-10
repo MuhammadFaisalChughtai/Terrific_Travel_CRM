@@ -404,3 +404,15 @@ export const toggleBookedServiceDone = asyncHandler(async (req: AuthenticatedReq
   const result = await bookingsService.toggleBookedServiceDone(id);
   res.status(200).json({ success: true, data: result });
 });
+
+export const updateVendorPaymentStatus = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const isAllowed = req.user!.roles.some((role: string) => 
+    ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'BRANCH_MANAGER'].includes(role.toUpperCase())
+  );
+  if (!isAllowed) {
+    res.status(403).json({ success: false, message: 'Only administrators can update vendor payment status' });
+    return;
+  }
+  const result = await bookingsService.updateVendorPaymentStatus(req.body);
+  res.status(200).json({ success: true, data: result });
+});

@@ -713,8 +713,18 @@ export default function BookingManager({
     }
   }
 
-  // Total Profit
-  const profit = rawProfit - agentMargin;
+  const originalAgentMargin = agentMargin;
+
+  const hasAgentPayout = booking.transactions?.some(
+    (tx: any) => tx.paymentMethod === "AGENT PAYOUT" || tx.paymentMethod === "AGENT_PAYOUT"
+  ) || (booking.agentMargin && booking.agentMargin.status === "PAID");
+
+  if (hasAgentPayout) {
+    agentMargin = 0;
+  }
+
+  // Total Profit: subtract originalAgentMargin so we don't recalculate profit when payout is recorded
+  const profit = rawProfit - originalAgentMargin;
 
   return (
     <Modal
@@ -1041,13 +1051,20 @@ export default function BookingManager({
                           Agent Margin
                         </span>
                       </div>
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-[15px] font-bold text-blue-600 dark:text-blue-400">
-                          {formatCurrency(agentMargin)}
-                        </span>
-                        {booking.agentId && booking.agent && (
-                          <span className="text-[12px] font-semibold text-blue-500/70">
-                            ({agentCommissionRate}%)
+                       <div className="flex flex-col gap-0.5">
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-[15px] font-bold text-blue-600 dark:text-blue-400">
+                            {formatCurrency(agentMargin)}
+                          </span>
+                          {booking.agentId && booking.agent && (
+                            <span className="text-[12px] font-semibold text-blue-500/70">
+                              ({agentCommissionRate}%)
+                            </span>
+                          )}
+                        </div>
+                        {hasAgentPayout && (
+                          <span className="text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide mt-0.5">
+                            Paid
                           </span>
                         )}
                       </div>

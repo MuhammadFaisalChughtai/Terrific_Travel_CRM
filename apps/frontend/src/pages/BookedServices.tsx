@@ -36,9 +36,9 @@ interface FlightServiceItem {
     agent?: {
       name: string;
     } | null;
-    paymentStatus?: string;
   };
   vendor?: {
+    id: string;
     name: string;
   } | null;
   combinedRoute?: string;
@@ -46,6 +46,7 @@ interface FlightServiceItem {
   isDone?: boolean;
   status?: string;
   pnrMissing?: boolean;
+  vendorPaymentStatus?: string;
 }
 
 interface AccommodationServiceItem {
@@ -67,11 +68,12 @@ interface AccommodationServiceItem {
     agent?: {
       name: string;
     } | null;
-    paymentStatus?: string;
   };
   vendor?: {
+    id: string;
     name: string;
   } | null;
+  vendorPaymentStatus?: string;
 }
 
 export default function BookedServicesPage() {
@@ -167,6 +169,29 @@ export default function BookedServicesPage() {
       toast.success("Status updated successfully!");
     } catch (e: any) {
       toast.error(e.response?.data?.message || "Failed to update status");
+    }
+  };
+
+  const handleUpdateVendorPaymentStatus = async (
+    bookingId: string,
+    vendorId: string | undefined,
+    status: string
+  ) => {
+    if (!vendorId) {
+      toast.error("No vendor associated with this service.");
+      return;
+    }
+    try {
+      await apiClient.patch("/bookings/booked-services/vendor-payment-status", {
+        bookingId,
+        vendorId,
+        status,
+      });
+      queryClient.invalidateQueries({ queryKey: ["booked-flights"] });
+      queryClient.invalidateQueries({ queryKey: ["booked-hotels"] });
+      toast.success("Vendor payment status updated successfully!");
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || "Failed to update vendor payment status");
     }
   };
 
@@ -720,14 +745,35 @@ export default function BookedServicesPage() {
                             </td>
                           )}
                           <td className="px-4 py-3 text-center">
-                            {getPaymentStatusBadge(flight.booking.paymentStatus)}
+                            {!isAgentOnly ? (
+                              <select
+                                value={flight.vendorPaymentStatus || "PENDING"}
+                                onChange={(e) =>
+                                  handleUpdateVendorPaymentStatus(
+                                    flight.bookingId,
+                                    flight.vendor?.id,
+                                    e.target.value
+                                  )
+                                }
+                                className="bg-background border border-border rounded px-1.5 py-0.5 text-[10px] font-bold focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-foreground cursor-pointer"
+                              >
+                                <option value="PENDING">UNPAID</option>
+                                <option value="PARTIAL">PARTIAL</option>
+                                <option value="PAID">PAID</option>
+                              </select>
+                            ) : (
+                              getPaymentStatusBadge(flight.vendorPaymentStatus)
+                            )}
                           </td>
                           <td className="px-4 py-3 text-center">
                             <input
                               type="checkbox"
                               checked={!!flight.isDone}
                               onChange={() => handleToggleDone(flight.id)}
-                              className="w-4 h-4 rounded border-border text-primary focus:ring-primary cursor-pointer"
+                              disabled={isAgentOnly}
+                              className={`w-4 h-4 rounded border-border text-primary focus:ring-primary ${
+                                isAgentOnly ? "opacity-60 cursor-not-allowed" : "cursor-pointer"
+                              }`}
                             />
                           </td>
                           <td className="px-4 py-3 text-right font-semibold text-foreground">
@@ -880,14 +926,35 @@ export default function BookedServicesPage() {
                             </td>
                           )}
                           <td className="px-4 py-3 text-center">
-                            {getPaymentStatusBadge(hotel.booking.paymentStatus)}
+                            {!isAgentOnly ? (
+                              <select
+                                value={hotel.vendorPaymentStatus || "PENDING"}
+                                onChange={(e) =>
+                                  handleUpdateVendorPaymentStatus(
+                                    hotel.bookingId,
+                                    hotel.vendor?.id,
+                                    e.target.value
+                                  )
+                                }
+                                className="bg-background border border-border rounded px-1.5 py-0.5 text-[10px] font-bold focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-foreground cursor-pointer"
+                              >
+                                <option value="PENDING">UNPAID</option>
+                                <option value="PARTIAL">PARTIAL</option>
+                                <option value="PAID">PAID</option>
+                              </select>
+                            ) : (
+                              getPaymentStatusBadge(hotel.vendorPaymentStatus)
+                            )}
                           </td>
                           <td className="px-4 py-3 text-center">
                             <input
                               type="checkbox"
                               checked={!!hotel.isDone}
                               onChange={() => handleToggleDone(hotel.id)}
-                              className="w-4 h-4 rounded border-border text-primary focus:ring-primary cursor-pointer"
+                              disabled={isAgentOnly}
+                              className={`w-4 h-4 rounded border-border text-primary focus:ring-primary ${
+                                isAgentOnly ? "opacity-60 cursor-not-allowed" : "cursor-pointer"
+                              }`}
                             />
                           </td>
                           <td className="px-4 py-3 text-right font-semibold text-foreground">
