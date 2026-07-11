@@ -53,7 +53,7 @@ export const getMyMargins = asyncHandler(async (req: AuthenticatedRequest, res: 
     return res.status(403).json({ success: false, message: 'Not assigned to an agent profile' });
   }
 
-  const margins = await agentMarginService.getAgentMargins(agentId);
+  const margins = await agentMarginService.getAgentMargins(agentId, req.query);
   res.status(200).json({
     success: true,
     data: margins

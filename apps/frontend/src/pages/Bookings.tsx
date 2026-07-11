@@ -763,18 +763,52 @@ export default function Bookings() {
                             <div className="inline-flex items-center gap-2 justify-end w-full">
                               {/* Locked booking — agents cannot open at all, show lock icon */}
                               {isAgent && booking.lockedStatus === "LOCKED" ? (
-                                <button
-                                  onClick={() =>
-                                    toast.error(
-                                      "This booking is locked by the administrator and cannot be accessed.",
-                                      { duration: 4000 },
-                                    )
-                                  }
-                                  className="text-rose-400 cursor-not-allowed p-1 rounded opacity-60"
-                                  title="Booking Locked — Access Denied"
-                                >
-                                  <Lock size={15} />
-                                </button>
+                                <div className="inline-flex items-center gap-1.5">
+                                  <button
+                                    onClick={() =>
+                                      toast.error(
+                                        "This booking is locked by the administrator and cannot be accessed.",
+                                        { duration: 4000 },
+                                      )
+                                    }
+                                    className="text-rose-400 cursor-not-allowed p-1 rounded opacity-60"
+                                    title="Booking Locked — Access Denied"
+                                  >
+                                    <Lock size={15} />
+                                  </button>
+                                  {booking.status === "CONFIRMED" && (
+                                    <>
+                                      <span className="text-muted-foreground/30">
+                                        |
+                                      </span>
+                                      <button
+                                        onClick={() => {
+                                          const template =
+                                            getTemplateContent(
+                                              "BOOKING_INVOICE",
+                                            );
+                                          const html = template
+                                            ? renderBookingInvoice(
+                                                template,
+                                                booking,
+                                              )
+                                            : generateBookingInvoiceHtml(
+                                                booking,
+                                              );
+                                          printDocument(
+                                            html,
+                                            `Booking_Invoice_${booking.bookingReference || booking.id.substring(0, 8)}`,
+                                          );
+                                        }}
+                                        className="text-muted-foreground hover:text-foreground font-bold text-xs inline-flex items-center gap-1 hover:underline"
+                                        title="Print Invoice"
+                                      >
+                                        <FileText size={14} />
+                                        <span>Invoice</span>
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
                               ) : (
                                 <>
                                   {/* View button — available to all for non-locked bookings */}

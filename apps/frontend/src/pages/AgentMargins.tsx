@@ -59,7 +59,11 @@ export default function AgentMargins() {
     queryKey: ["agent-margins", startDate, endDate, agentId, status, dateType, isAdmin, page],
     queryFn: async () => {
       if (!isAdmin) {
-        const res = await apiClient.get("/agent-margins/my-margins");
+        const params = new URLSearchParams();
+        if (startDate) params.append("startDate", startDate);
+        if (endDate) params.append("endDate", endDate);
+        if (status !== "all") params.append("status", status);
+        const res = await apiClient.get(`/agent-margins/my-margins?${params.toString()}`);
         return res.data.data as any[];
       }
       const offset = (page - 1) * itemsPerPage;

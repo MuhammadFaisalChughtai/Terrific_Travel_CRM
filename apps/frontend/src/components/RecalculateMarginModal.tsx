@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../api/client";
 import { formatCurrency, formatDate } from "@tms/shared-utils";
-import { X, Loader2, Calculator, Calendar } from "lucide-react";
+import { X, Loader2, Calculator, Calendar, Search } from "lucide-react";
 import { toast } from "sonner";
 
 interface Props {
@@ -17,6 +17,7 @@ export default function RecalculateMarginModal({ startDate, endDate, agentId, da
   const queryClient = useQueryClient();
   
   const [includedBookingIds, setIncludedBookingIds] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Fetch eligible bookings
   const { data: bookings, isLoading, refetch } = useQuery({
@@ -27,6 +28,15 @@ export default function RecalculateMarginModal({ startDate, endDate, agentId, da
     },
     enabled: !!startDate && !!endDate
   });
+
+  const filteredBookings = React.useMemo(() => {
+    if (!bookings) return [];
+    if (!searchQuery) return bookings;
+    const q = searchQuery.toLowerCase();
+    return bookings.filter((b: any) =>
+      b.bookingReference.toLowerCase().includes(q)
+    );
+  }, [bookings, searchQuery]);
 
   // Automatically check all selectable bookings when they are fetched
   useEffect(() => {
@@ -47,13 +57,16 @@ export default function RecalculateMarginModal({ startDate, endDate, agentId, da
   };
 
   const toggleAll = () => {
-    if (!bookings) return;
-    const selectable = bookings.filter((b: any) => b.marginStatus !== 'PAID');
-    if (includedBookingIds.size === selectable.length) {
-      setIncludedBookingIds(new Set());
+    const selectable = filteredBookings.filter((b: any) => b.marginStatus !== 'PAID');
+    const allSelected = selectable.every((b: any) => includedBookingIds.has(b.id));
+    
+    const newSet = new Set(includedBookingIds);
+    if (allSelected) {
+      selectable.forEach((b: any) => newSet.delete(b.id));
     } else {
-      setIncludedBookingIds(new Set(selectable.map((b: any) => b.id)));
+      selectable.forEach((b: any) => newSet.add(b.id));
     }
+    setIncludedBookingIds(newSet);
   };
 
   const calculateMutation = useMutation({
@@ -108,79 +121,98 @@ export default function RecalculateMarginModal({ startDate, endDate, agentId, da
               No eligible bookings found in this date range.
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-lg border border-border">
-              <table className="w-full text-sm text-left">
-                <thead className="bg-muted/50 text-muted-foreground font-medium border-b border-border">
-                  <tr>
-                    <th className="px-4 py-3 w-12 text-center">
-                      <input 
-                        type="checkbox" 
-                        checked={(() => {
-                          const selectable = bookings.filter((b: any) => b.marginStatus !== 'PAID');
-                          return includedBookingIds.size === selectable.length && selectable.length > 0;
-                        })()}
-                        onChange={toggleAll}
-                        className="rounded border-input text-primary focus:ring-primary cursor-pointer"
-                      />
-                    </th>
-                    <th className="px-4 py-3">Booking Ref</th>
-                    <th className="px-4 py-3">Agent</th>
-                    <th className="px-4 py-3">Customer</th>
-                    <th className="px-4 py-3">Booking Date</th>
-                    <th className="px-4 py-3 text-right">Profit</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {bookings.map((b: any) => {
-                    const isChecked = includedBookingIds.has(b.id);
-                    return (
-                      <tr
-                        key={b.id}
-                        className={`transition-colors ${isChecked ? "" : "bg-muted/30 opacity-60"}`}
-                      >
-                        <td className="px-4 py-3 text-center">
-                          {b.marginStatus === 'PAID' ? (
-                            <span className="text-[10px] uppercase font-bold text-emerald-600 bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400 px-1.5 py-0.5 rounded-sm whitespace-nowrap">
-                              Margin Paid
-                            </span>
-                          ) : (
-                            <input 
-                              type="checkbox" 
-                              checked={isChecked}
-                              onChange={() => toggleBooking(b.id)}
-                              className="rounded border-input text-primary focus:ring-primary cursor-pointer"
-                            />
+            <>
+              <div className="mb-4 relative max-w-xs">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Search by reference..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-background border border-input rounded-full pl-9 pr-4 py-2 text-sm focus:ring-2 focus:ring-ring"
+                />
+              </div>
+
+              {filteredBookings.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground bg-muted/20 rounded-lg border border-border">
+                  No bookings matching "{searchQuery}" found.
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-lg border border-border">
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-muted/50 text-muted-foreground font-medium border-b border-border">
+                      <tr>
+                        <th className="px-4 py-3 w-12 text-center">
+                          <input 
+                            type="checkbox" 
+                            checked={(() => {
+                              const selectable = filteredBookings.filter((b: any) => b.marginStatus !== 'PAID');
+                              return selectable.length > 0 && selectable.every((b: any) => includedBookingIds.has(b.id));
+                            })()}
+                            onChange={toggleAll}
+                            className="rounded border-input text-primary focus:ring-primary cursor-pointer"
+                          />
+                        </th>
+                        <th className="px-4 py-3">Booking Ref</th>
+                        <th className="px-4 py-3">Agent</th>
+                        <th className="px-4 py-3">Customer</th>
+                        <th className="px-4 py-3">Booking Date</th>
+                        <th className="px-4 py-3 text-right">Profit</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {filteredBookings.map((b: any) => {
+                        const isChecked = includedBookingIds.has(b.id);
+                        return (
+                          <tr
+                            key={b.id}
+                            className={`transition-colors ${isChecked ? "" : "bg-muted/30 opacity-60"}`}
+                          >
+                            <td className="px-4 py-3 text-center">
+                              {b.marginStatus === 'PAID' ? (
+                                <span className="text-[10px] uppercase font-bold text-emerald-600 bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400 px-1.5 py-0.5 rounded-sm whitespace-nowrap">
+                                  Margin Paid
+                                </span>
+                              ) : (
+                                <input 
+                                  type="checkbox" 
+                                  checked={isChecked}
+                                  onChange={() => toggleBooking(b.id)}
+                                  className="rounded border-input text-primary focus:ring-primary cursor-pointer"
+                                />
+                              )}
+                            </td>
+                            <td className="px-4 py-3 font-medium text-primary">
+                              {b.bookingReference}
+                            </td>
+                            <td className="px-4 py-3">{b.agentName || "—"}</td>
+                            <td className="px-4 py-3">{b.leadPassenger}</td>
+                            <td className="px-4 py-3">{formatDate(b.date)}</td>
+                            <td className="px-4 py-3 text-right font-medium text-emerald-600 dark:text-emerald-400">
+                              {formatCurrency(b.profit)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot className="bg-muted/30 border-t border-border font-semibold text-sm">
+                      <tr>
+                        <td colSpan={5} className="px-4 py-3 text-right">
+                          Selected Total Profit:
+                        </td>
+                        <td className="px-4 py-3 text-right text-emerald-600 dark:text-emerald-400">
+                          {formatCurrency(
+                            bookings
+                              .filter((b: any) => includedBookingIds.has(b.id))
+                              .reduce((sum: number, b: any) => sum + b.profit, 0)
                           )}
                         </td>
-                        <td className="px-4 py-3 font-medium text-primary">
-                          {b.bookingReference}
-                        </td>
-                        <td className="px-4 py-3">{b.agentName || "—"}</td>
-                        <td className="px-4 py-3">{b.leadPassenger}</td>
-                        <td className="px-4 py-3">{formatDate(b.date)}</td>
-                        <td className="px-4 py-3 text-right font-medium text-emerald-600 dark:text-emerald-400">
-                          {formatCurrency(b.profit)}
-                        </td>
                       </tr>
-                    );
-                  })}
-                </tbody>
-                <tfoot className="bg-muted/30 border-t border-border font-medium">
-                  <tr>
-                    <td colSpan={5} className="px-4 py-3 text-right">
-                      Selected Total Profit:
-                    </td>
-                    <td className="px-4 py-3 text-right text-emerald-600 dark:text-emerald-400">
-                      {formatCurrency(
-                        bookings
-                          .filter((b: any) => includedBookingIds.has(b.id))
-                          .reduce((sum: number, b: any) => sum + b.profit, 0)
-                      )}
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
+                    </tfoot>
+                  </table>
+                </div>
+              )}
+            </>
           )}
         </div>
 

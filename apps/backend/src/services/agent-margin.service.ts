@@ -84,6 +84,32 @@ export const agentMarginService = {
     const end = new Date(endDate);
     end.setHours(23, 59, 59, 999);
 
+    // 0. Clean up overlapping unpaid margins for the targeted agents
+    const cleanupWhere: any = {
+      status: 'UNPAID',
+      startDate: { lte: end },
+      endDate: { gte: start }
+    };
+    if (agentId && agentId !== 'all') {
+      cleanupWhere.agentId = agentId;
+    }
+    const overlappingUnpaidMargins = await prisma.agentMargin.findMany({
+      where: cleanupWhere
+    });
+
+    for (const oldMargin of overlappingUnpaidMargins) {
+      // Set associated bookings' margin ID to null
+      await prisma.booking.updateMany({
+        where: { agentMarginId: oldMargin.id },
+        data: { agentMarginId: null }
+      });
+      
+      // Delete the old margin record
+      await prisma.agentMargin.delete({
+        where: { id: oldMargin.id }
+      });
+    }
+
     // 1. Fetch all agents with their slabs
     const agents = await prisma.agent.findMany({
       include: {
@@ -177,29 +203,6 @@ export const agentMarginService = {
 
       const agent = agents.find((a: any) => a.id === agentId);
       if (!agent) continue;
-
-      // Find and clean up overlapping unpaid margins for this agent
-      const overlappingUnpaidMargins = await prisma.agentMargin.findMany({
-        where: {
-          agentId,
-          status: 'UNPAID',
-          startDate: { lte: end },
-          endDate: { gte: start }
-        }
-      });
-
-      for (const oldMargin of overlappingUnpaidMargins) {
-        // Set associated bookings' margin ID to null
-        await prisma.booking.updateMany({
-          where: { agentMarginId: oldMargin.id },
-          data: { agentMarginId: null }
-        });
-        
-        // Delete the old margin record
-        await prisma.agentMargin.delete({
-          where: { id: oldMargin.id }
-        });
-      }
 
       // Find applicable slab
       const slabs = agent.slabs;
@@ -323,9 +326,20 @@ export const agentMarginService = {
     });
   },
 
-  async getAgentMargins(agentId: string) {
+  async getAgentMargins(agentId: string, query: any = {}) {
+    const { startDate, endDate, status } = query;
+    const where: any = { agentId };
+
+    if (startDate) where.startDate = { gte: new Date(startDate) };
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      where.endDate = { lte: end };
+    }
+    if (status && status !== 'all') where.status = status;
+
     return prisma.agentMargin.findMany({
-      where: { agentId },
+      where,
       orderBy: [
         { startDate: 'desc' }
       ]

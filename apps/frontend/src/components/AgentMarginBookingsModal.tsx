@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../api/client";
 import { useAuthStore } from "../store/auth.store";
 import { formatCurrency, formatDate } from "@tms/shared-utils";
-import { X, Loader2, FileText, CheckCircle, XCircle } from "lucide-react";
+import { X, Loader2, FileText, CheckCircle, XCircle, Search } from "lucide-react";
 import { toast } from "sonner";
 
 interface Props {
@@ -15,6 +15,7 @@ export default function AgentMarginBookingsModal({ margin, onClose }: Props) {
   const user = useAuthStore((state) => state.user);
   const isAdmin = user?.roles.includes("SUPER_ADMIN") || user?.roles.includes("ADMIN");
   const queryClient = useQueryClient();
+  const [searchQuery, setSearchQuery] = React.useState("");
 
   const { data: bookings, isLoading } = useQuery({
     queryKey: ["agent-margin-bookings", margin.id],
@@ -37,6 +38,15 @@ export default function AgentMarginBookingsModal({ margin, onClose }: Props) {
       toast.error(err.response?.data?.message || "Failed to update booking status");
     }
   });
+
+  const filteredBookings = React.useMemo(() => {
+    if (!bookings) return [];
+    if (!searchQuery) return bookings;
+    const q = searchQuery.toLowerCase();
+    return bookings.filter((b: any) =>
+      b.bookingReference.toLowerCase().includes(q)
+    );
+  }, [bookings, searchQuery]);
 
   return (
     <div className="margin__custom fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
@@ -71,15 +81,31 @@ export default function AgentMarginBookingsModal({ margin, onClose }: Props) {
             </div>
           ) : (
             <>
-              <div className="overflow-x-auto rounded-lg border border-border">
-                <table className="w-full text-sm text-left">
-                  <thead className="bg-muted/50 text-muted-foreground font-medium border-b border-border">
-                    <tr>
-                      <th className="px-4 py-3">Booking Ref</th>
-                      <th className="px-4 py-3">Customer</th>
-                      <th className="px-4 py-3">Booking Date</th>
-                      <th className="px-4 py-3 text-right">Customer Paid</th>
-                      <th className="px-4 py-3 text-right">Vendor Cost</th>
+              <div className="mb-4 relative max-w-xs">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Search by reference..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-background border border-input rounded-full pl-9 pr-4 py-2 text-sm focus:ring-2 focus:ring-ring"
+                />
+              </div>
+
+              {filteredBookings.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground bg-muted/20 rounded-lg border border-border">
+                  No bookings matching "{searchQuery}" found.
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-lg border border-border">
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-muted/50 text-muted-foreground font-medium border-b border-border">
+                      <tr>
+                        <th className="px-4 py-3">Booking Ref</th>
+                        <th className="px-4 py-3">Customer</th>
+                        <th className="px-4 py-3">Booking Date</th>
+                        <th className="px-4 py-3 text-right">Customer Paid</th>
+                        <th className="px-4 py-3 text-right">Vendor Cost</th>
                       <th className="px-4 py-3 text-right text-red-500 font-medium">Refund</th>
                       <th className="px-4 py-3 text-right text-amber-500 font-medium">Card Charges</th>
                       <th className="px-4 py-3 text-right">Net Profit</th>
@@ -87,7 +113,7 @@ export default function AgentMarginBookingsModal({ margin, onClose }: Props) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {bookings.map((b: any) => {
+                    {filteredBookings.map((b: any) => {
                       const canToggle = margin?.status !== 'PAID' && isAdmin;
                       return (
                         <tr
@@ -165,6 +191,7 @@ export default function AgentMarginBookingsModal({ margin, onClose }: Props) {
                   </tfoot>
                 </table>
               </div>
+              )}
               
               {margin.marginPercentage === 0 && (
                 <div className="mt-4 p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-lg flex items-start gap-3 text-amber-800 dark:text-amber-300 text-sm">

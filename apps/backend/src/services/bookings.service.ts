@@ -2132,6 +2132,12 @@ export class BookingsService {
 
     const accomWhere: any = {};
     const accomAndFilters: any[] = [];
+    const transportWhere: any = {};
+    const transportAndFilters: any[] = [];
+    const visaWhere: any = {};
+    const visaAndFilters: any[] = [];
+    const additionalWhere: any = {};
+    const additionalAndFilters: any[] = [];
 
     if (search.trim()) {
       const q = search.trim();
@@ -2143,33 +2149,61 @@ export class BookingsService {
           { booking: { bookingReference: { contains: q, mode: 'insensitive' } } }
         ]
       });
+      transportAndFilters.push({
+        OR: [
+          { vehicleType: { contains: q, mode: 'insensitive' } },
+          { departureDestination: { contains: q, mode: 'insensitive' } },
+          { arrivalDestination: { contains: q, mode: 'insensitive' } },
+          { booking: { bookingReference: { contains: q, mode: 'insensitive' } } }
+        ]
+      });
+      visaAndFilters.push({
+        OR: [
+          { passportNumber: { contains: q, mode: 'insensitive' } },
+          { visaType: { contains: q, mode: 'insensitive' } },
+          { visaNumber: { contains: q, mode: 'insensitive' } },
+          { booking: { bookingReference: { contains: q, mode: 'insensitive' } } }
+        ]
+      });
+      additionalAndFilters.push({
+        OR: [
+          { serviceName: { contains: q, mode: 'insensitive' } },
+          { serviceDescription: { contains: q, mode: 'insensitive' } },
+          { booking: { bookingReference: { contains: q, mode: 'insensitive' } } }
+        ]
+      });
     }
 
     if (!isAdmin) {
       if (isAgent || isManager) {
-        if (user.agentId) {
-          accomAndFilters.push({
-            booking: {
-              OR: [
-                { agentId: user.agentId },
-                { createdById: user.id }
-              ]
-            }
-          });
-        } else {
-          accomAndFilters.push({
-            booking: { createdById: user.id }
-          });
-        }
+        const agentOrCreator = user.agentId 
+          ? { OR: [{ agentId: user.agentId }, { createdById: user.id }] }
+          : { createdById: user.id };
+
+        accomAndFilters.push({ booking: agentOrCreator });
+        transportAndFilters.push({ booking: agentOrCreator });
+        visaAndFilters.push({ booking: agentOrCreator });
+        additionalAndFilters.push({ booking: agentOrCreator });
       } else {
-        accomAndFilters.push({
-          booking: { userId: user.id }
-        });
+        const userFilter = { booking: { userId: user.id } };
+        accomAndFilters.push(userFilter);
+        transportAndFilters.push(userFilter);
+        visaAndFilters.push(userFilter);
+        additionalAndFilters.push(userFilter);
       }
     }
 
     if (accomAndFilters.length > 0) {
       accomWhere.AND = accomAndFilters;
+    }
+    if (transportAndFilters.length > 0) {
+      transportWhere.AND = transportAndFilters;
+    }
+    if (visaAndFilters.length > 0) {
+      visaWhere.AND = visaAndFilters;
+    }
+    if (additionalAndFilters.length > 0) {
+      additionalWhere.AND = additionalAndFilters;
     }
 
     if (type === 'all' || type === 'hotels') {
@@ -2384,6 +2418,123 @@ export class BookingsService {
       });
     }
 
+    let transports: any[] = [];
+    let transportsTotal = 0;
+    if (type === 'all' || type === 'transports') {
+      const allTransports = await prisma.transportService.findMany({
+        where: transportWhere,
+        include: {
+          booking: {
+            include: {
+              agent: true,
+              bookingVendorPayments: true
+            }
+          },
+          vendor: true
+        }
+      });
+      allTransports.sort((a: any, b: any) => {
+        const dateA = a.date ? new Date(a.date) : null;
+        const dateB = b.date ? new Date(b.date) : null;
+        if (!dateA && !dateB) return 0;
+        if (!dateA) return 1;
+        if (!dateB) return -1;
+        const timeA = dateA.getTime();
+        const timeB = dateB.getTime();
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const isUpcomingA = timeA >= today.getTime();
+        const isUpcomingB = timeB >= today.getTime();
+        if (isUpcomingA && !isUpcomingB) return -1;
+        if (!isUpcomingA && isUpcomingB) return 1;
+        return timeA - timeB;
+      });
+      transportsTotal = allTransports.length;
+      transports = allTransports.slice(offset, offset + limit).map((t: any) => {
+        const vp = t.booking.bookingVendorPayments?.find((p: any) => p.vendorId === t.vendorId);
+        return {
+          ...t,
+          isDone: doneIds.includes(t.id),
+          vendorPaymentStatus: vp ? vp.status : 'PENDING'
+        };
+      });
+    }
+
+    let visas: any[] = [];
+    let visasTotal = 0;
+    if (type === 'all' || type === 'visas') {
+      const allVisas = await prisma.visaService.findMany({
+        where: visaWhere,
+        include: {
+          booking: {
+            include: {
+              agent: true,
+              bookingVendorPayments: true
+            }
+          },
+          vendor: true
+        }
+      });
+      allVisas.sort((a: any, b: any) => {
+        const dateA = a.issueDate ? new Date(a.issueDate) : null;
+        const dateB = b.issueDate ? new Date(b.issueDate) : null;
+        if (!dateA && !dateB) return 0;
+        if (!dateA) return 1;
+        if (!dateB) return -1;
+        const timeA = dateA.getTime();
+        const timeB = dateB.getTime();
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const isUpcomingA = timeA >= today.getTime();
+        const isUpcomingB = timeB >= today.getTime();
+        if (isUpcomingA && !isUpcomingB) return -1;
+        if (!isUpcomingA && isUpcomingB) return 1;
+        return timeA - timeB;
+      });
+      visasTotal = allVisas.length;
+      visas = allVisas.slice(offset, offset + limit).map((v: any) => {
+        const vp = v.booking.bookingVendorPayments?.find((p: any) => p.vendorId === v.vendorId);
+        return {
+          ...v,
+          isDone: doneIds.includes(v.id),
+          vendorPaymentStatus: vp ? vp.status : 'PENDING'
+        };
+      });
+    }
+
+    let additionals: any[] = [];
+    let additionalsTotal = 0;
+    if (type === 'all' || type === 'additionals') {
+      const allAdditionals = await prisma.additionalService.findMany({
+        where: additionalWhere,
+        include: {
+          booking: {
+            include: {
+              agent: true,
+              bookingVendorPayments: true
+            }
+          },
+          vendor: true
+        }
+      });
+      allAdditionals.sort((a: any, b: any) => {
+        const timeA = new Date(a.createdAt).getTime();
+        const timeB = new Date(b.createdAt).getTime();
+        return timeB - timeA;
+      });
+      additionalsTotal = allAdditionals.length;
+      additionals = allAdditionals.slice(offset, offset + limit).map((ad: any) => {
+        const vp = ad.booking.bookingVendorPayments?.find((p: any) => p.vendorId === ad.vendorId);
+        return {
+          ...ad,
+          price: ad.servicePrice,
+          currency: 'GBP',
+          isDone: doneIds.includes(ad.id),
+          vendorPaymentStatus: vp ? vp.status : 'PENDING'
+        };
+      });
+    }
+
     return {
       accommodations: {
         total: accomTotal,
@@ -2392,6 +2543,18 @@ export class BookingsService {
       flights: {
         total: flightsTotal,
         items: flights
+      },
+      transports: {
+        total: transportsTotal,
+        items: transports
+      },
+      visas: {
+        total: visasTotal,
+        items: visas
+      },
+      additionals: {
+        total: additionalsTotal,
+        items: additionals
       }
     };
   }
