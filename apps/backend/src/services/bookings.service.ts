@@ -437,19 +437,8 @@ export class BookingsService {
     }
 
     // Apply role-based visibility boundaries using variables declared at top of method
-    if (!isAdmin) {
-      if (isManager || isAgent) {
-        if (user.agentId) {
-          where.OR = [
-            { agentId: user.agentId },
-            { createdById: user.id }
-          ];
-        } else {
-          where.createdById = user.id;
-        }
-      } else {
-        where.userId = user.id;
-      }
+    if (!isAdmin && !isManager && !isAgent) {
+      where.userId = user.id;
     }
 
     // 1. ID Filter

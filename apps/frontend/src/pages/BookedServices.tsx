@@ -1223,7 +1223,7 @@ export default function BookedServicesPage() {
               </div>
             )}
           </div>
-        ) : (
+        ) : activeTab === "hotels" ? (
           <div>
             {hotelsLoading ? (
               <div className="p-12 flex flex-col items-center justify-center text-muted-foreground text-xs gap-2">
@@ -1417,9 +1417,7 @@ export default function BookedServicesPage() {
               </div>
             )}
           </div>
-        )}
-
-        {activeTab === "transports" ? (
+        ) : activeTab === "transports" ? (
           <div>
             {transportsLoading ? (
               <div className="p-12 flex flex-col items-center justify-center text-muted-foreground text-xs gap-2">
