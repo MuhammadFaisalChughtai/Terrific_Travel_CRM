@@ -35,6 +35,8 @@ export default function VisaReservationModal({
   const [issueDate, setIssueDate] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
   const [price, setPrice] = useState('0');
+  const [agentQuotedPrice, setAgentQuotedPrice] = useState('');
+  const [confirmationNumber, setConfirmationNumber] = useState('');
   const [currency, setCurrency] = useState('');
   const [otherCurrency, setOtherCurrency] = useState('');
   const [conversionRate, setConversionRate] = useState('');
@@ -66,6 +68,8 @@ export default function VisaReservationModal({
         setIssueDate(formatDateToInput(visaToEdit.issueDate));
         setExpiryDate(formatDateToInput(visaToEdit.expiryDate));
         setPrice(String(visaToEdit.price || '0'));
+        setAgentQuotedPrice(visaToEdit.agentQuotedPrice !== undefined && visaToEdit.agentQuotedPrice !== null ? String(visaToEdit.agentQuotedPrice) : '');
+        setConfirmationNumber(visaToEdit.confirmationNumber || '');
         setCurrency(visaToEdit.currency || '');
         setOtherCurrency(visaToEdit.otherCurrency || '');
         setConversionRate(visaToEdit.conversionRate ? String(visaToEdit.conversionRate) : '');
@@ -83,6 +87,8 @@ export default function VisaReservationModal({
         setIssueDate('');
         setExpiryDate('');
         setPrice('0');
+        setAgentQuotedPrice('');
+        setConfirmationNumber('');
         setCurrency('');
         setOtherCurrency('');
         setConversionRate('');
@@ -148,6 +154,8 @@ export default function VisaReservationModal({
         conversionRate: conversionRate ? Number(conversionRate) : null,
         refundAmount: Number(refundAmount) || 0,
         fineAmount: Number(fineAmount) || 0,
+        agentQuotedPrice: agentQuotedPrice ? Number(agentQuotedPrice) : null,
+        confirmationNumber: confirmationNumber || null,
       };
 
       if (visaToEdit) {
@@ -420,6 +428,35 @@ export default function VisaReservationModal({
                   step="any"
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
+                  className="w-full text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                />
+              </div>
+
+              {/* Agent Quoted Price */}
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Agent Quoted Price
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  placeholder="0.00"
+                  value={agentQuotedPrice}
+                  onChange={(e) => setAgentQuotedPrice(e.target.value)}
+                  className="w-full text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                />
+              </div>
+
+              {/* Confirmation Number */}
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Confirmation Number
+                </label>
+                <input
+                  type="text"
+                  placeholder="Enter Confirmation Number"
+                  value={confirmationNumber}
+                  onChange={(e) => setConfirmationNumber(e.target.value)}
                   className="w-full text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                 />
               </div>

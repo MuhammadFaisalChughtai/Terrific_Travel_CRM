@@ -28,6 +28,8 @@ export default function AdditionalServiceModal({
   const [customVendorName, setCustomVendorName] = useState('');
   const [serviceName, setServiceName] = useState('');
   const [servicePrice, setServicePrice] = useState('0');
+  const [agentQuotedPrice, setAgentQuotedPrice] = useState('');
+  const [confirmationNumber, setConfirmationNumber] = useState('');
   const [serviceDescription, setServiceDescription] = useState('');
 
   // Populate form on Edit / Reset on Add
@@ -45,6 +47,8 @@ export default function AdditionalServiceModal({
         }
         setServiceName(serviceToEdit.serviceName || '');
         setServicePrice(String(serviceToEdit.servicePrice || '0'));
+        setAgentQuotedPrice(serviceToEdit.agentQuotedPrice !== undefined && serviceToEdit.agentQuotedPrice !== null ? String(serviceToEdit.agentQuotedPrice) : '');
+        setConfirmationNumber(serviceToEdit.confirmationNumber || '');
         setServiceDescription(serviceToEdit.serviceDescription || '');
       } else {
         // Reset states to defaults
@@ -53,6 +57,8 @@ export default function AdditionalServiceModal({
         setCustomVendorName('');
         setServiceName('');
         setServicePrice('0');
+        setAgentQuotedPrice('');
+        setConfirmationNumber('');
         setServiceDescription('');
       }
     }
@@ -92,6 +98,8 @@ export default function AdditionalServiceModal({
         serviceName: serviceName.trim(),
         servicePrice: Number(servicePrice) || 0,
         serviceDescription: serviceDescription.trim() || null,
+        agentQuotedPrice: agentQuotedPrice ? Number(agentQuotedPrice) : null,
+        confirmationNumber: confirmationNumber || null,
       };
 
       if (serviceToEdit) {
@@ -211,6 +219,35 @@ export default function AdditionalServiceModal({
                   placeholder="e.g. 50"
                   value={servicePrice}
                   onChange={(e) => setServicePrice(e.target.value)}
+                  className="w-full text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                />
+              </div>
+
+              {/* Agent Quoted Price */}
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Agent Quoted Price
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  placeholder="0.00"
+                  value={agentQuotedPrice}
+                  onChange={(e) => setAgentQuotedPrice(e.target.value)}
+                  className="w-full text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                />
+              </div>
+
+              {/* Confirmation Number */}
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Confirmation Number
+                </label>
+                <input
+                  type="text"
+                  placeholder="Enter Confirmation Number"
+                  value={confirmationNumber}
+                  onChange={(e) => setConfirmationNumber(e.target.value)}
                   className="w-full text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                 />
               </div>

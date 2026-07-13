@@ -498,6 +498,12 @@ export default function BookingManager({
       user?.roles?.includes(r),
     );
 
+  const disableAgentField =
+    isAgent ||
+    !!user?.roles?.some((r) =>
+      ["Manager", "BRANCH_MANAGER"].includes(r)
+    );
+
   // Sync edit state when booking loads
   useEffect(() => {
     if (booking) {
@@ -910,7 +916,12 @@ export default function BookingManager({
                       <select
                         value={editAgentId}
                         onChange={(e) => setEditAgentId(e.target.value)}
-                        className="w-full px-3 py-2.5 bg-secondary/20 border border-border/60 rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 focus:bg-background transition-all cursor-pointer"
+                        disabled={disableAgentField}
+                        className={`w-full px-3 py-2.5 border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all ${
+                          disableAgentField
+                            ? "bg-secondary/40 border-border/40 text-muted-foreground cursor-not-allowed opacity-80"
+                            : "bg-secondary/20 border-border/60 cursor-pointer focus:bg-background"
+                        }`}
                       >
                         <option value="">— No Agent —</option>
                         {agentsList?.map((agent: any) => (
@@ -1965,8 +1976,14 @@ export default function BookingManager({
                                       <div className="text-right flex items-center gap-3">
                                         <div className="text-right">
                                           <p className="font-black text-foreground text-[15px] tracking-tight">{formatCurrency(fs.price)}</p>
+                                          {fs.agentQuotedPrice !== undefined && fs.agentQuotedPrice !== null && (
+                                            <p className="text-[10px] text-muted-foreground mt-0.5 font-medium block">Quoted: {formatCurrency(fs.agentQuotedPrice)}</p>
+                                          )}
+                                          {fs.confirmationNumber && (
+                                            <p className="text-[10px] text-muted-foreground mt-0.5 font-medium block">Conf: {fs.confirmationNumber}</p>
+                                          )}
                                           {fs.baggage && (
-                                            <p className="text-[9px] text-muted-foreground font-bold uppercase mt-0.5">🎒 {fs.baggage}</p>
+                                            <p className="text-[9px] text-muted-foreground font-bold uppercase mt-0.5 block">🎒 {fs.baggage}</p>
                                           )}
                                         </div>
                                         <div className="flex items-center gap-1 border-l border-border/80 pl-2">
@@ -2195,6 +2212,26 @@ export default function BookingManager({
                               {formatCurrency(acc.price)}
                             </span>
                           </div>
+                          {acc.agentQuotedPrice !== undefined && acc.agentQuotedPrice !== null && (
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground text-[12px]">
+                                Quoted Price:
+                              </span>
+                              <span className="font-semibold text-muted-foreground text-[12px]">
+                                {formatCurrency(acc.agentQuotedPrice)}
+                              </span>
+                            </div>
+                          )}
+                          {acc.confirmationNumber && (
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground text-[12px]">
+                                Confirmation No:
+                              </span>
+                              <span className="font-medium text-foreground text-[12px]">
+                                {acc.confirmationNumber}
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -2314,8 +2351,14 @@ export default function BookingManager({
                               )}
                             </div>
                           </td>
-                          <td className="px-4 py-2.5 text-right font-bold text-[12px]">
-                            {formatCurrency(ts.price)}
+                          <td className="px-4 py-2.5 text-right text-[12px]">
+                            <div className="font-bold text-foreground">{formatCurrency(ts.price)}</div>
+                            {ts.agentQuotedPrice !== undefined && ts.agentQuotedPrice !== null && (
+                              <div className="text-[10px] text-muted-foreground mt-0.5">Quoted: {formatCurrency(ts.agentQuotedPrice)}</div>
+                            )}
+                            {ts.confirmationNumber && (
+                              <div className="text-[10px] text-muted-foreground mt-0.5 font-medium">Conf: {ts.confirmationNumber}</div>
+                            )}
                           </td>
                           <td className="px-4 py-2.5 text-right text-[12px]">
                             <div className="flex gap-1 justify-end">
@@ -2471,6 +2514,26 @@ export default function BookingManager({
                             {formatCurrency(vs.price)}
                           </p>
                         </div>
+                        {vs.agentQuotedPrice !== undefined && vs.agentQuotedPrice !== null && (
+                          <div>
+                            <p className="text-[8px] text-muted-foreground font-bold uppercase mb-0.5">
+                              Quoted Price
+                            </p>
+                            <p className="font-semibold text-muted-foreground text-[13px]">
+                              {formatCurrency(vs.agentQuotedPrice)}
+                            </p>
+                          </div>
+                        )}
+                        {vs.confirmationNumber && (
+                          <div>
+                            <p className="text-[8px] text-muted-foreground font-bold uppercase mb-0.5">
+                              Conf No
+                            </p>
+                            <p className="font-medium text-foreground text-[13px]">
+                              {vs.confirmationNumber}
+                            </p>
+                          </div>
+                        )}
                       </div>
                       <div className="flex items-center gap-2">
                         <button
@@ -2617,6 +2680,26 @@ export default function BookingManager({
                             {formatCurrency(as.servicePrice)}
                           </p>
                         </div>
+                        {as.agentQuotedPrice !== undefined && as.agentQuotedPrice !== null && (
+                          <div>
+                            <p className="text-[8px] text-muted-foreground font-bold uppercase mb-0.5">
+                              Quoted Price
+                            </p>
+                            <p className="font-semibold text-muted-foreground text-[13px]">
+                              {formatCurrency(as.agentQuotedPrice)}
+                            </p>
+                          </div>
+                        )}
+                        {as.confirmationNumber && (
+                          <div>
+                            <p className="text-[8px] text-muted-foreground font-bold uppercase mb-0.5">
+                              Conf No
+                            </p>
+                            <p className="font-medium text-foreground text-[13px]">
+                              {as.confirmationNumber}
+                            </p>
+                          </div>
+                        )}
                         {as.serviceDescription && (
                           <div className="hidden md:block">
                             <p className="text-[8px] text-muted-foreground font-bold uppercase mb-0.5">

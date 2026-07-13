@@ -149,6 +149,8 @@ export default function HotelReservationModal({
   const [mealTypeSelect, setMealTypeSelect] = useState('Room Only');
   const [customMealType, setCustomMealType] = useState('');
   const [price, setPrice] = useState('0');
+  const [agentQuotedPrice, setAgentQuotedPrice] = useState('');
+  const [confirmationNumber, setConfirmationNumber] = useState('');
   const [currency, setCurrency] = useState('');
 
   // Search suggestion states
@@ -226,6 +228,8 @@ export default function HotelReservationModal({
         }
 
         setPrice(String(accommodationToEdit.price || '0'));
+        setAgentQuotedPrice(accommodationToEdit.agentQuotedPrice !== undefined && accommodationToEdit.agentQuotedPrice !== null ? String(accommodationToEdit.agentQuotedPrice) : '');
+        setConfirmationNumber(accommodationToEdit.confirmationNumber || '');
         setCurrency(accommodationToEdit.currency || '');
         setReservationNumber(accommodationToEdit.reservationNumber || '');
         setQty(String(accommodationToEdit.qty || '1'));
@@ -279,6 +283,8 @@ export default function HotelReservationModal({
         setCustomMealType('');
         
         setPrice('0');
+        setAgentQuotedPrice('');
+        setConfirmationNumber('');
         setCurrency('');
         setReservationNumber('');
         setQty('1');
@@ -365,6 +371,8 @@ export default function HotelReservationModal({
         hotelConfirmationNumber: hotelConfirmationNumber || null,
         hotelAddress: hotelAddress || null,
         lastCancellationDate: lastCancellationDate ? new Date(lastCancellationDate).toISOString() : null,
+        agentQuotedPrice: agentQuotedPrice ? Number(agentQuotedPrice) : null,
+        confirmationNumber: confirmationNumber || null,
       };
 
       if (accommodationToEdit) {
@@ -692,6 +700,35 @@ export default function HotelReservationModal({
                   required
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
+                  className="text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                />
+              </div>
+
+              {/* Agent Quoted Price */}
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Agent Quoted Price
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  placeholder="0.00"
+                  value={agentQuotedPrice}
+                  onChange={(e) => setAgentQuotedPrice(e.target.value)}
+                  className="text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                />
+              </div>
+
+              {/* Confirmation Number */}
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Confirmation Number
+                </label>
+                <input
+                  type="text"
+                  placeholder="Enter Confirmation Number"
+                  value={confirmationNumber}
+                  onChange={(e) => setConfirmationNumber(e.target.value)}
                   className="text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                 />
               </div>

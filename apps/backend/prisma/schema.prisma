@@ -472,6 +472,8 @@ model AccommodationService {
   city                    String?
   checkInTime             String?   @default("16:00")
   checkOutTime            String?   @default("12:00")
+  agentQuotedPrice        Float?
+  confirmationNumber      String?
 }
 
 model FlightReservation {
@@ -518,6 +520,8 @@ model FlightService {
   flightClass          String?
   notes                String?
   status               String             @default("CONFIRMED")
+  agentQuotedPrice     Float?
+  confirmationNumber   String?
 }
 
 model TransportService {
@@ -542,6 +546,8 @@ model TransportService {
   issueDate            DateTime?
   refundAmount         Float     @default(0.0)
   fineAmount           Float     @default(0.0)
+  agentQuotedPrice     Float?
+  confirmationNumber   String?
 }
 
 model VisaService {
@@ -561,6 +567,8 @@ model VisaService {
   conversionRate Float?
   refundAmount   Float     @default(0.0)
   fineAmount     Float     @default(0.0)
+  agentQuotedPrice Float?
+  confirmationNumber String?
 }
 
 model VendorWallet {
@@ -677,6 +685,8 @@ model AdditionalService {
   serviceName        String
   servicePrice       Float
   serviceDescription String?
+  agentQuotedPrice   Float?
+  confirmationNumber String?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 }

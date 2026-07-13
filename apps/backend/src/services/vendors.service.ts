@@ -193,6 +193,7 @@ export class VendorsService {
 
           // Write to ledger
           const isInitialCost = existing.originalCost === 0;
+          const issuanceDate = await this.getVendorIssuanceDate(db, bookingId, vendorId);
           await this.appendLedgerEntry(db, {
             vendorId,
             bookingId,
@@ -204,6 +205,7 @@ export class VendorsService {
               ? `Initial vendor invoice cost recorded for booking #${booking.bookingReference}`
               : `Booking vendor invoice adjustment: original cost updated from ${existing.originalCost} to ${originalCost}`,
             createdById: booking.userId, // System trigger from user booking change
+            createdAt: issuanceDate,
           });
 
           // Audit Log
@@ -229,6 +231,7 @@ export class VendorsService {
         });
 
         // Write to ledger
+        const issuanceDate = await this.getVendorIssuanceDate(db, bookingId, vendorId);
         await this.appendLedgerEntry(db, {
           vendorId,
           bookingId,
@@ -238,6 +241,7 @@ export class VendorsService {
           credit: 0.0,
           notes: `Initial vendor invoice cost recorded for booking #${booking.bookingReference}`,
           createdById: booking.userId,
+          createdAt: issuanceDate,
         });
 
         // Audit Log
@@ -269,6 +273,7 @@ export class VendorsService {
           }
         });
 
+        const issuanceDate = await this.getVendorIssuanceDate(db, bookingId, record.vendorId);
         await this.appendLedgerEntry(db, {
           vendorId: record.vendorId,
           bookingId,
@@ -278,6 +283,7 @@ export class VendorsService {
           credit: -diff,
           notes: `Services removed for this vendor from booking #${booking.bookingReference}`,
           createdById: booking.userId,
+          createdAt: issuanceDate,
         });
 
         await this.createAuditLog(db, {
@@ -1354,6 +1360,29 @@ export class VendorsService {
 
       return updatedWallet;
     });
+  }
+
+  public async getVendorIssuanceDate(db: any, bookingId: string, vendorId: string): Promise<Date> {
+    const [acc, flight, transport, visa, add] = await Promise.all([
+      db.accommodationService.findMany({ where: { bookingId, vendorId } }),
+      db.flightService.findMany({ where: { bookingId, vendorId } }),
+      db.transportService.findMany({ where: { bookingId, vendorId } }),
+      db.visaService.findMany({ where: { bookingId, vendorId } }),
+      db.additionalService.findMany({ where: { bookingId, vendorId } }),
+    ]);
+
+    const dates: Date[] = [];
+    acc.forEach((x: any) => { if (x.issueDate) dates.push(new Date(x.issueDate)); });
+    flight.forEach((x: any) => { if (x.issueDate) dates.push(new Date(x.issueDate)); });
+    transport.forEach((x: any) => { if (x.issueDate) dates.push(new Date(x.issueDate)); });
+    visa.forEach((x: any) => { if (x.issueDate) dates.push(new Date(x.issueDate)); });
+    add.forEach((x: any) => { if (x.createdAt) dates.push(new Date(x.createdAt)); });
+
+    if (dates.length > 0) {
+      dates.sort((a, b) => a.getTime() - b.getTime());
+      return dates[0];
+    }
+    return new Date();
   }
 
   // Public Ledger Append Helper

@@ -968,6 +968,8 @@ export class BookingsService {
         refundAmount: Number(data.refundAmount) || 0,
         fineAmount: Number(data.fineAmount) || 0,
         status: data.status || "CONFIRMED",
+        agentQuotedPrice: data.agentQuotedPrice !== undefined && data.agentQuotedPrice !== null ? (Number(data.agentQuotedPrice) || null) : null,
+        confirmationNumber: data.confirmationNumber || null,
       },
       include: {
         vendor: true
@@ -1010,6 +1012,8 @@ export class BookingsService {
         refundAmount: data.refundAmount !== undefined ? (Number(data.refundAmount) || 0) : undefined,
         fineAmount: data.fineAmount !== undefined ? (Number(data.fineAmount) || 0) : undefined,
         status: data.status !== undefined ? data.status : undefined,
+        agentQuotedPrice: data.agentQuotedPrice !== undefined ? (data.agentQuotedPrice !== null ? Number(data.agentQuotedPrice) : null) : undefined,
+        confirmationNumber: data.confirmationNumber !== undefined ? data.confirmationNumber : undefined,
       },
       include: {
         vendor: true
@@ -1072,6 +1076,8 @@ export class BookingsService {
         hotelConfirmationNumber: data.hotelConfirmationNumber || null,
         hotelAddress: data.hotelAddress || null,
         lastCancellationDate: data.lastCancellationDate ? new Date(data.lastCancellationDate) : null,
+        agentQuotedPrice: data.agentQuotedPrice !== undefined && data.agentQuotedPrice !== null ? (Number(data.agentQuotedPrice) || null) : null,
+        confirmationNumber: data.confirmationNumber || null,
       },
       include: {
         vendor: true
@@ -1116,6 +1122,8 @@ export class BookingsService {
         hotelConfirmationNumber: data.hotelConfirmationNumber !== undefined ? data.hotelConfirmationNumber : undefined,
         hotelAddress: data.hotelAddress !== undefined ? data.hotelAddress : undefined,
         lastCancellationDate: data.lastCancellationDate !== undefined ? (data.lastCancellationDate ? new Date(data.lastCancellationDate) : null) : undefined,
+        agentQuotedPrice: data.agentQuotedPrice !== undefined ? (data.agentQuotedPrice !== null ? Number(data.agentQuotedPrice) : null) : undefined,
+        confirmationNumber: data.confirmationNumber !== undefined ? data.confirmationNumber : undefined,
       },
       include: {
         vendor: true
@@ -1174,6 +1182,8 @@ export class BookingsService {
         issueDate: data.issueDate ? new Date(data.issueDate) : null,
         refundAmount: Number(data.refundAmount) || 0,
         fineAmount: Number(data.fineAmount) || 0,
+        agentQuotedPrice: data.agentQuotedPrice !== undefined && data.agentQuotedPrice !== null ? (Number(data.agentQuotedPrice) || null) : null,
+        confirmationNumber: data.confirmationNumber || null,
       },
       include: {
         vendor: true
@@ -1214,6 +1224,8 @@ export class BookingsService {
         issueDate: data.issueDate !== undefined ? (data.issueDate ? new Date(data.issueDate) : null) : undefined,
         refundAmount: data.refundAmount !== undefined ? (Number(data.refundAmount) || 0) : undefined,
         fineAmount: data.fineAmount !== undefined ? (Number(data.fineAmount) || 0) : undefined,
+        agentQuotedPrice: data.agentQuotedPrice !== undefined ? (data.agentQuotedPrice !== null ? Number(data.agentQuotedPrice) : null) : undefined,
+        confirmationNumber: data.confirmationNumber !== undefined ? data.confirmationNumber : undefined,
       },
       include: {
         vendor: true
@@ -1814,6 +1826,8 @@ export class BookingsService {
         conversionRate: data.conversionRate ? Number(data.conversionRate) : null,
         refundAmount: Number(data.refundAmount) || 0,
         fineAmount: Number(data.fineAmount) || 0,
+        agentQuotedPrice: data.agentQuotedPrice !== undefined && data.agentQuotedPrice !== null ? (Number(data.agentQuotedPrice) || null) : null,
+        confirmationNumber: data.confirmationNumber || null,
       },
       include: {
         vendor: true
@@ -1849,6 +1863,8 @@ export class BookingsService {
         conversionRate: data.conversionRate !== undefined ? (data.conversionRate ? Number(data.conversionRate) : null) : undefined,
         refundAmount: data.refundAmount !== undefined ? (Number(data.refundAmount) || 0) : undefined,
         fineAmount: data.fineAmount !== undefined ? (Number(data.fineAmount) || 0) : undefined,
+        agentQuotedPrice: data.agentQuotedPrice !== undefined ? (data.agentQuotedPrice !== null ? Number(data.agentQuotedPrice) : null) : undefined,
+        confirmationNumber: data.confirmationNumber !== undefined ? data.confirmationNumber : undefined,
       },
       include: {
         vendor: true
@@ -1942,6 +1958,8 @@ export class BookingsService {
         serviceName: data.serviceName,
         servicePrice: Number(data.servicePrice) || 0,
         serviceDescription: data.serviceDescription || null,
+        agentQuotedPrice: data.agentQuotedPrice !== undefined && data.agentQuotedPrice !== null ? (Number(data.agentQuotedPrice) || null) : null,
+        confirmationNumber: data.confirmationNumber || null,
       },
       include: {
         vendor: true
@@ -1988,6 +2006,10 @@ export class BookingsService {
     if (data.serviceName !== undefined) updateData.serviceName = data.serviceName;
     if (data.servicePrice !== undefined) updateData.servicePrice = Number(data.servicePrice) || 0;
     if (data.serviceDescription !== undefined) updateData.serviceDescription = data.serviceDescription;
+    if (data.agentQuotedPrice !== undefined) {
+      updateData.agentQuotedPrice = data.agentQuotedPrice !== null ? Number(data.agentQuotedPrice) : null;
+    }
+    if (data.confirmationNumber !== undefined) updateData.confirmationNumber = data.confirmationNumber;
 
     const service = await prisma.additionalService.update({
       where: { id: serviceId, bookingId },
@@ -2589,8 +2611,8 @@ export class BookingsService {
     return { serviceId, isDone };
   }
 
-  async updateVendorPaymentStatus(data: { bookingId: string; vendorId: string; status: string }) {
-    const { bookingId, vendorId, status } = data;
+  async updateVendorPaymentStatus(data: { bookingId: string; vendorId: string; status: string; partialAmount?: number }) {
+    const { bookingId, vendorId, status, partialAmount } = data;
     if (!bookingId || !vendorId || !status) {
       throw new BadRequestException('bookingId, vendorId, and status are required');
     }
@@ -2600,27 +2622,124 @@ export class BookingsService {
       throw new BadRequestException('Invalid status. Must be PENDING, PARTIAL, or PAID');
     }
 
-    // Upsert the BookingVendorPayment record
-    const result = await prisma.bookingVendorPayment.upsert({
-      where: {
-        bookingId_vendorId: {
-          bookingId,
-          vendorId
+    return await prisma.$transaction(async (tx) => {
+      // 1. Fetch booking
+      const booking = await tx.booking.findUnique({
+        where: { id: bookingId },
+        include: {
+          accommodations: true,
+          flightServices: true,
+          transportServices: true,
+          visaServices: true,
+          additionalServices: true,
         }
-      },
-      update: {
-        status: status.toUpperCase()
-      },
-      create: {
-        bookingId,
-        vendorId,
-        status: status.toUpperCase(),
-        originalCost: 0,
-        remainingBalance: 0
+      });
+      if (!booking) {
+        throw new BadRequestException('Booking not found');
       }
-    });
 
-    return result;
+      // 2. Fetch or compute BookingVendorPayment
+      let bvp = await tx.bookingVendorPayment.findUnique({
+        where: { bookingId_vendorId: { bookingId, vendorId } }
+      });
+
+      if (!bvp) {
+        // Calculate original cost for this vendor
+        let totalCost = 0;
+        booking.accommodations?.forEach((x: any) => { if (x.vendorId === vendorId) totalCost += x.price; });
+        booking.flightServices?.forEach((x: any) => { if (x.vendorId === vendorId) totalCost += x.price; });
+        booking.transportServices?.forEach((x: any) => { if (x.vendorId === vendorId) totalCost += x.price; });
+        booking.visaServices?.forEach((x: any) => { if (x.vendorId === vendorId) totalCost += x.price; });
+        booking.additionalServices?.forEach((x: any) => { if (x.vendorId === vendorId) totalCost += x.servicePrice; });
+
+        bvp = await tx.bookingVendorPayment.create({
+          data: {
+            bookingId,
+            vendorId,
+            originalCost: totalCost,
+            remainingBalance: totalCost,
+            amountPaid: 0,
+            status: 'PENDING',
+          }
+        });
+      }
+
+      const originalCost = bvp.originalCost;
+      const prevAmountPaid = bvp.amountPaid;
+      let newAmountPaid = prevAmountPaid;
+      let newStatus = status.toUpperCase();
+
+      const issuanceDate = await vendorsService.getVendorIssuanceDate(tx, bookingId, vendorId);
+
+      if (newStatus === 'PENDING') {
+        newAmountPaid = 0;
+        if (prevAmountPaid > 0) {
+          // Reversal of previous payments
+          await vendorsService.appendLedgerEntry(tx, {
+            vendorId,
+            bookingId,
+            bookingReference: booking.bookingReference,
+            eventType: 'REVERSAL',
+            debit: prevAmountPaid,
+            credit: 0.0,
+            notes: `Reversal of vendor payment (reset to UNPAID) for booking #${booking.bookingReference}`,
+            createdById: booking.userId,
+            createdAt: issuanceDate,
+          });
+        }
+      } else if (newStatus === 'PAID') {
+        newAmountPaid = originalCost;
+        const payAmount = originalCost - prevAmountPaid;
+        if (payAmount > 0) {
+          await vendorsService.appendLedgerEntry(tx, {
+            vendorId,
+            bookingId,
+            bookingReference: booking.bookingReference,
+            eventType: 'VENDOR_PAYMENT',
+            debit: 0.0,
+            credit: payAmount,
+            notes: `Full vendor payment recorded manually for booking #${booking.bookingReference}`,
+            createdById: booking.userId,
+            createdAt: issuanceDate,
+          });
+        }
+      } else if (newStatus === 'PARTIAL') {
+        const pAmt = Number(partialAmount) || 0;
+        if (pAmt <= 0) {
+          throw new BadRequestException('Partial payment amount must be greater than zero');
+        }
+        newAmountPaid = prevAmountPaid + pAmt;
+        if (newAmountPaid >= originalCost) {
+          newAmountPaid = originalCost;
+          newStatus = 'PAID';
+        }
+        await vendorsService.appendLedgerEntry(tx, {
+          vendorId,
+          bookingId,
+          bookingReference: booking.bookingReference,
+          eventType: 'VENDOR_PAYMENT',
+          debit: 0.0,
+          credit: pAmt,
+          notes: `Partial vendor payment of ${pAmt} recorded manually for booking #${booking.bookingReference}`,
+          createdById: booking.userId,
+          createdAt: issuanceDate,
+        });
+      }
+
+      const remainingBalance = Math.max(0, originalCost - newAmountPaid);
+
+      // Update BookingVendorPayment
+      const updatedBvp = await tx.bookingVendorPayment.update({
+        where: { id: bvp.id },
+        data: {
+          amountPaid: newAmountPaid,
+          remainingBalance,
+          status: newStatus,
+        }
+      });
+
+      return updatedBvp;
+    });
   }
 }
 

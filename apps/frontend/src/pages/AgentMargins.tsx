@@ -87,6 +87,7 @@ export default function AgentMargins() {
     onSuccess: () => {
       toast.success("Margin marked as paid");
       queryClient.invalidateQueries({ queryKey: ["agent-margins"] });
+      queryClient.invalidateQueries({ queryKey: ["agent-margins-history"] });
     },
     onError: (err: any) => {
       toast.error(err.response?.data?.message || "Failed to mark as paid");
@@ -100,11 +101,35 @@ export default function AgentMargins() {
     onSuccess: () => {
       toast.success("Margin payment reset");
       queryClient.invalidateQueries({ queryKey: ["agent-margins"] });
+      queryClient.invalidateQueries({ queryKey: ["agent-margins-history"] });
     },
     onError: (err: any) => {
       toast.error(err.response?.data?.message || "Failed to reset payment");
     }
   });
+
+  // Fetch Paid Margins History
+  const { data: paidHistoryResult, isLoading: isHistoryLoading } = useQuery({
+    queryKey: ["agent-margins-history", agentId, isAdmin],
+    queryFn: async () => {
+      if (!isAdmin) {
+        const res = await apiClient.get("/agent-margins/my-margins?status=PAID");
+        return res.data.data as any[];
+      }
+      const params = new URLSearchParams();
+      params.append("status", "PAID");
+      if (agentId !== "all") params.append("agentId", agentId);
+      params.append("limit", "100");
+      const res = await apiClient.get(`/agent-margins?${params.toString()}`);
+      return res.data.data;
+    }
+  });
+
+  const paidHistory = useMemo(() => {
+    if (!paidHistoryResult) return [];
+    if (Array.isArray(paidHistoryResult)) return paidHistoryResult;
+    return paidHistoryResult.items || [];
+  }, [paidHistoryResult]);
 
   const margins = useMemo(() => {
     if (!marginsResult) return [];
@@ -339,6 +364,114 @@ export default function AgentMargins() {
           onPageChange={setPage}
           itemName="margin records"
         />
+      </div>
+
+      {/* Paid Margin History Section */}
+      <div className="bg-card rounded-xl border border-border p-6 space-y-4">
+        <div>
+          <h2 className="text-lg font-bold tracking-tight text-foreground">Paid Margin History</h2>
+          <p className="text-xs text-muted-foreground">
+            A historical log of commissions that have been marked as paid to agents.
+          </p>
+        </div>
+
+        <div className="overflow-x-auto border border-border rounded-lg bg-background">
+          <table className="w-full text-xs text-left">
+            <thead>
+              <tr className="border-b border-border bg-secondary/15 text-muted-foreground font-semibold">
+                {isAdmin && <th className="px-4 py-3">Agent</th>}
+                <th className="px-4 py-3">Period</th>
+                <th className="px-4 py-3 text-right">Bookings</th>
+                <th className="px-4 py-3 text-right">Total Profit</th>
+                <th className="px-4 py-3 text-right">Margin %</th>
+                <th className="px-4 py-3 text-right">Paid Margin</th>
+                <th className="px-4 py-3 text-center">Paid Date</th>
+                {isAdmin && <th className="px-4 py-3">Paid By</th>}
+                <th className="px-4 py-3 text-center">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border/60">
+              {isHistoryLoading ? (
+                <tr>
+                  <td colSpan={isAdmin ? 9 : 7} className="px-4 py-8 text-center text-muted-foreground">
+                    <div className="flex items-center justify-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                      <span>Loading payment history...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : paidHistory.length === 0 ? (
+                <tr>
+                  <td colSpan={isAdmin ? 9 : 7} className="px-4 py-8 text-center text-muted-foreground">
+                    No paid margin history found.
+                  </td>
+                </tr>
+              ) : (
+                paidHistory.map((m: any) => (
+                  <tr key={m.id} className="hover:bg-muted/30 transition-colors">
+                    {isAdmin && (
+                      <td className="px-4 py-3 font-medium">
+                        {m.agent?.name}
+                      </td>
+                    )}
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {new Date(m.startDate).toLocaleDateString(undefined, { timeZone: "UTC" })} - {new Date(m.endDate).toLocaleDateString(undefined, { timeZone: "UTC" })}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {m.bookingCount}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {formatCurrency(m.totalProfit)}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {m.marginPercentage}%
+                    </td>
+                    <td className="px-4 py-3 text-right font-semibold text-emerald-600 dark:text-emerald-400">
+                      {formatCurrency(m.marginAmount)}
+                    </td>
+                    <td className="px-4 py-3 text-center whitespace-nowrap text-muted-foreground">
+                      {m.paidDate ? formatDate(m.paidDate) : "—"}
+                    </td>
+                    {isAdmin && (
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {m.paidBy ? `${m.paidBy.firstName} ${m.paidBy.lastName}` : "—"}
+                      </td>
+                    )}
+                    <td className="px-4 py-3 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          title="View Bookings"
+                          onClick={() => {
+                            setSelectedMargin(m);
+                            setIsBookingsModalOpen(true);
+                          }}
+                          className="p-1 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                        </button>
+                        
+                        {isAdmin && (
+                          <button
+                            title="Reset Payment"
+                            onClick={() => {
+                              if (window.confirm("Are you sure you want to reset this payment? It will remove the ledger entry.")) {
+                                resetMutation.mutate(m.id);
+                              }
+                            }}
+                            disabled={resetMutation.isPending}
+                            className="p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
+                          >
+                            <RotateCcw className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {isBookingsModalOpen && selectedMargin && (

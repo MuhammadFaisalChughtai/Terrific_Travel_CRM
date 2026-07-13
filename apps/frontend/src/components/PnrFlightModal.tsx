@@ -190,6 +190,8 @@ export default function PnrFlightModal({
   const [flightClass, setFlightClass] = useState('Economy Class');
   const [status, setStatus] = useState('CONFIRMED');
   const [price, setPrice] = useState('0');
+  const [agentQuotedPrice, setAgentQuotedPrice] = useState('');
+  const [confirmationNumber, setConfirmationNumber] = useState('');
   const [baggage, setBaggage] = useState('23 KG');
   const [carryOnBaggage, setCarryOnBaggage] = useState('7 KG');
   const [checkedBaggage, setCheckedBaggage] = useState('');
@@ -249,6 +251,8 @@ export default function PnrFlightModal({
         
         setFlightClass(getCabinClassFromCode(flightToEdit.flightClass || 'Economy Class'));
         setPrice(String(flightToEdit.price || '0'));
+        setAgentQuotedPrice(flightToEdit.agentQuotedPrice !== undefined && flightToEdit.agentQuotedPrice !== null ? String(flightToEdit.agentQuotedPrice) : '');
+        setConfirmationNumber(flightToEdit.confirmationNumber || '');
         setRefundAmount(String(flightToEdit.refundAmount ?? '0.0'));
         setFineAmount(String(flightToEdit.fineAmount ?? '0.0'));
         setBaggage(flightToEdit.baggage || '');
@@ -303,6 +307,8 @@ export default function PnrFlightModal({
         setFlightClass('Economy Class');
         setStatus('CONFIRMED');
         setPrice('0');
+        setAgentQuotedPrice('');
+        setConfirmationNumber('');
         setBaggage('23 KG');
         setCarryOnBaggage('7 KG');
         setCheckedBaggage('');
@@ -551,6 +557,8 @@ export default function PnrFlightModal({
         notes: notesJson,
         issueDate: issueDate ? new Date(issueDate).toISOString() : null,
         status,
+        agentQuotedPrice: agentQuotedPrice ? Number(agentQuotedPrice) : null,
+        confirmationNumber: confirmationNumber || null,
       };
 
       if (flightToEdit) {
@@ -579,6 +587,8 @@ export default function PnrFlightModal({
       setFlightClass('Y');
       setStatus('CONFIRMED');
       setPrice('0');
+      setAgentQuotedPrice('');
+      setConfirmationNumber('');
       setBaggage('');
       setCarryOnBaggage('');
       setCheckedBaggage('');
@@ -1033,7 +1043,36 @@ export default function PnrFlightModal({
                     placeholder="0.00"
                     value={price}
                     onChange={(e) => setPrice(e.target.value)}
-                    className="text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary font-bold text-foreground w-full font-bold"
+                    className="text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary font-bold text-foreground w-full"
+                  />
+                </div>
+
+                {/* Agent Quoted Price */}
+                <div className="flex flex-col gap-1 bg-secondary/5 p-2.5 rounded-lg border border-border/40 col-span-1">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                    Agent Quoted Price (GBP)
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    placeholder="0.00"
+                    value={agentQuotedPrice}
+                    onChange={(e) => setAgentQuotedPrice(e.target.value)}
+                    className="text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary w-full"
+                  />
+                </div>
+
+                {/* Confirmation Number */}
+                <div className="flex flex-col gap-1 col-span-1">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                    Confirmation Number
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Enter Confirmation Number"
+                    value={confirmationNumber}
+                    onChange={(e) => setConfirmationNumber(e.target.value)}
+                    className="text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary w-full"
                   />
                 </div>
 

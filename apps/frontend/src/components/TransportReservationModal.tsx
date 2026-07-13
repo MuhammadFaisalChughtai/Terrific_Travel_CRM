@@ -44,6 +44,8 @@ export default function TransportReservationModal({
   const [passengerName, setPassengerName] = useState('');
 
   const [price, setPrice] = useState('0');
+  const [agentQuotedPrice, setAgentQuotedPrice] = useState('');
+  const [confirmationNumber, setConfirmationNumber] = useState('');
   const [currency, setCurrency] = useState('');
   const [otherCurrency, setOtherCurrency] = useState('');
   const [conversionRate, setConversionRate] = useState('');
@@ -99,6 +101,8 @@ export default function TransportReservationModal({
         }
 
         setPrice(String(transportToEdit.price || '0'));
+        setAgentQuotedPrice(transportToEdit.agentQuotedPrice !== undefined && transportToEdit.agentQuotedPrice !== null ? String(transportToEdit.agentQuotedPrice) : '');
+        setConfirmationNumber(transportToEdit.confirmationNumber || '');
         setCurrency(transportToEdit.currency || '');
         setOtherCurrency(transportToEdit.otherCurrency || '');
         setConversionRate(transportToEdit.conversionRate ? String(transportToEdit.conversionRate) : '');
@@ -120,6 +124,8 @@ export default function TransportReservationModal({
         setCustomFlightNo('');
         setIsReturnFlight(false);
         setPrice('0');
+        setAgentQuotedPrice('');
+        setConfirmationNumber('');
         setCurrency('');
         setOtherCurrency('');
         setConversionRate('');
@@ -180,6 +186,8 @@ export default function TransportReservationModal({
         issueDate: issueDate ? new Date(issueDate).toISOString() : null,
         refundAmount: Number(refundAmount) || 0,
         fineAmount: Number(fineAmount) || 0,
+        agentQuotedPrice: agentQuotedPrice ? Number(agentQuotedPrice) : null,
+        confirmationNumber: confirmationNumber || null,
       };
 
       if (transportToEdit) {
@@ -542,6 +550,35 @@ export default function TransportReservationModal({
                   step="any"
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
+                  className="w-full text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                />
+              </div>
+
+              {/* Agent Quoted Price */}
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Agent Quoted Price
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  placeholder="0.00"
+                  value={agentQuotedPrice}
+                  onChange={(e) => setAgentQuotedPrice(e.target.value)}
+                  className="w-full text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                />
+              </div>
+
+              {/* Confirmation Number */}
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Confirmation Number
+                </label>
+                <input
+                  type="text"
+                  placeholder="Enter Confirmation Number"
+                  value={confirmationNumber}
+                  onChange={(e) => setConfirmationNumber(e.target.value)}
                   className="w-full text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                 />
               </div>

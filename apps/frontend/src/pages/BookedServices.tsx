@@ -301,11 +301,23 @@ export default function BookedServicesPage() {
       toast.error("No vendor associated with this service.");
       return;
     }
+    let partialAmount: number | undefined = undefined;
+    if (status === "PARTIAL") {
+      const input = prompt("Enter additional payment amount:");
+      if (input === null) return; // User cancelled
+      const parsed = parseFloat(input);
+      if (isNaN(parsed) || parsed <= 0) {
+        toast.error("Invalid payment amount entered.");
+        return;
+      }
+      partialAmount = parsed;
+    }
     try {
       await apiClient.patch("/bookings/booked-services/vendor-payment-status", {
         bookingId,
         vendorId,
         status,
+        partialAmount,
       });
       queryClient.invalidateQueries({ queryKey: ["booked-flights"] });
       queryClient.invalidateQueries({ queryKey: ["booked-hotels"] });
@@ -740,6 +752,17 @@ export default function BookedServicesPage() {
     );
   };
 
+  const getPaymentStatusSelectColor = (status: string | undefined) => {
+    const s = (status || "PENDING").toUpperCase();
+    if (s === "PAID") {
+      return "border-emerald-500/50 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10";
+    }
+    if (s === "PARTIAL" || s === "PARTIALLY_PAID") {
+      return "border-amber-500/50 text-amber-600 dark:text-amber-400 bg-amber-500/10";
+    }
+    return "border-rose-500/50 text-rose-600 dark:text-rose-400 bg-rose-500/10";
+  };
+
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
     setFlightsPage(1);
@@ -1160,11 +1183,11 @@ export default function BookedServicesPage() {
                                     e.target.value
                                   )
                                 }
-                                className="bg-background border border-border rounded px-1.5 py-0.5 text-[10px] font-bold focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-foreground cursor-pointer"
+                                className={`border rounded px-1.5 py-0.5 text-[10px] font-bold focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary cursor-pointer transition-all ${getPaymentStatusSelectColor(flight.vendorPaymentStatus)}`}
                               >
-                                <option value="PENDING">UNPAID</option>
-                                <option value="PARTIAL">PARTIAL</option>
-                                <option value="PAID">PAID</option>
+                                <option value="PENDING" className="bg-background text-foreground">UNPAID</option>
+                                <option value="PARTIAL" className="bg-background text-foreground">PARTIAL</option>
+                                <option value="PAID" className="bg-background text-foreground">PAID</option>
                               </select>
                             ) : (
                               getPaymentStatusBadge(flight.vendorPaymentStatus)
@@ -1354,11 +1377,11 @@ export default function BookedServicesPage() {
                                     e.target.value
                                   )
                                 }
-                                className="bg-background border border-border rounded px-1.5 py-0.5 text-[10px] font-bold focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-foreground cursor-pointer"
+                                className={`border rounded px-1.5 py-0.5 text-[10px] font-bold focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary cursor-pointer transition-all ${getPaymentStatusSelectColor(hotel.vendorPaymentStatus)}`}
                               >
-                                <option value="PENDING">UNPAID</option>
-                                <option value="PARTIAL">PARTIAL</option>
-                                <option value="PAID">PAID</option>
+                                <option value="PENDING" className="bg-background text-foreground">UNPAID</option>
+                                <option value="PARTIAL" className="bg-background text-foreground">PARTIAL</option>
+                                <option value="PAID" className="bg-background text-foreground">PAID</option>
                               </select>
                             ) : (
                               getPaymentStatusBadge(hotel.vendorPaymentStatus)
@@ -1527,11 +1550,11 @@ export default function BookedServicesPage() {
                                     e.target.value
                                   )
                                 }
-                                className="bg-background border border-border rounded px-1.5 py-0.5 text-[10px] font-bold focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-foreground cursor-pointer"
+                                className={`border rounded px-1.5 py-0.5 text-[10px] font-bold focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary cursor-pointer transition-all ${getPaymentStatusSelectColor(t.vendorPaymentStatus)}`}
                               >
-                                <option value="PENDING">UNPAID</option>
-                                <option value="PARTIAL">PARTIAL</option>
-                                <option value="PAID">PAID</option>
+                                <option value="PENDING" className="bg-background text-foreground">UNPAID</option>
+                                <option value="PARTIAL" className="bg-background text-foreground">PARTIAL</option>
+                                <option value="PAID" className="bg-background text-foreground">PAID</option>
                               </select>
                             ) : (
                               getPaymentStatusBadge(t.vendorPaymentStatus)
@@ -1702,11 +1725,11 @@ export default function BookedServicesPage() {
                                     e.target.value
                                   )
                                 }
-                                className="bg-background border border-border rounded px-1.5 py-0.5 text-[10px] font-bold focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-foreground cursor-pointer"
+                                className={`border rounded px-1.5 py-0.5 text-[10px] font-bold focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary cursor-pointer transition-all ${getPaymentStatusSelectColor(v.vendorPaymentStatus)}`}
                               >
-                                <option value="PENDING">UNPAID</option>
-                                <option value="PARTIAL">PARTIAL</option>
-                                <option value="PAID">PAID</option>
+                                <option value="PENDING" className="bg-background text-foreground">UNPAID</option>
+                                <option value="PARTIAL" className="bg-background text-foreground">PARTIAL</option>
+                                <option value="PAID" className="bg-background text-foreground">PAID</option>
                               </select>
                             ) : (
                               getPaymentStatusBadge(v.vendorPaymentStatus)
@@ -1862,11 +1885,11 @@ export default function BookedServicesPage() {
                                     e.target.value
                                   )
                                 }
-                                className="bg-background border border-border rounded px-1.5 py-0.5 text-[10px] font-bold focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-foreground cursor-pointer"
+                                className={`border rounded px-1.5 py-0.5 text-[10px] font-bold focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary cursor-pointer transition-all ${getPaymentStatusSelectColor(ad.vendorPaymentStatus)}`}
                               >
-                                <option value="PENDING">UNPAID</option>
-                                <option value="PARTIAL">PARTIAL</option>
-                                <option value="PAID">PAID</option>
+                                <option value="PENDING" className="bg-background text-foreground">UNPAID</option>
+                                <option value="PARTIAL" className="bg-background text-foreground">PARTIAL</option>
+                                <option value="PAID" className="bg-background text-foreground">PAID</option>
                               </select>
                             ) : (
                               getPaymentStatusBadge(ad.vendorPaymentStatus)
