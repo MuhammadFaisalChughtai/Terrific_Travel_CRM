@@ -654,11 +654,16 @@ export default function BookingManager({
     ) || 0;
 
   const totalVendorCost =
-    accommodationsCost +
-    flightsCost +
-    transportsCost +
-    visasCost +
-    additionalServicesCost;
+    booking.bookingVendorPayments && booking.bookingVendorPayments.length > 0
+      ? booking.bookingVendorPayments.reduce(
+          (sum: number, p: any) => sum + (p.originalCost || 0),
+          0,
+        )
+      : accommodationsCost +
+        flightsCost +
+        transportsCost +
+        visasCost +
+        additionalServicesCost;
 
   // Refund Calculations
   const accommodationsRefund =

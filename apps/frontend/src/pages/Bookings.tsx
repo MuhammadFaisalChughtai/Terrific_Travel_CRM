@@ -597,11 +597,16 @@ export default function Bookings() {
                         ) || 0;
 
                       const totalVendorCost =
-                        accommodationsCost +
-                        flightsCost +
-                        transportsCost +
-                        visasCost +
-                        additionalCost;
+                        booking.bookingVendorPayments && booking.bookingVendorPayments.length > 0
+                          ? booking.bookingVendorPayments.reduce(
+                              (sum: number, bvp: any) => sum + (bvp.originalCost || 0),
+                              0,
+                            )
+                          : accommodationsCost +
+                            flightsCost +
+                            transportsCost +
+                            visasCost +
+                            additionalCost;
                       const totalPaidToVendors =
                         booking.bookingVendorPayments?.reduce(
                           (sum: number, bvp: any) => sum + (bvp.amountPaid || 0),

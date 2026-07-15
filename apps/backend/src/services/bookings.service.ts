@@ -863,6 +863,7 @@ export class BookingsService {
         transportServices: true,
         visaServices: true,
         additionalServices: true,
+        bookingVendorPayments: true,
       },
     });
     if (!booking) throw new NotFoundException('Booking not found');
@@ -885,13 +886,17 @@ export class BookingsService {
     // 3. Compute raw profit and potential commission rate based on slabs matching the booking's totalPrice
     const price = booking.totalPrice;
     
-    const accommodationsCost = booking.accommodations?.reduce((sum, item) => sum + item.price, 0) || 0;
-    const flightsCost = booking.flightServices?.reduce((sum, item) => sum + item.price, 0) || 0;
-    const transportsCost = booking.transportServices?.reduce((sum, item) => sum + item.price, 0) || 0;
-    const visasCost = booking.visaServices?.reduce((sum, item) => sum + item.price, 0) || 0;
-    const additionalCost = booking.additionalServices?.reduce((sum, item) => sum + item.servicePrice, 0) || 0;
-    
-    const totalVendorCost = accommodationsCost + flightsCost + transportsCost + visasCost + additionalCost;
+    let totalVendorCost = 0;
+    if (booking.bookingVendorPayments && booking.bookingVendorPayments.length > 0) {
+      totalVendorCost = booking.bookingVendorPayments.reduce((sum, item) => sum + (item.originalCost || 0), 0);
+    } else {
+      const accommodationsCost = booking.accommodations?.reduce((sum, item) => sum + item.price, 0) || 0;
+      const flightsCost = booking.flightServices?.reduce((sum, item) => sum + item.price, 0) || 0;
+      const transportsCost = booking.transportServices?.reduce((sum, item) => sum + item.price, 0) || 0;
+      const visasCost = booking.visaServices?.reduce((sum, item) => sum + item.price, 0) || 0;
+      const additionalCost = booking.additionalServices?.reduce((sum, item) => sum + item.servicePrice, 0) || 0;
+      totalVendorCost = accommodationsCost + flightsCost + transportsCost + visasCost + additionalCost;
+    }
     const rawProfit = price - totalVendorCost;
 
     let slab = agent.slabs.find(

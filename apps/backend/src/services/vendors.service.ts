@@ -167,7 +167,20 @@ export class VendorsService {
 
     // Update or create active ones
     for (const vendorId of activeVendorIds) {
-      const originalCost = vendorCosts[vendorId];
+      // Subtract any vendor discounts from originalCost to preserve them when syncing services
+      const discounts = await db.vendorLedger.aggregate({
+        where: {
+          bookingId,
+          vendorId,
+          eventType: 'VENDOR_DISCOUNT'
+        },
+        _sum: {
+          credit: true
+        }
+      });
+      const discountAmount = discounts._sum.credit || 0;
+      const originalCost = Math.max(0, vendorCosts[vendorId] - discountAmount);
+
       const existing = currentRecords.find((r: any) => r.vendorId === vendorId);
 
       if (existing) {

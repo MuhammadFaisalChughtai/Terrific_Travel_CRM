@@ -3,13 +3,17 @@ import { prisma } from '../config';
 // Shared helper to calculate net profit and margin for a single booking
 function calculateBookingFinancials(b: any): { vendorCost: number; margin: number; netProfit: number } {
   const price = b.totalPrice;
-  const accommodationsCost = b.accommodations?.reduce((sum: number, item: any) => sum + item.price, 0) || 0;
-  const flightsCost = b.flightServices?.reduce((sum: number, item: any) => sum + item.price, 0) || 0;
-  const transportsCost = b.transportServices?.reduce((sum: number, item: any) => sum + item.price, 0) || 0;
-  const visasCost = b.visaServices?.reduce((sum: number, item: any) => sum + item.price, 0) || 0;
-  const additionalCost = b.additionalServices?.reduce((sum: number, item: any) => sum + item.servicePrice, 0) || 0;
-
-  const totalVendorCost = accommodationsCost + flightsCost + transportsCost + visasCost + additionalCost;
+  let totalVendorCost = 0;
+  if (b.bookingVendorPayments && b.bookingVendorPayments.length > 0) {
+    totalVendorCost = b.bookingVendorPayments.reduce((sum: number, item: any) => sum + (item.originalCost || 0), 0);
+  } else {
+    const accommodationsCost = b.accommodations?.reduce((sum: number, item: any) => sum + item.price, 0) || 0;
+    const flightsCost = b.flightServices?.reduce((sum: number, item: any) => sum + item.price, 0) || 0;
+    const transportsCost = b.transportServices?.reduce((sum: number, item: any) => sum + item.price, 0) || 0;
+    const visasCost = b.visaServices?.reduce((sum: number, item: any) => sum + item.price, 0) || 0;
+    const additionalCost = b.additionalServices?.reduce((sum: number, item: any) => sum + item.servicePrice, 0) || 0;
+    totalVendorCost = accommodationsCost + flightsCost + transportsCost + visasCost + additionalCost;
+  }
   const rawProfit = price - totalVendorCost;
 
   let margin = 0.0;
@@ -57,6 +61,7 @@ const bookingInclude = {
   transportServices: true,
   visaServices: true,
   additionalServices: true,
+  bookingVendorPayments: true,
 };
 
 export class DashboardService {
