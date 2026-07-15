@@ -1880,159 +1880,161 @@ export default function BookingManager({
 
                                 return (
                                   <React.Fragment key={fs.id}>
-                                    <div className="border border-border bg-gradient-to-r from-card to-secondary/10 rounded-xl p-3.5 flex justify-between items-center gap-3 hover:border-primary/30 transition-all text-[12px] shadow-sm relative overflow-hidden group">
-                                      {isConnecting && (
-                                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-500"></div>
-                                      )}
-                                      {idx > 0 && getIsConnectingFlight(sortedFlights[idx - 1], fs) && (
-                                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-sky-500"></div>
-                                      )}
+                                    <div className="overflow-x-auto w-full scrollbar-thin pb-1">
+                                      <div className="border border-border bg-gradient-to-r from-card to-secondary/10 rounded-xl p-3.5 flex justify-between items-center gap-3 hover:border-primary/30 transition-all text-[12px] shadow-sm relative overflow-hidden group min-w-[620px]">
+                                        {isConnecting && (
+                                          <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-500"></div>
+                                        )}
+                                        {idx > 0 && getIsConnectingFlight(sortedFlights[idx - 1], fs) && (
+                                          <div className="absolute left-0 top-0 bottom-0 w-1 bg-sky-500"></div>
+                                        )}
 
-                                      <div className="flex items-center gap-3">
-                                        <div className="w-9 h-9 bg-primary/5 text-primary border border-primary/10 rounded-xl flex items-center justify-center font-bold text-[11px] shadow-inner">
-                                          <Plane size={14} className="text-primary group-hover:rotate-12 transition-transform" />
-                                        </div>
-                                        <div>
-                                          <div className="flex items-center gap-1.5">
-                                            <h4 className="font-extrabold text-foreground text-[14px] tracking-tight">
-                                              {fs.flightNo}
-                                            </h4>
-                                            <span className="text-[9px] bg-secondary text-muted-foreground border-border px-1.5 py-0.5 rounded font-extrabold uppercase border">
-                                              {fs.flightClass || "Y"}
-                                            </span>
-                                            {fs.status === "CANCELLED" && (
-                                              <span className="text-[9px] bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-900/50 px-1.5 py-0.5 rounded font-black uppercase">
-                                                Cancelled
+                                        <div className="flex items-center gap-3">
+                                          <div className="w-9 h-9 bg-primary/5 text-primary border border-primary/10 rounded-xl flex items-center justify-center font-bold text-[11px] shadow-inner">
+                                            <Plane size={14} className="text-primary group-hover:rotate-12 transition-transform" />
+                                          </div>
+                                          <div>
+                                            <div className="flex items-center gap-1.5">
+                                              <h4 className="font-extrabold text-foreground text-[14px] tracking-tight">
+                                                {fs.flightNo}
+                                              </h4>
+                                              <span className="text-[9px] bg-secondary text-muted-foreground border-border px-1.5 py-0.5 rounded font-extrabold uppercase border">
+                                                {fs.flightClass || "Y"}
                                               </span>
-                                            )}
-                                            {isConnecting && (
-                                              <span className="text-[9px] bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded font-black uppercase">
-                                                Connecting
-                                              </span>
+                                              {fs.status === "CANCELLED" && (
+                                                <span className="text-[9px] bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-900/50 px-1.5 py-0.5 rounded font-black uppercase">
+                                                  Cancelled
+                                                </span>
+                                              )}
+                                              {isConnecting && (
+                                                <span className="text-[9px] bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded font-black uppercase">
+                                                  Connecting
+                                                </span>
+                                              )}
+                                            </div>
+                                            <p className="text-[10px] text-muted-foreground mt-0.5 font-mono">
+                                              PNR: <strong className="text-foreground font-bold">{fs.pnr || "—"}</strong>
+                                            </p>
+                                            {fs.date && (
+                                              <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1 font-medium">
+                                                <span>Date:</span>
+                                                <strong className="text-foreground">
+                                                  {new Date(fs.date).toLocaleDateString("en-US", {
+                                                    month: "short",
+                                                    day: "2-digit",
+                                                    year: "numeric",
+                                                  })}
+                                                </strong>
+                                              </p>
                                             )}
                                           </div>
-                                          <p className="text-[10px] text-muted-foreground mt-0.5 font-mono">
-                                            PNR: <strong className="text-foreground font-bold">{fs.pnr || "—"}</strong>
-                                          </p>
-                                          {fs.date && (
-                                            <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1 font-medium">
-                                              <span>Date:</span>
-                                              <strong className="text-foreground">
-                                                {new Date(fs.date).toLocaleDateString("en-US", {
-                                                  month: "short",
-                                                  day: "2-digit",
-                                                  year: "numeric",
-                                                })}
-                                              </strong>
+                                        </div>
+
+                                        <div className="flex items-center gap-4 flex-1 justify-center max-w-md">
+                                          <div className="text-right flex-1">
+                                            <p className="font-extrabold text-foreground text-[14px]">{fs.departTime || "—"}</p>
+                                            <p className="text-[10px] text-muted-foreground font-extrabold tracking-wide uppercase truncate max-w-[150px]" title={fs.departedFrom}>
+                                              {fs.departedFrom}
+                                              {(() => {
+                                                if (fs.notes) {
+                                                  try {
+                                                    const parsed = JSON.parse(fs.notes);
+                                                    if (parsed.depTerminal) {
+                                                      return (
+                                                        <span className="text-[8px] bg-rose-50 text-rose-600 px-1 py-0.5 rounded font-black ml-1 uppercase border border-rose-200">
+                                                          T{parsed.depTerminal}
+                                                        </span>
+                                                      );
+                                                    }
+                                                  } catch (e) {}
+                                                }
+                                                return null;
+                                              })()}
                                             </p>
-                                          )}
+                                          </div>
+                                          <div className="flex flex-col items-center w-16 relative">
+                                            <div className="h-[2px] w-full bg-gradient-to-r from-primary/10 via-primary/30 to-primary/10 absolute top-1/2 -translate-y-1/2"></div>
+                                            <PlaneTakeoff size={12} className="text-primary absolute top-1/2 -translate-y-1/2 bg-card p-0.5 rounded-full border border-border shadow-sm group-hover:translate-x-1 transition-transform" />
+                                          </div>
+                                          <div className="text-left flex-1">
+                                            <p className="font-extrabold text-foreground text-[14px]">{fs.arrivalTime || "—"}</p>
+                                            <p className="text-[10px] text-muted-foreground font-extrabold tracking-wide uppercase truncate max-w-[150px]" title={fs.arrivedAt}>
+                                              {fs.arrivedAt}
+                                              {(() => {
+                                                if (fs.notes) {
+                                                  try {
+                                                    const parsed = JSON.parse(fs.notes);
+                                                    if (parsed.arrTerminal) {
+                                                      return (
+                                                        <span className="text-[8px] bg-rose-50 text-rose-600 px-1 py-0.5 rounded font-black ml-1 uppercase border border-rose-200">
+                                                          T{parsed.arrTerminal}
+                                                        </span>
+                                                      );
+                                                    }
+                                                  } catch (e) {}
+                                                }
+                                                return null;
+                                              })()}
+                                            </p>
+                                          </div>
                                         </div>
-                                      </div>
 
-                                      <div className="flex items-center gap-4 flex-1 justify-center max-w-md">
-                                        <div className="text-right flex-1">
-                                          <p className="font-extrabold text-foreground text-[14px]">{fs.departTime || "—"}</p>
-                                          <p className="text-[10px] text-muted-foreground font-extrabold tracking-wide uppercase truncate max-w-[150px]" title={fs.departedFrom}>
-                                            {fs.departedFrom}
-                                            {(() => {
-                                              if (fs.notes) {
-                                                try {
-                                                  const parsed = JSON.parse(fs.notes);
-                                                  if (parsed.depTerminal) {
-                                                    return (
-                                                      <span className="text-[8px] bg-rose-50 text-rose-600 px-1 py-0.5 rounded font-black ml-1 uppercase border border-rose-200">
-                                                        T{parsed.depTerminal}
-                                                      </span>
-                                                    );
-                                                  }
-                                                } catch (e) {}
-                                              }
-                                              return null;
-                                            })()}
-                                          </p>
-                                        </div>
-                                        <div className="flex flex-col items-center w-16 relative">
-                                          <div className="h-[2px] w-full bg-gradient-to-r from-primary/10 via-primary/30 to-primary/10 absolute top-1/2 -translate-y-1/2"></div>
-                                          <PlaneTakeoff size={12} className="text-primary absolute top-1/2 -translate-y-1/2 bg-card p-0.5 rounded-full border border-border shadow-sm group-hover:translate-x-1 transition-transform" />
-                                        </div>
-                                        <div className="text-left flex-1">
-                                          <p className="font-extrabold text-foreground text-[14px]">{fs.arrivalTime || "—"}</p>
-                                          <p className="text-[10px] text-muted-foreground font-extrabold tracking-wide uppercase truncate max-w-[150px]" title={fs.arrivedAt}>
-                                            {fs.arrivedAt}
-                                            {(() => {
-                                              if (fs.notes) {
-                                                try {
-                                                  const parsed = JSON.parse(fs.notes);
-                                                  if (parsed.arrTerminal) {
-                                                    return (
-                                                      <span className="text-[8px] bg-rose-50 text-rose-600 px-1 py-0.5 rounded font-black ml-1 uppercase border border-rose-200">
-                                                        T{parsed.arrTerminal}
-                                                      </span>
-                                                    );
-                                                  }
-                                                } catch (e) {}
-                                              }
-                                              return null;
-                                            })()}
-                                          </p>
-                                        </div>
-                                      </div>
-
-                                      <div className="text-right flex items-center gap-3">
-                                        <div className="text-right">
-                                          <p className="font-black text-foreground text-[15px] tracking-tight">{formatCurrency(fs.price)}</p>
-                                          {fs.agentQuotedPrice !== undefined && fs.agentQuotedPrice !== null && (
-                                            <p className="text-[10px] text-muted-foreground mt-0.5 font-medium block">Quoted: {formatCurrency(fs.agentQuotedPrice)}</p>
-                                          )}
-                                          {fs.confirmationNumber && (
-                                            <p className="text-[10px] text-muted-foreground mt-0.5 font-medium block">Conf: {fs.confirmationNumber}</p>
-                                          )}
-                                          {fs.baggage && (
-                                            <p className="text-[9px] text-muted-foreground font-bold uppercase mt-0.5 block">🎒 {fs.baggage}</p>
-                                          )}
-                                        </div>
-                                        <div className="flex items-center gap-1 border-l border-border/80 pl-2">
-                                          <button
-                                            type="button"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              setPrintTicketSelectedFlight(fs);
-                                              setPrintTicketSelectedPassenger("all");
-                                              setIsPrintTicketModalOpen(true);
-                                            }}
-                                            className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-emerald-600 transition-all cursor-pointer"
-                                            title="Print E-Ticket"
-                                          >
-                                            <Printer size={13} />
-                                          </button>
-                                          {isOwner && (
-                                            <>
-                                              <button
-                                                type="button"
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  setEditingFlight(fs);
-                                                  setPnrModalStep("form");
-                                                  setIsPnrModalOpen(true);
-                                                }}
-                                                className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-primary transition-all cursor-pointer"
-                                                title="Edit Flight"
-                                              >
-                                                <Pencil size={13} />
-                                              </button>
-                                              <button
-                                                type="button"
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  handleDeleteFlight(fs.id);
-                                                }}
-                                                className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-rose-600 transition-all cursor-pointer"
-                                                title="Delete Flight"
-                                              >
-                                                <Trash2 size={13} />
-                                              </button>
-                                            </>
-                                          )}
+                                        <div className="text-right flex items-center gap-3">
+                                          <div className="text-right">
+                                            <p className="font-black text-foreground text-[15px] tracking-tight">{formatCurrency(fs.price)}</p>
+                                            {fs.agentQuotedPrice !== undefined && fs.agentQuotedPrice !== null && (
+                                              <p className="text-[10px] text-muted-foreground mt-0.5 font-medium block">Quoted: {formatCurrency(fs.agentQuotedPrice)}</p>
+                                            )}
+                                            {fs.confirmationNumber && (
+                                              <p className="text-[10px] text-muted-foreground mt-0.5 font-medium block">Conf: {fs.confirmationNumber}</p>
+                                            )}
+                                            {fs.baggage && (
+                                              <p className="text-[9px] text-muted-foreground font-bold uppercase mt-0.5 block">🎒 {fs.baggage}</p>
+                                            )}
+                                          </div>
+                                          <div className="flex items-center gap-1 border-l border-border/80 pl-2">
+                                            <button
+                                              type="button"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setPrintTicketSelectedFlight(fs);
+                                                setPrintTicketSelectedPassenger("all");
+                                                setIsPrintTicketModalOpen(true);
+                                              }}
+                                              className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-emerald-600 transition-all cursor-pointer"
+                                              title="Print E-Ticket"
+                                            >
+                                              <Printer size={13} />
+                                            </button>
+                                            {isOwner && (
+                                              <>
+                                                <button
+                                                  type="button"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setEditingFlight(fs);
+                                                    setPnrModalStep("form");
+                                                    setIsPnrModalOpen(true);
+                                                  }}
+                                                  className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-primary transition-all cursor-pointer"
+                                                  title="Edit Flight"
+                                                >
+                                                  <Pencil size={13} />
+                                                </button>
+                                                <button
+                                                  type="button"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleDeleteFlight(fs.id);
+                                                  }}
+                                                  className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-rose-600 transition-all cursor-pointer"
+                                                  title="Delete Flight"
+                                                >
+                                                  <Trash2 size={13} />
+                                                </button>
+                                              </>
+                                            )}
+                                          </div>
                                         </div>
                                       </div>
                                     </div>

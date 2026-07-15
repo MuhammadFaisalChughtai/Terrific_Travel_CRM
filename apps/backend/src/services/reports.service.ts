@@ -103,6 +103,59 @@ export const reportsService = {
       }
     }
 
+    // 5. Bookings by Agent - Last 30 Days (Default) or Selected Month/Year
+    let agentBookingWhere: any = {
+      status: { not: 'CANCELLED' },
+      agentId: { not: null }
+    };
+
+    if (month && year) {
+      const startDate = new Date(year, month - 1, 1);
+      const endDate = new Date(year, month, 0, 23, 59, 59, 999);
+      agentBookingWhere.OR = [
+        { bookingDate: { gte: startDate, lte: endDate } },
+        { bookingDate: null, createdAt: { gte: startDate, lte: endDate } }
+      ];
+    } else {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      agentBookingWhere.OR = [
+        { bookingDate: { gte: thirtyDaysAgo, lte: new Date() } },
+        { bookingDate: null, createdAt: { gte: thirtyDaysAgo, lte: new Date() } }
+      ];
+    }
+
+    const agentBookingsRaw = await prisma.booking.findMany({
+      where: agentBookingWhere,
+      include: {
+        agent: true
+      }
+    });
+
+    const agentBookingsMap: Record<string, { agentName: string; bookingsCount: number }> = {};
+    const allAgents = await prisma.agent.findMany();
+    allAgents.forEach(agent => {
+      agentBookingsMap[agent.id] = {
+        agentName: agent.name,
+        bookingsCount: 0
+      };
+    });
+
+    agentBookingsRaw.forEach((b: any) => {
+      if (b.agent) {
+        if (!agentBookingsMap[b.agent.id]) {
+          agentBookingsMap[b.agent.id] = {
+            agentName: b.agent.name,
+            bookingsCount: 0
+          };
+        }
+        agentBookingsMap[b.agent.id].bookingsCount++;
+      }
+    });
+
+    const agentBookings = Object.values(agentBookingsMap)
+      .sort((a, b) => b.bookingsCount - a.bookingsCount);
+
     return {
       assets: {
         cashAtHand: netProfit, // For simplicity in this CRM: Cash = Profit (In - Out)
@@ -124,7 +177,8 @@ export const reportsService = {
         totalCost: totalVendorCost + totalAgentMarginsPaid,
         netProfit,
       },
-      trendData
+      trendData,
+      agentBookings
     };
   }
 };

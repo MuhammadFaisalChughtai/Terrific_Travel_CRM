@@ -12,7 +12,8 @@ import {
   ResponsiveContainer,
   Legend,
   LineChart,
-  Line
+  Line,
+  LabelList
 } from 'recharts';
 import {
   TrendingUp,
@@ -265,6 +266,55 @@ export default function Reports() {
           </div>
         </div>
       )}
+
+      {/* Bookings by Agent - Last 30 Days Horizontal Bar Chart */}
+      <div className="bg-card p-6 rounded-xl border border-border shadow-sm space-y-6">
+        <h3 className="font-bold flex items-center gap-2">
+          <Users size={18} className="text-primary" />
+          {selectedMonth || selectedYear ? 'Bookings by Agent' : 'Bookings by Agent – Last 30 Days'}
+        </h3>
+        <div className="h-80 w-full">
+          {balanceSheet?.agentBookings && balanceSheet.agentBookings.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={balanceSheet.agentBookings}
+                layout="vertical"
+                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#88888833" />
+                <XAxis type="number" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
+                <YAxis
+                  dataKey="agentName"
+                  type="category"
+                  tick={{ fontSize: 12 }}
+                  tickLine={false}
+                  axisLine={false}
+                  width={150}
+                />
+                <Tooltip
+                  contentStyle={{
+                    borderRadius: '8px',
+                    border: '1px solid var(--border)',
+                    backgroundColor: 'var(--card)',
+                  }}
+                />
+                <Bar dataKey="bookingsCount" name="Bookings Completed" fill="#8b5cf6" radius={[0, 4, 4, 0]}>
+                  <LabelList
+                    dataKey="bookingsCount"
+                    position="right"
+                    style={{ fontSize: 10, fill: 'currentColor', fontWeight: 'bold' }}
+                    offset={10}
+                  />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-full text-muted-foreground italic">
+              No bookings recorded for this period
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
