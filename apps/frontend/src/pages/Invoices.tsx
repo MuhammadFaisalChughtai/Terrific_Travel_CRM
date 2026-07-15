@@ -176,7 +176,7 @@ export default function InvoicesPage() {
             No invoices found matching the filters.
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto min-h-[320px] pb-4">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-secondary/15 border-b border-border/80 text-[10px] uppercase tracking-wider text-muted-foreground font-bold">

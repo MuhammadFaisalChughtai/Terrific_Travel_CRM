@@ -211,12 +211,27 @@ export default function UsersPage() {
     },
   });
 
+  const isAgentOrStaffRole = (roleName: string) => {
+    if (!roleName) return false;
+    const lower = roleName.toLowerCase();
+    return (
+      lower.includes("agent") ||
+      lower.includes("admin") ||
+      lower.includes("manager")
+    );
+  };
+
   const handleOpenCreateModal = () => {
     setSelectedUser(null);
     setFirstName("");
     setLastName("");
     setEmail("");
-    setSelectedRole("Agent");
+    
+    // Find the first agent-like role or default to "Agent" or first role in rolesData
+    const defaultRole = (rolesData || []).find(r => r.name.toLowerCase().includes("agent"))?.name || 
+                        (rolesData || []).find(r => r.name.toLowerCase().includes("travel_agent"))?.name || 
+                        (rolesData || [])[0]?.name || "Agent";
+    setSelectedRole(defaultRole);
     setIsActive(true);
     setPassword("");
     setSelectedAgentId("");
@@ -243,7 +258,7 @@ export default function UsersPage() {
       email,
       roles: [selectedRole],
       isActive,
-      agentId: ["Agent", "Admin", "Manager"].includes(selectedRole) ? (selectedAgentId || null) : null,
+      agentId: isAgentOrStaffRole(selectedRole) ? (selectedAgentId || null) : null,
     };
 
     if (selectedUser) {
@@ -617,10 +632,20 @@ export default function UsersPage() {
                 onChange={(e) => setSelectedRole(e.target.value)}
                 className="w-full px-3 py-2 bg-background border border-border rounded-lg text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
               >
-                <option value="Admin">Admin (Full System access)</option>
-                <option value="Manager">Manager (Supervise bookings)</option>
-                <option value="Agent">Agent (Personal bookings)</option>
-                <option value="Customer">Customer (Client Account)</option>
+                {rolesData && rolesData.length > 0 ? (
+                  rolesData.map((role) => (
+                    <option key={role.id} value={role.name}>
+                      {role.name}
+                    </option>
+                  ))
+                ) : (
+                  <>
+                    <option value="Admin">Admin</option>
+                    <option value="Manager">Manager</option>
+                    <option value="Agent">Agent</option>
+                    <option value="Customer">Customer</option>
+                  </>
+                )}
               </select>
             </div>
 
@@ -645,7 +670,7 @@ export default function UsersPage() {
             </div>
           </div>
 
-          {["Agent", "Admin", "Manager"].includes(selectedRole) && (
+          {isAgentOrStaffRole(selectedRole) && (
             <div>
               <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">
                 Link Agent Profile

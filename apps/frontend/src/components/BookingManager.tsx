@@ -771,7 +771,7 @@ export default function BookingManager({
 
               {/* ── VIEW MODE ── */}
               {!isEditingDetails && (
-                <div className="pl-5 pr-4 py-4 flex items-center justify-between gap-4">
+                <div className="pl-5 pr-4 py-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-8 gap-y-3 flex-1">
                     {/* Total Amount */}
                     <div className="flex flex-col gap-0.5">
@@ -829,55 +829,58 @@ export default function BookingManager({
                     </div>
                   </div>
 
-                  {/* Print Invoice Button */}
-                  <button
-                    type="button"
-                    onClick={() =>
-                      printDocument(
-                        renderBookingInvoice(
-                          getTemplateContent("BOOKING_INVOICE"),
-                          booking,
-                        ),
-                        `Booking_Invoice_${booking.bookingReference}`,
-                      )
-                    }
-                    className="shrink-0 flex items-center gap-1.5 px-3.5 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg text-xs font-bold transition-all"
-                  >
-                    <FileText size={12} />
-                    Print Invoice
-                  </button>
-
-                  {/* Download Invoice Button */}
-                  <button
-                    type="button"
-                    onClick={() =>
-                      downloadDocument(
-                        renderBookingInvoice(
-                          getTemplateContent("BOOKING_INVOICE"),
-                          booking,
-                        ),
-                        `Booking_Invoice_${booking.bookingReference}.pdf`,
-                      )
-                    }
-                    className="shrink-0 flex items-center gap-1.5 px-3.5 py-2 bg-secondary hover:bg-primary/10 border border-border hover:border-primary/30 text-foreground hover:text-primary rounded-lg text-xs font-bold transition-all"
-                  >
-                    <Download size={12} />
-                    Download Invoice
-                  </button>
-
-                  {/* Edit Button */}
-                  {isOwner && (
+                  {/* Actions Group */}
+                  <div className="flex flex-wrap items-center gap-2 mt-2 lg:mt-0 w-full lg:w-auto justify-start lg:justify-end">
+                    {/* Print Invoice Button */}
                     <button
-                      onClick={startEditing}
-                      className="shrink-0 flex items-center gap-1.5 px-3.5 py-2 bg-secondary hover:bg-primary/10 border border-border hover:border-primary/30 text-foreground hover:text-primary rounded-lg text-xs font-bold transition-all group/edit"
+                      type="button"
+                      onClick={() =>
+                        printDocument(
+                          renderBookingInvoice(
+                            getTemplateContent("BOOKING_INVOICE"),
+                            booking,
+                          ),
+                          `Booking_Invoice_${booking.bookingReference}`,
+                        )
+                      }
+                      className="shrink-0 flex items-center gap-1.5 px-3.5 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg text-xs font-bold transition-all"
                     >
-                      <Pencil
-                        size={12}
-                        className="group-hover/edit:scale-110 transition-transform"
-                      />
-                      Edit
+                      <FileText size={12} />
+                      Print Invoice
                     </button>
-                  )}
+
+                    {/* Download Invoice Button */}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        downloadDocument(
+                          renderBookingInvoice(
+                            getTemplateContent("BOOKING_INVOICE"),
+                            booking,
+                          ),
+                          `Booking_Invoice_${booking.bookingReference}.pdf`,
+                        )
+                      }
+                      className="shrink-0 flex items-center gap-1.5 px-3.5 py-2 bg-secondary hover:bg-primary/10 border border-border hover:border-primary/30 text-foreground hover:text-primary rounded-lg text-xs font-bold transition-all"
+                    >
+                      <Download size={12} />
+                      Download Invoice
+                    </button>
+
+                    {/* Edit Button */}
+                    {isOwner && (
+                      <button
+                        onClick={startEditing}
+                        className="shrink-0 flex items-center gap-1.5 px-3.5 py-2 bg-secondary hover:bg-primary/10 border border-border hover:border-primary/30 text-foreground hover:text-primary rounded-lg text-xs font-bold transition-all group/edit"
+                      >
+                        <Pencil
+                          size={12}
+                          className="group-hover/edit:scale-110 transition-transform"
+                        />
+                        Edit
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
 

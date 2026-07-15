@@ -48,7 +48,7 @@ export const getStatsByPeriod = asyncHandler(async (req: Request, res: Response)
   }
 
   const rawPeriod = req.query.period as string;
-  const validPeriods = ['monthly', 'quarterly', 'yearly', 'all'] as const;
+  const validPeriods = ['daily', 'weekly', 'monthly', 'quarterly', 'yearly', 'all'] as const;
   type Period = typeof validPeriods[number];
 
   const period: Period = validPeriods.includes(rawPeriod as Period)

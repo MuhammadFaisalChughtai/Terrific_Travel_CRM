@@ -91,6 +91,13 @@ export default function DashboardLayout() {
     return () => clearInterval(interval);
   }, [user?.id, fetchNotifications]);
 
+  useEffect(() => {
+    // Auto-close sidebar on responsive screen when route/location changes
+    if (window.innerWidth < 1024) {
+      useDashboardStore.setState({ sidebarOpen: false });
+    }
+  }, [location.pathname]);
+
   const userHasRole = (allowed: string[]) => {
     if (!user?.roles) return false;
     return user.roles.some((r) => {

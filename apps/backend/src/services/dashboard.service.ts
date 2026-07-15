@@ -73,22 +73,29 @@ export class DashboardService {
       prisma.booking.count({
         where: agentId ? { agentId } : {}
       }),
-      prisma.bookingItem.count({
+      prisma.booking.count({
         where: {
-          itemType: 'FLIGHT',
-          ...(agentId ? { booking: { agentId } } : {})
+          status: { not: 'CANCELLED' },
+          flightServices: { some: {} },
+          ...(agentId ? { agentId } : {})
         }
       }),
-      prisma.bookingItem.count({
+      prisma.booking.count({
         where: {
-          itemType: 'HOTEL',
-          ...(agentId ? { booking: { agentId } } : {})
+          status: { not: 'CANCELLED' },
+          accommodations: { some: {} },
+          ...(agentId ? { agentId } : {})
         }
       }),
-      prisma.bookingItem.count({
+      prisma.booking.count({
         where: {
-          itemType: 'TOUR',
-          ...(agentId ? { booking: { agentId } } : {})
+          status: { not: 'CANCELLED' },
+          OR: [
+            { visaServices: { some: {} } },
+            { transportServices: { some: {} } },
+            { additionalServices: { some: {} } }
+          ],
+          ...(agentId ? { agentId } : {})
         }
       }),
       prisma.booking.findMany({
@@ -202,22 +209,29 @@ export class DashboardService {
         where: bookingWhere,
         include: bookingInclude,
       }),
-      prisma.bookingItem.count({
+      prisma.booking.count({
         where: {
-          itemType: 'FLIGHT',
-          booking: bookingWhere
+          ...bookingWhere,
+          status: { not: 'CANCELLED' },
+          flightServices: { some: {} }
         }
       }),
-      prisma.bookingItem.count({
+      prisma.booking.count({
         where: {
-          itemType: 'HOTEL',
-          booking: bookingWhere
+          ...bookingWhere,
+          status: { not: 'CANCELLED' },
+          accommodations: { some: {} }
         }
       }),
-      prisma.bookingItem.count({
+      prisma.booking.count({
         where: {
-          itemType: 'TOUR',
-          booking: bookingWhere
+          ...bookingWhere,
+          status: { not: 'CANCELLED' },
+          OR: [
+            { visaServices: { some: {} } },
+            { transportServices: { some: {} } },
+            { additionalServices: { some: {} } }
+          ]
         }
       })
     ]);
