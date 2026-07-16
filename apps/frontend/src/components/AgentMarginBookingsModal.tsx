@@ -147,7 +147,15 @@ export default function AgentMarginBookingsModal({ margin, onClose }: Props) {
                               </span>
                             ) : (
                               <button
-                                onClick={() => canToggle && toggleVoidMutation.mutate(b.id)}
+                                onClick={() => {
+                                  if (!canToggle) return;
+                                  const confirmMsg = b.agentMarginVoided
+                                    ? "Are you sure you want to qualify this booking for margin calculation?"
+                                    : "Are you sure you want to withdraw/exclude this booking from margin calculation?";
+                                  if (window.confirm(confirmMsg)) {
+                                    toggleVoidMutation.mutate(b.id);
+                                  }
+                                }}
                                 disabled={!canToggle || toggleVoidMutation.isPending}
                                 className={`inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold transition-all ${
                                   b.agentMarginVoided 

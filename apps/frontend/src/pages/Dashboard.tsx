@@ -23,12 +23,13 @@ import {
   BarChart,
   Bar,
   Legend,
+  LabelList,
 } from "recharts";
 import { useMemo, useState } from "react";
 
 type ChartPeriod = "daily" | "weekly" | "monthly" | "quarterly" | "yearly";
 type KpiPeriod = "monthly" | "quarterly" | "yearly" | "all";
-type AgentPeriod = "weekly" | "monthly" | "yearly" | "all";
+type AgentPeriod = "daily" | "weekly" | "monthly" | "yearly" | "all";
 type CategoryPeriod = "daily" | "weekly" | "monthly" | "quarterly" | "yearly" | "all";
 
 export default function Dashboard() {
@@ -545,7 +546,7 @@ export default function Dashboard() {
               Agent Performance (Based on Number of Bookings)
             </h4>
             <div className="flex bg-secondary/50 p-0.5 rounded-lg border border-border self-start sm:self-center">
-              {(["weekly", "monthly", "yearly", "all"] as const).map((p) => (
+              {(["daily", "weekly", "monthly", "yearly", "all"] as const).map((p) => (
                 <button
                   key={p}
                   onClick={() => setAgentPeriod(p)}
@@ -560,6 +561,46 @@ export default function Dashboard() {
               ))}
             </div>
           </div>
+
+          {/* Bookings by Agent Horizontal Bar Chart */}
+          {sortedAgents.length > 0 && (
+            <div className="bg-card border border-border/80 rounded-xl p-4 shadow-sm">
+              <h5 className="text-[11px] font-bold text-foreground mb-3 flex items-center gap-1">
+                <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                Bookings by Agent – Selected Period ({agentPeriod === 'all' ? 'All Time' : agentPeriod})
+              </h5>
+              <div className="h-48">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={sortedAgents}
+                    layout="vertical"
+                    margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} className="stroke-border/40" />
+                    <XAxis type="number" className="text-[10px] text-muted-foreground" allowDecimals={false} />
+                    <YAxis
+                      dataKey="name"
+                      type="category"
+                      className="text-[10px] text-muted-foreground font-semibold"
+                      width={100}
+                      tickLine={false}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "var(--card)",
+                        borderColor: "var(--border)",
+                        borderRadius: "8px",
+                        fontSize: "11px",
+                      }}
+                    />
+                    <Bar dataKey="bookingsCount" fill="rgb(99, 102, 241)" radius={[0, 4, 4, 0]} barSize={14}>
+                      <LabelList dataKey="bookingsCount" position="right" className="fill-foreground text-[10px] font-bold" />
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Column 1: Top Performing */}

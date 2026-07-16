@@ -1252,8 +1252,8 @@ export class VendorsService {
         bookingId: params.bookingId,
         bookingReference: bookingRef || undefined,
         eventType: 'VENDOR_REFUND',
-        debit: 0.0,
-        credit: amount,
+        debit: amount,
+        credit: 0.0,
         notes: params.notes || 'Refund from Vendor',
         createdById: params.createdById,
         createdAt: transactionDate

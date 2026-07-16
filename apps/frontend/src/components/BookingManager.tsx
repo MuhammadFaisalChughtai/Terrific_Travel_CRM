@@ -1222,11 +1222,7 @@ export default function BookingManager({
                           if (!tx.notes) return true;
                           const notesLower = tx.notes.toLowerCase();
                           if (
-                            notesLower.includes("vendor payment") ||
-                            notesLower.includes("discount received") ||
-                            notesLower.includes("vendor refund") ||
-                            notesLower.includes("refund from vendor") ||
-                            tx.paymentMethod === "Discount"
+                            notesLower.includes("vendor payment")
                           ) {
                             return false;
                           }

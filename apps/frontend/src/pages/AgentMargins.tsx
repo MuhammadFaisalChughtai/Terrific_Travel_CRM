@@ -233,6 +233,7 @@ export default function AgentMargins() {
               <option value="all">All Statuses</option>
               <option value="UNPAID">Unpaid</option>
               <option value="PAID">Paid</option>
+              <option value="VOIDED">Voided</option>
             </select>
           </div>
         )}
@@ -306,9 +307,11 @@ export default function AgentMargins() {
                       <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                         m.status === 'PAID' 
                           ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' 
-                          : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                          : m.marginPercentage === 0
+                            ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                            : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
                       }`}>
-                        {m.status}
+                        {m.marginPercentage === 0 ? 'VOIDED' : m.status}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-center">
@@ -324,10 +327,14 @@ export default function AgentMargins() {
                           <Eye className="h-4 w-4" />
                         </button>
                         
-                        {isAdmin && m.status === 'UNPAID' && (
+                        {isAdmin && m.status === 'UNPAID' && m.marginPercentage > 0 && (
                           <button
                             title="Mark as Paid"
-                            onClick={() => payMutation.mutate(m.id)}
+                            onClick={() => {
+                              if (window.confirm("Are you sure you want to mark this margin as paid? This will create a ledger entry.")) {
+                                payMutation.mutate(m.id);
+                              }
+                            }}
                             disabled={payMutation.isPending}
                             className="p-1.5 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-md transition-colors"
                           >

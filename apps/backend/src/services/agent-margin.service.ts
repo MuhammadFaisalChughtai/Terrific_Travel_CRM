@@ -279,7 +279,13 @@ export const agentMarginService = {
       where.endDate = { lte: end };
     }
     if (agentId && agentId !== 'all') where.agentId = agentId;
-    if (status && status !== 'all') where.status = status;
+    if (status && status !== 'all') {
+      if (status === 'VOIDED') {
+        where.marginPercentage = 0;
+      } else {
+        where.status = status;
+      }
+    }
 
     if (limit !== undefined || offset !== undefined) {
       const takeVal = Number(limit) || 10;
@@ -336,7 +342,13 @@ export const agentMarginService = {
       end.setHours(23, 59, 59, 999);
       where.endDate = { lte: end };
     }
-    if (status && status !== 'all') where.status = status;
+    if (status && status !== 'all') {
+      if (status === 'VOIDED') {
+        where.marginPercentage = 0;
+      } else {
+        where.status = status;
+      }
+    }
 
     return prisma.agentMargin.findMany({
       where,
