@@ -204,7 +204,16 @@ export class DashboardService {
       } : {}),
     };
 
-    const [bookings, flightBookings, hotelBookings, tourBookings] = await Promise.all([
+    const performanceWhere: any = {
+      ...(startDate ? { 
+        OR: [
+          { bookingDate: { gte: startDate, lte: endDate } },
+          { bookingDate: null, createdAt: { gte: startDate, lte: endDate } }
+        ]
+      } : {}),
+    };
+
+    const [bookings, flightBookings, hotelBookings, tourBookings, performanceBookings] = await Promise.all([
       prisma.booking.findMany({
         where: bookingWhere,
         include: bookingInclude,
@@ -233,6 +242,13 @@ export class DashboardService {
             { additionalServices: { some: {} } }
           ]
         }
+      }),
+      prisma.booking.findMany({
+        where: {
+          ...performanceWhere,
+          status: { not: 'CANCELLED' }
+        },
+        include: bookingInclude
       })
     ]);
 
@@ -259,7 +275,10 @@ export class DashboardService {
       totalVendorCost += financials.vendorCost;
       totalMargin += financials.margin;
       totalProfit += financials.netProfit;
+    });
 
+    performanceBookings.forEach((b: any) => {
+      const financials = calculateBookingFinancials(b);
       if (b.agent) {
         if (!agentMap[b.agent.id]) {
           agentMap[b.agent.id] = {

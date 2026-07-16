@@ -562,28 +562,30 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Bookings by Agent Horizontal Bar Chart */}
+          {/* Bookings by Agent Vertical Bar Chart */}
           {sortedAgents.length > 0 && (
             <div className="bg-card border border-border/80 rounded-xl p-4 shadow-sm">
               <h5 className="text-[11px] font-bold text-foreground mb-3 flex items-center gap-1">
                 <span className="h-1.5 w-1.5 rounded-full bg-primary" />
                 Bookings by Agent – Selected Period ({agentPeriod === 'all' ? 'All Time' : agentPeriod})
               </h5>
-              <div className="h-48">
+              <div className="h-56">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={sortedAgents}
-                    layout="vertical"
-                    margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
+                    margin={{ top: 15, right: 10, left: 10, bottom: 5 }}
                   >
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} className="stroke-border/40" />
-                    <XAxis type="number" className="text-[10px] text-muted-foreground" allowDecimals={false} />
-                    <YAxis
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-border/40" />
+                    <XAxis
                       dataKey="name"
                       type="category"
                       className="text-[10px] text-muted-foreground font-semibold"
-                      width={100}
                       tickLine={false}
+                    />
+                    <YAxis
+                      type="number"
+                      className="text-[10px] text-muted-foreground"
+                      allowDecimals={false}
                     />
                     <Tooltip
                       contentStyle={{
@@ -593,8 +595,8 @@ export default function Dashboard() {
                         fontSize: "11px",
                       }}
                     />
-                    <Bar dataKey="bookingsCount" fill="rgb(99, 102, 241)" radius={[0, 4, 4, 0]} barSize={14}>
-                      <LabelList dataKey="bookingsCount" position="right" className="fill-foreground text-[10px] font-bold" />
+                    <Bar dataKey="bookingsCount" fill="rgb(99, 102, 241)" radius={[4, 4, 0, 0]} barSize={24}>
+                      <LabelList dataKey="bookingsCount" position="top" className="fill-foreground text-[10px] font-bold" />
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
