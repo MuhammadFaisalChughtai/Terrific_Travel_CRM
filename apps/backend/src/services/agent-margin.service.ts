@@ -60,7 +60,7 @@ export const agentMarginService = {
 
     return bookings.map(b => {
       const vendorCost = b.bookingVendorPayments.reduce((acc: any, vp: any) => acc + (vp.originalCost || 0), 0);
-      const profit = b.paidAmount - vendorCost - (b.refundAmount || 0) - (b.cardPaymentCharges || 0);
+      const profit = b.totalPrice - vendorCost - (b.refundAmount || 0) - (b.cardPaymentCharges || 0);
       return {
         id: b.id,
         bookingReference: b.bookingReference,
@@ -368,6 +368,9 @@ export const agentMarginService = {
             id: true,
             bookingReference: true,
             paidAmount: true,
+            refundAmount: true,
+            cardPaymentCharges: true,
+            totalPrice: true,
             bookingVendorPayments: {
               select: { originalCost: true }
             }
@@ -386,7 +389,7 @@ export const agentMarginService = {
 
     const transactionsData = margin.bookings.map(b => {
       const vendorCost = b.bookingVendorPayments.reduce((sum, vp) => sum + vp.originalCost, 0);
-      const profit = b.paidAmount - vendorCost;
+      const profit = b.totalPrice - vendorCost - (b.refundAmount || 0) - (b.cardPaymentCharges || 0);
       const bookingMargin = profit * (margin.marginPercentage / 100);
 
       const periodStr = `${margin.startDate.toISOString().split('T')[0]} to ${margin.endDate.toISOString().split('T')[0]}`;
@@ -508,12 +511,13 @@ export const agentMarginService = {
 
     return bookings.map((b: any) => {
       const vendorCost = b.bookingVendorPayments.reduce((sum: number, vp: any) => sum + vp.originalCost, 0);
-      const profit = b.paidAmount - vendorCost - (b.refundAmount || 0) - (b.cardPaymentCharges || 0);
+      const profit = b.totalPrice - vendorCost - (b.refundAmount || 0) - (b.cardPaymentCharges || 0);
       return {
         id: b.id,
         bookingReference: b.bookingReference,
         customerName: b.user ? `${b.user.firstName} ${b.user.lastName}` : 'Unknown',
         createdAt: b.createdAt,
+        totalPrice: b.totalPrice,
         paidAmount: b.paidAmount,
         refundAmount: b.refundAmount || 0,
         cardPaymentCharges: b.cardPaymentCharges || 0,
@@ -566,7 +570,7 @@ export const agentMarginService = {
     let nonVoidedProfit = 0;
     for (const b of nonVoidedBookings) {
       const vendorCost = b.bookingVendorPayments.reduce((sum: number, vp: any) => sum + (vp.originalCost || 0), 0);
-      const profit = b.paidAmount - vendorCost - (b.refundAmount || 0) - (b.cardPaymentCharges || 0);
+      const profit = b.totalPrice - vendorCost - (b.refundAmount || 0) - (b.cardPaymentCharges || 0);
       nonVoidedProfit += profit;
     }
 

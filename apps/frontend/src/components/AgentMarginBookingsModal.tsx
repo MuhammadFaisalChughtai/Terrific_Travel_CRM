@@ -97,108 +97,112 @@ export default function AgentMarginBookingsModal({ margin, onClose }: Props) {
                   No bookings matching "{searchQuery}" found.
                 </div>
               ) : (
-                <div className="overflow-x-auto rounded-lg border border-border">
-                  <table className="w-full text-sm text-left">
-                    <thead className="bg-muted/50 text-muted-foreground font-medium border-b border-border">
+                <div className="overflow-auto max-h-[55vh] rounded-lg border border-border relative">
+                  <table className="w-full text-sm text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="sticky top-0 bg-muted/95 px-4 py-3 z-10 font-semibold text-muted-foreground text-left">Booking Ref</th>
+                        <th className="sticky top-0 bg-muted/95 px-4 py-3 z-10 font-semibold text-muted-foreground text-left">Customer</th>
+                        <th className="sticky top-0 bg-muted/95 px-4 py-3 z-10 font-semibold text-muted-foreground text-left">Booking Date</th>
+                        <th className="sticky top-0 bg-muted/95 px-4 py-3 z-10 font-semibold text-muted-foreground text-right">Total Cost</th>
+                        <th className="sticky top-0 bg-muted/95 px-4 py-3 z-10 font-semibold text-muted-foreground text-right">Customer Paid</th>
+                        <th className="sticky top-0 bg-muted/95 px-4 py-3 z-10 font-semibold text-muted-foreground text-right">Vendor Cost</th>
+                        <th className="sticky top-0 bg-muted/95 px-4 py-3 z-10 font-semibold text-red-500 text-right">Refund</th>
+                        <th className="sticky top-0 bg-muted/95 px-4 py-3 z-10 font-semibold text-amber-500 text-right">Card Charges</th>
+                        <th className="sticky top-0 bg-muted/95 px-4 py-3 z-10 font-semibold text-muted-foreground text-right">Net Profit</th>
+                        <th className="sticky top-0 bg-muted/95 px-4 py-3 z-10 font-semibold text-muted-foreground text-center">Included</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {filteredBookings.map((b: any) => {
+                        const canToggle = margin?.status !== 'PAID' && isAdmin;
+                        return (
+                          <tr
+                            key={b.id}
+                            className={`hover:bg-muted/30 transition-colors ${b.agentMarginVoided ? 'opacity-60 bg-red-500/5' : ''}`}
+                          >
+                            <td className="px-4 py-3 font-medium text-primary">
+                              {b.bookingReference}
+                            </td>
+                            <td className="px-4 py-3">{b.customerName}</td>
+                            <td className="px-4 py-3">{formatDate(b.createdAt)}</td>
+                            <td className="px-4 py-3 text-right">
+                              {formatCurrency(b.totalPrice)}
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              {formatCurrency(b.paidAmount)}
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              {formatCurrency(b.vendorCost)}
+                            </td>
+                            <td className="px-4 py-3 text-right text-red-500 font-medium">
+                              {b.refundAmount > 0 ? `-${formatCurrency(b.refundAmount)}` : '—'}
+                            </td>
+                            <td className="px-4 py-3 text-right text-amber-500 font-medium">
+                              {b.cardPaymentCharges > 0 ? `-${formatCurrency(b.cardPaymentCharges)}` : '—'}
+                            </td>
+                            <td className={`px-4 py-3 text-right font-medium ${b.agentMarginVoided ? 'text-muted-foreground line-through' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                              {formatCurrency(b.profit)}
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              {margin?.status === 'PAID' ? (
+                                <span className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                                  PAID
+                                </span>
+                              ) : (
+                                <button
+                                  onClick={() => {
+                                    if (!canToggle) return;
+                                    const confirmMsg = b.agentMarginVoided
+                                      ? "Are you sure you want to qualify this booking for margin calculation?"
+                                      : "Are you sure you want to withdraw/exclude this booking from margin calculation?";
+                                    if (window.confirm(confirmMsg)) {
+                                      toggleVoidMutation.mutate(b.id);
+                                    }
+                                  }}
+                                  disabled={!canToggle || toggleVoidMutation.isPending}
+                                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold transition-all ${
+                                    b.agentMarginVoided 
+                                      ? 'bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400' 
+                                      : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400'
+                                  } ${!canToggle ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'}`}
+                                  title={canToggle ? "Click to toggle qualification" : "Admin access only"}
+                                >
+                                  {b.agentMarginVoided ? (
+                                    <>
+                                      <XCircle className="h-3.5 w-3.5" />
+                                      Not Qualify
+                                    </>
+                                  ) : (
+                                    <>
+                                      <CheckCircle className="h-3.5 w-3.5" />
+                                      Qualifies
+                                    </>
+                                  )}
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot className="bg-muted/30 border-t border-border font-semibold text-sm">
                       <tr>
-                        <th className="px-4 py-3">Booking Ref</th>
-                        <th className="px-4 py-3">Customer</th>
-                        <th className="px-4 py-3">Booking Date</th>
-                        <th className="px-4 py-3 text-right">Customer Paid</th>
-                        <th className="px-4 py-3 text-right">Vendor Cost</th>
-                      <th className="px-4 py-3 text-right text-red-500 font-medium">Refund</th>
-                      <th className="px-4 py-3 text-right text-amber-500 font-medium">Card Charges</th>
-                      <th className="px-4 py-3 text-right">Net Profit</th>
-                      <th className="px-4 py-3 text-center">Included</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {filteredBookings.map((b: any) => {
-                      const canToggle = margin?.status !== 'PAID' && isAdmin;
-                      return (
-                        <tr
-                          key={b.id}
-                          className={`hover:bg-muted/30 transition-colors ${b.agentMarginVoided ? 'opacity-60 bg-red-500/5' : ''}`}
-                        >
-                          <td className="px-4 py-3 font-medium text-primary">
-                            {b.bookingReference}
-                          </td>
-                          <td className="px-4 py-3">{b.customerName}</td>
-                          <td className="px-4 py-3">{formatDate(b.createdAt)}</td>
-                          <td className="px-4 py-3 text-right">
-                            {formatCurrency(b.paidAmount)}
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            {formatCurrency(b.vendorCost)}
-                          </td>
-                          <td className="px-4 py-3 text-right text-red-500 font-medium">
-                            {b.refundAmount > 0 ? `-${formatCurrency(b.refundAmount)}` : '—'}
-                          </td>
-                          <td className="px-4 py-3 text-right text-amber-500 font-medium">
-                            {b.cardPaymentCharges > 0 ? `-${formatCurrency(b.cardPaymentCharges)}` : '—'}
-                          </td>
-                          <td className={`px-4 py-3 text-right font-medium ${b.agentMarginVoided ? 'text-muted-foreground line-through' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                            {formatCurrency(b.profit)}
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            {margin?.status === 'PAID' ? (
-                              <span className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
-                                PAID
-                              </span>
-                            ) : (
-                              <button
-                                onClick={() => {
-                                  if (!canToggle) return;
-                                  const confirmMsg = b.agentMarginVoided
-                                    ? "Are you sure you want to qualify this booking for margin calculation?"
-                                    : "Are you sure you want to withdraw/exclude this booking from margin calculation?";
-                                  if (window.confirm(confirmMsg)) {
-                                    toggleVoidMutation.mutate(b.id);
-                                  }
-                                }}
-                                disabled={!canToggle || toggleVoidMutation.isPending}
-                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold transition-all ${
-                                  b.agentMarginVoided 
-                                    ? 'bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400' 
-                                    : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400'
-                                } ${!canToggle ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'}`}
-                                title={canToggle ? "Click to toggle qualification" : "Admin access only"}
-                              >
-                                {b.agentMarginVoided ? (
-                                  <>
-                                    <XCircle className="h-3.5 w-3.5" />
-                                    Not Qualify
-                                  </>
-                                ) : (
-                                  <>
-                                    <CheckCircle className="h-3.5 w-3.5" />
-                                    Qualifies
-                                  </>
-                                )}
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                  <tfoot className="bg-muted/30 border-t border-border font-semibold text-sm">
-                    <tr>
-                      <td colSpan={7} className="px-4 py-3 text-right">
-                        Total Profit (Qualifying):
-                      </td>
-                      <td className="px-4 py-3 text-right text-emerald-600 dark:text-emerald-400">
-                        {formatCurrency(
-                          bookings
-                            ?.filter((b: any) => !b.agentMarginVoided)
-                            ?.reduce((sum: number, b: any) => sum + b.profit, 0) || 0
-                        )}
-                      </td>
-                      <td></td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
+                        <td colSpan={8} className="px-4 py-3 text-right">
+                          Total Profit (Qualifying):
+                        </td>
+                        <td className="px-4 py-3 text-right text-emerald-600 dark:text-emerald-400">
+                          {formatCurrency(
+                            bookings
+                              ?.filter((b: any) => !b.agentMarginVoided)
+                              ?.reduce((sum: number, b: any) => sum + b.profit, 0) || 0
+                          )}
+                        </td>
+                        <td></td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
               )}
               
               {margin.marginPercentage === 0 && (
