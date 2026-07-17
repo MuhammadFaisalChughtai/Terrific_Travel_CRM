@@ -53,14 +53,22 @@ export const agentMarginService = {
         agent: { select: { name: true } },
         passengers: { select: { firstName: true, lastName: true }, take: 1 },
         bookingVendorPayments: true,
-        agentMargin: { select: { status: true } }
+        agentMargin: { select: { status: true } },
+        accommodations: { select: { refundAmount: true } },
+        flightServices: { select: { refundAmount: true } },
+        transportServices: { select: { refundAmount: true } },
+        visaServices: { select: { refundAmount: true } }
       },
       orderBy: { bookingDate: 'asc' }
     });
 
     return bookings.map(b => {
       const vendorCost = b.bookingVendorPayments.reduce((acc: any, vp: any) => acc + (vp.originalCost || 0), 0);
-      const profit = b.totalPrice - vendorCost - (b.refundAmount || 0) - (b.cardPaymentCharges || 0);
+      const vendorRefund = (b.accommodations?.reduce((sum: number, acc: any) => sum + (acc.refundAmount || 0), 0) || 0) +
+                           (b.flightServices?.reduce((sum: number, fs: any) => sum + (fs.refundAmount || 0), 0) || 0) +
+                           (b.transportServices?.reduce((sum: number, ts: any) => sum + (ts.refundAmount || 0), 0) || 0) +
+                           (b.visaServices?.reduce((sum: number, vs: any) => sum + (vs.refundAmount || 0), 0) || 0);
+      const profit = b.totalPrice - vendorCost + vendorRefund - (b.refundAmount || 0) - (b.cardPaymentCharges || 0);
       return {
         id: b.id,
         bookingReference: b.bookingReference,
@@ -72,6 +80,7 @@ export const agentMarginService = {
         refundAmount: b.refundAmount || 0,
         cardPaymentCharges: b.cardPaymentCharges || 0,
         vendorCost,
+        vendorRefund,
         profit,
         marginStatus: b.agentMargin?.status,
         agentMarginVoided: b.agentMarginVoided
@@ -129,13 +138,26 @@ export const agentMarginService = {
             b."agentId",
             COUNT(b.id)::int as "bookingCount",
             array_agg(b.id) as "bookingIds",
-            SUM(b."paidAmount" - COALESCE(vp."totalVendorCost", 0) - COALESCE(b."refundAmount", 0) - COALESCE(b."cardPaymentCharges", 0))::float as "totalProfit"
+            SUM(b."totalPrice" - COALESCE(vp."totalVendorCost", 0) + COALESCE(vr."totalVendorRefund", 0) - COALESCE(b."refundAmount", 0) - COALESCE(b."cardPaymentCharges", 0))::float as "totalProfit"
           FROM "Booking" b
           LEFT JOIN (
             SELECT "bookingId", SUM("originalCost") as "totalVendorCost"
             FROM "BookingVendorPayment"
             GROUP BY "bookingId"
           ) vp ON vp."bookingId" = b.id
+          LEFT JOIN (
+            SELECT "bookingId", SUM("refundAmount") as "totalVendorRefund"
+            FROM (
+              SELECT "bookingId", "refundAmount" FROM "Accommodation" WHERE "refundAmount" > 0
+              UNION ALL
+              SELECT "bookingId", "refundAmount" FROM "FlightService" WHERE "refundAmount" > 0
+              UNION ALL
+              SELECT "bookingId", "refundAmount" FROM "TransportService" WHERE "refundAmount" > 0
+              UNION ALL
+              SELECT "bookingId", "refundAmount" FROM "VisaService" WHERE "refundAmount" > 0
+            ) union_refunds
+            GROUP BY "bookingId"
+          ) vr ON vr."bookingId" = b.id
           WHERE b.id = ANY(${includedBookingIds})
             AND b."agentMarginVoided" = false
           GROUP BY b."agentId"
@@ -148,13 +170,26 @@ export const agentMarginService = {
             b."agentId",
             COUNT(b.id)::int as "bookingCount",
             array_agg(b.id) as "bookingIds",
-            SUM(b."paidAmount" - COALESCE(vp."totalVendorCost", 0) - COALESCE(b."refundAmount", 0) - COALESCE(b."cardPaymentCharges", 0))::float as "totalProfit"
+            SUM(b."totalPrice" - COALESCE(vp."totalVendorCost", 0) + COALESCE(vr."totalVendorRefund", 0) - COALESCE(b."refundAmount", 0) - COALESCE(b."cardPaymentCharges", 0))::float as "totalProfit"
           FROM "Booking" b
           LEFT JOIN (
             SELECT "bookingId", SUM("originalCost") as "totalVendorCost"
             FROM "BookingVendorPayment"
             GROUP BY "bookingId"
           ) vp ON vp."bookingId" = b.id
+          LEFT JOIN (
+            SELECT "bookingId", SUM("refundAmount") as "totalVendorRefund"
+            FROM (
+              SELECT "bookingId", "refundAmount" FROM "Accommodation" WHERE "refundAmount" > 0
+              UNION ALL
+              SELECT "bookingId", "refundAmount" FROM "FlightService" WHERE "refundAmount" > 0
+              UNION ALL
+              SELECT "bookingId", "refundAmount" FROM "TransportService" WHERE "refundAmount" > 0
+              UNION ALL
+              SELECT "bookingId", "refundAmount" FROM "VisaService" WHERE "refundAmount" > 0
+            ) union_refunds
+            GROUP BY "bookingId"
+          ) vr ON vr."bookingId" = b.id
           WHERE b."agentId" IS NOT NULL
             AND b.status != 'CANCELLED'
             AND b."agentMarginVoided" = false
@@ -172,13 +207,26 @@ export const agentMarginService = {
             b."agentId",
             COUNT(b.id)::int as "bookingCount",
             array_agg(b.id) as "bookingIds",
-            SUM(b."paidAmount" - COALESCE(vp."totalVendorCost", 0) - COALESCE(b."refundAmount", 0) - COALESCE(b."cardPaymentCharges", 0))::float as "totalProfit"
+            SUM(b."totalPrice" - COALESCE(vp."totalVendorCost", 0) + COALESCE(vr."totalVendorRefund", 0) - COALESCE(b."refundAmount", 0) - COALESCE(b."cardPaymentCharges", 0))::float as "totalProfit"
           FROM "Booking" b
           LEFT JOIN (
             SELECT "bookingId", SUM("originalCost") as "totalVendorCost"
             FROM "BookingVendorPayment"
             GROUP BY "bookingId"
           ) vp ON vp."bookingId" = b.id
+          LEFT JOIN (
+            SELECT "bookingId", SUM("refundAmount") as "totalVendorRefund"
+            FROM (
+              SELECT "bookingId", "refundAmount" FROM "Accommodation" WHERE "refundAmount" > 0
+              UNION ALL
+              SELECT "bookingId", "refundAmount" FROM "FlightService" WHERE "refundAmount" > 0
+              UNION ALL
+              SELECT "bookingId", "refundAmount" FROM "TransportService" WHERE "refundAmount" > 0
+              UNION ALL
+              SELECT "bookingId", "refundAmount" FROM "VisaService" WHERE "refundAmount" > 0
+            ) union_refunds
+            GROUP BY "bookingId"
+          ) vr ON vr."bookingId" = b.id
           WHERE b."agentId" IS NOT NULL
             AND b.status != 'CANCELLED'
             AND b."agentMarginVoided" = false
@@ -287,6 +335,22 @@ export const agentMarginService = {
       }
     }
 
+    // Self-healing: Recalculate any unpaid margins matching the filters to ensure correct profits in DB
+    try {
+      const unpaidMargins = await prisma.agentMargin.findMany({
+        where: {
+          ...where,
+          status: 'UNPAID'
+        },
+        select: { id: true }
+      });
+      for (const m of unpaidMargins) {
+        await agentMarginService.recalculateMarginRecord(m.id);
+      }
+    } catch (err) {
+      // Ignore database errors
+    }
+
     if (limit !== undefined || offset !== undefined) {
       const takeVal = Number(limit) || 10;
       const skipVal = Number(offset) || 0;
@@ -350,6 +414,22 @@ export const agentMarginService = {
       }
     }
 
+    // Self-healing: Recalculate any unpaid margins matching the filters to ensure correct profits in DB
+    try {
+      const unpaidMargins = await prisma.agentMargin.findMany({
+        where: {
+          ...where,
+          status: 'UNPAID'
+        },
+        select: { id: true }
+      });
+      for (const m of unpaidMargins) {
+        await agentMarginService.recalculateMarginRecord(m.id);
+      }
+    } catch (err) {
+      // Ignore database errors
+    }
+
     return prisma.agentMargin.findMany({
       where,
       orderBy: [
@@ -373,7 +453,11 @@ export const agentMarginService = {
             totalPrice: true,
             bookingVendorPayments: {
               select: { originalCost: true }
-            }
+            },
+            accommodations: { select: { refundAmount: true } },
+            flightServices: { select: { refundAmount: true } },
+            transportServices: { select: { refundAmount: true } },
+            visaServices: { select: { refundAmount: true } }
           }
         }
       }
@@ -389,7 +473,11 @@ export const agentMarginService = {
 
     const transactionsData = margin.bookings.map(b => {
       const vendorCost = b.bookingVendorPayments.reduce((sum, vp) => sum + vp.originalCost, 0);
-      const profit = b.totalPrice - vendorCost - (b.refundAmount || 0) - (b.cardPaymentCharges || 0);
+      const vendorRefund = (b.accommodations?.reduce((sum: number, acc: any) => sum + (acc.refundAmount || 0), 0) || 0) +
+                           (b.flightServices?.reduce((sum: number, fs: any) => sum + (fs.refundAmount || 0), 0) || 0) +
+                           (b.transportServices?.reduce((sum: number, ts: any) => sum + (ts.refundAmount || 0), 0) || 0) +
+                           (b.visaServices?.reduce((sum: number, vs: any) => sum + (vs.refundAmount || 0), 0) || 0);
+      const profit = b.totalPrice - vendorCost + vendorRefund - (b.refundAmount || 0) - (b.cardPaymentCharges || 0);
       const bookingMargin = profit * (margin.marginPercentage / 100);
 
       const periodStr = `${margin.startDate.toISOString().split('T')[0]} to ${margin.endDate.toISOString().split('T')[0]}`;
@@ -506,12 +594,20 @@ export const agentMarginService = {
       include: {
         user: { select: { firstName: true, lastName: true } },
         bookingVendorPayments: true,
+        accommodations: { select: { refundAmount: true } },
+        flightServices: { select: { refundAmount: true } },
+        transportServices: { select: { refundAmount: true } },
+        visaServices: { select: { refundAmount: true } }
       }
     });
 
     return bookings.map((b: any) => {
       const vendorCost = b.bookingVendorPayments.reduce((sum: number, vp: any) => sum + vp.originalCost, 0);
-      const profit = b.totalPrice - vendorCost - (b.refundAmount || 0) - (b.cardPaymentCharges || 0);
+      const vendorRefund = (b.accommodations?.reduce((sum: number, acc: any) => sum + (acc.refundAmount || 0), 0) || 0) +
+                           (b.flightServices?.reduce((sum: number, fs: any) => sum + (fs.refundAmount || 0), 0) || 0) +
+                           (b.transportServices?.reduce((sum: number, ts: any) => sum + (ts.refundAmount || 0), 0) || 0) +
+                           (b.visaServices?.reduce((sum: number, vs: any) => sum + (vs.refundAmount || 0), 0) || 0);
+      const profit = b.totalPrice - vendorCost + vendorRefund - (b.refundAmount || 0) - (b.cardPaymentCharges || 0);
       return {
         id: b.id,
         bookingReference: b.bookingReference,
@@ -555,7 +651,11 @@ export const agentMarginService = {
       include: {
         bookings: {
           include: {
-            bookingVendorPayments: true
+            bookingVendorPayments: true,
+            accommodations: { select: { refundAmount: true } },
+            flightServices: { select: { refundAmount: true } },
+            transportServices: { select: { refundAmount: true } },
+            visaServices: { select: { refundAmount: true } }
           }
         }
       }
@@ -570,7 +670,11 @@ export const agentMarginService = {
     let nonVoidedProfit = 0;
     for (const b of nonVoidedBookings) {
       const vendorCost = b.bookingVendorPayments.reduce((sum: number, vp: any) => sum + (vp.originalCost || 0), 0);
-      const profit = b.totalPrice - vendorCost - (b.refundAmount || 0) - (b.cardPaymentCharges || 0);
+      const vendorRefund = (b.accommodations?.reduce((sum: number, acc: any) => sum + (acc.refundAmount || 0), 0) || 0) +
+                           (b.flightServices?.reduce((sum: number, fs: any) => sum + (fs.refundAmount || 0), 0) || 0) +
+                           (b.transportServices?.reduce((sum: number, ts: any) => sum + (ts.refundAmount || 0), 0) || 0) +
+                           (b.visaServices?.reduce((sum: number, vs: any) => sum + (vs.refundAmount || 0), 0) || 0);
+      const profit = b.totalPrice - vendorCost + vendorRefund - (b.refundAmount || 0) - (b.cardPaymentCharges || 0);
       nonVoidedProfit += profit;
     }
 

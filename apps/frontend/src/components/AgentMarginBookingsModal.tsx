@@ -114,6 +114,7 @@ export default function AgentMarginBookingsModal({ margin, onClose }: Props) {
                         <th className="sticky top-0 bg-muted/95 px-4 py-3 z-10 font-semibold text-muted-foreground text-right">Total Cost</th>
                         <th className="sticky top-0 bg-muted/95 px-4 py-3 z-10 font-semibold text-muted-foreground text-right">Customer Paid</th>
                         <th className="sticky top-0 bg-muted/95 px-4 py-3 z-10 font-semibold text-muted-foreground text-right">Vendor Cost</th>
+                        <th className="sticky top-0 bg-muted/95 px-4 py-3 z-10 font-semibold text-violet-500 text-right">Vendor Refund</th>
                         <th className="sticky top-0 bg-muted/95 px-4 py-3 z-10 font-semibold text-red-500 text-right">Refund</th>
                         <th className="sticky top-0 bg-muted/95 px-4 py-3 z-10 font-semibold text-amber-500 text-right">Card Charges</th>
                         <th className="sticky top-0 bg-muted/95 px-4 py-3 z-10 font-semibold text-muted-foreground text-right">Net Profit</th>
@@ -141,6 +142,9 @@ export default function AgentMarginBookingsModal({ margin, onClose }: Props) {
                             </td>
                             <td className="px-4 py-3 text-right">
                               {formatCurrency(b.vendorCost)}
+                            </td>
+                            <td className="px-4 py-3 text-right text-violet-500 font-medium">
+                              {b.vendorRefund > 0 ? `+${formatCurrency(b.vendorRefund)}` : '—'}
                             </td>
                             <td className="px-4 py-3 text-right text-red-500 font-medium">
                               {b.refundAmount > 0 ? `-${formatCurrency(b.refundAmount)}` : '—'}
@@ -195,7 +199,7 @@ export default function AgentMarginBookingsModal({ margin, onClose }: Props) {
                     </tbody>
                     <tfoot className="bg-muted/30 border-t border-border font-semibold text-sm">
                       <tr>
-                        <td colSpan={8} className="px-4 py-3 text-right">
+                        <td colSpan={9} className="px-4 py-3 text-right">
                           Total Profit (Qualifying):
                         </td>
                         <td className="px-4 py-3 text-right text-emerald-600 dark:text-emerald-400">
