@@ -148,7 +148,7 @@ export const agentMarginService = {
           LEFT JOIN (
             SELECT "bookingId", SUM("refundAmount") as "totalVendorRefund"
             FROM (
-              SELECT "bookingId", "refundAmount" FROM "Accommodation" WHERE "refundAmount" > 0
+              SELECT "bookingId", "refundAmount" FROM "AccommodationService" WHERE "refundAmount" > 0
               UNION ALL
               SELECT "bookingId", "refundAmount" FROM "FlightService" WHERE "refundAmount" > 0
               UNION ALL
@@ -180,7 +180,7 @@ export const agentMarginService = {
           LEFT JOIN (
             SELECT "bookingId", SUM("refundAmount") as "totalVendorRefund"
             FROM (
-              SELECT "bookingId", "refundAmount" FROM "Accommodation" WHERE "refundAmount" > 0
+              SELECT "bookingId", "refundAmount" FROM "AccommodationService" WHERE "refundAmount" > 0
               UNION ALL
               SELECT "bookingId", "refundAmount" FROM "FlightService" WHERE "refundAmount" > 0
               UNION ALL
@@ -217,7 +217,7 @@ export const agentMarginService = {
           LEFT JOIN (
             SELECT "bookingId", SUM("refundAmount") as "totalVendorRefund"
             FROM (
-              SELECT "bookingId", "refundAmount" FROM "Accommodation" WHERE "refundAmount" > 0
+              SELECT "bookingId", "refundAmount" FROM "AccommodationService" WHERE "refundAmount" > 0
               UNION ALL
               SELECT "bookingId", "refundAmount" FROM "FlightService" WHERE "refundAmount" > 0
               UNION ALL
