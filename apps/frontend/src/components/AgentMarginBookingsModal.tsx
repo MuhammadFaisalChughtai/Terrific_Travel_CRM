@@ -39,6 +39,13 @@ export default function AgentMarginBookingsModal({ margin, onClose }: Props) {
     }
   });
 
+  const qualifyingProfit = React.useMemo(() => {
+    if (!bookings) return 0;
+    return bookings
+      .filter((b: any) => !b.agentMarginVoided)
+      .reduce((sum: number, b: any) => sum + b.profit, 0);
+  }, [bookings]);
+
   const filteredBookings = React.useMemo(() => {
     if (!bookings) return [];
     if (!searchQuery) return bookings;
@@ -192,11 +199,7 @@ export default function AgentMarginBookingsModal({ margin, onClose }: Props) {
                           Total Profit (Qualifying):
                         </td>
                         <td className="px-4 py-3 text-right text-emerald-600 dark:text-emerald-400">
-                          {formatCurrency(
-                            bookings
-                              ?.filter((b: any) => !b.agentMarginVoided)
-                              ?.reduce((sum: number, b: any) => sum + b.profit, 0) || 0
-                          )}
+                          {formatCurrency(qualifyingProfit)}
                         </td>
                         <td></td>
                       </tr>
@@ -211,7 +214,7 @@ export default function AgentMarginBookingsModal({ margin, onClose }: Props) {
                   <div>
                     <p className="font-semibold mb-1">Margin Voided</p>
                     <p>
-                      Your total profit ({formatCurrency(margin.totalProfit)}) for this period is less than the minimum required threshold configured in the margin slabs. Therefore, no commission has been awarded for these bookings.
+                      Your total profit ({formatCurrency(qualifyingProfit)}) for this period is less than the minimum required threshold configured in the margin slabs. Therefore, no commission has been awarded for these bookings.
                     </p>
                   </div>
                 </div>
@@ -223,7 +226,7 @@ export default function AgentMarginBookingsModal({ margin, onClose }: Props) {
                   <div>
                     <p className="font-semibold mb-1">Margin Applied ({margin.marginPercentage}%)</p>
                     <p>
-                      Your total profit ({formatCurrency(margin.totalProfit)}) successfully met the margin slab requirements. You have been awarded {formatCurrency(margin.marginAmount)}.
+                      Your total profit ({formatCurrency(qualifyingProfit)}) successfully met the margin slab requirements. You have been awarded {formatCurrency(margin.marginAmount)}.
                     </p>
                   </div>
                 </div>
