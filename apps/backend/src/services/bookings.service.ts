@@ -238,6 +238,16 @@ export class BookingsService {
     return booking;
   }
   async findAll(user: any, query: any) {
+    try {
+      await prisma.$executeRawUnsafe(`
+        UPDATE "Booking"
+        SET "bookingDate" = "createdAt"
+        WHERE "bookingDate" IS NULL
+      `);
+    } catch (err) {
+      // Ignore database connection/lock/permission issues
+    }
+
     const limit = Number(query.limit) || 1000;
     const offset = Number(query.offset) || 0;
     const where: any = {};
