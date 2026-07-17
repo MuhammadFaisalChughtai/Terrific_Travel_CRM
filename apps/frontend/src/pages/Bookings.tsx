@@ -24,6 +24,8 @@ import {
   Lock,
   Unlock,
   RotateCw,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import Modal from "../components/Modal";
@@ -121,6 +123,19 @@ export default function Bookings() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
 
+  const [sortBy, setSortBy] = useState<string>("bookingDate");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+
+  const handleSort = (field: string) => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortBy(field);
+      setSortOrder("desc");
+    }
+    setCurrentPage(1);
+  };
+
   // Applied parameters
   const [appliedFilters, setAppliedFilters] = useState<any>({});
 
@@ -141,6 +156,8 @@ export default function Bookings() {
       agentViewMode,
       user?.agentId,
       currentPage,
+      sortBy,
+      sortOrder,
     ],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -195,6 +212,8 @@ export default function Bookings() {
 
       params.append("limit", itemsPerPage.toString());
       params.append("offset", ((currentPage - 1) * itemsPerPage).toString());
+      params.append("sortBy", sortBy);
+      params.append("sortOrder", sortOrder);
 
       const res = await apiClient.get(`/bookings?${params.toString()}`);
       return res.data.data;
@@ -205,7 +224,7 @@ export default function Bookings() {
     const refParam = searchParams.get("ref");
     if (refParam && bookingsResult?.items) {
       const matched = bookingsResult.items.find(
-        (b: any) => b.bookingReference === refParam
+        (b: any) => b.bookingReference === refParam,
       );
       if (matched && selectedBookingId !== matched.id) {
         setSelectedBookingId(matched.id);
@@ -529,8 +548,32 @@ export default function Bookings() {
                     <tr className="bg-secondary/20 text-[11px] uppercase tracking-wider text-muted-foreground font-black border-b border-border">
                       <th className="px-4 py-3 w-12 text-center">No.</th>
                       <th className="px-4 py-3">Ref</th>
-                      <th className="px-4 py-3">Booking Date</th>
-                      <th className="px-4 py-3">Travel Date</th>
+                      <th 
+                        className="px-4 py-3 cursor-pointer select-none hover:bg-secondary/10 transition-colors"
+                        onClick={() => handleSort("bookingDate")}
+                      >
+                        <div className="flex items-center gap-1">
+                          Booking Date
+                          {sortBy === "bookingDate" ? (
+                            sortOrder === "asc" ? <ChevronUp size={12} className="inline" /> : <ChevronDown size={12} className="inline" />
+                          ) : (
+                            <ChevronDown size={12} className="opacity-20 inline" />
+                          )}
+                        </div>
+                      </th>
+                      <th 
+                        className="px-4 py-3 cursor-pointer select-none hover:bg-secondary/10 transition-colors"
+                        onClick={() => handleSort("travelDate")}
+                      >
+                        <div className="flex items-center gap-1">
+                          Travel Date
+                          {sortBy === "travelDate" ? (
+                            sortOrder === "asc" ? <ChevronUp size={12} className="inline" /> : <ChevronDown size={12} className="inline" />
+                          ) : (
+                            <ChevronDown size={12} className="opacity-20 inline" />
+                          )}
+                        </div>
+                      </th>
                       <th className="px-4 py-3">Passenger</th>
                       <th className="px-4 py-3">Agent</th>
                       <th className="px-4 py-3 text-right">Total Price</th>
@@ -543,8 +586,32 @@ export default function Bookings() {
                         <th className="px-4 py-3 text-right">Vendor Due</th>
                       )}
                       <th className="px-4 py-3 text-center">Lock</th>
-                      <th className="px-4 py-3 text-center">Payment</th>
-                      <th className="px-4 py-3 text-center">Status</th>
+                      <th 
+                        className="px-4 py-3 text-center cursor-pointer select-none hover:bg-secondary/10 transition-colors"
+                        onClick={() => handleSort("paymentStatus")}
+                      >
+                        <div className="flex items-center justify-center gap-1">
+                          Payment
+                          {sortBy === "paymentStatus" ? (
+                            sortOrder === "asc" ? <ChevronUp size={12} className="inline" /> : <ChevronDown size={12} className="inline" />
+                          ) : (
+                            <ChevronDown size={12} className="opacity-20 inline" />
+                          )}
+                        </div>
+                      </th>
+                      <th 
+                        className="px-4 py-3 text-center cursor-pointer select-none hover:bg-secondary/10 transition-colors"
+                        onClick={() => handleSort("status")}
+                      >
+                        <div className="flex items-center justify-center gap-1">
+                          Status
+                          {sortBy === "status" ? (
+                            sortOrder === "asc" ? <ChevronUp size={12} className="inline" /> : <ChevronDown size={12} className="inline" />
+                          ) : (
+                            <ChevronDown size={12} className="opacity-20 inline" />
+                          )}
+                        </div>
+                      </th>
                       <th className="px-4 py-3 text-right pr-6">Actions</th>
                     </tr>
                   </thead>
@@ -566,7 +633,9 @@ export default function Bookings() {
                           year: "numeric",
                         });
                       };
-                      const bookingDate = formatDate(booking.bookingDate || booking.createdAt);
+                      const bookingDate = formatDate(
+                        booking.bookingDate || booking.createdAt,
+                      );
                       const travelDate = formatDate(booking.departureDate);
 
                       // Dynamic Vendor Payment calculations
@@ -592,14 +661,17 @@ export default function Bookings() {
                         ) || 0;
                       const additionalCost =
                         booking.additionalServices?.reduce(
-                          (sum: number, as: any) => sum + (as.servicePrice || 0),
+                          (sum: number, as: any) =>
+                            sum + (as.servicePrice || 0),
                           0,
                         ) || 0;
 
                       const totalVendorCost =
-                        booking.bookingVendorPayments && booking.bookingVendorPayments.length > 0
+                        booking.bookingVendorPayments &&
+                        booking.bookingVendorPayments.length > 0
                           ? booking.bookingVendorPayments.reduce(
-                              (sum: number, bvp: any) => sum + (bvp.originalCost || 0),
+                              (sum: number, bvp: any) =>
+                                sum + (bvp.originalCost || 0),
                               0,
                             )
                           : accommodationsCost +
@@ -609,7 +681,8 @@ export default function Bookings() {
                             additionalCost;
                       const totalPaidToVendors =
                         booking.bookingVendorPayments?.reduce(
-                          (sum: number, bvp: any) => sum + (bvp.amountPaid || 0),
+                          (sum: number, bvp: any) =>
+                            sum + (bvp.amountPaid || 0),
                           0,
                         ) || 0;
                       const vendorRemaining =
@@ -627,11 +700,20 @@ export default function Bookings() {
                             )
                           : null;
 
-                      const hasAgentPayout = booking.transactions?.some(
-                        (tx: any) => tx.paymentMethod === "AGENT PAYOUT" || tx.paymentMethod === "AGENT_PAYOUT"
-                      ) || (booking.agentMargin && booking.agentMargin.status === "PAID") || booking.agentMarginVoided;
+                      const hasAgentPayout =
+                        booking.transactions?.some(
+                          (tx: any) =>
+                            tx.paymentMethod === "AGENT PAYOUT" ||
+                            tx.paymentMethod === "AGENT_PAYOUT",
+                        ) ||
+                        (booking.agentMargin &&
+                          booking.agentMargin.status === "PAID") ||
+                        booking.agentMarginVoided;
 
-                      if ((hasAgentPayout || booking.agentMarginVoided) && agentMargin !== null) {
+                      if (
+                        (hasAgentPayout || booking.agentMarginVoided) &&
+                        agentMargin !== null
+                      ) {
                         agentMargin = 0;
                       }
 
@@ -689,7 +771,7 @@ export default function Bookings() {
                           className="hover:bg-secondary/5 transition-colors"
                         >
                           <td className="px-4 py-3.5 whitespace-nowrap text-center text-muted-foreground font-mono align-middle">
-                            {index + 1}
+                            {(bookingsResult?.total ?? bookings.length) - ((currentPage - 1) * itemsPerPage) - index}
                           </td>
                           <td className="px-4 py-3.5 whitespace-nowrap font-semibold font-mono text-primary align-middle">
                             {isOwner && booking.lockedStatus === "UNLOCKED" ? (
@@ -725,7 +807,8 @@ export default function Bookings() {
                           </td>
                           <td className="px-4 py-3.5 whitespace-nowrap text-right font-semibold text-emerald-600 dark:text-emerald-400 align-middle">
                             {formatCurrency(
-                              (booking.paidAmount || 0) + (booking.refundAmount || 0),
+                              (booking.paidAmount || 0) +
+                                (booking.refundAmount || 0),
                             )}
                           </td>
                           <td className="px-4 py-3.5 whitespace-nowrap text-right font-semibold text-muted-foreground align-middle">
@@ -879,7 +962,7 @@ export default function Bookings() {
                                   )}
 
                                   {/* Finalize Margin — admin/manager only, confirmed + no agent yet */}
-                                  {!isAgent &&
+                                  {/* {!isAgent &&
                                     isOwner &&
                                     booking.status === "CONFIRMED" &&
                                     !booking.agentId && (
@@ -899,7 +982,7 @@ export default function Bookings() {
                                           <span>Finalize</span>
                                         </button>
                                       </>
-                                    )}
+                                    )} */}
 
                                   {/* Invoice — available to ALL users for any CONFIRMED booking (agents can view other agents' invoices) */}
                                   {booking.status === "CONFIRMED" && (
@@ -950,19 +1033,38 @@ export default function Bookings() {
             {bookingsResult?.total > itemsPerPage && (
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 p-4 bg-background border border-border rounded-lg shadow-sm">
                 <div className="text-sm text-muted-foreground font-medium">
-                  Showing <span className="text-foreground">{bookingsResult.items.length === 0 ? 0 : ((currentPage - 1) * itemsPerPage) + 1}</span> to <span className="text-foreground">{((currentPage - 1) * itemsPerPage) + bookingsResult.items.length}</span> of <span className="text-foreground">{bookingsResult.total}</span> bookings
+                  Showing{" "}
+                  <span className="text-foreground">
+                    {bookingsResult.items.length === 0
+                      ? 0
+                      : (currentPage - 1) * itemsPerPage + 1}
+                  </span>{" "}
+                  to{" "}
+                  <span className="text-foreground">
+                    {(currentPage - 1) * itemsPerPage +
+                      bookingsResult.items.length}
+                  </span>{" "}
+                  of{" "}
+                  <span className="text-foreground">
+                    {bookingsResult.total}
+                  </span>{" "}
+                  bookings
                 </div>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    onClick={() =>
+                      setCurrentPage((prev) => Math.max(prev - 1, 1))
+                    }
                     disabled={currentPage === 1}
                     className="px-4 py-2 text-sm font-semibold rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     Previous
                   </button>
                   <button
-                    onClick={() => setCurrentPage(prev => prev + 1)}
-                    disabled={currentPage * itemsPerPage >= bookingsResult.total}
+                    onClick={() => setCurrentPage((prev) => prev + 1)}
+                    disabled={
+                      currentPage * itemsPerPage >= bookingsResult.total
+                    }
                     className="px-4 py-2 text-sm font-semibold rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     Next
@@ -1034,101 +1136,134 @@ export default function Bookings() {
               </select>
             </div>
 
-            {selectedAgentId && selectedAgent && (() => {
-              const accsCost = selectedBooking.accommodations?.reduce((sum: number, acc: any) => sum + acc.price, 0) || 0;
-              const flsCost = selectedBooking.flightServices?.reduce((sum: number, fs: any) => sum + fs.price, 0) || 0;
-              const trsCost = selectedBooking.transportServices?.reduce((sum: number, ts: any) => sum + ts.price, 0) || 0;
-              const vssCost = selectedBooking.visaServices?.reduce((sum: number, vs: any) => sum + vs.price, 0) || 0;
-              const addCost = selectedBooking.additionalServices?.reduce((sum: number, as: any) => sum + (as.servicePrice || 0), 0) || 0;
-              
-              const selectedVendorCost = accsCost + flsCost + trsCost + vssCost + addCost;
-              const selectedRawProfit = selectedBooking.totalPrice - selectedVendorCost;
-              const rate = getCommissionRate(selectedBooking.totalPrice, selectedAgent.slabs);
-              const marginAmount = calculateMargin(selectedBooking.totalPrice, selectedRawProfit, selectedAgent.slabs);
+            {selectedAgentId &&
+              selectedAgent &&
+              (() => {
+                const accsCost =
+                  selectedBooking.accommodations?.reduce(
+                    (sum: number, acc: any) => sum + acc.price,
+                    0,
+                  ) || 0;
+                const flsCost =
+                  selectedBooking.flightServices?.reduce(
+                    (sum: number, fs: any) => sum + fs.price,
+                    0,
+                  ) || 0;
+                const trsCost =
+                  selectedBooking.transportServices?.reduce(
+                    (sum: number, ts: any) => sum + ts.price,
+                    0,
+                  ) || 0;
+                const vssCost =
+                  selectedBooking.visaServices?.reduce(
+                    (sum: number, vs: any) => sum + vs.price,
+                    0,
+                  ) || 0;
+                const addCost =
+                  selectedBooking.additionalServices?.reduce(
+                    (sum: number, as: any) => sum + (as.servicePrice || 0),
+                    0,
+                  ) || 0;
 
-              return (
-                <div className="border border-border/80 rounded-xl p-4 bg-secondary/10 space-y-3">
-                  <div className="flex justify-between items-center text-xs">
-                    <div>
-                      <h4 className="font-bold text-foreground">
-                        {selectedAgent.name}
-                      </h4>
-                      <p className="text-[10px] text-muted-foreground">
-                        Client: {selectedAgent.client} | PCC: {selectedAgent.pcc}
-                      </p>
+                const selectedVendorCost =
+                  accsCost + flsCost + trsCost + vssCost + addCost;
+                const selectedRawProfit =
+                  selectedBooking.totalPrice - selectedVendorCost;
+                const rate = getCommissionRate(
+                  selectedBooking.totalPrice,
+                  selectedAgent.slabs,
+                );
+                const marginAmount = calculateMargin(
+                  selectedBooking.totalPrice,
+                  selectedRawProfit,
+                  selectedAgent.slabs,
+                );
+
+                return (
+                  <div className="border border-border/80 rounded-xl p-4 bg-secondary/10 space-y-3">
+                    <div className="flex justify-between items-center text-xs">
+                      <div>
+                        <h4 className="font-bold text-foreground">
+                          {selectedAgent.name}
+                        </h4>
+                        <p className="text-[10px] text-muted-foreground">
+                          Client: {selectedAgent.client} | PCC:{" "}
+                          {selectedAgent.pcc}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[10px] text-muted-foreground uppercase font-semibold">
+                          Wallet Balance
+                        </span>
+                        <p className="font-bold text-emerald-600 dark:text-emerald-400">
+                          {formatCurrency(selectedAgent.walletBalance || 0)}
+                        </p>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <span className="text-[10px] text-muted-foreground uppercase font-semibold">
-                        Wallet Balance
+
+                    {/* Slabs list with matching one highlighted */}
+                    <div className="space-y-1.5">
+                      <span className="block text-[9px] font-bold text-muted-foreground uppercase tracking-wide">
+                        Agent Commission Slabs
                       </span>
-                      <p className="font-bold text-emerald-600 dark:text-emerald-400">
-                        {formatCurrency(selectedAgent.walletBalance || 0)}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Slabs list with matching one highlighted */}
-                  <div className="space-y-1.5">
-                    <span className="block text-[9px] font-bold text-muted-foreground uppercase tracking-wide">
-                      Agent Commission Slabs
-                    </span>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px]">
-                      {selectedAgent.slabs?.map((slab: any) => {
-                        const isMatched =
-                          selectedBooking.totalPrice >= slab.minSales &&
-                          (slab.maxSales === null ||
-                            selectedBooking.totalPrice <= slab.maxSales);
-                        return (
-                          <div
-                            key={slab.id}
-                            className={`p-2 rounded-lg border flex items-center justify-between transition-all ${
-                              isMatched
-                                ? "bg-emerald-500/10 border-emerald-500/40 font-bold text-emerald-800 dark:text-emerald-300"
-                                : "bg-background border-border/50 text-muted-foreground"
-                            }`}
-                          >
-                            <span>
-                              {slab.maxSales !== null
-                                ? `${formatCurrency(slab.minSales)} - ${formatCurrency(slab.maxSales)}`
-                                : `${formatCurrency(slab.minSales)}+`}
-                            </span>
-                            <span
-                              className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px]">
+                        {selectedAgent.slabs?.map((slab: any) => {
+                          const isMatched =
+                            selectedBooking.totalPrice >= slab.minSales &&
+                            (slab.maxSales === null ||
+                              selectedBooking.totalPrice <= slab.maxSales);
+                          return (
+                            <div
+                              key={slab.id}
+                              className={`p-2 rounded-lg border flex items-center justify-between transition-all ${
                                 isMatched
-                                  ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-300"
-                                  : "bg-secondary text-muted-foreground"
+                                  ? "bg-emerald-500/10 border-emerald-500/40 font-bold text-emerald-800 dark:text-emerald-300"
+                                  : "bg-background border-border/50 text-muted-foreground"
                               }`}
                             >
-                              {slab.commissionRate}%
-                            </span>
-                          </div>
-                        );
-                      })}
+                              <span>
+                                {slab.maxSales !== null
+                                  ? `${formatCurrency(slab.minSales)} - ${formatCurrency(slab.maxSales)}`
+                                  : `${formatCurrency(slab.minSales)}+`}
+                              </span>
+                              <span
+                                className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                  isMatched
+                                    ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-300"
+                                    : "bg-secondary text-muted-foreground"
+                                }`}
+                              >
+                                {slab.commissionRate}%
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Calculation breakdown */}
-                  <div className="border-t border-border pt-3 flex justify-between items-center text-xs">
-                    <div>
-                      <span className="text-[9px] font-semibold uppercase text-muted-foreground">
-                        Calculated Commission
-                      </span>
-                      <p className="text-foreground">
-                        {formatCurrency(selectedRawProfit)} (Profit) &times; {rate}%
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-[9px] font-semibold uppercase text-muted-foreground">
-                        Margin to Deposit
-                      </span>
-                      <p className="text-lg font-black text-emerald-600 dark:text-emerald-400">
-                        + {formatCurrency(marginAmount)}
-                      </p>
+                    {/* Calculation breakdown */}
+                    <div className="border-t border-border pt-3 flex justify-between items-center text-xs">
+                      <div>
+                        <span className="text-[9px] font-semibold uppercase text-muted-foreground">
+                          Calculated Commission
+                        </span>
+                        <p className="text-foreground">
+                          {formatCurrency(selectedRawProfit)} (Profit) &times;{" "}
+                          {rate}%
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[9px] font-semibold uppercase text-muted-foreground">
+                          Margin to Deposit
+                        </span>
+                        <p className="text-lg font-black text-emerald-600 dark:text-emerald-400">
+                          + {formatCurrency(marginAmount)}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })()}
+                );
+              })()}
 
             <div className="flex gap-2 justify-end pt-3 border-t border-border/60 mt-4">
               <button

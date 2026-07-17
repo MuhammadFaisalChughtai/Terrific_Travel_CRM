@@ -241,6 +241,23 @@ export class BookingsService {
     const limit = Number(query.limit) || 1000;
     const offset = Number(query.offset) || 0;
     const where: any = {};
+
+    const sortBy = query.sortBy || 'bookingDate';
+    const sortOrder = query.sortOrder || 'desc';
+
+    let orderField: any = { createdAt: 'desc' };
+    if (sortBy === 'bookingDate') {
+      orderField = [
+        { bookingDate: sortOrder },
+        { createdAt: sortOrder }
+      ];
+    } else if (sortBy === 'departureDate' || sortBy === 'travelDate') {
+      orderField = { departureDate: sortOrder };
+    } else if (sortBy === 'paymentStatus') {
+      orderField = { paymentStatus: sortOrder };
+    } else if (sortBy === 'status') {
+      orderField = { status: sortOrder };
+    }
     
     const isAdmin = user.roles.some((role: string) => 
       ['SUPER_ADMIN', 'ADMIN', 'Admin'].includes(role)
@@ -652,7 +669,7 @@ export class BookingsService {
           visaServices: { include: { vendor: true } },
           additionalServices: { include: { vendor: true } },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: orderField,
         take: limit,
         skip: offset,
       }),
