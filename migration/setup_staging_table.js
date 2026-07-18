@@ -4,10 +4,12 @@ const prisma = new PrismaClient();
 
 async function run() {
   try {
-    console.log('Creating StagingPolaniLedger table in the database...');
+    console.log('Dropping existing StagingPolaniLedger table if it exists...');
+    await prisma.$executeRawUnsafe('DROP TABLE IF EXISTS "StagingPolaniLedger";');
     
+    console.log('Creating StagingPolaniLedger table in the database...');
     await prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS "StagingPolaniLedger" (
+      CREATE TABLE "StagingPolaniLedger" (
           "excel_row" VARCHAR(50),
           "folder_no" VARCHAR(50),
           "pnr" VARCHAR(50),
