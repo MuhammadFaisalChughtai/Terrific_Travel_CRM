@@ -1,4 +1,4 @@
-process.env.DATABASE_URL = 'postgresql://tms_user:tms_password@localhost:5432/tms_db?schema=public';
+process.env.DATABASE_URL = process.env.DATABASE_URL || 'postgresql://tms_user:tms_password@localhost:5432/tms_db?schema=public';
 const { PrismaClient } = require('@prisma/client');
 const fs = require('fs');
 const prisma = new PrismaClient();
@@ -24,7 +24,10 @@ const parseCsvLine = (line) => {
 
 async function run() {
   try {
-    const csvPath = 'e:/Terrific-Travel_TMS/polani_reconciliation_with_dates.csv';
+    let csvPath = 'polani_reconciliation_with_dates.csv';
+    if (!fs.existsSync(csvPath)) {
+      csvPath = 'e:/Terrific-Travel_TMS/polani_reconciliation_with_dates.csv';
+    }
     console.log(`Reading CSV file from ${csvPath}...`);
     
     if (!fs.existsSync(csvPath)) {
