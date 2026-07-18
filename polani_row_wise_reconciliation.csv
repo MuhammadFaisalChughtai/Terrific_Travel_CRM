@@ -1,0 +1,475 @@
+Excel Row,Folder No,PNR,Lead Passenger,Excel Inv Amount,Excel Receipt,Excel Folder Status,DB Ref,DB Vendor,DB Cost,DB Paid,DB Status,Reconciliation Status
+2,1012888,R6UUF1,MASTOORA BEGUM,240,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+3,1012888,R6UUF1,MASTOORA BEGUM,240,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+4,1020191,B56TG3,AYESHA KHAN,318.2,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+5,1017146,CDMUMQ,SHAHID RAZA,235.4,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+6,1012888,R6UUF1,MASTOORA BEGUM,1466.46,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+7,1012888,R6UUF1,MASTOORA BEGUM,1466.46,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+8,1025691,B6TZ99,RAFIK AMOURA,2488.68,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+9,1031364,B80989,MUHAMMAD SHERAZ QURESHI,760.6,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+10,1032242,GXIBYL,JAVED AZAM KHAN,1293.2,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+11,1035360,B9G23B,CHAUDHRY SALEEM AKHTAR,2375.2,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+12,1033466,B898F3,UMMA HABIBA ABDIN,1359.6,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+13,1038883,CSFNPS,FIZA ILYAS,516.9,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+14,1038473,SHJEMM,SHAHINUR RAHMAN CHOUDHURY,1769.89,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+15,1038690,OZRKBN,ILYAS FIZA,,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+16,1046198,BCXMJY,UMAR YASIN,334.52,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+17,1047903,BCZPF7,MUHAMMAD NAVEED,560.8,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+18,1044481,BBWTJ7,XXX TEHMEENA,2194.89,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+19,1049603,BD9Y6X,HAIDAR USMAN,3342.44,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+20,1038473,SHJEMM,SHAHINUR RAHMAN CHOUDHURY,30,Fully Paid,Partial Refund,N/A,N/A,0.0,0.0,N/A,Missing in DB
+21,1049503,BDN8X9,SALEEM SATTAR,1983.68,Fully Paid,Invoiced,TT00416,Polani Travel Ltd,2386.88,0,PAID,Matched (Paid/Paid)
+22,1051280,BF468H,RAYAN ALI,2802.56,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+23,1053845,RPYMXU,ARSHAD MEHMOOD,928.63,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+24,1053845,RPYMXU,ARSHAD MEHMOOD,928.63,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+25,1050557,BDRZKV,ANEEKA MAHMOOD,795.43,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+26,1056338,BGJYR9,HAWA RAKHMAT NAWAZ,2320.5,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+27,1058660,BHD68Q,HAJIRA BIBI,697.07,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+28,1058683,BHD5GR,MOHAMMAD MOHABAT,697.07,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+29,1058378,BF1YFQ,MOHAMMAD ILYAS,225.7,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+30,1032242,GXIBYL,JAVED AZAM KHAN,204,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+31,1059448,BH6BQ2,MUHAMMAD IRFAN AZAM,935.7,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+32,1058653,BHD5RJ,NIAZ MINA,10,Fully Paid,Partial Refund,N/A,N/A,0.0,0.0,N/A,Missing in DB
+33,1058660,BHD68Q,HAJIRA BIBI,10,Fully Paid,Partial Refund,N/A,N/A,0.0,0.0,N/A,Missing in DB
+34,1058683,BHD5GR,MOHAMMAD MOHABAT,10,Fully Paid,Partial Refund,N/A,N/A,0.0,0.0,N/A,Missing in DB
+35,1059448,BH6BQ2,MUHAMMAD IRFAN AZAM,10,Fully Paid,Partial Refund,N/A,N/A,0.0,0.0,N/A,Missing in DB
+36,1060565,BHKGJ7,SAIFUDDIN SYED,10,Fully Paid,Partial Refund,N/A,N/A,0.0,0.0,N/A,Missing in DB
+37,1060565,BHKGJ7,SAIFUDDIN SYED,843.4,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+38,1058653,BHD5RJ,NIAZ MINA,697.07,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+39,1038473,SHJEMM,SHAHINUR RAHMAN CHOUDHURY,270.4,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+40,1058378,BF1YFQ,MOHAMMAD ILYAS,5,Fully Paid,Partial Refund,N/A,N/A,0.0,0.0,N/A,Missing in DB
+41,1087181,KAMPQU,IMRAN GUL,779.02,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+42,1087193,SOOAMH,SHUAYBULLAH KHAN,721.02,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+43,1012888,R6UUF1,MASTOORA BEGUM,424,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+44,1012888,R6UUF1,MASTOORA BEGUM,424,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+45,1012888,R6UUF1,MASTOORA BEGUM,200,Fully Paid,Partial Refund,N/A,N/A,0.0,0.0,N/A,Missing in DB
+46,1012888,R6UUF1,MASTOORA BEGUM,200,Fully Paid,Partial Refund,N/A,N/A,0.0,0.0,N/A,Missing in DB
+47,1087181,KAMPQU,IMRAN GUL,10,Fully Paid,Partial Refund,N/A,N/A,0.0,0.0,N/A,Missing in DB
+48,1035360,B9G23B,CHAUDHRY SALEEM AKHTAR,118,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+49,1087193,SOOAMH,SHUAYBULLAH KHAN,10,Fully Paid,Partial Refund,N/A,N/A,0.0,0.0,N/A,Missing in DB
+50,1049503,BDN8X9,SALEEM SATTAR,360,Fully Paid,Invoiced,TT00416,Polani Travel Ltd,2386.88,0,PAID,Matched (Paid/Paid)
+51,1049503,BDN8X9,SALEEM SATTAR,43.2,Fully Paid,Invoiced,TT00416,Polani Travel Ltd,2386.88,0,PAID,Matched (Paid/Paid)
+52,1125746,BZCKY5,UMAR YASIN,308.52,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+53,1126013,BZSHDB,BABUL HASSAN,279.1,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+54,1136489,C2BYX3,SHIR WALI SAARAKHEL,778.12,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+55,1142912,C3XZDC,NAZAR MOHAMMAD CHAMBILI,1543.9,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+56,1136809,EVFJBO,FNU ABDUL SHAKOOR,364.3,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+57,1017146,CDMUMQ,SHAHID RAZA,79,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+58,1151623,C4MNWR,SHURJA BIBI,1205.24,Fully Paid,Invoiced,TT00493,Polani Travel Ltd,1205.24,1205.24,PAID,Matched (Paid/Paid)
+59,1145074,[EMPTY PNR],ADM Retail 670,27.42,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Empty PNR
+60,1056338,BGJYR9,SAIRA BEGUM,,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+61,1160995,QNRIAB,FATOU BINTOU MAREGA,1208.5,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+62,1136809,EVFJBO,FNU ABDUL SHAKOOR,10,Fully Paid,Partial Refund,N/A,N/A,0.0,0.0,N/A,Missing in DB
+63,1151656,C5504V,SHAILA ALI,3013.1,Fully Paid,Invoiced,TT00496,Polani Travel Ltd,3013.1,0,PAID,Matched (Paid/Paid)
+64,1126013,BZSHDB,BABUL HASSAN,5,Fully Paid,Partial Refund,N/A,N/A,0.0,0.0,N/A,Missing in DB
+65,1172114,C7VZJX,BUSHRA BIBI,2946.1,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+66,1161594,C7SLSR,YASMIN AKHTAR,3033.68,Fully Paid,Invoiced,TT00499,Polani Travel Ltd,3033.68,3033.68,PAID,Matched (Paid/Paid)
+67,1176520,CC1MRM,SAJAD ALI,2118.48,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+68,1173974,CC7D36,HASAN MAHMOOD LITON,840.92,Fully Paid,Invoiced,TT00508,Polani Travel Ltd,840.92,840.92,PAID,Matched (Paid/Paid)
+69,1176680,CD1X8B,SHAMIM AZRA,1253.64,Fully Paid,Invoiced,TT00512,Polani Travel Ltd,1253.64,1253.64,PAID,Matched (Paid/Paid)
+70,1176680,CD1X8B,SHAMIM AZRA,20,Fully Paid,Partial Refund,TT00512,Polani Travel Ltd,1253.64,1253.64,PAID,Matched (Paid/Paid)
+71,1173835,C7WC1Y,AFSANA RAHMAN,3380.52,Fully Paid,Invoiced,TT00497,Polani Travel Ltd,3380.52,3380.52,PAID,Matched (Paid/Paid)
+72,1185095,CF3CB3,ROKIA SHAHBAZKAIL,778.78,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+73,1185099,CG1W0N,HIZBULLAH SAFI,999.5,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+74,1185102,CG1WM7,ROKIA SHAHBAZKAIL,430.2,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+75,1181649,CDXSY4,NIHLA KAUSAR SALIM,40,Fully Paid,Partial Refund,TT00514,Polani Travel Ltd,3673.28,3673.28,PAID,Matched (Paid/Paid)
+76,1181649,CDXSY4,NIHLA KAUSAR SALIM,3181.28,Fully Paid,Invoiced,TT00514,Polani Travel Ltd,3673.28,3673.28,PAID,Matched (Paid/Paid)
+77,1185091,CF22KS,DEWA SAFI,1666.8,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+78,1185454,CG32Y8,MASTOORA BEGUM,1117.82,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+79,1185451,CG31VR,OMMARA AFZAL,1511.18,Fully Paid,Invoiced,TT00517,Polani Travel Ltd,1511.18,0,PAID,Matched (Paid/Paid)
+80,1186964,CDXG0R,AZHAR MAHMOOD,1292.04,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+81,1193328,CHYZZ1,HABIB ARIF,40,Fully Paid,Partial Refund,N/A,N/A,0.0,0.0,N/A,Missing in DB
+82,1172114,C7VZJX,AWAIS WAQAS MOHAMMAD,255,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+83,1193328,CHYZZ1,HABIB ARIF,2424.48,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+84,1201644,CKJL7K,JAMILA BEGUM,1351.04,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+85,1194798,CJ8D2D,SHABIR HUSSAIN,677.62,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+86,1181649,CDXSY4,MUQDIS KHAN,320,Fully Paid,Invoiced,TT00514,Polani Travel Ltd,3673.28,3673.28,PAID,Matched (Paid/Paid)
+87,1215625,CNTHRQ,ALMAS BEGUM,723.76,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+88,1220896,CPZ24D,SAJID MAHBOOB,721.12,Fully Paid,Invoiced,TT00553,Polani Travel Ltd,3038.52,3038.52,PAID,Matched (Paid/Paid)
+89,1220894,CPZ19T,MOHAMMAD MURTAZA SAJID,3038.52,Fully Paid,Invoiced,TT00553,Polani Travel Ltd,3038.52,3038.52,PAID,Matched (Paid/Paid)
+90,1181649,CDXSY4,MUQDIS KHAN,172,Fully Paid,Invoiced,TT00514,Polani Travel Ltd,3673.28,3673.28,PAID,Matched (Paid/Paid)
+91,1217168,CNHT42,ZANIB KALSOOM,1816.16,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+92 (Match 1),1224657,DLKFNF,YUSUF KHAN,1269.2,Fully Paid,Invoiced,TT00559,Polani Travel Ltd,1269.2,1269.2,PAID,Matched (Paid/Paid)
+92 (Match 2),1224657,DLKFNF,YUSUF KHAN,1269.2,Fully Paid,Invoiced,TT00559,Polani Travel Ltd,1269.2,1269.2,PAID,Matched (Paid/Paid)
+93 (Match 1),1224657,DLKFNF,YUSUF KHAN,10,Fully Paid,Partial Refund,TT00559,Polani Travel Ltd,1269.2,1269.2,PAID,Matched (Paid/Paid)
+93 (Match 2),1224657,DLKFNF,YUSUF KHAN,10,Fully Paid,Partial Refund,TT00559,Polani Travel Ltd,1269.2,1269.2,PAID,Matched (Paid/Paid)
+94,1223501,CQK2ZH,UMAR AZIZ,533.8,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+95,1228387,CRNJG4,SAHUL SHAHAID KHALIQ,3071.3,Fully Paid,Invoiced,TT00561,Polani Travel Ltd,3071.3,3071.3,PAID,Matched (Paid/Paid)
+96,1236993,CTK92W,MUHAMMAD NAVEED,1753.26,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+97,1237842,CTP89X,FNU ASFANDYAR,885.8,Fully Paid,Invoiced,TT00567,Polani Travel Ltd,885.8,0,PAID,Matched (Paid/Paid)
+98,1217168,CNHT42,ZANIB KALSOOM,10,Fully Paid,Partial Refund,N/A,N/A,0.0,0.0,N/A,Missing in DB
+99,1250091,CWW5RC,NOREEN AKHTAR KHAN,1301.84,Fully Paid,Invoiced,TT00578,Polani Travel Ltd,1301.84,0,PAID,Matched (Paid/Paid)
+100,1251396,CWYPBD,MAHAM AFZAL,1341.32,Fully Paid,Invoiced,TT00579,Polani Travel Ltd,1341.32,0,PAID,Matched (Paid/Paid)
+101,1239330,CTZJ5T,MUNIB AMJAD,1797.64,Fully Paid,Invoiced,TT00569,Polani Travel Ltd,1797.64,0,PAID,Matched (Paid/Paid)
+102,1254892,CXSXLC,AYAAN RIZWAN AHMAD,399.86,Fully Paid,Invoiced,TT00558,Brightsun Travel Ltd,969.18,969.18,PAID,Matched (Paid/Paid)
+103,1256626,CY2NLC,SHAHID HUSSAIN,2457.28,Fully Paid,Invoiced,TT00582,Polani Travel Ltd,4490.24,2000,PAID,Matched (Paid/Paid)
+104,1252268,CX9XXZ,IQRA HABIB SIDDIQUI,1940.64,Fully Paid,Invoiced,TT00581,Polani Travel Ltd,1940.64,0,PAID,Matched (Paid/Paid)
+105,1264479,CYWP4C,NAHEED AHMED SHAH,1616.84,Fully Paid,Invoiced,TT00587,Polani Travel Ltd,1616.84,0,PAID,Matched (Paid/Paid)
+106,1263923,MMJXCA,AHTSHAM HAIDER,629.02,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+107,1256906,CY4FWF,BIBI AMINA,2052.96,Fully Paid,Invoiced,TT00582,Polani Travel Ltd,4490.24,2000,PAID,Matched (Paid/Paid)
+108,1266164,CYGD62,FAZAL HUSSAIN,817.52,Fully Paid,Invoiced,TT00575,Polani Travel Ltd,1635.04,1635.04,PAID,Matched (Paid/Paid)
+109,1268919,YOMG8N,ZEESHAN ALI,1494.44,Fully Paid,Invoiced,TT00590,Polani Travel Ltd,1494.44,1494.44,PAID,Matched (Paid/Paid)
+110,1266035,CYGCH3,RIZWAN ASLAM,817.52,Fully Paid,Invoiced,TT00575,Polani Travel Ltd,1635.04,1635.04,PAID,Matched (Paid/Paid)
+111,1287937,WPBGDJ,AMIR ASLAM,1232.44,Fully Paid,Invoiced,TT00601,Polani Travel Ltd,1232.44,0,PAID,Matched (Paid/Paid)
+112 (Match 1),1274051,AICYWU,SAAD SHAKEEL,3380.1,Fully Paid,Invoiced,TT00588,Polani Travel Ltd,3380.1,3380.1,PAID,Matched (Paid/Paid)
+112 (Match 2),1274051,AICYWU,SAAD SHAKEEL,3380.1,Fully Paid,Invoiced,TT00706,Polani Travel Ltd,2022,0,PAID,Matched (Paid/Paid)
+113,1282445,CEDQDC,GULSHEERA KHAN,1599.66,Fully Paid,Invoiced,TT00599,Polani Travel Ltd,1599.66,1599.66,PAID,Matched (Paid/Paid)
+114,1291852,D14M1V,RAIZWAR GUL,1621.24,Fully Paid,Invoiced,TT00594,Polani Travel Ltd,1621.24,1621.24,PAID,Matched (Paid/Paid)
+115,1290674,UAUUCT,MUQDIS KHAN,676.26,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+116,1301574,D3KBTL,ZAFRAN ANSARI,721.2,Fully Paid,Invoiced,TT00607,Polani Travel Ltd,1368.44,1368.44,PAID,Matched (Paid/Paid)
+117,1304377,D5KZMZ,LAYLA KHAN,1757.28,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+118,1302049,FPQAJI,ZAFRAN ANSARI,647.24,Fully Paid,Invoiced,TT00607,Polani Travel Ltd,1368.44,1368.44,PAID,Matched (Paid/Paid)
+119 (Match 1),1291994,FNSFCA,SHABIR HUSSAIN,193.7,Fully Paid,Invoiced,TT00678,Polani Travel Ltd,278.3,278.3,PAID,Matched (Paid/Paid)
+119 (Match 2),1291994,FNSFCA,SHABIR HUSSAIN,193.7,Fully Paid,Invoiced,TT00678,Polani Travel Ltd,278.3,278.3,PAID,Matched (Paid/Paid)
+120,1304809,YABRYK,MUHAMMAD WAJAHAT,550.46,Fully Paid,Invoiced,TT00616,Polani Travel Ltd,550.46,550.46,PAID,Matched (Paid/Paid)
+121,1306803,D5XKZY,QUDSIA MASOOD,982.14,Fully Paid,Invoiced,TT00613,Polani Travel Ltd,982.14,0,PAID,Matched (Paid/Paid)
+122,1304371,D5L5MP,CHAMAN BIBI,626.4,Fully Paid,Invoiced,TT00615,Polani Travel Ltd,626.4,626.4,PAID,Matched (Paid/Paid)
+123,1310103,D5KTL0,MOHAMMED KABIR UDDIN,2818.38,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+124,1306871,D5XPNS,SAJID MAHBOOB,716.2,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+125,1318264,D7L8N4,HABIB UR REHMAN SIDDIQUI,1039.54,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+126 (Match 1),1320822,D7RG7B,ANEELA BIBI,1596.48,Fully Paid,Invoiced,TT00624,Polani Travel Ltd,2791,2791,PAID,Matched (Paid/Paid)
+126 (Match 2),1320822,D7RG7B,ANEELA BIBI,1596.48,Fully Paid,Invoiced,TT00624,Polani Travel Ltd,2791,2791,PAID,Matched (Paid/Paid)
+127,1315646,QXZQRX,SHEHERYAR KHAN,435.98,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+128,1316527,NQVDHV,ZEENAT IMRAN RANA,710.9,Fully Paid,Invoiced,TT00620,Polani Travel Ltd,1563.08,1563.08,PAID,Matched (Paid/Paid)
+129,1310103,D5KTL0,MOHAMMED KABIR UDDIN,2418.78,Fully Paid,Partial Refund,N/A,N/A,0.0,0.0,N/A,Missing in DB
+130 (Match 1),1325157,D7PWBM,HAIDER ZADA,1528.64,Fully Paid,Invoiced,TT00623,Polani Travel Ltd,3273.28,3273.28,PAID,Matched (Paid/Paid)
+130 (Match 2),1325157,D7PWBM,HAIDER ZADA,1528.64,Fully Paid,Invoiced,TT00623,Polani Travel Ltd,3273.28,3273.28,PAID,Matched (Paid/Paid)
+131 (Match 1),1323419,D892C4,MERAZ AHMAD,969.64,Fully Paid,Invoiced,TT00626,Polani Travel Ltd,969.64,0,PAID,Matched (Paid/Paid)
+131 (Match 2),1323419,D892C4,MERAZ AHMAD,969.64,Fully Paid,Invoiced,TT00626,Polani Travel Ltd,969.64,0,PAID,Matched (Paid/Paid)
+131 (Match 3),1323419,D892C4,MERAZ AHMAD,969.64,Fully Paid,Invoiced,TT00626,Polani Travel Ltd,969.64,0,PAID,Matched (Paid/Paid)
+132,1320817,D7RFS7,ANEELA BIBI,1116.4,Fully Paid,Invoiced,TT00624,Polani Travel Ltd,2791,2791,PAID,Matched (Paid/Paid)
+133,1328281,XQ4QN6,Shamim Abbas Shrivardhankar,,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+134,1332714,D9YK3W,GHULAM SHABIR,973.84,Fully Paid,Invoiced,TT00632,Polani Travel Ltd,1232.42,602.4,PAID,Matched (Paid/Paid)
+135,1325143,D7PZSD,WAHIDA KALSOOM,1744.64,Fully Paid,Invoiced,TT00623,saudi airline,256.2,256.2,PAID,Matched (Paid/Paid)
+136,1328675,D93H8G,SHAMIM ABBAS SHRIVARDHANKAR,587.38,Fully Paid,Invoiced,TT00630,Polani Travel Ltd,587.38,0,PAID,Matched (Paid/Paid)
+137,1332711,D9YC1F,ABDUL RASHEED ARAIN,602.4,Fully Paid,Invoiced,TT00632,Polani Travel Ltd,1232.42,602.4,PAID,Matched (Paid/Paid)
+138,1185454,CG32Y8,MASTOORA BEGUM,392.36,Fully Paid,Partial Refund,N/A,N/A,0.0,0.0,N/A,Missing in DB
+139,1340627,DCH0ZS,AISHA ZEESHAN ALI,732.11,Fully Paid,Invoiced,TT00636,Polani Travel Ltd,732.11,732.11,PAID,Matched (Paid/Paid)
+140,1316494,Z7AT7V,RAAMEEN IMRANR RANA,852.18,Fully Paid,Invoiced,TT00620,Polani Travel Ltd,1563.08,1563.08,PAID,Matched (Paid/Paid)
+141,1342983,DD15J4,KAMRAN HUSSAIN,1639.6,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+142,1332711,D9YC1F,ABDUL RASHEED ARAIN,192.78,Fully Paid,Partial Refund,TT00632,Polani Travel Ltd,1232.42,602.4,PAID,Matched (Paid/Paid)
+143,1354417,DG4WCT,RASHIDA BEGUM,614.98,Fully Paid,Invoiced,TT00648,Polani Travel Ltd,614.98,614.98,PAID,Matched (Paid/Paid)
+144,1354423,DG4MJH,NARGAS PARVEEN,614.98,Fully Paid,Invoiced,TT00648,Polani Travel Ltd,614.98,614.98,PAID,Matched (Paid/Paid)
+145,1354052,DDYXGQ,FARZANA KOKB,2978.08,Fully Paid,Invoiced,TT00644,Polani Travel Ltd,2978.08,0,PAID,Matched (Paid/Paid)
+146,1354300,QYJOMP,KULSOOM BI,2599.6,Fully Paid,Invoiced,TT00645,Polani Travel Ltd,2599.6,868.89,PAID,Matched (Paid/Paid)
+147,1344317,DDBBTG,ATIF ALTAF,635.28,Fully Paid,Invoiced,TT00642,Polani Travel Ltd,635.28,635.28,PAID,Matched (Paid/Paid)
+148,1362999,DHHTFB,MUHAMMAD ABU BAKAR TAHIR,1084.44,Fully Paid,Invoiced,TT00657,Polani Travel Ltd,1084.44,1084.44,PAID,Matched (Paid/Paid)
+149,1363182,DHMVKS,YASSIN BAH TOURAY,1026.16,Fully Paid,Invoiced,TT00650,Polani Travel Ltd,1026.16,1026.16,PAID,Matched (Paid/Paid)
+150,1360226,DH40DL,SADIA KHURSHEED,1157.24,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+151,1373301,DK2GB9,MD MOUDUD AHMED,,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+152,1377726,DKRTGD,AMJAD RAUF,779.6,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+153,1365653,DHZ1NK,KHIAL MAR KHAN,1369.8,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+154,1365653,DHZ1NK,KHIAL MAR KHAN,1369.8,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+155,1388245,DMLWRY,CHAMAN BIBI,823.8,Fully Paid,Invoiced,TT00667,Polani Travel Ltd,823.8,823.8,PAID,Matched (Paid/Paid)
+156,1397972,DMZ820,REEMAH SULEMAN,2477.28,Fully Paid,Invoiced,TT00668,Polani Travel Ltd,1941.16,2477.28,PAID,Matched (Paid/Paid)
+157 (Match 1),1403185,DPXR64,SAIM ALI,472.02,Fully Paid,Invoiced,TT00677,Polani Travel Ltd,462.02,462.02,PAID,Matched (Paid/Paid)
+157 (Match 2),1403185,DPXR64,SAIM ALI,472.02,Fully Paid,Invoiced,TT00752,Polani Travel Ltd,223.68,297.9,PAID,Matched (Paid/Paid)
+158,1385163,DM5LVV,NAZIA AKHTAR,2086.48,Fully Paid,Invoiced,TT00666,Polani Travel Ltd,2086.48,2086.48,PAID,Matched (Paid/Paid)
+159,1332711,D9YC1F,ABDUL RASHEED ARAIN,156.64,Fully Paid,Partial Refund,TT00632,Polani Travel Ltd,1232.42,602.4,PAID,Matched (Paid/Paid)
+160,1304371,D5L5MP,CHAMAN BIBI,147.2,Fully Paid,Partial Refund,TT00615,Polani Travel Ltd,626.4,626.4,PAID,Matched (Paid/Paid)
+161,1400979,LNWBZI,UMAR YASIN,589.91,Fully Paid,Invoiced,TT00675,Polani Travel Ltd,589.91,589.91,PAID,Matched (Paid/Paid)
+162,1419020,DSDX89,HAMIDAH NADEEM,369.8,Fully Paid,Invoiced,TT00684,Polani Travel Ltd,369.8,369.8,PAID,Matched (Paid/Paid)
+163 (Match 1),1291994,FNSFCA,SHABIR HUSSAIN,84.6,Fully Paid,Invoiced,TT00678,Polani Travel Ltd,278.3,278.3,PAID,Matched (Paid/Paid)
+163 (Match 2),1291994,FNSFCA,SHABIR HUSSAIN,84.6,Fully Paid,Invoiced,TT00678,Polani Travel Ltd,278.3,278.3,PAID,Matched (Paid/Paid)
+164 (Match 1),1403185,DPXR64,SAIM ALI,10,Fully Paid,Partial Refund,TT00677,Polani Travel Ltd,462.02,462.02,PAID,Matched (Paid/Paid)
+164 (Match 2),1403185,DPXR64,SAIM ALI,10,Fully Paid,Partial Refund,TT00752,Polani Travel Ltd,223.68,297.9,PAID,Matched (Paid/Paid)
+165,1419231,ANSDQO,MUHAMMAD ZULKIFEL SALEEM BHATTI,654.1,Fully Paid,Invoiced,TT00683,Polani Travel Ltd,1573.72,919.62,PAID,Matched (Paid/Paid)
+166,1421273,DSTC25,ADNAN AAMIR RAZA,612.62,Fully Paid,Invoiced,TT00686,Polani Travel Ltd,612.62,612.62,PAID,Matched (Paid/Paid)
+167,1424294,DT5H48,NASAR NADIM,1394.8,Fully Paid,Invoiced,TT00685,Polani Travel Ltd,2423.3,3471.8,PAID,Matched (Paid/Paid)
+168,1419423,GIQUVO,HASSAN AKHTAR,519.22,Fully Paid,Invoiced,TT00683,Polani Travel Ltd,1573.72,919.62,PAID,Matched (Paid/Paid)
+169,1418553,DS9QN7,HASSAN AKHTAR,171.1,Fully Paid,Invoiced,TT00683,Polani Travel Ltd,1573.72,919.62,PAID,Matched (Paid/Paid)
+170,1424655,DT7TN9,SAJJAD ISLAM KHAN,3548.48,Fully Paid,Invoiced,TT00689,Polani Travel Ltd,4060.6,5877.52,PAID,Matched (Paid/Paid)
+171,1429493,DV175G,SHAGUFTA SHAHEEN ALI,1123.04,Fully Paid,Invoiced,TT00681,Polani Travel Ltd,1924.24,1924.24,PAID,Matched (Paid/Paid)
+172,1424278,DT65V7,NASAR NADIM,1038.5,Fully Paid,Invoiced,TT00685,Polani Travel Ltd,2423.3,3471.8,PAID,Matched (Paid/Paid)
+173,1428665,DTNPP9,AYAN ISLAM,1164.52,Fully Paid,Invoiced,TT00689,Polani Travel Ltd,4060.6,5877.52,PAID,Matched (Paid/Paid)
+174,1418553,DS9QN7,HASSAN AKHTAR,229.3,Fully Paid,Invoiced,TT00683,Polani Travel Ltd,1573.72,919.62,PAID,Matched (Paid/Paid)
+175,1429477,DV18QR,KALSOOM AKHTAR,20,Fully Paid,Partial Refund,TT00681,Polani Travel Ltd,1924.24,1924.24,PAID,Matched (Paid/Paid)
+176,1429477,DV18QR,KALSOOM AKHTAR,801.2,Fully Paid,Invoiced,TT00681,Polani Travel Ltd,1924.24,1924.24,PAID,Matched (Paid/Paid)
+177,1443019,DX7SZR,HASAN MAHMOOD LITON,691.62,Fully Paid,Invoiced,TT00679,Polani Travel Ltd,691.62,691.62,PAID,Matched (Paid/Paid)
+178,1444689,DVJ2Y6,AMIRA ALI,2679.6,Fully Paid,Invoiced,TT00691,Polani Travel Ltd,2679.6,2679.6,PAID,Matched (Paid/Paid)
+179 (Match 1),1274051,AICYWU,MUHAMMAD SHAKEEL AHMAD,1184,Fully Paid,Invoiced,TT00588,Polani Travel Ltd,3380.1,3380.1,PAID,Matched (Paid/Paid)
+179 (Match 2),1274051,AICYWU,MUHAMMAD SHAKEEL AHMAD,1184,Fully Paid,Invoiced,TT00706,Polani Travel Ltd,2022,0,PAID,Matched (Paid/Paid)
+180,1344317,DDBBTG,ATIF ALTAF,,Fully Paid,Invoiced,TT00642,Polani Travel Ltd,635.28,635.28,PAID,Matched (Paid/Paid)
+181,1450131,HPJYVP,EEMAAN SHAKEEL,838,Fully Paid,Invoiced,TT00706,Polani Travel Ltd,2022,0,PAID,Matched (Paid/Paid)
+182,1454724,DZ15QR,MEENA KAUSER,2382.12,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+183,1448669,DY3VFC,SHAHNAZ AKHTAR,1515.8,Fully Paid,Invoiced,TT00703,Polani Travel Ltd,1515.8,1515.8,PAID,Matched (Paid/Paid)
+184,1448669,DY3VFC,SHAHNAZ AKHTAR,1515.8,Fully Paid,Invoiced,TT00703,Polani Travel Ltd,1515.8,1515.8,PAID,Matched (Paid/Paid)
+185,1419231,ANSDQO,MUHAMMAD ZULKIFEL SALEEM BHATTI,103.5,Fully Paid,Partial Refund,TT00683,Polani Travel Ltd,1573.72,919.62,PAID,Matched (Paid/Paid)
+186,1483103,F2XBV4,OMAR KEBBEH,1054.5,Fully Paid,Invoiced,TT00720,Polani Travel Ltd,2010,1054.5,PAID,Matched (Paid/Paid)
+187,1304809,YABRYK,MUHAMMAD WAJAHAT,11.5,Fully Paid,Partial Refund,TT00616,Polani Travel Ltd,550.46,550.46,PAID,Matched (Paid/Paid)
+188,1456376,DXVT74,JADA BIBI,1478.84,Fully Paid,Invoiced,TT00707,Polani Travel Ltd,1478.84,0,PAID,Matched (Paid/Paid)
+189 (Match 1),1490393,F3L6NK,AYAAN HASSAN QASIM,3483.2,Fully Paid,Invoiced,TT00725,Polani Travel Ltd,4537.9,5729.24,PAID,Matched (Paid/Paid)
+189 (Match 2),1490393,F3L6NK,AYAAN HASSAN QASIM,3483.2,Fully Paid,Invoiced,TT00725,Polani Travel Ltd,4537.9,5729.24,PAID,Matched (Paid/Paid)
+190,1424655,DT7TN9,SAJJAD ISLAM KHAN,651.92,Fully Paid,Partial Refund,TT00689,Polani Travel Ltd,4060.6,5877.52,PAID,Matched (Paid/Paid)
+191,1490877,UNKLYT,NADA SADIQ MOSLEH,988,Fully Paid,Invoiced,TT00728,Polani Travel Ltd,988,988,PAID,Matched (Paid/Paid)
+192,1495986,F3X75G,AALIYA KHALIL,835.37,Fully Paid,Invoiced,TT00731,Polani Travel Ltd,1647.74,1647.74,PAID,Matched (Paid/Paid)
+193,1483100,F2X1ZQ,BAMBA GAYE,955.5,Fully Paid,Invoiced,TT00720,Polani Travel Ltd,2010,1054.5,PAID,Matched (Paid/Paid)
+194,1495981,F43PKC,KHALIL AHMED,812.37,Fully Paid,Invoiced,TT00731,Polani Travel Ltd,1647.74,1647.74,PAID,Matched (Paid/Paid)
+195 (Match 1),1492418,F3LCY4,SHABINA BANO,1576.37,Fully Paid,Invoiced,TT00566,Polani Travel Ltd,1576.37,1576.37,PAID,Matched (Paid/Paid)
+195 (Match 2),1492418,F3LCY4,SHABINA BANO,1576.37,Fully Paid,Invoiced,TT00730,Polani Travel Ltd,1576.37,1576.37,PAID,Matched (Paid/Paid)
+196,1502438,LIEFYK,NATASCHA JONES WAHEED,934.1,Fully Paid,Invoiced,TT00739,Polani Travel Ltd,41.6,934.1,PAID,Matched (Paid/Paid)
+197,1499959,DBEWXH,MUHAMMAD A T KABIR,745.5,Fully Paid,Invoiced,TT00735,Polani Travel Ltd,745.5,745.5,PAID,Matched (Paid/Paid)
+198,1504228,NKDLFD,JAMIL ABBAS SHAIKH,599.1,Fully Paid,Invoiced,TT00745,Polani Travel Ltd,287.2,1190.1,PAID,Matched (Paid/Paid)
+199,1501167,WIAVYX,FATOUMATA DIOP,617.3,Fully Paid,Invoiced,TT00740,Polani Travel Ltd,41.6,617.3,PAID,Matched (Paid/Paid)
+200,1506592,F5QH52,HASHIM ALI HUSSAIN,744.6,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+201,1504226,AUBZFJ,JAMIL ABBAS SHAIKH,591,Fully Paid,Invoiced,TT00745,Polani Travel Ltd,287.2,1190.1,PAID,Matched (Paid/Paid)
+202,1506588,F5XYLY,HASHIM ALI HUSSAIN,2383.71,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+203,1503954,WMMJJO,NADE COULIBALY DOUCOURE,674.6,Fully Paid,Invoiced,TT00743,Polani Travel Ltd,674.6,674.6,PAID,Matched (Paid/Paid)
+204 (Match 1),1519103,OLRNG5,JAVED IQBAL,757.52,Fully Paid,Invoiced,TT00817,Polani Travel Ltd,262,262,PAID,Matched (Paid/Paid)
+204 (Match 2),1519103,OLRNG5,JAVED IQBAL,757.52,Fully Paid,Invoiced,TT00818,Polani Travel Ltd,112,112,PAID,Matched (Paid/Paid)
+204 (Match 3),1519103,OLRNG5,JAVED IQBAL,757.52,Fully Paid,Invoiced,TT00754,Polani Travel Ltd,1515.04,1515.04,PAID,Matched (Paid/Paid)
+205 (Match 1),1519103,OLRNG5,JAVED IQBAL,757.52,Fully Paid,Invoiced,TT00817,Polani Travel Ltd,262,262,PAID,Matched (Paid/Paid)
+205 (Match 2),1519103,OLRNG5,JAVED IQBAL,757.52,Fully Paid,Invoiced,TT00818,Polani Travel Ltd,112,112,PAID,Matched (Paid/Paid)
+205 (Match 3),1519103,OLRNG5,JAVED IQBAL,757.52,Fully Paid,Invoiced,TT00754,Polani Travel Ltd,1515.04,1515.04,PAID,Matched (Paid/Paid)
+206,1519136,27447X,FOZIA YASMEEN,757.52,Fully Paid,Invoiced,TT00754,Polani Travel Ltd,1515.04,1515.04,PAID,Matched (Paid/Paid)
+207,1519136,27447X,FOZIA YASMEEN,757.52,Fully Paid,Invoiced,TT00754,Polani Travel Ltd,1515.04,1515.04,PAID,Matched (Paid/Paid)
+208,1523104,UAAMFQ,MADIUAZIZ ABDUL LASISI,614,Fully Paid,Invoiced,TT00757,Polani Travel Ltd,3.2,614,PAID,Matched (Paid/Paid)
+209,1513461,F5BKD5,MARIEM KATAR,1250,Fully Paid,Invoiced,TT00732,Polani Travel Ltd,1250,1250,PAID,Matched (Paid/Paid)
+210,1523103,F83PGW,AYESHA KHALID,3137.7,Fully Paid,Invoiced,TT00755,Polani Travel Ltd,3137.7,3137.7,PAID,Matched (Paid/Paid)
+211,1526372,F8K58D,SHEHBAZ MOHAMMAD,1594.57,Fully Paid,Invoiced,TT00761,Polani Travel Ltd,1594.57,1594.57,PAID,Matched (Paid/Paid)
+212 (Match 1),1403185,DPXR64,SAIM ALI,297.9,Fully Paid,Invoiced,TT00677,Polani Travel Ltd,462.02,462.02,PAID,Matched (Paid/Paid)
+212 (Match 2),1403185,DPXR64,SAIM ALI,297.9,Fully Paid,Invoiced,TT00752,Polani Travel Ltd,223.68,297.9,PAID,Matched (Paid/Paid)
+213,1539670,FB5PXB,MAFOOZ BEGUM,633.42,Fully Paid,Invoiced,TT00643,Polani Travel Ltd,633.42,633.42,PAID,Matched (Paid/Paid)
+214,1541847,FBKRTD,NORSHID ALI KHAN,2561.76,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+215,1536857,CXLKFG,OMOTOLANI OLORUNTOYIN OSHIKOYA,978.7,Fully Paid,Invoiced,TT00765,Polani Travel Ltd,978.7,978.7,PAID,Matched (Paid/Paid)
+216,1552868,ODGHXB,MOHAMMAD ASGHAR,493.2,Fully Paid,Invoiced,TT00777,Polani Travel Ltd,2756.8,2756.8,PAID,Matched (Paid/Paid)
+217,1552871,SSCMIE,MOHAMMAD ASGHAR,846,Fully Paid,Invoiced,TT00777,Polani Travel Ltd,2756.8,2756.8,PAID,Matched (Paid/Paid)
+218,1552884,WQUVZO,MOHAMMAD ASGHAR,510.4,Fully Paid,Invoiced,TT00777,Polani Travel Ltd,2756.8,2756.8,PAID,Matched (Paid/Paid)
+219,1397972,DMZ820,REEMAH SULEMAN,496.12,Fully Paid,Partial Refund,TT00668,Polani Travel Ltd,1941.16,2477.28,PAID,Matched (Paid/Paid)
+220,1552863,DYPGWD,MOHAMMAD ASGHAR,907.2,Fully Paid,Invoiced,TT00777,Polani Travel Ltd,2756.8,2756.8,PAID,Matched (Paid/Paid)
+221,1543259,FBDS96,MOHAMMAD ISMAIL,3053.76,Fully Paid,Invoiced,TT00768,Polani Travel Ltd,3172.16,3172.16,PAID,Matched (Paid/Paid)
+222,1557608,LHGUMD,NDATTE GUEYE,791.3,Fully Paid,Invoiced,TT00780,Polani Travel Ltd,1582.8,1582.8,PAID,Matched (Paid/Paid)
+223,1558959,MPGUAR,ABDOU KARIM DIARRA,791.5,Fully Paid,Invoiced,TT00780,Polani Travel Ltd,1582.8,1582.8,PAID,Matched (Paid/Paid)
+224 (Match 1),1403185,DPXR64,SAIM ALI,74.22,Fully Paid,Partial Refund,TT00677,Polani Travel Ltd,462.02,462.02,PAID,Matched (Paid/Paid)
+224 (Match 2),1403185,DPXR64,SAIM ALI,74.22,Fully Paid,Partial Refund,TT00752,Polani Travel Ltd,223.68,297.9,PAID,Matched (Paid/Paid)
+225,1570409,FF7RF8,MD MOUDUD AHMED,3116.85,Fully Paid,Invoiced,TT00467,Polani Travel Ltd,3116.85,3116.85,PAID,Matched (Paid/Paid)
+226,1576103,FGW220,SAJJAD ALI,627.28,Fully Paid,Invoiced,TT00789,Polani Travel Ltd,296.4,0,PAID,Matched (Paid/Paid)
+227,1560378,QOZAIX,DUR E SHEHBAZ MUNIR,3571.54,Fully Paid,Invoiced,TT00783,Polani Travel Ltd,3571.54,3571.54,PAID,Matched (Paid/Paid)
+228,1577476,YBVNWA,NEXHMIJE SHAQIRI,1571.6,Fully Paid,Invoiced,TT00792,Polani Travel Ltd,1571.6,1571.6,PAID,Matched (Paid/Paid)
+229,1579830,QYKYXJ,SHERHASSAN HUSSAINI,1304.2,Fully Paid,Invoiced,TT00794,Polani Travel Ltd,1304.2,1304.2,PAID,Matched (Paid/Paid)
+230,1577338,OJZIYM,SHERHASSAN HUSSAINI,600.4,Fully Paid,Invoiced,TT00791,Polani Travel Ltd,96.6,96.6,PAID,Matched (Paid/Paid)
+231,1590743,2X4NYZ,MAROOF AHMED,368,Fully Paid,Invoiced,TT00798,Polani Travel Ltd,1218.17,1218.17,PAID,Matched (Paid/Paid)
+232,1590743,2X4NYZ,MAROOF AHMED,368,Fully Paid,Invoiced,TT00798,Polani Travel Ltd,1218.17,1218.17,PAID,Matched (Paid/Paid)
+233,1584419,FHKLMH,KAMRAN ALI,739.97,Fully Paid,Invoiced,TT00796,Polani Travel Ltd,729.97,729.97,PAID,Matched (Paid/Paid)
+234,1590740,2A2NYZ,MOBEEN MAROOF,850.17,Fully Paid,Invoiced,TT00798,Polani Travel Ltd,1218.17,1218.17,PAID,Matched (Paid/Paid)
+235,1590740,2A2NYZ,MOBEEN MAROOF,850.17,Fully Paid,Invoiced,TT00798,Polani Travel Ltd,1218.17,1218.17,PAID,Matched (Paid/Paid)
+236,1577338,OJZIYM,SHERHASSAN HUSSAINI,503.8,Fully Paid,Partial Refund,TT00791,Polani Travel Ltd,96.6,96.6,PAID,Matched (Paid/Paid)
+237,1577338,OJZIYM,SHERHASSAN HUSSAINI,503.8,Fully Paid,Partial Refund,TT00791,Polani Travel Ltd,96.6,96.6,PAID,Matched (Paid/Paid)
+238,1596217,FJPZ4M,RIAZUL HUSSAIN,1473.94,Fully Paid,Invoiced,TT00800,Polani Travel Ltd,2200.91,2200.91,PAID,Matched (Paid/Paid)
+239,1596290,FKD57P,MOHAMMED HASSAN AHMED,736.97,Fully Paid,Invoiced,TT00800,Polani Travel Ltd,2200.91,2200.91,PAID,Matched (Paid/Paid)
+240 (Match 1),1595279,FJRYXH,NASIR SATTAR,545.8,Fully Paid,Invoiced,TT00763,Polani Travel Ltd,545.8,545.8,PAID,Matched (Paid/Paid)
+240 (Match 2),1595279,FJRYXH,NASIR SATTAR,545.8,Fully Paid,Invoiced,TT00763,Polani Travel Ltd,545.8,545.8,PAID,Matched (Paid/Paid)
+241 (Match 1),1490393,F3L6NK,AYAAN HASSAN QASIM,1191.34,Fully Paid,Partial Refund,TT00725,Polani Travel Ltd,4537.9,5729.24,PAID,Matched (Paid/Paid)
+241 (Match 2),1490393,F3L6NK,AYAAN HASSAN QASIM,1191.34,Fully Paid,Partial Refund,TT00725,Polani Travel Ltd,4537.9,5729.24,PAID,Matched (Paid/Paid)
+242,1490393,FKPTZT,AYAAN HASSAN QASIM,1191.34,Fully Paid,Partial Refund,N/A,N/A,0.0,0.0,N/A,Missing in DB
+243,1599997,FKPX5Q,MUHAMMAD AHSAN RASHEED,1282.74,Fully Paid,Invoiced,TT00725,Polani Travel Ltd,4537.9,5729.24,PAID,Matched (Paid/Paid)
+244,1596777,NKAIOZ,UMAR YASIN,310.7,Fully Paid,Invoiced,TT00804,Polani Travel Ltd,310.7,310.7,PAID,Matched (Paid/Paid)
+245,1600805,27UX6T,AISHA BIBI,2434.7,Fully Paid,Invoiced,TT00805,Polani Travel Ltd,3393.6,3393.6,PAID,Matched (Paid/Paid)
+246,1600805,27UX6T,AISHA BIBI,2434.7,Fully Paid,Invoiced,TT00805,Polani Travel Ltd,3393.6,3393.6,PAID,Matched (Paid/Paid)
+247,1605548,FLLW90,GENCI XHONI,487.2,Fully Paid,Invoiced,TT00811,Polani Travel Ltd,1118.8,1118.8,PAID,Matched (Paid/Paid)
+248 (Match 1),1490393,F3L6NK,SAJIDA SAMAD,963.3,Fully Paid,Invoiced,TT00725,Polani Travel Ltd,4537.9,5729.24,PAID,Matched (Paid/Paid)
+248 (Match 2),1490393,F3L6NK,SAJIDA SAMAD,963.3,Fully Paid,Invoiced,TT00725,Polani Travel Ltd,4537.9,5729.24,PAID,Matched (Paid/Paid)
+249 (Match 1),1610080,FM9YTD,ASIM MAHMOOD AKHTAR,1070.6,Fully Paid,Invoiced,TT00813,Polani Travel Ltd,3043.8,3043.8,PAID,Matched (Paid/Paid)
+249 (Match 2),1610080,FM9YTD,ASIM MAHMOOD AKHTAR,1070.6,Fully Paid,Invoiced,TT00855,Polani Travel Ltd,90,90,PAID,Matched (Paid/Paid)
+250,1600675,O5EYP5,SIDDIQ ZAIB,958.9,Fully Paid,Invoiced,TT00805,Polani Travel Ltd,3393.6,3393.6,PAID,Matched (Paid/Paid)
+251,1600675,O5EYP5,SIDDIQ ZAIB,958.9,Fully Paid,Invoiced,TT00805,Polani Travel Ltd,3393.6,3393.6,PAID,Matched (Paid/Paid)
+252,1610068,FM9Y3B,FAISAL RASHEED,1973.2,Fully Paid,Invoiced,TT00813,Polani Travel Ltd,3043.8,3043.8,PAID,Matched (Paid/Paid)
+253 (Match 1),1519103,OLRNG5,JAVED IQBAL,262,Fully Paid,Invoiced,TT00817,Polani Travel Ltd,262,262,PAID,Matched (Paid/Paid)
+253 (Match 2),1519103,OLRNG5,JAVED IQBAL,262,Fully Paid,Invoiced,TT00818,Polani Travel Ltd,112,112,PAID,Matched (Paid/Paid)
+253 (Match 3),1519103,OLRNG5,JAVED IQBAL,262,Fully Paid,Invoiced,TT00754,Polani Travel Ltd,1515.04,1515.04,PAID,Matched (Paid/Paid)
+254,1605545,FLLPX3,GENCI XHONI,631.6,Fully Paid,Invoiced,TT00811,Polani Travel Ltd,1118.8,1118.8,PAID,Matched (Paid/Paid)
+255,1504228,NKDLFD,JAMIL ABBAS SHAIKH,473.5,Fully Paid,Partial Refund,TT00745,Polani Travel Ltd,287.2,1190.1,PAID,Matched (Paid/Paid)
+256 (Match 1),1519103,OLRNG5,JAVED IQBAL,112,Fully Paid,Invoiced,TT00817,Polani Travel Ltd,262,262,PAID,Matched (Paid/Paid)
+256 (Match 2),1519103,OLRNG5,JAVED IQBAL,112,Fully Paid,Invoiced,TT00818,Polani Travel Ltd,112,112,PAID,Matched (Paid/Paid)
+256 (Match 3),1519103,OLRNG5,JAVED IQBAL,112,Fully Paid,Invoiced,TT00754,Polani Travel Ltd,1515.04,1515.04,PAID,Matched (Paid/Paid)
+257 (Match 1),1519103,OLRNG5,JAVED IQBAL,112,Fully Paid,Invoiced,TT00817,Polani Travel Ltd,262,262,PAID,Matched (Paid/Paid)
+257 (Match 2),1519103,OLRNG5,JAVED IQBAL,112,Fully Paid,Invoiced,TT00818,Polani Travel Ltd,112,112,PAID,Matched (Paid/Paid)
+257 (Match 3),1519103,OLRNG5,JAVED IQBAL,112,Fully Paid,Invoiced,TT00754,Polani Travel Ltd,1515.04,1515.04,PAID,Matched (Paid/Paid)
+258,1631136,FP9DYV,SABIR HUSSAIN,1617.04,Fully Paid,Invoiced,TT00824,Polani Travel Ltd,1597.04,1597.04,PAID,Matched (Paid/Paid)
+259,1628192,HPKDLF,MUMINATOU ADISA SANNEH,2083.6,Fully Paid,Invoiced,TT00821,Polani Travel Ltd,2083.6,2083.6,PAID,Matched (Paid/Paid)
+260 (Match 1),1630174,FPQ205,OLUWABUKOLA MUTIAT ADEBAYO,1182.18,Fully Paid,Invoiced,TT00766,Polani Travel Ltd,1162.18,1162.18,PAID,Matched (Paid/Paid)
+260 (Match 2),1630174,FPQ205,OLUWABUKOLA MUTIAT ADEBAYO,1182.18,Fully Paid,Invoiced,TT00766,Polani Travel Ltd,1162.18,1162.18,PAID,Matched (Paid/Paid)
+260 (Match 3),1630174,FPQ205,OLUWABUKOLA MUTIAT ADEBAYO,1182.18,Fully Paid,Invoiced,TT00766,Polani Travel Ltd,1162.18,1162.18,PAID,Matched (Paid/Paid)
+261,1642163,FRVWGN,IMRAN SHABIR,1574.1,Fully Paid,Invoiced,TT00833,Polani Travel Ltd,2547.02,2547.02,PAID,Matched (Paid/Paid)
+262,1642166,FS6F97,LUBNA IMRAN,997.92,Fully Paid,Invoiced,TT00833,Polani Travel Ltd,2547.02,2547.02,PAID,Matched (Paid/Paid)
+263,1639866,FRBLJM,YASMIN AKHTAR,1741.26,Fully Paid,Invoiced,TT00832,Polani Travel Ltd,1711.26,1711.26,PAID,Matched (Paid/Paid)
+264,1642166,FS6F97,LUBNA IMRAN,10,Fully Paid,Partial Refund,TT00833,Polani Travel Ltd,2547.02,2547.02,PAID,Matched (Paid/Paid)
+265,1640327,[EMPTY PNR],ADM Retail 670,64.58,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Empty PNR
+266,1599997,FKPX5Q,FATIMA AHEEM,541.62,Fully Paid,Partial Refund,TT00725,Polani Travel Ltd,4537.9,5729.24,PAID,Matched (Paid/Paid)
+267,1650365,FQ2ZCG,MUHAMMAD AHSAN RASHEED,225,Fully Paid,Invoiced,TT00843,Polani Travel Ltd,225,225,PAID,Matched (Paid/Paid)
+268,1650767,X6MK59,ALMAS BEGUM,629.37,Fully Paid,Invoiced,TT00844,Polani Travel Ltd,629.37,629.37,PAID,Matched (Paid/Paid)
+269,1642163,FRVWGN,IMRAN SHABIR,15,Fully Paid,Partial Refund,TT00833,Polani Travel Ltd,2547.02,2547.02,PAID,Matched (Paid/Paid)
+270,1666396,FW70Q0,SAMAD NIAZI,1042.4,Fully Paid,Invoiced,TT00853,Polani Travel Ltd,1042.4,1042.4,PAID,Matched (Paid/Paid)
+271,1662629,X3EFJ7,SEHRISH SHEIKH,2011.94,Fully Paid,Invoiced,TT00850,Polani Travel Ltd,0,2011.94,PAID,Matched (Paid/Paid)
+272 (Match 1),1610080,FM9YTD,ASIM MAHMOOD AKHTAR,90,Fully Paid,Invoiced,TT00813,Polani Travel Ltd,3043.8,3043.8,PAID,Matched (Paid/Paid)
+272 (Match 2),1610080,FM9YTD,ASIM MAHMOOD AKHTAR,90,Fully Paid,Invoiced,TT00855,Polani Travel Ltd,90,90,PAID,Matched (Paid/Paid)
+273 (Match 1),1668448,FV63LM,NAZMA AHMED CHOWDHURY,1326.72,Fully Paid,Invoiced,TT00846,Polani Travel Ltd,1326.72,1326.72,PAID,Matched (Paid/Paid)
+273 (Match 2),1668448,FV63LM,NAZMA AHMED CHOWDHURY,1326.72,Fully Paid,Invoiced,TT00846,Polani Travel Ltd,1326.72,1326.72,PAID,Matched (Paid/Paid)
+273 (Match 3),1668448,FV63LM,NAZMA AHMED CHOWDHURY,1326.72,Fully Paid,Invoiced,TT00846,Polani Travel Ltd,1326.72,1326.72,PAID,Matched (Paid/Paid)
+273 (Match 4),1668448,FV63LM,NAZMA AHMED CHOWDHURY,1326.72,Fully Paid,Invoiced,TT00846,Polani Travel Ltd,1326.72,1326.72,PAID,Matched (Paid/Paid)
+274,1668723,FXP869,REHANA KAUSAR,544.7,Fully Paid,Invoiced,TT00830,Polani Travel Ltd,534.7,534.7,PAID,Matched (Paid/Paid)
+275,1666396,FW70Q0,SAMAD NIAZI,786.2,Fully Paid,Partial Refund,TT00853,Polani Travel Ltd,1042.4,1042.4,PAID,Matched (Paid/Paid)
+276,1679273,CLUPGN,STEVEN MUSTAFA ABDEL AZIZ,30,Fully Paid,Partial Refund,TT00864,Polani Travel Ltd,3982.8,3982.8,PAID,Matched (Paid/Paid)
+277,1668723,FXP869,REHANA KAUSAR,10,Fully Paid,Partial Refund,TT00830,Polani Travel Ltd,534.7,534.7,PAID,Matched (Paid/Paid)
+278,1560378,QOZAIX,DUR E SHEHBAZ MUNIR,60,Fully Paid,Partial Refund,TT00783,Polani Travel Ltd,3571.54,3571.54,PAID,Matched (Paid/Paid)
+279,1504226,AUBZFJ,JAMIL ABBAS SHAIKH,5,Fully Paid,Partial Refund,TT00745,Polani Travel Ltd,287.2,1190.1,PAID,Matched (Paid/Paid)
+280,1503954,WMMJJO,NADE COULIBALY DOUCOURE,5,Fully Paid,Partial Refund,TT00743,Polani Travel Ltd,674.6,674.6,PAID,Matched (Paid/Paid)
+281,1679273,CLUPGN,STEVEN MUSTAFA ABDEL AZIZ,4012.8,Fully Paid,Invoiced,TT00864,Polani Travel Ltd,3982.8,3982.8,PAID,Matched (Paid/Paid)
+282 (Match 1),1674960,FYQ6H6,ASIM RIAZ,357.8,Fully Paid,Invoiced,TT00857,Polani Travel Ltd,352.8,352.8,PAID,Matched (Paid/Paid)
+282 (Match 2),1674960,FYQ6H6,ASIM RIAZ,357.8,Fully Paid,Invoiced,TT00857,Polani Travel Ltd,352.8,352.8,PAID,Matched (Paid/Paid)
+283,1692933,G28N70,HARIS MAROOF,691.57,Fully Paid,Invoiced,TT00878,Polani Travel Ltd,1984.71,1984.71,PAID,Matched (Paid/Paid)
+284,1685305,G0SXQ8,MUHAMMAD SAQIB IQBAL,597.09,Fully Paid,Invoiced,TT00873,Polani Travel Ltd,587.09,587.09,PAID,Matched (Paid/Paid)
+285,1692931,G1H7JV,MOBEEN MAROOF,1293.14,Fully Paid,Invoiced,TT00878,Polani Travel Ltd,1984.71,1984.71,PAID,Matched (Paid/Paid)
+286 (Match 1),1674960,FYQ6H6,ASIM RIAZ,5,Fully Paid,Partial Refund,TT00857,Polani Travel Ltd,352.8,352.8,PAID,Matched (Paid/Paid)
+286 (Match 2),1674960,FYQ6H6,ASIM RIAZ,5,Fully Paid,Partial Refund,TT00857,Polani Travel Ltd,352.8,352.8,PAID,Matched (Paid/Paid)
+287,1576103,FGW220,SAJJAD ALI,330.88,Fully Paid,Partial Refund,TT00789,Polani Travel Ltd,296.4,0,PAID,Matched (Paid/Paid)
+288,1690956,G1Z7QQ,NAEEM ANJUM,389.62,Fully Paid,Invoiced,TT00876,Polani Travel Ltd,389.62,389.62,PAID,Matched (Paid/Paid)
+289,1650767,X6MK59,ALMAS BEGUM,629.37,Fully Paid,Partial Refund,TT00844,Polani Travel Ltd,629.37,629.37,PAID,Matched (Paid/Paid)
+290,1504226,AUBZFJ,JAMIL ABBAS SHAIKH,429.4,Fully Paid,Partial Refund,TT00745,Polani Travel Ltd,287.2,1190.1,PAID,Matched (Paid/Paid)
+291,1501167,WIAVYX,FATOUMATA DIOP,575.7,Fully Paid,Partial Refund,TT00740,Polani Travel Ltd,41.6,617.3,PAID,Matched (Paid/Paid)
+292,1709017,2RTKWU,AMJID PERVAIZ,819.8,Fully Paid,Invoiced,TT00883,Polani Travel Ltd,819.8,819.8,PAID,Matched (Paid/Paid)
+293,1709017,2RTKWU,AMJID PERVAIZ,819.8,Fully Paid,Invoiced,TT00883,Polani Travel Ltd,819.8,819.8,PAID,Matched (Paid/Paid)
+294,1502438,LIEFYK,NATASCHA JONES WAHEED,892.5,Fully Paid,Partial Refund,TT00739,Polani Travel Ltd,41.6,934.1,PAID,Matched (Paid/Paid)
+295,1715915,FGGIVV,DESMOND NEWMAN,683,Fully Paid,Invoiced,TT00890,Polani Travel Ltd,377.68,683,PAID,Matched (Paid/Paid)
+296,1729255,G793QL,MUHAMMED SALAH SOHIL,973.82,Fully Paid,Invoiced,TT00891,Polani Travel Ltd,1954.61,1954.61,PAID,Matched (Paid/Paid)
+297,1713738,G6522X,MUKHTAR HUSSAIN,1697.58,Fully Paid,Invoiced,TT00888,Polani Travel Ltd,1697.58,1697.58,PAID,Matched (Paid/Paid)
+298 (Match 1),1727892,G8TQD0,HANIFAH SHAH,966.79,Fully Paid,Invoiced,TT00891,Polani Travel Ltd,1954.61,1954.61,PAID,Matched (Paid/Paid)
+298 (Match 2),1727892,G8TQD0,HANIFAH SHAH,966.79,Fully Paid,Invoiced,TT00892,Polani Travel Ltd,966.79,966.79,PAID,Matched (Paid/Paid)
+299,1734861,GBD9F0,ABDUL AZIZ MOHAMMED,313.52,Fully Paid,Invoiced,TT00893,Polani Travel Ltd,313.52,313.52,PAID,Matched (Paid/Paid)
+300,1662629,X3EFJ7,SEHRISH SHEIKH,1271.97,Fully Paid,Partial Refund,TT00850,Polani Travel Ltd,0,2011.94,PAID,Matched (Paid/Paid)
+301,1741179,EDHXHC,MADIUAZIZ ABDUL LASISI,970.5,Fully Paid,Invoiced,TT00898,Polani Travel Ltd,970.5,970.5,PAID,Matched (Paid/Paid)
+302 (Match 1),1737438,GC3YHM,AMIN ARIF,488.69,Fully Paid,Invoiced,TT00896,Polani Travel Ltd,478.69,478.69,PAID,Matched (Paid/Paid)
+302 (Match 2),1737438,GC3YHM,AMIN ARIF,488.69,Fully Paid,Invoiced,TT00896,Polani Travel Ltd,478.69,478.69,PAID,Matched (Paid/Paid)
+302 (Match 3),1737438,GC3YHM,AMIN ARIF,488.69,Fully Paid,Invoiced,TT00896,Polani Travel Ltd,478.69,478.69,PAID,Matched (Paid/Paid)
+302 (Match 4),1737438,GC3YHM,AMIN ARIF,488.69,Fully Paid,Invoiced,TT00896,Polani Travel Ltd,478.69,478.69,PAID,Matched (Paid/Paid)
+303,1746348,GCT26K,AMAANI JUNAID SHAH,543.22,Fully Paid,Invoiced,TT00862,Polani Travel Ltd,1962.66,1962.66,PAID,Matched (Paid/Paid)
+304,1746354,GD24ZW,GHAZALA BIBI,747.22,Fully Paid,Invoiced,TT00862,Polani Travel Ltd,1962.66,1962.66,PAID,Matched (Paid/Paid)
+305,1735953,GBQGW3,CHOUDARY MUHAMMAD NAVEED,1347.8,Fully Paid,Invoiced,TT00895,Polani Travel Ltd,1322.8,1324.8,PAID,Matched (Paid/Paid)
+306,1662629,X3EFJ7,SEHRISH SHEIKH,739.97,Fully Paid,Partial Refund,TT00850,Polani Travel Ltd,0,2011.94,PAID,Matched (Paid/Paid)
+307 (Match 1),1751947,OSSQFE,ANILA BEGUM,1249.5,Fully Paid,Invoiced,TT00901,Polani Travel Ltd,1249.49,1249.49,PAID,Matched (Paid/Paid)
+307 (Match 2),1751947,OSSQFE,ANILA BEGUM,1249.5,Fully Paid,Invoiced,TT00901,Polani Travel Ltd,1249.49,1249.49,PAID,Matched (Paid/Paid)
+307 (Match 3),1751947,OSSQFE,ANILA BEGUM,1249.5,Fully Paid,Invoiced,TT00901,Polani Travel Ltd,1249.49,1249.49,PAID,Matched (Paid/Paid)
+307 (Match 4),1751947,OSSQFE,ANILA BEGUM,1249.5,Fully Paid,Invoiced,TT00901,Polani Travel Ltd,1249.49,1249.49,PAID,Matched (Paid/Paid)
+308 (Match 1),1751947,OSSQFE,ANILA BEGUM,1249.5,Fully Paid,Invoiced,TT00901,Polani Travel Ltd,1249.49,1249.49,PAID,Matched (Paid/Paid)
+308 (Match 2),1751947,OSSQFE,ANILA BEGUM,1249.5,Fully Paid,Invoiced,TT00901,Polani Travel Ltd,1249.49,1249.49,PAID,Matched (Paid/Paid)
+308 (Match 3),1751947,OSSQFE,ANILA BEGUM,1249.5,Fully Paid,Invoiced,TT00901,Polani Travel Ltd,1249.49,1249.49,PAID,Matched (Paid/Paid)
+308 (Match 4),1751947,OSSQFE,ANILA BEGUM,1249.5,Fully Paid,Invoiced,TT00901,Polani Travel Ltd,1249.49,1249.49,PAID,Matched (Paid/Paid)
+309,1523104,UAAMFQ,MADIUAZIZ ABDUL LASISI,610.8,Fully Paid,Partial Refund,TT00757,Polani Travel Ltd,3.2,614,PAID,Matched (Paid/Paid)
+310,1584419,FHKLMH,KAMRAN ALI,118.4,Fully Paid,Invoiced,TT00796,Polani Travel Ltd,729.97,729.97,PAID,Matched (Paid/Paid)
+311,1761022,JIXRMB,AMIR DEURA,865.5,Fully Paid,Invoiced,TT00904,Polani Travel Ltd,4996.8,4996.8,PAID,Matched (Paid/Paid)
+312,1746340,GCT05V,AJMAL SHAH,692.22,Fully Paid,Invoiced,TT00862,Polani Travel Ltd,1962.66,1962.66,PAID,Matched (Paid/Paid)
+313,1761016,AQWDID,AMIR DEURA,1306.8,Fully Paid,Invoiced,TT00904,Polani Travel Ltd,4996.8,4996.8,PAID,Matched (Paid/Paid)
+314 (Match 1),1595279,FJRYXH,NASIR SATTAR,,Fully Paid,Invoiced,TT00763,Polani Travel Ltd,545.8,545.8,PAID,Matched (Paid/Paid)
+314 (Match 2),1595279,FJRYXH,NASIR SATTAR,,Fully Paid,Invoiced,TT00763,Polani Travel Ltd,545.8,545.8,PAID,Matched (Paid/Paid)
+315 (Match 1),1786745,GP2SBR,MUSTAFA ALI KHAN,2394.1,Fully Paid,Invoiced,TT00910,Polani Travel Ltd,2707.1,2707.1,PAID,Matched (Paid/Paid)
+315 (Match 2),1786745,GP2SBR,MUSTAFA ALI KHAN,2394.1,Fully Paid,Invoiced,TT00910,Polani Travel Ltd,2707.1,2707.1,PAID,Matched (Paid/Paid)
+315 (Match 3),1786745,GP2SBR,MUSTAFA ALI KHAN,2394.1,Fully Paid,Invoiced,TT00910,Polani Travel Ltd,2707.1,2707.1,PAID,Matched (Paid/Paid)
+316 (Match 1),1786738,GPH17Q,MUSTAFA ALI KHAN,328,Fully Paid,Invoiced,TT00910,Polani Travel Ltd,2707.1,2707.1,PAID,Matched (Paid/Paid)
+316 (Match 2),1786738,GPH17Q,MUSTAFA ALI KHAN,328,Fully Paid,Invoiced,TT00910,Polani Travel Ltd,2707.1,2707.1,PAID,Matched (Paid/Paid)
+317,1761320,AENQZG,AMIR DEURA,2824.5,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+318 (Match 1),1779524,GMZS30,ASIF ZAKARIA,3558.52,Fully Paid,Invoiced,TT00908,Polani Travel Ltd,3558.52,3558.52,PAID,Matched (Paid/Paid)
+318 (Match 2),1779524,GMZS30,ASIF ZAKARIA,3558.52,Fully Paid,Invoiced,TT00908,Polani Travel Ltd,3558.52,3558.52,PAID,Matched (Paid/Paid)
+318 (Match 3),1779524,GMZS30,ASIF ZAKARIA,3558.52,Fully Paid,Invoiced,TT00908,Polani Travel Ltd,3558.52,3558.52,PAID,Matched (Paid/Paid)
+318 (Match 4),1779524,GMZS30,ASIF ZAKARIA,3558.52,Fully Paid,Invoiced,TT00908,Polani Travel Ltd,3558.52,3558.52,PAID,Matched (Paid/Paid)
+319,1715915,FGGIVV,DESMOND NEWMAN,683,Not Paid,Refund Request,TT00890,Polani Travel Ltd,377.68,683,PAID,Mismatch (Unpaid in Excel/ Paid in DB)
+320 (Match 1),1791052,GQ42FM,SHAZIA BIBI,1033.6,Fully Paid,Invoiced,TT00912,Polani Travel Ltd,5233.2,5233.2,PAID,Matched (Paid/Paid)
+320 (Match 2),1791052,GQ42FM,SHAZIA BIBI,1033.6,Fully Paid,Invoiced,TT00912,Polani Travel Ltd,5233.2,5233.2,PAID,Matched (Paid/Paid)
+321 (Match 1),1790922,GQ2G6T,ALEENA MISHALL HUSSAIN,681.8,Fully Paid,Invoiced,TT00912,Polani Travel Ltd,5233.2,5233.2,PAID,Matched (Paid/Paid)
+321 (Match 2),1790922,GQ2G6T,ALEENA MISHALL HUSSAIN,681.8,Fully Paid,Invoiced,TT00912,Polani Travel Ltd,5233.2,5233.2,PAID,Matched (Paid/Paid)
+322,1791195,GPHD84,NAZMA SHAHEEN,460,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+323 (Match 1),1789134,GPLTTM,HARIS AZHAR,804.89,Fully Paid,Invoiced,TT00913,Polani Travel Ltd,804.89,763.629999999999,PARTIAL,Mismatch (Paid in Excel/ PARTIAL in DB)
+323 (Match 2),1789134,GPLTTM,HARIS AZHAR,804.89,Fully Paid,Invoiced,TT00913,Polani Travel Ltd,804.89,763.629999999999,PARTIAL,Mismatch (Paid in Excel/ PARTIAL in DB)
+323 (Match 3),1789134,GPLTTM,HARIS AZHAR,804.89,Fully Paid,Invoiced,TT00913,Polani Travel Ltd,804.89,763.629999999999,PARTIAL,Mismatch (Paid in Excel/ PARTIAL in DB)
+323 (Match 4),1789134,GPLTTM,HARIS AZHAR,804.89,Fully Paid,Invoiced,TT00913,Polani Travel Ltd,804.89,763.629999999999,PARTIAL,Mismatch (Paid in Excel/ PARTIAL in DB)
+324 (Match 1),1791194,GQ51N2,SHAZIA BIBI,673.6,Fully Paid,Invoiced,TT00912,Polani Travel Ltd,5233.2,5233.2,PAID,Matched (Paid/Paid)
+324 (Match 2),1791194,GQ51N2,SHAZIA BIBI,673.6,Fully Paid,Invoiced,TT00912,Polani Travel Ltd,5233.2,5233.2,PAID,Matched (Paid/Paid)
+325,1734861,GBD9F0,ABDUL AZIZ MOHAMMED,305.32,Fully Paid,Partial Refund,TT00893,Polani Travel Ltd,313.52,313.52,PAID,Matched (Paid/Paid)
+326 (Match 1),1791043,GQ2GXP,AFZA BIBI,2344.4,Fully Paid,Invoiced,TT00912,Polani Travel Ltd,5233.2,5233.2,PAID,Matched (Paid/Paid)
+326 (Match 2),1791043,GQ2GXP,AFZA BIBI,2344.4,Fully Paid,Invoiced,TT00912,Polani Travel Ltd,5233.2,5233.2,PAID,Matched (Paid/Paid)
+326 (Match 3),1791043,GQ2GXP,AFZA BIBI,2344.4,Fully Paid,Invoiced,TT00912,Polani Travel Ltd,5233.2,5233.2,PAID,Matched (Paid/Paid)
+326 (Match 4),1791043,GQ2GXP,AFZA BIBI,2344.4,Fully Paid,Invoiced,TT00912,Polani Travel Ltd,5233.2,5233.2,PAID,Matched (Paid/Paid)
+327,1685305,G0SXQ8,MUHAMMAD SAQIB IQBAL,,Fully Paid,Invoiced,TT00873,Polani Travel Ltd,587.09,587.09,PAID,Matched (Paid/Paid)
+328,1800344,GR62JV,ABDUL AZIZ MOHAMMED,401.68,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+329,1820441,LEMLCA,MUHAMMAD SALMAN KHAN,414.48,Fully Paid,Invoiced,TT00921,Polani Travel Ltd,414.48,0,PENDING,Mismatch (Paid in Excel/ PENDING in DB)
+330,1807249,GRPNYM,ALTAF HUSSAIN,1508.16,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+331,1536857,CXLKFG,OMOTOLANI OLORUNTOYIN OSHIKOYA,975.5,Fully Paid,Partial Refund,TT00765,Polani Travel Ltd,978.7,978.7,PAID,Matched (Paid/Paid)
+332,1825715,SN36R6,Arshed MAHMOOD,1418.72,Fully Paid,Invoiced,TT00924,Polani Travel Ltd,2837.44,2837.44,PAID,Matched (Paid/Paid)
+333,1840277,GX4HS6,MUHAMMAD IRFAN AZAM,3736.9,Fully Paid,Invoiced,TT00928,Polani Travel Ltd,4291.6,0,PENDING,Mismatch (Paid in Excel/ PENDING in DB)
+334,1825339,UENJQY,Liaqat Mahmood,1418.72,Fully Paid,Invoiced,TT00924,Polani Travel Ltd,2837.44,2837.44,PAID,Matched (Paid/Paid)
+335,1861487,H02392,IJAZ ANWAR,260.9,Fully Paid,Invoiced,TT00933,Polani Travel Ltd,0.0,0.0,No Payment Record,Mismatch (Paid in Excel/ No Payment Record in DB)
+336 (Match 1),1786745,GP2SBR,MUSTAFA ALI KHAN,,Fully Paid,Invoiced,TT00910,Polani Travel Ltd,2707.1,2707.1,PAID,Matched (Paid/Paid)
+336 (Match 2),1786745,GP2SBR,MUSTAFA ALI KHAN,,Fully Paid,Invoiced,TT00910,Polani Travel Ltd,2707.1,2707.1,PAID,Matched (Paid/Paid)
+336 (Match 3),1786745,GP2SBR,MUSTAFA ALI KHAN,,Fully Paid,Invoiced,TT00910,Polani Travel Ltd,2707.1,2707.1,PAID,Matched (Paid/Paid)
+337,1861479,GZQWRC,IJAZ ANWAR,240.5,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+338 (Match 1),1840282,GX4J30,MUHAMMED ADAM IRFAN AZAM,554.7,Fully Paid,Invoiced,TT00928,Polani Travel Ltd,4291.6,0,PENDING,Mismatch (Paid in Excel/ PENDING in DB)
+338 (Match 2),1840282,GX4J30,MUHAMMED ADAM IRFAN AZAM,554.7,Fully Paid,Invoiced,TT00928,Polani Travel Ltd,4291.6,0,PENDING,Mismatch (Paid in Excel/ PENDING in DB)
+339,1878473,H282GL,KHURSHED FATIMA,803.18,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+340 (Match 1),1878640,H2DBDC,SAJID NAZIR BUTT,193.6,Fully Paid,Invoiced,TT00941,Trip.com,563.4,0,PENDING,Mismatch (Paid in Excel/ PENDING in DB)
+340 (Match 2),1878640,H2DBDC,SAJID NAZIR BUTT,193.6,Fully Paid,Invoiced,TT00941,Polani Travel Ltd,193.6,0,PENDING,Mismatch (Paid in Excel/ PENDING in DB)
+341,1861487,H02392,IJAZ ANWAR,21.3,Fully Paid,Invoiced,TT00933,Polani Travel Ltd,0.0,0.0,No Payment Record,Mismatch (Paid in Excel/ No Payment Record in DB)
+342 (Match 1),1886302,H34LG2,ZIA UL ISLAM,635.78,Fully Paid,Invoiced,TT00937,Polani Travel Ltd,635.78,0,PENDING,Mismatch (Paid in Excel/ PENDING in DB)
+342 (Match 2),1886302,H34LG2,ZIA UL ISLAM,635.78,Fully Paid,Invoiced,TT00937,Polani Travel Ltd,635.78,0,PENDING,Mismatch (Paid in Excel/ PENDING in DB)
+342 (Match 3),1886302,H34LG2,ZIA UL ISLAM,635.78,Fully Paid,Invoiced,TT00937,Polani Travel Ltd,635.78,0,PENDING,Mismatch (Paid in Excel/ PENDING in DB)
+342 (Match 4),1886302,H34LG2,ZIA UL ISLAM,635.78,Fully Paid,Invoiced,TT00937,Polani Travel Ltd,635.78,0,PENDING,Mismatch (Paid in Excel/ PENDING in DB)
+343,1807249,GRPNYM,ALTAF HUSSAIN,1508.16,Fully Paid,Partial Refund,N/A,N/A,0.0,0.0,N/A,Missing in DB
+344,1895818,H3ZBT8,ALTAF HUSSAIN,963.6,Fully Paid,Invoiced,TT00946,Polani Travel Ltd,963,0,PENDING,Mismatch (Paid in Excel/ PENDING in DB)
+345 (Match 1),1906599,H55MMK,JEDDA ZAMAN,575.18,Fully Paid,Invoiced,TT00954,Polani Travel Ltd,575.18,0,PENDING,Mismatch (Paid in Excel/ PENDING in DB)
+345 (Match 2),1906599,H55MMK,JEDDA ZAMAN,575.18,Fully Paid,Invoiced,TT00954,Polani Travel Ltd,575.18,0,PENDING,Mismatch (Paid in Excel/ PENDING in DB)
+345 (Match 3),1906599,H55MMK,JEDDA ZAMAN,575.18,Fully Paid,Invoiced,TT00954,Polani Travel Ltd,575.18,0,PENDING,Mismatch (Paid in Excel/ PENDING in DB)
+345 (Match 4),1906599,H55MMK,JEDDA ZAMAN,575.18,Fully Paid,Invoiced,TT00954,Polani Travel Ltd,575.18,0,PENDING,Mismatch (Paid in Excel/ PENDING in DB)
+346 (Match 1),1907126,SUEDZG,AL HAJ MOHAMMED FOYZUR RAHMAN,3760.38,Fully Paid,Invoiced,TT00951,Polani Travel Ltd,3760.38,0,PENDING,Mismatch (Paid in Excel/ PENDING in DB)
+346 (Match 2),1907126,SUEDZG,AL HAJ MOHAMMED FOYZUR RAHMAN,3760.38,Fully Paid,Invoiced,TT00951,Polani Travel Ltd,3760.38,0,PENDING,Mismatch (Paid in Excel/ PENDING in DB)
+346 (Match 3),1907126,SUEDZG,AL HAJ MOHAMMED FOYZUR RAHMAN,3760.38,Fully Paid,Invoiced,TT00951,Polani Travel Ltd,3760.38,0,PENDING,Mismatch (Paid in Excel/ PENDING in DB)
+346 (Match 4),1907126,SUEDZG,AL HAJ MOHAMMED FOYZUR RAHMAN,3760.38,Fully Paid,Invoiced,TT00951,Polani Travel Ltd,3760.38,0,PENDING,Mismatch (Paid in Excel/ PENDING in DB)
+347 (Match 1),1921729,H6MWJ4,NAZMA SHAHEEN,499.8,Fully Paid,Invoiced,TT00912,Polani Travel Ltd,5233.2,5233.2,PAID,Matched (Paid/Paid)
+347 (Match 2),1921729,H6MWJ4,NAZMA SHAHEEN,499.8,Fully Paid,Invoiced,TT00912,Polani Travel Ltd,5233.2,5233.2,PAID,Matched (Paid/Paid)
+348 (Match 1),1919512,H6S0TJ,SAJAD ALI,410.4,Fully Paid,Invoiced,TT00917,Polani Travel Ltd,410.4,0,PENDING,Mismatch (Paid in Excel/ PENDING in DB)
+348 (Match 2),1919512,H6S0TJ,SAJAD ALI,410.4,Fully Paid,Invoiced,TT00917,Polani Travel Ltd,410.4,0,PENDING,Mismatch (Paid in Excel/ PENDING in DB)
+349,1791195,GPHD84,NAZMA SHAHEEN,456.8,Fully Paid,Partial Refund,N/A,N/A,0.0,0.0,N/A,Missing in DB
+350,1919114,H6XNQZ,JAHANGIR ALI AYYAZ,245.3,Fully Paid,Invoiced,TT00958,Polani Travel Ltd,245.3,245.3,PAID,Matched (Paid/Paid)
+351,1931004,H8D50S,AMREEN AKHTAR,2461.8,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+352,1929265,H7Y5F8,AMREEN AKHTAR,,Not Paid,Saved,N/A,N/A,0.0,0.0,N/A,Missing in DB
+353 (Match 1),1931098,H8D2JD,ANUM HURRYA,548.52,Fully Paid,Invoiced,TT00962,Polani Travel Ltd,1289.72,0,PENDING,Mismatch (Paid in Excel/ PENDING in DB)
+353 (Match 2),1931098,H8D2JD,ANUM HURRYA,548.52,Fully Paid,Invoiced,TT00962,Polani Travel Ltd,1289.72,0,PENDING,Mismatch (Paid in Excel/ PENDING in DB)
+354,1931000,H8D575,MOHAMMAD NAWAZ,1989.4,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+355,1922071,H764FC,MAHAM FATIMA,302.76,Fully Paid,Invoiced,TT00959,Polani Travel Ltd,302.76,302.76,PAID,Matched (Paid/Paid)
+356,1931000,H8D575,MOHAMMAD NAWAZ,35,Fully Paid,Partial Refund,N/A,N/A,0.0,0.0,N/A,Missing in DB
+357,1933076,2DTE41,KALSOOM PARVEEN,1824.81,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+358,1933076,2DTE41,KALSOOM PARVEEN,1824.81,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+359,1933478,NJMEUA,GAUHAR ALI,,Not Paid,Saved,N/A,N/A,0.0,0.0,N/A,Missing in DB
+360 (Match 1),1931139,OMEOJY,ANUM HURRYA,619.2,Fully Paid,Invoiced,TT00962,Polani Travel Ltd,1289.72,0,PENDING,Mismatch (Paid in Excel/ PENDING in DB)
+360 (Match 2),1931139,OMEOJY,ANUM HURRYA,619.2,Fully Paid,Invoiced,TT00962,Polani Travel Ltd,1289.72,0,PENDING,Mismatch (Paid in Excel/ PENDING in DB)
+361,1940231,H9MQ2T,FOZIA YASMEEN,886.78,Fully Paid,Invoiced,TT00967,Polani Travel Ltd,886.78,886.78,PAID,Matched (Paid/Paid)
+362,1949336,21UOLX,AFZAAL HUSSAIN,,Not Paid,Saved,N/A,N/A,0.0,0.0,N/A,Missing in DB
+363,1949336,21UOLX,AFZAAL HUSSAIN,,Not Paid,Saved,N/A,N/A,0.0,0.0,N/A,Missing in DB
+364,1933081,OL8Y1W,SAIMA BEGUM,2028.81,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+365,1933081,OL8Y1W,SAIMA BEGUM,2028.81,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+366,1946724,OEWEDK,SAFDAR HUSSAIN,313.3,Fully Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+367,1948625,HBPPGQ,SAFDAR HUSSAIN,443.4,Fully Paid,Invoiced,TT00972,Polani Travel Ltd,443.4,443.4,PAID,Matched (Paid/Paid)
+368 (Match 1),1931098,H8D2JD,AYESHA KHALID,122,Fully Paid,Invoiced,TT00962,Polani Travel Ltd,1289.72,0,PENDING,Mismatch (Paid in Excel/ PENDING in DB)
+368 (Match 2),1931098,H8D2JD,AYESHA KHALID,122,Fully Paid,Invoiced,TT00962,Polani Travel Ltd,1289.72,0,PENDING,Mismatch (Paid in Excel/ PENDING in DB)
+369,1964570,HDNF22,FAHMIDA BEGUM,5451.4,Partial,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+370 (Match 1),1954204,EUJVJH,MUFTI ASHRAFUR CHOUDHURY,4005.3,Fully Paid,Invoiced,TT00973,Polani Travel Ltd,4005.28,4005.28,PAID,Matched (Paid/Paid)
+370 (Match 2),1954204,EUJVJH,MUFTI ASHRAFUR CHOUDHURY,4005.3,Fully Paid,Invoiced,TT00973,Polani Travel Ltd,4005.28,4005.28,PAID,Matched (Paid/Paid)
+370 (Match 3),1954204,EUJVJH,MUFTI ASHRAFUR CHOUDHURY,4005.3,Fully Paid,Invoiced,TT00973,Polani Travel Ltd,4005.28,4005.28,PAID,Matched (Paid/Paid)
+370 (Match 4),1954204,EUJVJH,MUFTI ASHRAFUR CHOUDHURY,4005.3,Fully Paid,Invoiced,TT00973,Polani Travel Ltd,4005.28,4005.28,PAID,Matched (Paid/Paid)
+371 (Match 1),1972595,HFM4WQ,ANUM HURRYA,1494.6,Not Paid,Invoiced,TT00987,Polani Travel Ltd,1494.6,0,PENDING,Matched (Unpaid/Unpaid)
+371 (Match 2),1972595,HFM4WQ,ANUM HURRYA,1494.6,Not Paid,Invoiced,TT00987,Polani Travel Ltd,1494.6,0,PENDING,Matched (Unpaid/Unpaid)
+371 (Match 3),1972595,HFM4WQ,ANUM HURRYA,1494.6,Not Paid,Invoiced,TT00987,Polani Travel Ltd,1494.6,0,PENDING,Matched (Unpaid/Unpaid)
+371 (Match 4),1972595,HFM4WQ,ANUM HURRYA,1494.6,Not Paid,Invoiced,TT00987,Polani Travel Ltd,1494.6,0,PENDING,Matched (Unpaid/Unpaid)
+372,1950002,HBZB5B,SAJID HUSSAIN,670.9,Fully Paid,Invoiced,TT00976,Polani Travel Ltd,670.9,0,PENDING,Mismatch (Paid in Excel/ PENDING in DB)
+373,1973413,HF7B5M,KOYAS ALI,4076.45,Not Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+374,1973450,HF75SV,MUHAMMED HAMZA ZAMAN,5876.32,Not Paid,Invoiced,N/A,N/A,0.0,0.0,N/A,Missing in DB
+375,1931004,H8D50S,AMREEN AKHTAR,45,Partial Refund,Partial Refund,N/A,N/A,0.0,0.0,N/A,Missing in DB
+376 (Match 1),1907126,SUEDZG,AL HAJ MOHAMMED FOYZUR RAHMAN,,Not Paid,Saved,TT00951,Polani Travel Ltd,3760.38,0,PENDING,Matched (Unpaid/Unpaid)
+376 (Match 2),1907126,SUEDZG,AL HAJ MOHAMMED FOYZUR RAHMAN,,Not Paid,Saved,TT00951,Polani Travel Ltd,3760.38,0,PENDING,Matched (Unpaid/Unpaid)
+376 (Match 3),1907126,SUEDZG,AL HAJ MOHAMMED FOYZUR RAHMAN,,Not Paid,Saved,TT00951,Polani Travel Ltd,3760.38,0,PENDING,Matched (Unpaid/Unpaid)
+376 (Match 4),1907126,SUEDZG,AL HAJ MOHAMMED FOYZUR RAHMAN,,Not Paid,Saved,TT00951,Polani Travel Ltd,3760.38,0,PENDING,Matched (Unpaid/Unpaid)
+377 (Match 1),1969545,GJQEUO,TANVEER ASGHAR,238.8,Not Paid,Invoiced,TT00985,Polani Travel Ltd,238.8,0,PENDING,Matched (Unpaid/Unpaid)
+377 (Match 2),1969545,GJQEUO,TANVEER ASGHAR,238.8,Not Paid,Invoiced,TT00985,Polani Travel Ltd,238.8,0,PENDING,Matched (Unpaid/Unpaid)
+378 (Match 1),1931139,OMEOJY,ANUM HURRYA,368.8,Partial Refund,Partial Refund,TT00962,Polani Travel Ltd,1289.72,0,PENDING,Matched (Unpaid/Unpaid)
+378 (Match 2),1931139,OMEOJY,ANUM HURRYA,368.8,Partial Refund,Partial Refund,TT00962,Polani Travel Ltd,1289.72,0,PENDING,Matched (Unpaid/Unpaid)
+379 (Match 1),1961363,HCR7M5,MONEEK SHABIR,1169.76,Fully Paid,Invoiced,TT00944,Polani Travel Ltd,0,0,PAID,Matched (Paid/Paid)
+379 (Match 2),1961363,HCR7M5,MONEEK SHABIR,1169.76,Fully Paid,Invoiced,TT00944,Polani Travel Ltd,0,0,PAID,Matched (Paid/Paid)
+379 (Match 3),1961363,HCR7M5,MONEEK SHABIR,1169.76,Fully Paid,Invoiced,TT00944,Polani Travel Ltd,0,0,PAID,Matched (Paid/Paid)
+379 (Match 4),1961363,HCR7M5,MONEEK SHABIR,1169.76,Fully Paid,Invoiced,TT00944,Polani Travel Ltd,0,0,PAID,Matched (Paid/Paid)
