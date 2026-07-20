@@ -1030,19 +1030,15 @@ export function generateBookingInvoiceHtml(booking: any) {
                 ${cancelledFlights
                   .map(
                     (f: any) => `
-                    <div style="padding: 10px 12px; background: #FFFFFF; border: 1px solid #FEE2E2; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; opacity: 0.8;">
+                    <div style="padding: 10px 12px; background: #FFFFFF; border: 1px solid #FEE2E2; border-radius: 6px; display: flex; align-items: center;">
                       <div>
                         <span style="font-size: 8px; font-weight: 700; color: #DC2626; text-transform: uppercase; background: #FEE2E2; padding: 2px 6px; border-radius: 4px; margin-right: 8px; display: inline-block; vertical-align: middle;">Cancelled</span>
-                        <strong style="font-size: 11px; color: #475569; text-decoration: line-through; display: inline-block; vertical-align: middle;">${f.flightType || "Outbound"} Flight: ${f.departedFrom} to ${f.arrivedAt}</strong>
-                        <div style="font-size: 9px; color: #94A3B8; margin-top: 4px; text-decoration: line-through;">
+                        <strong style="font-size: 11px; color: #475569; display: inline-block; vertical-align: middle;">${f.flightType || "Outbound"} Flight: ${f.departedFrom} to ${f.arrivedAt}</strong>
+                        <div style="font-size: 9px; color: #94A3B8; margin-top: 4px;">
                           Flight No: <strong>${f.flightNo}</strong> (PNR: ${f.pnr || "—"}) | 
                           Departure: <strong>${f.departTime || "—"}</strong> | Arrival: <strong>${f.arrivalTime || "—"}</strong> | 
                           Date: <strong>${formatDate(f.date)}</strong>
                         </div>
-                      </div>
-                      <div style="text-align: right;">
-                        <span style="font-size: 8px; color: #94A3B8; text-decoration: line-through; display: block; margin-bottom: 2px;">Original Cost</span>
-                        <div style="font-size: 11px; font-weight: 700; color: #94A3B8; text-decoration: line-through;">${formatCurrency(f.price || 0)}</div>
                       </div>
                     </div>
                   `
@@ -2317,19 +2313,15 @@ export function renderBookingInvoice(
           ${cancelledFlights
             .map(
               (f: any) => `
-              <div style="padding: 10px 12px; background: #FFFFFF; border: 1px solid #FEE2E2; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; opacity: 0.8;">
+              <div style="padding: 10px 12px; background: #FFFFFF; border: 1px solid #FEE2E2; border-radius: 6px; display: flex; align-items: center;">
                 <div>
                   <span style="font-size: 8px; font-weight: 700; color: #DC2626; text-transform: uppercase; background: #FEE2E2; padding: 2px 6px; border-radius: 4px; margin-right: 8px; display: inline-block; vertical-align: middle;">Cancelled</span>
-                  <strong style="font-size: 11px; color: #475569; text-decoration: line-through; display: inline-block; vertical-align: middle;">${f.flightType || "Outbound"} Flight: ${f.departedFrom} to ${f.arrivedAt}</strong>
-                  <div style="font-size: 9px; color: #94A3B8; margin-top: 4px; text-decoration: line-through;">
+                  <strong style="font-size: 11px; color: #475569; display: inline-block; vertical-align: middle;">${f.flightType || "Outbound"} Flight: ${f.departedFrom} to ${f.arrivedAt}</strong>
+                  <div style="font-size: 9px; color: #94A3B8; margin-top: 4px;">
                     Flight No: <strong>${f.flightNo}</strong> (PNR: ${f.pnr || "—"}) | 
                     Departure: <strong>${f.departTime || "—"}</strong> | Arrival: <strong>${f.arrivalTime || "—"}</strong> | 
                     Date: <strong>${formatDate(f.date)}</strong>
                   </div>
-                </div>
-                <div style="text-align: right;">
-                  <span style="font-size: 8px; color: #94A3B8; text-decoration: line-through; display: block; margin-bottom: 2px;">Original Cost</span>
-                  <div style="font-size: 11px; font-weight: 700; color: #94A3B8; text-decoration: line-through;">${formatCurrency(f.price || 0)}</div>
                 </div>
               </div>
             `
