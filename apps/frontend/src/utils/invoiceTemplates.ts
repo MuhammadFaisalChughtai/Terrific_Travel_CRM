@@ -641,7 +641,7 @@ function generateTimelineHtml(booking: any): string {
           flightIdx: globalFlightIdx,
         });
 
-        if (isConnecting && layoverStr) {
+        if (isConnecting && layoverStr && f.status !== 'CANCELLED' && (!nextFlight || nextFlight.status !== 'CANCELLED')) {
           const layoverDate = f.date
             ? new Date(new Date(f.date).getTime() + 1000)
             : new Date(new Date(booking.createdAt).getTime() + 1000);
