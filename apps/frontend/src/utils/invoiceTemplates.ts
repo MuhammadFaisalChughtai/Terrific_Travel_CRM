@@ -585,12 +585,6 @@ function generateTimelineHtml(booking: any): string {
     sortedPnrKeys.forEach((pnrKey) => {
       const groupFlights = flightGroups[pnrKey];
 
-      // Track the global flight index offset so layover afterFlightIdx is correct
-      // Must be computed BEFORE pushing the PNR_HEADER so the header knows which flight follows it
-      const groupFlightStartIdx = items.filter(
-        (i: any) => i.type === "FLIGHT"
-      ).length;
-
       // Insert a PNR_HEADER divider if there are multiple PNR groups
       if (multipleGroups) {
         const firstFlight = groupFlights[0];
@@ -601,8 +595,8 @@ function generateTimelineHtml(booking: any): string {
             : new Date(booking.createdAt),
           pnrKey,
           phase: 3.5, // between visa/special and flights
-          // Anchor this header before the flight with this global index
-          _firstFlightGlobalIdx: groupFlightStartIdx,
+          // Anchor this header before the flight with its unique ID
+          beforeFlightId: firstFlight.id,
         });
       }
 
@@ -618,8 +612,6 @@ function generateTimelineHtml(booking: any): string {
         };
         const transitHub = extractCode(f.arrivedAt || "");
 
-        const globalFlightIdx = groupFlightStartIdx + idx;
-
         const isCancelled = f.status === 'CANCELLED';
         const strikeStyle = isCancelled ? 'style="text-decoration: line-through; opacity: 0.5;"' : '';
         const statusText = isCancelled ? 'Cancelled' : 'Confirmed';
@@ -627,6 +619,7 @@ function generateTimelineHtml(booking: any): string {
 
         items.push({
           type: "FLIGHT",
+          id: f.id,
           date: f.date ? new Date(f.date) : new Date(booking.createdAt),
           title: `<span ${strikeStyle}>${f.flightType || "Outbound"} Flight: ${f.departedFrom} to ${f.arrivedAt}</span>${statusBadge}`,
           icon: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-1.1.1-1.4.5l-.3.3c-.4.4-.4 1.1 0 1.5L9 12l-5.5 5.5H2v2l2 2h2v-1.5L11.5 15l3.5 5.7c.4.4 1.1.4 1.5 0l.3-.3c.4-.3.6-.9.5-1.4Z"/></svg>`,
@@ -637,8 +630,6 @@ function generateTimelineHtml(booking: any): string {
             <div class="timeline-detail-item" ${strikeStyle}>Class: <strong>${f.flightClass || "Economy"}</strong> | Baggage: <strong>${f.baggage || "23 KG"}</strong></div>
           `,
           notes: f.notes,
-          // Tag each flight with its global index so layovers can reference it
-          flightIdx: globalFlightIdx,
         });
 
         if (isConnecting && layoverStr && f.status !== 'CANCELLED' && (!nextFlight || nextFlight.status !== 'CANCELLED')) {
@@ -654,8 +645,8 @@ function generateTimelineHtml(booking: any): string {
             details: `Connection layover of <strong>${layoverStr}</strong> before the next flight.`,
             notes: "",
             isLayoverCard: true,
-            // Match against the global flight index
-            afterFlightIdx: globalFlightIdx,
+            // Match against the unique flight ID
+            afterFlightId: f.id,
           });
         }
       });
@@ -804,22 +795,18 @@ function generateTimelineHtml(booking: any): string {
 
   // Re-insert each layover card immediately AFTER the flight it belongs to.
   // Re-insert each PNR header immediately BEFORE the first flight of its group.
-  // Both use the global flightIdx to anchor themselves correctly.
+  // Both match by the unique flight ID to remain robust against chronological sorting.
   const orderedItems: any[] = [];
-  let orderedFlightCount = 0;
   regularItems.forEach((item) => {
     if (item.type === "FLIGHT") {
-      const currentFlightIdx = orderedFlightCount;
-      // Insert PNR header before this flight if one is "anchored" before its first flight
-      // (a PNR header appears before the first flight that has flightIdx === this flight's flightIdx)
+      // Insert PNR header before this flight if matched by flight ID
       pnrHeaders
-        .filter((ph) => ph._firstFlightGlobalIdx === currentFlightIdx)
+        .filter((ph) => ph.beforeFlightId === item.id)
         .forEach((ph) => orderedItems.push(ph));
       orderedItems.push(item);
-      orderedFlightCount++;
-      // Insert any layover card whose `afterFlightIdx` matches this flight
+      // Insert any layover card whose `afterFlightId` matches this flight
       layoverCards
-        .filter((lc) => lc.afterFlightIdx === currentFlightIdx)
+        .filter((lc) => lc.afterFlightId === item.id)
         .forEach((lc) => orderedItems.push(lc));
     } else {
       orderedItems.push(item);
