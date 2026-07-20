@@ -530,11 +530,14 @@ function generateTimelineHtml(booking: any): string {
     });
   };
 
+  // Filter out cancelled flights for the main timeline
+  const activeFlights = (booking.flightServices || []).filter((f: any) => f.status !== 'CANCELLED');
+
   // Flights — grouped by PNR so each journey's layovers stay isolated
-  if (booking.flightServices && booking.flightServices.length > 0) {
+  if (activeFlights.length > 0) {
     // 1. Group by PNR key
     const flightGroups: { [key: string]: any[] } = {};
-    booking.flightServices.forEach((f: any) => {
+    activeFlights.forEach((f: any) => {
       const rawPnr = (f.pnr || "").trim();
       const pnrKey =
         !rawPnr ||
@@ -1012,6 +1015,44 @@ export function generateBookingInvoiceHtml(booking: any) {
           </tr>
         </table>
       </div>
+
+      ${
+        (() => {
+          const cancelledFlights = (booking.flightServices || []).filter((f: any) => f.status === 'CANCELLED');
+          if (cancelledFlights.length === 0) return "";
+          return `
+            <div class="cancelled-flights-section" style="margin-top: 24px; margin-bottom: 24px; padding: 16px; background-color: #FEF2F2; border: 1px solid #FCA5A5; border-radius: 8px; page-break-inside: avoid;">
+              <h3 style="margin-top: 0; margin-bottom: 12px; font-family: 'Outfit', sans-serif; font-size: 11px; color: #991B1B; display: flex; align-items: center; gap: 6px; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #FCA5A5; padding-bottom: 6px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: #DC2626; display: inline-block; vertical-align: middle;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                Cancelled Flight Services &amp; Routing
+              </h3>
+              <div style="display: grid; grid-template-columns: 1fr; gap: 10px;">
+                ${cancelledFlights
+                  .map(
+                    (f: any) => `
+                    <div style="padding: 10px 12px; background: #FFFFFF; border: 1px solid #FEE2E2; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; opacity: 0.8;">
+                      <div>
+                        <span style="font-size: 8px; font-weight: 700; color: #DC2626; text-transform: uppercase; background: #FEE2E2; padding: 2px 6px; border-radius: 4px; margin-right: 8px; display: inline-block; vertical-align: middle;">Cancelled</span>
+                        <strong style="font-size: 11px; color: #475569; text-decoration: line-through; display: inline-block; vertical-align: middle;">${f.flightType || "Outbound"} Flight: ${f.departedFrom} to ${f.arrivedAt}</strong>
+                        <div style="font-size: 9px; color: #94A3B8; margin-top: 4px; text-decoration: line-through;">
+                          Flight No: <strong>${f.flightNo}</strong> (PNR: ${f.pnr || "—"}) | 
+                          Departure: <strong>${f.departTime || "—"}</strong> | Arrival: <strong>${f.arrivalTime || "—"}</strong> | 
+                          Date: <strong>${formatDate(f.date)}</strong>
+                        </div>
+                      </div>
+                      <div style="text-align: right;">
+                        <span style="font-size: 8px; color: #94A3B8; text-decoration: line-through; display: block; margin-bottom: 2px;">Original Cost</span>
+                        <div style="font-size: 11px; font-weight: 700; color: #94A3B8; text-decoration: line-through;">${formatCurrency(f.price || 0)}</div>
+                      </div>
+                    </div>
+                  `
+                  )
+                  .join("")}
+              </div>
+            </div>
+          `;
+        })()
+      }
 
       <div class="terms-grid">
         <div class="terms-card">
@@ -2183,8 +2224,10 @@ export function renderBookingInvoice(
     </tr>
   `;
 
+  const activeFlights = (booking.flightServices || []).filter((f: any) => f.status !== 'CANCELLED');
+
   const servicesRows = [
-    ...(booking.flightServices?.map(
+    ...(activeFlights.map(
       (f: any) => `
       <tr>
         <td><span style="font-weight: 700; color: #0284C7;">FLIGHT</span></td>
@@ -2260,6 +2303,43 @@ export function renderBookingInvoice(
   html = html.replace(/{{TOTAL_PRICE}}/g, formatCurrency(totalPrice));
   html = html.replace(/{{PAID_AMOUNT}}/g, formatCurrency(paidAmount));
   html = html.replace(/{{BALANCE_DUE}}/g, formatCurrency(balanceDue));
+
+  // Dynamically inject the Cancelled Flights section if there are any cancelled flights
+  const cancelledFlights = (booking.flightServices || []).filter((f: any) => f.status === 'CANCELLED');
+  if (cancelledFlights.length > 0) {
+    const cancelledHtml = `
+      <div class="cancelled-flights-section" style="margin-top: 24px; margin-bottom: 24px; padding: 16px; background-color: #FEF2F2; border: 1px solid #FCA5A5; border-radius: 8px; page-break-inside: avoid;">
+        <h3 style="margin-top: 0; margin-bottom: 12px; font-family: 'Outfit', sans-serif; font-size: 11px; color: #991B1B; display: flex; align-items: center; gap: 6px; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #FCA5A5; padding-bottom: 6px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: #DC2626; display: inline-block; vertical-align: middle;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+          Cancelled Flight Services &amp; Routing
+        </h3>
+        <div style="display: grid; grid-template-columns: 1fr; gap: 10px;">
+          ${cancelledFlights
+            .map(
+              (f: any) => `
+              <div style="padding: 10px 12px; background: #FFFFFF; border: 1px solid #FEE2E2; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; opacity: 0.8;">
+                <div>
+                  <span style="font-size: 8px; font-weight: 700; color: #DC2626; text-transform: uppercase; background: #FEE2E2; padding: 2px 6px; border-radius: 4px; margin-right: 8px; display: inline-block; vertical-align: middle;">Cancelled</span>
+                  <strong style="font-size: 11px; color: #475569; text-decoration: line-through; display: inline-block; vertical-align: middle;">${f.flightType || "Outbound"} Flight: ${f.departedFrom} to ${f.arrivedAt}</strong>
+                  <div style="font-size: 9px; color: #94A3B8; margin-top: 4px; text-decoration: line-through;">
+                    Flight No: <strong>${f.flightNo}</strong> (PNR: ${f.pnr || "—"}) | 
+                    Departure: <strong>${f.departTime || "—"}</strong> | Arrival: <strong>${f.arrivalTime || "—"}</strong> | 
+                    Date: <strong>${formatDate(f.date)}</strong>
+                  </div>
+                </div>
+                <div style="text-align: right;">
+                  <span style="font-size: 8px; color: #94A3B8; text-decoration: line-through; display: block; margin-bottom: 2px;">Original Cost</span>
+                  <div style="font-size: 11px; font-weight: 700; color: #94A3B8; text-decoration: line-through;">${formatCurrency(f.price || 0)}</div>
+                </div>
+              </div>
+            `
+            )
+            .join("")}
+        </div>
+      </div>
+    `;
+    html = html.replace(/(<div class="financial-panel">[\s\S]*?<\/div>)/i, `$1\n${cancelledHtml}`);
+  }
 
   return html;
 }
