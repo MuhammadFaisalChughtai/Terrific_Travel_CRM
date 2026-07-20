@@ -620,16 +620,21 @@ function generateTimelineHtml(booking: any): string {
 
         const globalFlightIdx = groupFlightStartIdx + idx;
 
+        const isCancelled = f.status === 'CANCELLED';
+        const strikeStyle = isCancelled ? 'style="text-decoration: line-through; opacity: 0.5;"' : '';
+        const statusText = isCancelled ? 'Cancelled' : 'Confirmed';
+        const statusBadge = `<span class="timeline-badge-status ${isCancelled ? 'cancelled' : 'confirmed'}" style="margin-left: 8px; vertical-align: middle;">${statusText}</span>`;
+
         items.push({
           type: "FLIGHT",
           date: f.date ? new Date(f.date) : new Date(booking.createdAt),
-          title: `${f.flightType || "Outbound"} Flight: ${f.departedFrom} to ${f.arrivedAt}`,
+          title: `<span ${strikeStyle}>${f.flightType || "Outbound"} Flight: ${f.departedFrom} to ${f.arrivedAt}</span>${statusBadge}`,
           icon: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-1.1.1-1.4.5l-.3.3c-.4.4-.4 1.1 0 1.5L9 12l-5.5 5.5H2v2l2 2h2v-1.5L11.5 15l3.5 5.7c.4.4 1.1.4 1.5 0l.3-.3c.4-.3.6-.9.5-1.4Z"/></svg>`,
           badgeClass: "flight",
           details: `
-            <div class="timeline-detail-item">Flight: <strong>${f.flightNo}</strong> (PNR: ${f.pnr || "—"})</div>
-            <div class="timeline-detail-item">Departure: <strong>${f.departTime || "—"}</strong> | Arrival: <strong>${f.arrivalTime || "—"}</strong></div>
-            <div class="timeline-detail-item">Class: <strong>${f.flightClass || "Economy"}</strong> | Baggage: <strong>${f.baggage || "23 KG"}</strong></div>
+            <div class="timeline-detail-item" ${strikeStyle}>Flight: <strong>${f.flightNo}</strong> (PNR: ${f.pnr || "—"})</div>
+            <div class="timeline-detail-item" ${strikeStyle}>Departure: <strong>${f.departTime || "—"}</strong> | Arrival: <strong>${f.arrivalTime || "—"}</strong></div>
+            <div class="timeline-detail-item" ${strikeStyle}>Class: <strong>${f.flightClass || "Economy"}</strong> | Baggage: <strong>${f.baggage || "23 KG"}</strong></div>
           `,
           notes: f.notes,
           // Tag each flight with its global index so layovers can reference it

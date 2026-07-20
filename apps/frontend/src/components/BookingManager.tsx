@@ -1880,7 +1880,7 @@ export default function BookingManager({
                                 return (
                                   <React.Fragment key={fs.id}>
                                     <div className="overflow-x-auto w-full scrollbar-thin pb-1">
-                                      <div className="border border-border bg-gradient-to-r from-card to-secondary/10 rounded-xl p-3.5 flex justify-between items-center gap-3 hover:border-primary/30 transition-all text-[12px] shadow-sm relative overflow-hidden group min-w-[620px]">
+                                      <div className={`border border-border bg-gradient-to-r from-card to-secondary/10 rounded-xl p-3.5 flex justify-between items-center gap-3 hover:border-primary/30 transition-all text-[12px] shadow-sm relative overflow-hidden group min-w-[620px] ${fs.status === 'CANCELLED' ? 'line-through opacity-60' : ''}`}>
                                         {isConnecting && (
                                           <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-500"></div>
                                         )}

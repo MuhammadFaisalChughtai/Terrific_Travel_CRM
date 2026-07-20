@@ -308,10 +308,17 @@ export default function CRMBookingModal({ isOpen, onClose, booking }: CRMBooking
             <tbody className="divide-y divide-border/30">
               {booking.flightServices && booking.flightServices.length > 0 ? (
                 booking.flightServices.map((fs: any, idx: number) => (
-                  <tr key={idx} className={idx % 2 === 0 ? "bg-secondary/5" : ""}>
+                  <tr key={idx} className={`${idx % 2 === 0 ? "bg-secondary/5" : ""} ${fs.status === 'CANCELLED' ? 'line-through opacity-60 text-muted-foreground' : ''}`}>
                     <TableCell>{format(new Date(fs.date), "MMMM dd, yyyy")}</TableCell>
                     <TableCell><span className="text-primary hover:underline cursor-pointer">{fs.vendor?.name}</span></TableCell>
-                    <TableCell>{fs.flightNo}</TableCell>
+                    <TableCell>
+                      {fs.flightNo}
+                      {fs.status === 'CANCELLED' ? (
+                        <span className="ml-1.5 px-1 py-0.5 text-[8px] font-black uppercase tracking-wider bg-rose-100 text-rose-700 rounded select-none">Cancelled</span>
+                      ) : (
+                        <span className="ml-1.5 px-1 py-0.5 text-[8px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-700 rounded select-none">Confirmed</span>
+                      )}
+                    </TableCell>
                     <TableCell>{fs.pnr}</TableCell>
                     <TableCell>{fs.departedFrom}</TableCell>
                     <TableCell>{fs.arrivedAt}</TableCell>
