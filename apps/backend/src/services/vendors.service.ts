@@ -1,5 +1,6 @@
 import { prisma } from '../config';
 import { NotFoundException, BadRequestException } from '../middleware/error.middleware';
+import { userContextStorage } from '../utils/context';
 
 export class VendorsService {
   async findAll(query: any) {
@@ -91,6 +92,9 @@ export class VendorsService {
   // Helper to sync BookingVendorPayment on booking updates
   async syncBookingVendorPayments(bookingId: string, tx?: any) {
     const db = tx || prisma;
+    const userContext = userContextStorage.getStore();
+    const actorId = userContext?.id;
+    const actorName = userContext ? `${userContext.firstName} ${userContext.lastName}` : 'System';
 
     const booking = await db.booking.findUnique({
       where: { id: bookingId },
@@ -217,15 +221,15 @@ export class VendorsService {
             notes: isInitialCost
               ? `Initial vendor invoice cost recorded for booking #${booking.bookingReference}`
               : `Booking vendor invoice adjustment: original cost updated from ${existing.originalCost} to ${originalCost}`,
-            createdById: booking.userId, // System trigger from user booking change
+            createdById: actorId || booking.userId, // System trigger from user booking change
             createdAt: issuanceDate,
           });
 
           // Audit Log
           await this.createAuditLog(db, {
             action: 'Booking Updated',
-            adminName: 'System',
-            adminId: booking.userId,
+            adminName: actorName,
+            adminId: actorId || booking.userId,
             oldValues: { originalCost: existing.originalCost, remainingBalance: existing.remainingBalance, status: existing.status },
             newValues: { originalCost: updated.originalCost, remainingBalance: updated.remainingBalance, status: updated.status },
             reason: `Service segment cost adjustment inside booking #${booking.bookingReference}`
@@ -253,15 +257,15 @@ export class VendorsService {
           debit: originalCost,
           credit: 0.0,
           notes: `Initial vendor invoice cost recorded for booking #${booking.bookingReference}`,
-          createdById: booking.userId,
+          createdById: actorId || booking.userId,
           createdAt: issuanceDate,
         });
 
         // Audit Log
         await this.createAuditLog(db, {
           action: 'Booking Updated',
-          adminName: 'System',
-          adminId: booking.userId,
+          adminName: actorName,
+          adminId: actorId || booking.userId,
           oldValues: null,
           newValues: { vendorId, originalCost, status: 'PENDING' },
           reason: `Added services for vendor ${vendorId} in booking #${booking.bookingReference}`
@@ -295,14 +299,14 @@ export class VendorsService {
           debit: 0.0,
           credit: -diff,
           notes: `Services removed for this vendor from booking #${booking.bookingReference}`,
-          createdById: booking.userId,
+          createdById: actorId || booking.userId,
           createdAt: issuanceDate,
         });
 
         await this.createAuditLog(db, {
           action: 'Booking Updated',
-          adminName: 'System',
-          adminId: booking.userId,
+          adminName: actorName,
+          adminId: actorId || booking.userId,
           oldValues: { originalCost: record.originalCost },
           newValues: { originalCost: 0.0, status },
           reason: `Removed all services for vendor ${record.vendorId} in booking #${booking.bookingReference}`

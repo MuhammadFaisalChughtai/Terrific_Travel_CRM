@@ -1,6 +1,7 @@
 -- ====================================================================
 -- SQL Script to Reconcile Mismatched Payment Statuses
 -- Updates CRM bookings and vendor ledgers to PAID if Excel indicates Fully Paid
+-- Handles combined PNR notations in database (e.g. "PNR/PNR")
 -- ====================================================================
 
 BEGIN;
@@ -15,7 +16,11 @@ SET
 WHERE "bookingId" IN (
     SELECT DISTINCT b."id"
     FROM "StagingPolaniLedger" s
-    JOIN "FlightService" fs ON UPPER(fs."pnr") = UPPER(s."pnr")
+    JOIN "FlightService" fs ON (
+        UPPER(fs."pnr") = UPPER(s."pnr") 
+        OR fs."pnr" LIKE '%' || s."pnr" || '%'
+        OR s."pnr" LIKE '%' || fs."pnr" || '%'
+    )
     JOIN "Booking" b ON fs."bookingId" = b."id"
     WHERE s."excel_receipt" = 'Fully Paid'
 )
@@ -31,7 +36,11 @@ SET
 WHERE "id" IN (
     SELECT DISTINCT b."id"
     FROM "StagingPolaniLedger" s
-    JOIN "FlightService" fs ON UPPER(fs."pnr") = UPPER(s."pnr")
+    JOIN "FlightService" fs ON (
+        UPPER(fs."pnr") = UPPER(s."pnr") 
+        OR fs."pnr" LIKE '%' || s."pnr" || '%'
+        OR s."pnr" LIKE '%' || fs."pnr" || '%'
+    )
     JOIN "Booking" b ON fs."bookingId" = b."id"
     WHERE s."excel_receipt" = 'Fully Paid'
 )

@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import * as jwt from 'jsonwebtoken';
 import { config, prisma } from '../config';
 import { UnauthorizedException, ForbiddenException } from './error.middleware';
+import { userContextStorage } from '../utils/context';
 
 export interface AuthenticatedRequest extends Request {
   user?: {
@@ -82,7 +83,9 @@ export async function authMiddleware(
       agentId: user.agentId,
     };
 
-    next();
+    userContextStorage.run(req.user, () => {
+      next();
+    });
   } catch (error) {
     return next(new UnauthorizedException('Invalid or expired token.'));
   }
