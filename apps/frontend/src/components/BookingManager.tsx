@@ -186,6 +186,34 @@ const calculateLayoverTime = (currentFlight: any, nextFlight: any): string => {
   }
 };
 
+const parseTimeStr = (timeStr: string) => {
+  if (!timeStr) return 0;
+  const t = timeStr.trim().toUpperCase();
+  const firstPart = t.split('-')[0].trim();
+  const isPM = firstPart.includes('P');
+  const isAM = firstPart.includes('A');
+  let raw = firstPart.replace(/[APM:\s]/g, '');
+  if (raw.indexOf(':') !== -1) {
+    const parts = raw.split(':');
+    let hours = parseInt(parts[0], 10) || 0;
+    const minutes = parseInt(parts[1], 10) || 0;
+    if (isPM && hours < 12) hours += 12;
+    if (isAM && hours === 12) hours = 0;
+    return (hours * 60) + minutes;
+  }
+  let rawDigits = firstPart.replace(/[APM:\s:]/g, '');
+  if (rawDigits.length === 3) rawDigits = "0" + rawDigits;
+  if (rawDigits.length < 4) {
+    const parsed = parseInt(rawDigits, 10);
+    return isNaN(parsed) ? 0 : parsed * 60;
+  }
+  let hours = parseInt(rawDigits.substring(0, 2), 10) || 0;
+  const minutes = parseInt(rawDigits.substring(2, 4), 10) || 0;
+  if (isPM && hours < 12) hours += 12;
+  if (isAM && hours === 12) hours = 0;
+  return (hours * 60) + (isNaN(minutes) ? 0 : minutes);
+};
+
 interface BookingManagerProps {
   isOpen: boolean;
   bookingId?: string | null;
@@ -1042,7 +1070,7 @@ export default function BookingManager({
                       </span>
                     </div>
                     <span className="text-[15px] font-bold text-emerald-600 dark:text-emerald-400">
-                      {formatCurrency(paidAmount + clientRefund)}
+                      {formatCurrency(paidAmount)}
                     </span>
                   </div>
 
@@ -2317,7 +2345,11 @@ export default function BookingManager({
                   <tbody className="text-foreground divide-y divide-border">
                     {booking.transportServices?.length > 0 ? (
                       [...booking.transportServices]
-                        .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                        .sort((a: any, b: any) => {
+                          const dateDiff = new Date(a.date).getTime() - new Date(b.date).getTime();
+                          if (dateDiff !== 0) return dateDiff;
+                          return parseTimeStr(a.departureTime) - parseTimeStr(b.departureTime);
+                        })
                         .map((ts: any) => (
                         <tr
                           key={ts.id}

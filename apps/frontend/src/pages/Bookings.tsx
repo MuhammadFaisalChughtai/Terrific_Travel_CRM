@@ -805,10 +805,7 @@ export default function Bookings() {
                             {formatCurrency(booking.totalPrice)}
                           </td>
                           <td className="px-4 py-3.5 whitespace-nowrap text-right font-semibold text-emerald-600 dark:text-emerald-400 align-middle">
-                            {formatCurrency(
-                              (booking.paidAmount || 0) +
-                                (booking.refundAmount || 0),
-                            )}
+                            {formatCurrency(booking.paidAmount || 0)}
                           </td>
                           <td className="px-4 py-3.5 whitespace-nowrap text-right font-semibold text-muted-foreground align-middle">
                             {formatCurrency(booking.remainingAmount || 0)}
