@@ -41,10 +41,10 @@ export default function Bookings() {
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
   const [searchParams] = useSearchParams();
-  // True when the logged-in user is an agent (not admin/manager)
+  // True when the logged-in user is an agent/manager (not admin)
   const isAgent =
     !!user?.roles?.length &&
-    !["Admin", "SUPER_ADMIN", "Manager", "BRANCH_MANAGER"].some((r) =>
+    !["Admin", "SUPER_ADMIN", "SUPERADMIN"].some((r) =>
       user?.roles?.includes(r),
     );
 
@@ -745,12 +745,11 @@ export default function Bookings() {
                         .filter(Boolean)
                         .join(" ");
                       const isOwner =
-                        // Admin / manager roles always have full access
+                        // Admin roles always have full access
                         [
                           "Admin",
                           "SUPER_ADMIN",
-                          "Manager",
-                          "BRANCH_MANAGER",
+                          "SUPERADMIN",
                         ].some((r) => user?.roles?.includes(r)) ||
                         // Created or owns this booking by user-id
                         booking.createdById === user?.id ||

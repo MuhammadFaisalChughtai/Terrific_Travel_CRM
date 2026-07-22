@@ -473,8 +473,8 @@ export default function BookingManager({
     .filter(Boolean)
     .join(" ");
   const isOwner =
-    // Admin / manager roles always have full access
-    ["Admin", "SUPER_ADMIN", "Manager", "BRANCH_MANAGER"].some((r) =>
+    // Admin roles always have full access
+    ["Admin", "SUPER_ADMIN", "SUPERADMIN"].some((r) =>
       user?.roles?.includes(r),
     ) ||
     // Created or owns this booking by user-id
@@ -491,10 +491,10 @@ export default function BookingManager({
       ? true
       : false;
 
-  // True when the logged-in user is an agent (not admin/manager) — used to hide financial internals
+  // True when the logged-in user is an agent/manager (not admin) — used to hide financial internals
   const isAgent =
     !!user?.roles?.length &&
-    !["Admin", "SUPER_ADMIN", "Manager", "BRANCH_MANAGER"].some((r) =>
+    !["Admin", "SUPER_ADMIN", "SUPERADMIN"].some((r) =>
       user?.roles?.includes(r),
     );
 

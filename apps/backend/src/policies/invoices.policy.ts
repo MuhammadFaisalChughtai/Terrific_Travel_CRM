@@ -9,7 +9,7 @@ export class InvoicesPolicy {
   }
 
   static canEdit(user: any): boolean {
-    return user.roles.some((role: string) => ['Admin', 'Manager'].includes(role));
+    return user.roles.some((role: string) => ['Admin', 'Manager', 'Agent', 'TRAVEL_AGENT'].includes(role));
   }
 
   static canDelete(user: any): boolean {

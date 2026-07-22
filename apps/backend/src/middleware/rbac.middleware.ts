@@ -13,8 +13,7 @@ export function requireRoles(...allowedRoles: string[]) {
     const normalizeRole = (role: string) => {
       const r = role.toUpperCase();
       if (r === 'SUPER_ADMIN' || r === 'ADMIN') return 'ADMIN';
-      if (r === 'TRAVEL_AGENT' || r === 'AGENT') return 'AGENT';
-      if (r === 'MANAGER') return 'MANAGER';
+      if (r === 'TRAVEL_AGENT' || r === 'AGENT' || r === 'MANAGER') return 'AGENT';
       if (r === 'CUSTOMER') return 'CUSTOMER';
       return r;
     };
@@ -58,13 +57,13 @@ export async function requireBookingOwnership(
     return next(new UnauthorizedException('Unauthorized.'));
   }
 
-  // Admins and Managers have global access and bypass ownership checks
-  const isAdminOrManager = req.user.roles.some((role) => {
+  // Admins, Managers, and Agents have global access and bypass ownership checks
+  const isAdminManagerOrAgent = req.user.roles.some((role) => {
     const r = role.toUpperCase();
-    return r === 'ADMIN' || r === 'SUPER_ADMIN' || r === 'MANAGER';
+    return r === 'ADMIN' || r === 'SUPER_ADMIN' || r === 'MANAGER' || r === 'AGENT' || r === 'TRAVEL_AGENT';
   });
 
-  if (isAdminOrManager) {
+  if (isAdminManagerOrAgent) {
     return next();
   }
 

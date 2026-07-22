@@ -17,6 +17,7 @@ import attendanceRoutes from './attendance.routes';
 import notificationsRoutes from './notifications.routes';
 import agentMarginRoutes from './agent-margin.routes';
 import reportsRoutes from './reports.routes';
+import leadsRoutes from './leads.routes';
 
 const router = Router();
 
@@ -38,5 +39,6 @@ router.use('/attendance', attendanceRoutes);
 router.use('/notifications', notificationsRoutes);
 router.use('/agent-margins', agentMarginRoutes);
 router.use('/reports', reportsRoutes);
+router.use('/leads', leadsRoutes);
 
 export default router;

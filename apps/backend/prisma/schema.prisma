@@ -69,6 +69,54 @@ model User {
   submittedRequests       PaymentRequest[] @relation("SubmittedRequests")
   reviewedRequests        PaymentRequest[] @relation("ReviewedRequests")
   paidMargins             AgentMargin[]    @relation("PaidMargins")
+  assignedLeads           Lead[]           @relation("AssignedLeads")
+  createdLeads            Lead[]           @relation("CreatedLeads")
+  updatedLeads            Lead[]           @relation("UpdatedLeads")
+  createdStatusLogs       LeadStatusLog[]  @relation("CreatedStatusLogs")
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  FOLLOW_UP
+  QUALIFIED
+  CLOSED
+}
+
+model Lead {
+  id              String      @id @default(uuid())
+  fullName        String
+  phoneNumber     String
+  notes           String?     @db.Text
+  status          LeadStatus  @default(NEW)
+  assignedAgentId String?
+  assignedAgent   User?       @relation("AssignedLeads", fields: [assignedAgentId], references: [id], onDelete: SetNull)
+  createdById     String?
+  createdBy       User?       @relation("CreatedLeads", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById     String?
+  updatedBy       User?       @relation("UpdatedLeads", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  statusLogs      LeadStatusLog[]
+
+  @@index([fullName])
+  @@index([phoneNumber])
+  @@index([assignedAgentId])
+  @@index([status])
+}
+
+model LeadStatusLog {
+  id          String     @id @default(uuid())
+  leadId      String
+  lead        Lead       @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  status      LeadStatus
+  notes       String?    @db.Text
+  createdById String?
+  createdBy   User?      @relation("CreatedStatusLogs", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime   @default(now())
+
+  @@index([leadId])
+  @@index([status])
 }
 
 

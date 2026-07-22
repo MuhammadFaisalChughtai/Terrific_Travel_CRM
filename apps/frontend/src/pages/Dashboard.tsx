@@ -30,7 +30,13 @@ import { useMemo, useState } from "react";
 type ChartPeriod = "daily" | "weekly" | "monthly" | "quarterly" | "yearly";
 type KpiPeriod = "monthly" | "quarterly" | "yearly" | "all";
 type AgentPeriod = "daily" | "weekly" | "monthly" | "yearly" | "all";
-type CategoryPeriod = "daily" | "weekly" | "monthly" | "quarterly" | "yearly" | "all";
+type CategoryPeriod =
+  | "daily"
+  | "weekly"
+  | "monthly"
+  | "quarterly"
+  | "yearly"
+  | "all";
 
 export default function Dashboard() {
   const [chartPeriod, setChartPeriod] = useState<ChartPeriod>("daily");
@@ -38,8 +44,10 @@ export default function Dashboard() {
   const [agentPeriod, setAgentPeriod] = useState<AgentPeriod>("all");
   const [categoryPeriod, setCategoryPeriod] = useState<CategoryPeriod>("all");
   const user = useAuthStore((state) => state.user);
-  const isAgent = user?.roles.includes("Agent") || user?.roles.includes("TRAVEL_AGENT");
-  const isAdmin = user?.roles.includes("SUPER_ADMIN") || user?.roles.includes("ADMIN");
+  const isAgent =
+    user?.roles.includes("Agent") || user?.roles.includes("TRAVEL_AGENT");
+  const isAdmin =
+    user?.roles.includes("SUPER_ADMIN") || user?.roles.includes("ADMIN");
 
   // Fetch dashboard summary stats (all-time, for category breakdowns + agent leaderboard)
   const { data: statsData, isLoading: statsLoading } = useQuery({
@@ -54,7 +62,9 @@ export default function Dashboard() {
   const { data: periodStatsData, isLoading: periodStatsLoading } = useQuery({
     queryKey: ["dashboard-stats-by-period", kpiPeriod],
     queryFn: async () => {
-      const res = await apiClient.get(`/dashboard/stats-by-period?period=${kpiPeriod}`);
+      const res = await apiClient.get(
+        `/dashboard/stats-by-period?period=${kpiPeriod}`,
+      );
       return res.data.data;
     },
   });
@@ -63,19 +73,25 @@ export default function Dashboard() {
   const { data: agentStatsData, isLoading: agentStatsLoading } = useQuery({
     queryKey: ["dashboard-stats-by-period", agentPeriod],
     queryFn: async () => {
-      const res = await apiClient.get(`/dashboard/stats-by-period?period=${agentPeriod}`);
+      const res = await apiClient.get(
+        `/dashboard/stats-by-period?period=${agentPeriod}`,
+      );
       return res.data.data;
     },
   });
 
   // Fetch category breakdown stats
-  const { data: categoryStatsData, isLoading: categoryStatsLoading } = useQuery({
-    queryKey: ["dashboard-stats-by-period", categoryPeriod],
-    queryFn: async () => {
-      const res = await apiClient.get(`/dashboard/stats-by-period?period=${categoryPeriod}`);
-      return res.data.data;
+  const { data: categoryStatsData, isLoading: categoryStatsLoading } = useQuery(
+    {
+      queryKey: ["dashboard-stats-by-period", categoryPeriod],
+      queryFn: async () => {
+        const res = await apiClient.get(
+          `/dashboard/stats-by-period?period=${categoryPeriod}`,
+        );
+        return res.data.data;
+      },
     },
-  });
+  );
 
   // Fetch trends
   const { data: trendsData, isLoading: trendsLoading } = useQuery({
@@ -138,7 +154,7 @@ export default function Dashboard() {
       { date: "2024", bookings: 1200, revenue: 580000, profit: 201000 },
       { date: "2025", bookings: 1450, revenue: 710000, profit: 246000 },
       { date: "2026", bookings: 1800, revenue: 890000, profit: 310000 },
-    ]
+    ],
   };
 
   const activeTrends = useMemo(() => {
@@ -222,7 +238,8 @@ export default function Dashboard() {
   ];
 
   const sortedAgents = useMemo(() => {
-    const performanceData = agentStatsData?.agentPerformance || stats.agentPerformance || [];
+    const performanceData =
+      agentStatsData?.agentPerformance || stats.agentPerformance || [];
     return [...performanceData].sort(
       (a, b) => b.bookingsCount - a.bookingsCount || b.profit - a.profit,
     );
@@ -242,7 +259,9 @@ export default function Dashboard() {
       );
     }
     const startIndex = Math.floor((sortedAgents.length * 2) / 3);
-    return sortedAgents.filter((a, idx) => idx >= startIndex || a.bookingsCount <= 0);
+    return sortedAgents.filter(
+      (a, idx) => idx >= startIndex || a.bookingsCount <= 0,
+    );
   }, [sortedAgents, topAgents]);
 
   const avgAgents = useMemo(() => {
@@ -273,7 +292,10 @@ export default function Dashboard() {
             KPI Period
           </p>
           <p className="text-[10px] text-muted-foreground/70 mt-0.5">
-            Showing stats for: <span className="text-foreground font-semibold">{kpiPeriodLabel[kpiPeriod]}</span>
+            Showing stats for:{" "}
+            <span className="text-foreground font-semibold">
+              {kpiPeriodLabel[kpiPeriod]}
+            </span>
           </p>
         </div>
         <div className="flex bg-secondary/50 p-0.5 rounded-lg border border-border self-start sm:self-center">
@@ -294,7 +316,9 @@ export default function Dashboard() {
       </div>
 
       {/* Primary KPI Grid */}
-      <div className={`grid grid-cols-1 gap-4 ${isAdmin ? "md:grid-cols-5" : "md:grid-cols-4"}`}>
+      <div
+        className={`grid grid-cols-1 gap-4 ${isAdmin ? "md:grid-cols-5" : "md:grid-cols-4"}`}
+      >
         {cards.map((card) => {
           const Icon = card.icon;
           return (
@@ -327,7 +351,16 @@ export default function Dashboard() {
             Category Breakdown
           </h4>
           <div className="flex bg-secondary/50 p-0.5 rounded-lg border border-border self-start sm:self-center overflow-x-auto max-w-full">
-            {(["daily", "weekly", "monthly", "quarterly", "yearly", "all"] as const).map((p) => (
+            {(
+              [
+                "daily",
+                "weekly",
+                "monthly",
+                "quarterly",
+                "yearly",
+                "all",
+              ] as const
+            ).map((p) => (
               <button
                 key={p}
                 onClick={() => setCategoryPeriod(p)}
@@ -344,25 +377,25 @@ export default function Dashboard() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {categories.map((cat) => {
-          const Icon = cat.icon;
-          return (
-            <div
-              key={cat.name}
-              className="p-3.5 bg-card/60 border border-border rounded-xl flex items-center gap-3 shadow-sm"
-            >
-              <div className={`p-2.5 rounded-lg bg-secondary ${cat.color}`}>
-                <Icon size={16} />
+          {categories.map((cat) => {
+            const Icon = cat.icon;
+            return (
+              <div
+                key={cat.name}
+                className="p-3.5 bg-card/60 border border-border rounded-xl flex items-center gap-3 shadow-sm"
+              >
+                <div className={`p-2.5 rounded-lg bg-secondary ${cat.color}`}>
+                  <Icon size={16} />
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">
+                    {cat.name}
+                  </p>
+                  <p className="text-base font-bold mt-0.5">{cat.value}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">
-                  {cat.name}
-                </p>
-                <p className="text-base font-bold mt-0.5">{cat.value}</p>
-              </div>
-            </div>
-          );
-        })}
+            );
+          })}
         </div>
       </div>
 
@@ -373,23 +406,26 @@ export default function Dashboard() {
             Sales & Standing Trends
           </h4>
           <p className="text-[10px] text-muted-foreground mt-0.5">
-            Monitor real-time revenue growth, net profits, and booking volumes across periods.
+            Monitor real-time revenue growth, net profits, and booking volumes
+            across periods.
           </p>
         </div>
         <div className="flex bg-secondary/50 p-0.5 rounded-lg border border-border self-start sm:self-center">
-          {(["daily", "weekly", "monthly", "quarterly", "yearly"] as const).map((p) => (
-            <button
-              key={p}
-              onClick={() => setChartPeriod(p)}
-              className={`px-3 py-1 rounded-md text-[10px] font-semibold capitalize transition-all ${
-                chartPeriod === p
-                  ? "bg-card text-foreground shadow-sm border border-border/40"
-                  : "text-muted-foreground hover:text-foreground border border-transparent"
-              }`}
-            >
-              {p}
-            </button>
-          ))}
+          {(["daily", "weekly", "monthly", "quarterly", "yearly"] as const).map(
+            (p) => (
+              <button
+                key={p}
+                onClick={() => setChartPeriod(p)}
+                className={`px-3 py-1 rounded-md text-[10px] font-semibold capitalize transition-all ${
+                  chartPeriod === p
+                    ? "bg-card text-foreground shadow-sm border border-border/40"
+                    : "text-muted-foreground hover:text-foreground border border-transparent"
+                }`}
+              >
+                {p}
+              </button>
+            ),
+          )}
         </div>
       </div>
 
@@ -426,16 +462,8 @@ export default function Dashboard() {
                     />
                   </linearGradient>
                   <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
-                    <stop
-                      offset="5%"
-                      stopColor="#10b981"
-                      stopOpacity={0.4}
-                    />
-                    <stop
-                      offset="95%"
-                      stopColor="#10b981"
-                      stopOpacity={0}
-                    />
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid
@@ -466,7 +494,10 @@ export default function Dashboard() {
                     fontWeight: "bold",
                   }}
                 />
-                <Legend iconSize={10} wrapperStyle={{ fontSize: '10px', paddingTop: '10px' }} />
+                <Legend
+                  iconSize={10}
+                  wrapperStyle={{ fontSize: "10px", paddingTop: "10px" }}
+                />
                 <Area
                   type="monotone"
                   dataKey="revenue"
@@ -525,7 +556,10 @@ export default function Dashboard() {
                     fontSize: "11px",
                   }}
                 />
-                <Legend iconSize={10} wrapperStyle={{ fontSize: '10px', paddingTop: '10px' }} />
+                <Legend
+                  iconSize={10}
+                  wrapperStyle={{ fontSize: "10px", paddingTop: "10px" }}
+                />
                 <Bar
                   dataKey="bookings"
                   name="Bookings"
@@ -546,19 +580,21 @@ export default function Dashboard() {
               Agent Performance (Based on Number of Bookings)
             </h4>
             <div className="flex bg-secondary/50 p-0.5 rounded-lg border border-border self-start sm:self-center">
-              {(["daily", "weekly", "monthly", "yearly", "all"] as const).map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setAgentPeriod(p)}
-                  className={`px-3 py-1 rounded-md text-[10px] font-semibold capitalize transition-all ${
-                    agentPeriod === p
-                      ? "bg-card text-foreground shadow-sm border border-border/40"
-                      : "text-muted-foreground hover:text-foreground border border-transparent"
-                  }`}
-                >
-                  {p === "all" ? "All Time" : p}
-                </button>
-              ))}
+              {(["daily", "weekly", "monthly", "yearly", "all"] as const).map(
+                (p) => (
+                  <button
+                    key={p}
+                    onClick={() => setAgentPeriod(p)}
+                    className={`px-3 py-1 rounded-md text-[10px] font-semibold capitalize transition-all ${
+                      agentPeriod === p
+                        ? "bg-card text-foreground shadow-sm border border-border/40"
+                        : "text-muted-foreground hover:text-foreground border border-transparent"
+                    }`}
+                  >
+                    {p === "all" ? "All Time" : p}
+                  </button>
+                ),
+              )}
             </div>
           </div>
 
@@ -567,7 +603,8 @@ export default function Dashboard() {
             <div className="bg-card border border-border/80 rounded-xl p-4 shadow-sm">
               <h5 className="text-[11px] font-bold text-foreground mb-3 flex items-center gap-1">
                 <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-                Bookings by Agent – Selected Period ({agentPeriod === 'all' ? 'All Time' : agentPeriod})
+                Bookings by Agent – Selected Period (
+                {agentPeriod === "all" ? "All Time" : agentPeriod})
               </h5>
               <div className="h-56">
                 <ResponsiveContainer width="100%" height="100%">
@@ -575,7 +612,11 @@ export default function Dashboard() {
                     data={sortedAgents}
                     margin={{ top: 15, right: 10, left: 10, bottom: 5 }}
                   >
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-border/40" />
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      vertical={false}
+                      className="stroke-border/40"
+                    />
                     <XAxis
                       dataKey="name"
                       type="category"
@@ -595,8 +636,17 @@ export default function Dashboard() {
                         fontSize: "11px",
                       }}
                     />
-                    <Bar dataKey="bookingsCount" fill="rgb(99, 102, 241)" radius={[4, 4, 0, 0]} barSize={24}>
-                      <LabelList dataKey="bookingsCount" position="top" className="fill-foreground text-[10px] font-bold" />
+                    <Bar
+                      dataKey="bookingsCount"
+                      fill="rgb(99, 102, 241)"
+                      radius={[4, 4, 0, 0]}
+                      barSize={24}
+                    >
+                      <LabelList
+                        dataKey="bookingsCount"
+                        position="top"
+                        className="fill-foreground text-[10px] font-bold"
+                      />
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>

@@ -28,6 +28,7 @@ import UsersPage from "./pages/Users";
 import Attendance from "./pages/Attendance";
 import AgentMargins from "./pages/AgentMargins";
 import BookedServices from "./pages/BookedServices";
+import LeadsPage from "./pages/Leads";
 import { useAuthStore } from "./store/auth.store";
 import { apiClient } from "./api/client";
 
@@ -134,6 +135,7 @@ function AppRouter() {
           <Route path="attendance" element={<Attendance />} />
           <Route path="agent-margins" element={<AgentMargins />} />
           <Route path="booked-services" element={<BookedServices />} />
+          <Route path="leads" element={<LeadsPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" />} />

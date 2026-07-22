@@ -26,4 +26,4 @@ WORKDIR /usr/src/app
 RUN npm run build --workspace=apps/backend
 
 EXPOSE 3000
-CMD ["sh", "-c", "npx prisma db push --schema=apps/backend/prisma/schema.prisma --accept-data-loss && npm run prisma:seed --workspace=apps/backend && npm run start:dev --workspace=apps/backend"]
+CMD ["sh", "-c", "node -e 'const net = require(\"net\"); function check() { const s = net.connect(5432, \"postgres\", () => { console.log(\"Postgres is ready!\"); process.exit(0); }); s.on(\"error\", () => { console.log(\"Waiting for Postgres...\"); setTimeout(check, 1000); }); } check();' && npx prisma db push --schema=apps/backend/prisma/schema.prisma --accept-data-loss && npm run prisma:seed --workspace=apps/backend && npm run start:dev --workspace=apps/backend"]

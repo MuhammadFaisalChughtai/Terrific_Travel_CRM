@@ -126,15 +126,16 @@ async function main() {
     'ledger:read', 'ledger:manage'
   ];
 
-  const agentPermissions = [
-    'bookings:read', 'bookings:create', 'bookings:edit_own',
-    'invoices:read', 'invoices:download', 'invoices:print',
-    'customers:read', 'customers:create',
-    'reports:read_own',
-    'attendance:log',
-    'vendors:read',
-    'ledger:read'
-  ];
+  const agentPermissions = [...managerPermissions];
+
+  // Clean up existing permissions for Manager, Agent, legacyAgent so we don't have dangling/stale mappings
+  await prisma.rolePermission.deleteMany({
+    where: {
+      roleId: {
+        in: [managerRole.id, agentRole.id, legacyAgentRole.id]
+      }
+    }
+  });
 
   for (const perm of permissionsList) {
     const createdPerm = await prisma.permission.upsert({

@@ -9,12 +9,8 @@ export class BookingsPolicy {
   }
 
   static canEdit(user: any, booking: any): boolean {
-    if (user.roles.some((role: string) => ['Admin', 'Manager'].includes(role))) {
+    if (user.roles.some((role: string) => ['Admin', 'SUPER_ADMIN', 'ADMIN', 'Manager', 'MANAGER', 'Agent', 'AGENT', 'TRAVEL_AGENT'].includes(role))) {
       return true;
-    }
-    if (user.roles.includes('Agent')) {
-      // Agent can edit ONLY their own bookings (where they are the creator)
-      return booking.createdById === user.id || booking.userId === user.id;
     }
     return false;
   }
@@ -25,7 +21,7 @@ export class BookingsPolicy {
   }
 
   static canAssign(user: any): boolean {
-    return user.roles.some((role: string) => ['Admin', 'Manager'].includes(role));
+    return user.roles.some((role: string) => ['Admin', 'SUPER_ADMIN', 'ADMIN', 'Manager', 'MANAGER', 'Agent', 'AGENT', 'TRAVEL_AGENT'].includes(role));
   }
 
   static canFinalizeMargin(user: any): boolean {

@@ -35,10 +35,10 @@ export default function CreateBookingInitModal({
 
   const queryClient = useQueryClient();
 
-  // Determine if the logged-in user is an agent (not admin/manager)
+  // Determine if the logged-in user is an agent/manager (not admin)
   const isAgent =
     !!user?.roles?.length &&
-    !["Admin", "SUPER_ADMIN", "Manager", "BRANCH_MANAGER"].some((r) =>
+    !["Admin", "SUPER_ADMIN", "SUPERADMIN"].some((r) =>
       user?.roles?.includes(r),
     );
 

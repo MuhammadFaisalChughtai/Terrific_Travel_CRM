@@ -9,7 +9,7 @@ const router = Router();
 router.use(authMiddleware as any);
 
 router.post('/', requirePermissions('users:manage') as any, create);
-router.get('/', requirePermissions('users:manage') as any, findAll);
+router.get('/', requirePermissions('users:manage', 'users:read') as any, findAll);
 
 // Roles & Permissions management (must be BEFORE /:id)
 router.get('/roles', requirePermissions('permissions:manage') as any, getRoles);

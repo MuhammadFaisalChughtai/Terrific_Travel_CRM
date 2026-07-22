@@ -32,6 +32,7 @@ import {
   Clock,
   Calculator,
   ArrowRightLeft,
+  UserCheck,
 } from "lucide-react";
 export default function DashboardLayout() {
   const location = useLocation();
@@ -114,9 +115,10 @@ export default function DashboardLayout() {
   const menuItems = [
     { name: "Dashboard", path: "/", icon: LayoutDashboard },
     { name: "Bookings", path: "/bookings", icon: CalendarRange },
+    { name: "Leads Log Book", path: "/leads", icon: UserCheck },
     { name: "Upcoming Tours", path: "/tours", icon: Compass },
     { name: "Invoices", path: "/invoices", icon: FileText },
-    { name: "Agent", path: "/agent", icon: Users, roles: ["Admin", "Manager"] },
+    { name: "Agent", path: "/agent", icon: Users, roles: ["Admin"] },
     {
       name: "Vendors",
       path: "/vendors",
@@ -152,7 +154,7 @@ export default function DashboardLayout() {
       name: "Agent Margins",
       path: "/agent-margins",
       icon: Calculator,
-      roles: ["Admin", "Agent"],
+      roles: ["Admin", "Manager", "Agent"],
     },
     {
       name: "Booked Services",
