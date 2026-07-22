@@ -1880,7 +1880,7 @@ export default function BookingManager({
                                 return (
                                   <React.Fragment key={fs.id}>
                                     <div className="overflow-x-auto w-full scrollbar-thin pb-1">
-                                      <div className={`border border-border bg-gradient-to-r from-card to-secondary/10 rounded-xl p-3.5 flex justify-between items-center gap-3 hover:border-primary/30 transition-all text-[12px] shadow-sm relative overflow-hidden group min-w-[620px] ${fs.status === 'CANCELLED' ? 'line-through opacity-60' : ''}`}>
+                                      <div className={`border border-border bg-gradient-to-r from-card to-secondary/10 rounded-xl p-3.5 flex justify-between items-center gap-3 hover:border-primary/30 transition-all text-[12px] shadow-sm relative overflow-hidden group min-w-[700px] ${fs.status === 'CANCELLED' ? 'line-through opacity-60' : ''}`}>
                                         {isConnecting && (
                                           <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-500"></div>
                                         )}
@@ -1892,25 +1892,10 @@ export default function BookingManager({
                                           <div className="w-9 h-9 bg-primary/5 text-primary border border-primary/10 rounded-xl flex items-center justify-center font-bold text-[11px] shadow-inner">
                                             <Plane size={14} className="text-primary group-hover:rotate-12 transition-transform" />
                                           </div>
-                                          <div>
-                                            <div className="flex items-center gap-1.5">
-                                              <h4 className="font-extrabold text-foreground text-[14px] tracking-tight">
-                                                {fs.flightNo}
-                                              </h4>
-                                              <span className="text-[9px] bg-secondary text-muted-foreground border-border px-1.5 py-0.5 rounded font-extrabold uppercase border">
-                                                {fs.flightClass || "Y"}
-                                              </span>
-                                              {fs.status === "CANCELLED" && (
-                                                <span className="text-[9px] bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-900/50 px-1.5 py-0.5 rounded font-black uppercase">
-                                                  Cancelled
-                                                </span>
-                                              )}
-                                              {isConnecting && (
-                                                <span className="text-[9px] bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded font-black uppercase">
-                                                  Connecting
-                                                </span>
-                                              )}
-                                            </div>
+                                           <div>
+                                            <h4 className="font-extrabold text-foreground text-[14px] tracking-tight">
+                                              {fs.flightNo}
+                                            </h4>
                                             <p className="text-[10px] text-muted-foreground mt-0.5 font-mono">
                                               PNR: <strong className="text-foreground font-bold">{fs.pnr || "—"}</strong>
                                             </p>
@@ -1926,11 +1911,26 @@ export default function BookingManager({
                                                 </strong>
                                               </p>
                                             )}
+                                            <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                                              <span className="text-[9px] bg-secondary text-muted-foreground border-border px-1.5 py-0.5 rounded font-extrabold uppercase border">
+                                                {fs.flightClass || "Y"}
+                                              </span>
+                                              {fs.status === "CANCELLED" && (
+                                                <span className="text-[9px] bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-900/50 px-1.5 py-0.5 rounded font-black uppercase">
+                                                  Cancelled
+                                                </span>
+                                              )}
+                                              {isConnecting && (
+                                                <span className="text-[9px] bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded font-black uppercase">
+                                                  Connecting
+                                                </span>
+                                              )}
+                                            </div>
                                           </div>
                                         </div>
 
-                                        <div className="flex items-center gap-4 flex-1 justify-center max-w-md">
-                                          <div className="text-right flex-1">
+                                        <div className="flex items-center gap-4 flex-1 min-w-0 justify-center max-w-md">
+                                          <div className="text-right flex-1 min-w-0">
                                             <p className="font-extrabold text-foreground text-[14px]">{fs.departTime || "—"}</p>
                                             <p className="text-[10px] text-muted-foreground font-extrabold tracking-wide uppercase truncate max-w-[150px]" title={fs.departedFrom}>
                                               {fs.departedFrom}
@@ -1955,7 +1955,7 @@ export default function BookingManager({
                                             <div className="h-[2px] w-full bg-gradient-to-r from-primary/10 via-primary/30 to-primary/10 absolute top-1/2 -translate-y-1/2"></div>
                                             <PlaneTakeoff size={12} className="text-primary absolute top-1/2 -translate-y-1/2 bg-card p-0.5 rounded-full border border-border shadow-sm group-hover:translate-x-1 transition-transform" />
                                           </div>
-                                          <div className="text-left flex-1">
+                                          <div className="text-left flex-1 min-w-0">
                                             <p className="font-extrabold text-foreground text-[14px]">{fs.arrivalTime || "—"}</p>
                                             <p className="text-[10px] text-muted-foreground font-extrabold tracking-wide uppercase truncate max-w-[150px]" title={fs.arrivedAt}>
                                               {fs.arrivedAt}
@@ -1978,8 +1978,8 @@ export default function BookingManager({
                                           </div>
                                         </div>
 
-                                        <div className="text-right flex items-center gap-3">
-                                          <div className="text-right">
+                                        <div className="text-right flex items-center gap-3 flex-shrink-0">
+                                          <div className="text-right flex-shrink-0">
                                             <p className="font-black text-foreground text-[15px] tracking-tight">{formatCurrency(fs.price)}</p>
                                             {fs.agentQuotedPrice !== undefined && fs.agentQuotedPrice !== null && (
                                               <p className="text-[10px] text-muted-foreground mt-0.5 font-medium block">Quoted: {formatCurrency(fs.agentQuotedPrice)}</p>
@@ -1991,7 +1991,7 @@ export default function BookingManager({
                                               <p className="text-[9px] text-muted-foreground font-bold uppercase mt-0.5 block">🎒 {fs.baggage}</p>
                                             )}
                                           </div>
-                                          <div className="flex items-center gap-1 border-l border-border/80 pl-2">
+                                          <div className="flex items-center gap-1 border-l border-border/80 pl-2 flex-shrink-0">
                                             <button
                                               type="button"
                                               onClick={(e) => {
