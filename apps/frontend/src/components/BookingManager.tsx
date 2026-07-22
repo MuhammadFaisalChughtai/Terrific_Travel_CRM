@@ -242,6 +242,7 @@ export default function BookingManager({
   );
   const [isTransportModalOpen, setIsTransportModalOpen] = useState(false);
   const [editingTransport, setEditingTransport] = useState<any | null>(null);
+  const [showPrintDropdown, setShowPrintDropdown] = useState(false);
   const [isVisaModalOpen, setIsVisaModalOpen] = useState(false);
   const [editingVisa, setEditingVisa] = useState<any | null>(null);
   const [isAdditionalModalOpen, setIsAdditionalModalOpen] = useState(false);
@@ -2303,23 +2304,90 @@ export default function BookingManager({
                   </button>
                 )}
                 {booking.transportServices?.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      printDocument(
-                        renderTransportVoucher(
-                          getTemplateContent("TRANSPORT_VOUCHER"),
-                          booking,
-                          "all",
-                        ),
-                        `Combined_Transfers_${booking.bookingReference || booking.id.substring(0, 8)}`,
-                      );
-                    }}
-                    className="flex items-center gap-1 px-2 py-0.5 bg-emerald-600/10 text-emerald-600 hover:bg-emerald-600/20 font-bold rounded text-[12px] transition-colors"
-                  >
-                    <Printer size={12} /> Print All
-                  </button>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowPrintDropdown(!showPrintDropdown);
+                      }}
+                      className="flex items-center gap-1 px-2 py-0.5 bg-emerald-600/10 text-emerald-600 hover:bg-emerald-600/20 font-bold rounded text-[12px] transition-colors"
+                    >
+                      <Printer size={12} /> Print Vouchers
+                    </button>
+                    {showPrintDropdown && (
+                      <>
+                        <div
+                          className="fixed inset-0 z-20 cursor-default"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowPrintDropdown(false);
+                          }}
+                        />
+                        <div className="absolute right-0 mt-1 w-48 bg-card border border-border rounded-lg shadow-lg py-1 z-30 text-[11px] font-medium text-foreground">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowPrintDropdown(false);
+                              printDocument(
+                                renderTransportVoucher(
+                                  getTemplateContent("TRANSPORT_VOUCHER"),
+                                  booking,
+                                  "all",
+                                ),
+                                `Combined_Transfers_${booking.bookingReference || booking.id.substring(0, 8)}`,
+                              );
+                            }}
+                            className="w-full text-left px-3 py-1.5 hover:bg-secondary/40 transition-colors flex items-center gap-1.5"
+                          >
+                            <Printer size={11} className="text-muted-foreground" />
+                            Print All (Combined)
+                          </button>
+                          
+                          <div className="border-t border-border/60 my-1" />
+                          <div className="px-3 py-1 text-[9px] uppercase font-bold text-muted-foreground tracking-wider">
+                            By Vendor
+                          </div>
+                          
+                          {(() => {
+                            const transportServices = booking.transportServices || [];
+                            const vendorGroups: { [vendorName: string]: any[] } = {};
+                            transportServices.forEach((ts: any) => {
+                              const vendorName = ts.vendor?.name || "Unassigned Vendor";
+                              if (!vendorGroups[vendorName]) {
+                                vendorGroups[vendorName] = [];
+                              }
+                              vendorGroups[vendorName].push(ts);
+                            });
+                            
+                            return Object.entries(vendorGroups).map(([vendorName, services]) => (
+                              <button
+                                key={vendorName}
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setShowPrintDropdown(false);
+                                  printDocument(
+                                    renderTransportVoucher(
+                                      getTemplateContent("TRANSPORT_VOUCHER"),
+                                      booking,
+                                      services,
+                                    ),
+                                    `${vendorName.replace(/\s+/g, '_')}_Transfers_${booking.bookingReference || booking.id.substring(0, 8)}`,
+                                  );
+                                }}
+                                className="w-full text-left px-3 py-1.5 hover:bg-secondary/40 transition-colors flex items-center gap-1.5"
+                              >
+                                <Printer size={11} className="text-muted-foreground" />
+                                {vendorName} Voucher
+                              </button>
+                            ));
+                          })()}
+                        </div>
+                      </>
+                    )}
+                  </div>
                 )}
                 <button className="text-muted-foreground">
                   {openSections.transportation ? (

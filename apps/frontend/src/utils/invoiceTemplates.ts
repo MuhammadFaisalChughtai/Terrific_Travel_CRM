@@ -1841,18 +1841,21 @@ export function generateTransportVoucherHtml(booking: any, transport: any) {
   const leader =
     booking.passengers?.find((p: any) => p.role === "Leader") ||
     booking.passengers?.[0];
-  const transfers =
-    transport === "all" || !transport
+  const transfers = Array.isArray(transport)
+    ? transport
+    : transport === "all" || !transport
       ? booking.transportServices || []
       : [transport];
 
   const voucherNo =
     transport === "all" || !transport
       ? `TRN-ALL-${booking.id.substring(0, 6).toUpperCase()}`
-      : `TRN-${transport.id.substring(0, 8).toUpperCase()}`;
+      : Array.isArray(transport)
+        ? `TRN-GRP-${booking.id.substring(0, 6).toUpperCase()}`
+        : `TRN-${transport.id.substring(0, 8).toUpperCase()}`;
 
   const issueDate =
-    transport === "all" || !transport
+    transport === "all" || !transport || Array.isArray(transport)
       ? formatDate(new Date())
       : transport.issueDate
         ? formatDate(transport.issueDate)
@@ -2556,22 +2559,25 @@ export function renderTransportVoucher(
   const leader =
     booking.passengers?.find((p: any) => p.role === "Leader") ||
     booking.passengers?.[0];
-  const transfers =
-    transport === "all" || !transport
+  const transfers = Array.isArray(transport)
+    ? transport
+    : transport === "all" || !transport
       ? booking.transportServices || []
       : [transport];
 
   const voucherNo =
     transport === "all" || !transport
       ? `TRN-ALL-${booking.id.substring(0, 6).toUpperCase()}`
-      : `TRN-${transport.id.substring(0, 8).toUpperCase()}`;
+      : Array.isArray(transport)
+        ? `TRN-GRP-${booking.id.substring(0, 6).toUpperCase()}`
+        : `TRN-${transport.id.substring(0, 8).toUpperCase()}`;
 
   const totalCost = transfers.reduce(
     (sum: number, t: any) => sum + (t.price || 0),
     0,
   );
   const issueDate =
-    transport === "all" || !transport
+    transport === "all" || !transport || Array.isArray(transport)
       ? formatDate(new Date())
       : transport.issueDate
         ? formatDate(transport.issueDate)
