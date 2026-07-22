@@ -33,6 +33,34 @@ export const BRAND_LOGOS = {
   `,
 };
 
+const parseTimeStr = (timeStr: string) => {
+  if (!timeStr) return 0;
+  const t = timeStr.trim().toUpperCase();
+  const firstPart = t.split('-')[0].trim();
+  const isPM = firstPart.includes('P');
+  const isAM = firstPart.includes('A');
+  let raw = firstPart.replace(/[APM:\s]/g, '');
+  if (raw.indexOf(':') !== -1) {
+    const parts = raw.split(':');
+    let hours = parseInt(parts[0], 10) || 0;
+    const minutes = parseInt(parts[1], 10) || 0;
+    if (isPM && hours < 12) hours += 12;
+    if (isAM && hours === 12) hours = 0;
+    return (hours * 60) + minutes;
+  }
+  let rawDigits = firstPart.replace(/[APM:\s:]/g, '');
+  if (rawDigits.length === 3) rawDigits = "0" + rawDigits;
+  if (rawDigits.length < 4) {
+    const parsed = parseInt(rawDigits, 10);
+    return isNaN(parsed) ? 0 : parsed * 60;
+  }
+  let hours = parseInt(rawDigits.substring(0, 2), 10) || 0;
+  const minutes = parseInt(rawDigits.substring(2, 4), 10) || 0;
+  if (isPM && hours < 12) hours += 12;
+  if (isAM && hours === 12) hours = 0;
+  return (hours * 60) + (isNaN(minutes) ? 0 : minutes);
+};
+
 // Common CSS rules for invoices and vouchers
 export const SHARED_CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;900&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
@@ -1964,7 +1992,12 @@ export function generateTransportVoucherHtml(booking: any, transport: any) {
           </tr>
         </thead>
         <tbody>
-          ${transfers
+          ${[...transfers]
+            .sort((a: any, b: any) => {
+              const dateDiff = new Date(a.date).getTime() - new Date(b.date).getTime();
+              if (dateDiff !== 0) return dateDiff;
+              return parseTimeStr(a.departureTime) - parseTimeStr(b.departureTime);
+            })
             .map(
               (t: any) => `
             <tr>
@@ -2590,7 +2623,9 @@ export function renderTransportVoucher(
   `;
 
   const sortedTransports = [...transfers].sort((a: any, b: any) => {
-    return new Date(a.date).getTime() - new Date(b.date).getTime();
+    const dateDiff = new Date(a.date).getTime() - new Date(b.date).getTime();
+    if (dateDiff !== 0) return dateDiff;
+    return parseTimeStr(a.departureTime) - parseTimeStr(b.departureTime);
   });
 
   const transfersRows = sortedTransports
