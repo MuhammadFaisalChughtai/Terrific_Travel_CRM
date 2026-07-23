@@ -413,6 +413,6 @@ export const updateVendorPaymentStatus = asyncHandler(async (req: AuthenticatedR
     res.status(403).json({ success: false, message: 'Only administrators can update vendor payment status' });
     return;
   }
-  const result = await bookingsService.updateVendorPaymentStatus(req.body);
+  const result = await bookingsService.updateVendorPaymentStatus(req.body, req.user!.id);
   res.status(200).json({ success: true, data: result });
 });

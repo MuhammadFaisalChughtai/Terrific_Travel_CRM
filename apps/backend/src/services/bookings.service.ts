@@ -2645,7 +2645,7 @@ export class BookingsService {
     return { serviceId, isDone };
   }
 
-  async updateVendorPaymentStatus(data: { bookingId: string; vendorId: string; status: string; partialAmount?: number }) {
+  async updateVendorPaymentStatus(data: { bookingId: string; vendorId: string; status: string; partialAmount?: number }, actorId: string) {
     const { bookingId, vendorId, status, partialAmount } = data;
     if (!bookingId || !vendorId || !status) {
       throw new BadRequestException('bookingId, vendorId, and status are required');
@@ -2717,7 +2717,7 @@ export class BookingsService {
             debit: prevAmountPaid,
             credit: 0.0,
             notes: `Reversal of vendor payment (reset to UNPAID) for booking #${booking.bookingReference}`,
-            createdById: booking.userId,
+            createdById: actorId,
             createdAt: issuanceDate,
           });
         }
@@ -2733,7 +2733,7 @@ export class BookingsService {
             debit: 0.0,
             credit: payAmount,
             notes: `Full vendor payment recorded manually for booking #${booking.bookingReference}`,
-            createdById: booking.userId,
+            createdById: actorId,
             createdAt: issuanceDate,
           });
         }
@@ -2755,7 +2755,7 @@ export class BookingsService {
           debit: 0.0,
           credit: pAmt,
           notes: `Partial vendor payment of ${pAmt} recorded manually for booking #${booking.bookingReference}`,
-          createdById: booking.userId,
+          createdById: actorId,
           createdAt: issuanceDate,
         });
       }
