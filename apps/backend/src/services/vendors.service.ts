@@ -136,31 +136,33 @@ export class VendorsService {
     // Aggregate costs by vendor
     const vendorCosts: Record<string, number> = {};
 
-    booking.accommodations?.forEach((x: any) => {
-      if (x.vendorId) {
-        vendorCosts[x.vendorId] = (vendorCosts[x.vendorId] || 0) + x.price;
-      }
-    });
-    booking.flightServices?.forEach((x: any) => {
-      if (x.vendorId) {
-        vendorCosts[x.vendorId] = (vendorCosts[x.vendorId] || 0) + x.price;
-      }
-    });
-    booking.transportServices?.forEach((x: any) => {
-      if (x.vendorId) {
-        vendorCosts[x.vendorId] = (vendorCosts[x.vendorId] || 0) + x.price;
-      }
-    });
-    booking.visaServices?.forEach((x: any) => {
-      if (x.vendorId) {
-        vendorCosts[x.vendorId] = (vendorCosts[x.vendorId] || 0) + x.price;
-      }
-    });
-    booking.additionalServices?.forEach((x: any) => {
-      if (x.vendorId) {
-        vendorCosts[x.vendorId] = (vendorCosts[x.vendorId] || 0) + x.servicePrice;
-      }
-    });
+    if (booking.status !== 'CANCELLED') {
+      booking.accommodations?.forEach((x: any) => {
+        if (x.vendorId) {
+          vendorCosts[x.vendorId] = (vendorCosts[x.vendorId] || 0) + x.price;
+        }
+      });
+      booking.flightServices?.forEach((x: any) => {
+        if (x.vendorId) {
+          vendorCosts[x.vendorId] = (vendorCosts[x.vendorId] || 0) + x.price;
+        }
+      });
+      booking.transportServices?.forEach((x: any) => {
+        if (x.vendorId) {
+          vendorCosts[x.vendorId] = (vendorCosts[x.vendorId] || 0) + x.price;
+        }
+      });
+      booking.visaServices?.forEach((x: any) => {
+        if (x.vendorId) {
+          vendorCosts[x.vendorId] = (vendorCosts[x.vendorId] || 0) + x.price;
+        }
+      });
+      booking.additionalServices?.forEach((x: any) => {
+        if (x.vendorId) {
+          vendorCosts[x.vendorId] = (vendorCosts[x.vendorId] || 0) + x.servicePrice;
+        }
+      });
+    }
 
     // Fetch existing records
     const currentRecords = await db.bookingVendorPayment.findMany({
@@ -320,7 +322,10 @@ export class VendorsService {
     const outstanding = await prisma.bookingVendorPayment.findMany({
       where: {
         vendorId,
-        status: { in: ['PENDING', 'PARTIAL'] }
+        status: { in: ['PENDING', 'PARTIAL'] },
+        booking: {
+          status: { not: 'CANCELLED' }
+        }
       },
       include: {
         booking: {
@@ -1421,10 +1426,18 @@ export class VendorsService {
 
     const lastLedger = await tx.vendorLedger.findFirst({
       where: { vendorId: params.vendorId || null },
-      orderBy: { createdAt: 'desc' },
+      orderBy: [
+        { createdAt: 'desc' },
+        { id: 'desc' }
+      ],
     });
     const lastBalance = lastLedger ? lastLedger.runningBalance : 0.0;
     const runningBalance = lastBalance + params.debit - params.credit;
+
+    let createdAt = params.createdAt || new Date();
+    if (lastLedger && createdAt.getTime() <= lastLedger.createdAt.getTime()) {
+      createdAt = new Date(lastLedger.createdAt.getTime() + 1);
+    }
 
     return tx.vendorLedger.create({
       data: {
@@ -1438,7 +1451,7 @@ export class VendorsService {
         referenceNumber: params.referenceNumber || null,
         notes: params.notes || null,
         createdById: params.createdById,
-        ...(params.createdAt ? { createdAt: params.createdAt } : {})
+        createdAt,
       }
     });
   }

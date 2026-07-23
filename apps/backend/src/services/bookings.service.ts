@@ -864,6 +864,8 @@ export class BookingsService {
       data: { status: BookingStatus.CANCELLED },
     });
 
+    await vendorsService.syncBookingVendorPayments(booking.id);
+
     await rabbitMQService.publish('booking.cancelled', {
       bookingId: booking.id,
     });
