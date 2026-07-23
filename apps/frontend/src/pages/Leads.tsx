@@ -43,7 +43,20 @@ export interface LeadUser {
 export interface LeadStatusLog {
   id: string;
   leadId: string;
-  status: "NEW" | "CONTACTED" | "FOLLOW_UP" | "QUALIFIED" | "CLOSED";
+  status:
+    | "NEW"
+    | "CONTACTED"
+    | "FOLLOW_UP"
+    | "QUALIFIED"
+    | "CLOSED"
+    | "VOICE_MAIL"
+    | "BOOK_ELSE_WHERE"
+    | "PLAN_CANCEL"
+    | "EXPENSIVE"
+    | "PENDING"
+    | "INTERESTING"
+    | "NOT_INTERESTED"
+    | "SALE";
   notes?: string | null;
   createdById?: string | null;
   createdBy?: LeadUser | null;
@@ -55,7 +68,20 @@ export interface Lead {
   fullName: string;
   phoneNumber: string;
   notes?: string | null;
-  status: "NEW" | "CONTACTED" | "FOLLOW_UP" | "QUALIFIED" | "CLOSED";
+  status:
+    | "NEW"
+    | "CONTACTED"
+    | "FOLLOW_UP"
+    | "QUALIFIED"
+    | "CLOSED"
+    | "VOICE_MAIL"
+    | "BOOK_ELSE_WHERE"
+    | "PLAN_CANCEL"
+    | "EXPENSIVE"
+    | "PENDING"
+    | "INTERESTING"
+    | "NOT_INTERESTED"
+    | "SALE";
   assignedAgentId?: string | null;
   assignedAgent?: LeadUser | null;
   createdById?: string | null;
@@ -100,6 +126,54 @@ const STATUS_CONFIG: Record<
     bg: "bg-gray-500/10 dark:bg-gray-500/20",
     text: "text-gray-600 dark:text-gray-400",
     border: "border-gray-500/30",
+  },
+  VOICE_MAIL: {
+    label: "Voice Mail",
+    bg: "bg-pink-500/10 dark:bg-pink-500/20",
+    text: "text-pink-600 dark:text-pink-400",
+    border: "border-pink-500/30",
+  },
+  BOOK_ELSE_WHERE: {
+    label: "Book Else Where",
+    bg: "bg-red-500/10 dark:bg-red-500/20",
+    text: "text-red-600 dark:text-red-400",
+    border: "border-red-500/30",
+  },
+  PLAN_CANCEL: {
+    label: "Plan Cancel",
+    bg: "bg-rose-500/10 dark:bg-rose-500/20",
+    text: "text-rose-600 dark:text-rose-400",
+    border: "border-rose-500/30",
+  },
+  EXPENSIVE: {
+    label: "Expensive",
+    bg: "bg-orange-500/10 dark:bg-orange-500/20",
+    text: "text-orange-600 dark:text-orange-400",
+    border: "border-orange-500/30",
+  },
+  PENDING: {
+    label: "Pending",
+    bg: "bg-sky-500/10 dark:bg-sky-500/20",
+    text: "text-sky-600 dark:text-sky-400",
+    border: "border-sky-500/30",
+  },
+  INTERESTING: {
+    label: "Interesting",
+    bg: "bg-teal-500/10 dark:bg-teal-500/20",
+    text: "text-teal-600 dark:text-teal-400",
+    border: "border-teal-500/30",
+  },
+  NOT_INTERESTED: {
+    label: "Not Interested",
+    bg: "bg-slate-500/10 dark:bg-slate-500/20",
+    text: "text-slate-600 dark:text-slate-400",
+    border: "border-slate-500/30",
+  },
+  SALE: {
+    label: "Sale",
+    bg: "bg-green-500/10 dark:bg-green-500/20",
+    text: "text-green-600 dark:text-green-400",
+    border: "border-green-500/30",
   },
 };
 
@@ -563,6 +637,14 @@ export default function LeadsPage() {
               <option value="FOLLOW_UP">Follow-up</option>
               <option value="QUALIFIED">Qualified</option>
               <option value="CLOSED">Closed</option>
+              <option value="VOICE_MAIL">Voice Mail</option>
+              <option value="BOOK_ELSE_WHERE">Book Else Where</option>
+              <option value="PLAN_CANCEL">Plan Cancel</option>
+              <option value="EXPENSIVE">Expensive</option>
+              <option value="PENDING">Pending</option>
+              <option value="INTERESTING">Interesting</option>
+              <option value="NOT_INTERESTED">Not Interested</option>
+              <option value="SALE">Sale</option>
             </select>
           </div>
 
@@ -1028,6 +1110,14 @@ export default function LeadsPage() {
                   <option value="FOLLOW_UP">Follow-up</option>
                   <option value="QUALIFIED">Qualified</option>
                   <option value="CLOSED">Closed</option>
+                  <option value="VOICE_MAIL">Voice Mail</option>
+                  <option value="BOOK_ELSE_WHERE">Book Else Where</option>
+                  <option value="PLAN_CANCEL">Plan Cancel</option>
+                  <option value="EXPENSIVE">Expensive</option>
+                  <option value="PENDING">Pending</option>
+                  <option value="INTERESTING">Interesting</option>
+                  <option value="NOT_INTERESTED">Not Interested</option>
+                  <option value="SALE">Sale</option>
                 </select>
               </div>
             </div>
@@ -1166,6 +1256,14 @@ export default function LeadsPage() {
                   <option value="FOLLOW_UP">Follow-up</option>
                   <option value="QUALIFIED">Qualified</option>
                   <option value="CLOSED">Closed</option>
+                  <option value="VOICE_MAIL">Voice Mail</option>
+                  <option value="BOOK_ELSE_WHERE">Book Else Where</option>
+                  <option value="PLAN_CANCEL">Plan Cancel</option>
+                  <option value="EXPENSIVE">Expensive</option>
+                  <option value="PENDING">Pending</option>
+                  <option value="INTERESTING">Interesting</option>
+                  <option value="NOT_INTERESTED">Not Interested</option>
+                  <option value="SALE">Sale</option>
                 </select>
               </div>
             </div>
@@ -1302,8 +1400,21 @@ export default function LeadsPage() {
                 >
                   All Logs ({activeViewLead.statusLogs?.length || 0})
                 </button>
-                {["NEW", "CONTACTED", "FOLLOW_UP", "QUALIFIED", "CLOSED"].map(
-                  (st) => {
+                {[
+                  "NEW",
+                  "CONTACTED",
+                  "FOLLOW_UP",
+                  "QUALIFIED",
+                  "CLOSED",
+                  "VOICE_MAIL",
+                  "BOOK_ELSE_WHERE",
+                  "PLAN_CANCEL",
+                  "EXPENSIVE",
+                  "PENDING",
+                  "INTERESTING",
+                  "NOT_INTERESTED",
+                  "SALE",
+                ].map((st) => {
                     const count =
                       activeViewLead.statusLogs?.filter((l: LeadStatusLog) => l.status === st)
                         .length || 0;
