@@ -193,7 +193,7 @@ export class VendorsService {
         const diff = originalCost - existing.originalCost;
         if (diff !== 0) {
           const amountPaid = existing.amountPaid;
-          const remainingBalance = Math.max(0, originalCost - amountPaid);
+          const remainingBalance = originalCost - amountPaid;
           let status = 'PENDING';
           if (amountPaid >= originalCost) {
             status = 'PAID';
@@ -280,7 +280,7 @@ export class VendorsService {
       if (!activeVendorIds.includes(record.vendorId) && record.originalCost > 0) {
         const diff = -record.originalCost;
         const amountPaid = record.amountPaid;
-        const remainingBalance = Math.max(0, 0 - amountPaid);
+        const remainingBalance = 0 - amountPaid;
         const status = amountPaid > 0 ? 'PARTIAL' : 'PAID';
 
         await db.bookingVendorPayment.update({
@@ -552,7 +552,7 @@ export class VendorsService {
 
         if (totalAllocated > 0) {
           const amountPaidNew = ob.amountPaid + totalAllocated;
-          const remainingBalanceNew = Math.max(0, ob.originalCost - amountPaidNew);
+          const remainingBalanceNew = ob.originalCost - amountPaidNew;
           let statusNew = 'PENDING';
           if (remainingBalanceNew <= 0) {
             statusNew = 'PAID';
@@ -1306,7 +1306,7 @@ export class VendorsService {
           bookingRef = bvp.booking.bookingReference;
           // Discount reduces the original cost we owe them
           const newOriginalCost = Math.max(0, bvp.originalCost - amount);
-          const newRemaining = Math.max(0, newOriginalCost - bvp.amountPaid);
+          const newRemaining = newOriginalCost - bvp.amountPaid;
           let status = 'PENDING';
           if (bvp.amountPaid >= newOriginalCost) {
             status = 'PAID';

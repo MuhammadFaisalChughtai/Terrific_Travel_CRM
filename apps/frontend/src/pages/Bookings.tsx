@@ -686,7 +686,14 @@ export default function Bookings() {
                           0,
                         ) || 0;
                       const vendorRemaining =
-                        totalVendorCost - totalPaidToVendors;
+                        booking.bookingVendorPayments &&
+                        booking.bookingVendorPayments.length > 0
+                          ? booking.bookingVendorPayments.reduce(
+                              (sum: number, bvp: any) =>
+                                sum + (bvp.remainingBalance || 0),
+                              0,
+                            )
+                          : totalVendorCost - totalPaidToVendors;
 
                       const rawProfit = booking.totalPrice - totalVendorCost;
 
