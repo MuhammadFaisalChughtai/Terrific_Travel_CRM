@@ -322,7 +322,10 @@ export class VendorsService {
     const outstanding = await prisma.bookingVendorPayment.findMany({
       where: {
         vendorId,
-        status: { in: ['PENDING', 'PARTIAL'] },
+        OR: [
+          { status: { in: ['PENDING', 'PARTIAL'] } },
+          { remainingBalance: { lt: 0 } }
+        ],
         booking: {
           status: { not: 'CANCELLED' }
         }
@@ -504,7 +507,10 @@ export class VendorsService {
       if (bookingIds && bookingIds.length > 0) {
         outstandingWhere.bookingId = { in: bookingIds };
       } else {
-        outstandingWhere.status = { not: 'PAID' };
+        outstandingWhere.OR = [
+          { status: { not: 'PAID' } },
+          { remainingBalance: { lt: 0 } }
+        ];
       }
 
       const outstanding = await tx.bookingVendorPayment.findMany({
