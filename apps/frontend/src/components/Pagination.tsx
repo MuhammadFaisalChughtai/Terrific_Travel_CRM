@@ -1,5 +1,4 @@
 import React from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface PaginationProps {
   currentPage: number;
@@ -51,39 +50,45 @@ export default function Pagination({
 
   return (
     <div className="flex items-center justify-between border-t border-border px-4 py-3 sm:px-6 mt-4 bg-card rounded-b-2xl">
+      {/* Mobile view */}
       <div className="flex flex-1 justify-between sm:hidden">
         <button
           onClick={() => onPageChange(Math.max(currentPage - 1, 1))}
           disabled={currentPage === 1}
-          className="relative inline-flex items-center rounded-lg border border-border bg-card px-4 py-2 text-xs font-semibold text-muted-foreground hover:bg-secondary disabled:opacity-50 transition-colors"
+          className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-border bg-card text-muted-foreground hover:bg-secondary disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200"
         >
-          Previous
+          &lt; Prev
         </button>
         <button
           onClick={() => onPageChange(Math.min(currentPage + 1, totalPages))}
           disabled={currentPage === totalPages}
-          className="relative ml-3 inline-flex items-center rounded-lg border border-border bg-card px-4 py-2 text-xs font-semibold text-muted-foreground hover:bg-secondary disabled:opacity-50 transition-colors"
+          className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-border bg-card text-muted-foreground hover:bg-secondary disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200"
         >
-          Next
+          Next &gt;
         </button>
       </div>
+
+      {/* Desktop view */}
       <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
         <div>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground font-medium">
             Showing <span className="font-semibold text-foreground">{startItem}</span> to{" "}
             <span className="font-semibold text-foreground">{endItem}</span> of{" "}
             <span className="font-semibold text-foreground">{totalItems}</span> {itemName}
           </p>
         </div>
         <div>
-          <nav className="isolate inline-flex -space-x-px rounded-lg shadow-sm border border-border" aria-label="Pagination">
+          <nav className="flex items-center gap-1.5" aria-label="Pagination">
             <button
               onClick={() => onPageChange(Math.max(currentPage - 1, 1))}
               disabled={currentPage === 1}
-              className="relative inline-flex items-center rounded-l-lg px-2 py-2 text-muted-foreground hover:bg-secondary disabled:opacity-50 transition-colors"
+              className={`px-3 py-1.5 text-xs font-semibold rounded-xl border transition-all duration-200 focus:outline-none ${
+                currentPage === 1
+                  ? "bg-transparent border-border text-muted-foreground/30 cursor-not-allowed"
+                  : "bg-transparent border-border text-foreground hover:bg-secondary/40"
+              }`}
             >
-              <span className="sr-only">Previous</span>
-              <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+              &lt; Prev
             </button>
 
             {getPageNumbers().map((pageNum, idx) => {
@@ -91,7 +96,7 @@ export default function Pagination({
                 return (
                   <span
                     key={`dots-${idx}`}
-                    className="relative inline-flex items-center px-3.5 py-2 text-xs font-semibold text-muted-foreground/50 border-r border-border"
+                    className="px-1.5 text-xs font-semibold text-muted-foreground/50 select-none"
                   >
                     ...
                   </span>
@@ -104,10 +109,10 @@ export default function Pagination({
                   key={pageNum}
                   onClick={() => onPageChange(pageNum as number)}
                   aria-current={isCurrent ? "page" : undefined}
-                  className={`relative inline-flex items-center px-3.5 py-2 text-xs font-semibold transition-colors border-r border-border ${
+                  className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl border transition-all duration-200 focus:outline-none min-w-[34px] text-center ${
                     isCurrent
-                      ? "z-10 bg-primary text-primary-foreground focus:outline-none"
-                      : "text-muted-foreground hover:bg-secondary focus:outline-none"
+                      ? "bg-primary border-primary text-primary-foreground font-bold shadow-sm shadow-primary/10"
+                      : "bg-transparent border-border text-foreground hover:bg-secondary/40"
                   }`}
                 >
                   {pageNum}
@@ -118,10 +123,13 @@ export default function Pagination({
             <button
               onClick={() => onPageChange(Math.min(currentPage + 1, totalPages))}
               disabled={currentPage === totalPages}
-              className="relative inline-flex items-center rounded-r-lg px-2 py-2 text-muted-foreground hover:bg-secondary disabled:opacity-50 transition-colors"
+              className={`px-3 py-1.5 text-xs font-semibold rounded-xl border transition-all duration-200 focus:outline-none ${
+                currentPage === totalPages
+                  ? "bg-transparent border-border text-muted-foreground/30 cursor-not-allowed"
+                  : "bg-transparent border-border text-foreground hover:bg-secondary/40"
+              }`}
             >
-              <span className="sr-only">Next</span>
-              <ChevronRight className="h-4 w-4" aria-hidden="true" />
+              Next &gt;
             </button>
           </nav>
         </div>

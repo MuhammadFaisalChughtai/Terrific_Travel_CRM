@@ -961,14 +961,17 @@ export default function LeadsPage() {
           </div>
 
           {/* Page numbers and Previous / Next controls */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page <= 1 || isLoading}
-              className="px-2.5 py-1.5 rounded-md border border-border hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1 font-medium text-foreground"
+              className={`px-3 py-1.5 text-xs font-semibold rounded-xl border transition-all duration-200 focus:outline-none ${
+                page <= 1 || isLoading
+                  ? "bg-transparent border-border text-muted-foreground/30 cursor-not-allowed"
+                  : "bg-transparent border-border text-foreground hover:bg-secondary/40"
+              }`}
             >
-              <ChevronLeft className="w-3.5 h-3.5" />
-              <span>Prev</span>
+              &lt; Prev
             </button>
 
             {/* Page number buttons */}
@@ -984,14 +987,14 @@ export default function LeadsPage() {
                 return (
                   <React.Fragment key={p}>
                     {showEllipsis && (
-                      <span className="px-1 text-muted-foreground">...</span>
+                      <span className="px-1.5 text-xs font-semibold text-muted-foreground/50 select-none">...</span>
                     )}
                     <button
                       onClick={() => setPage(p)}
-                      className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                      className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl border transition-all duration-200 focus:outline-none min-w-[34px] text-center ${
                         page === p
-                          ? "bg-primary text-primary-foreground"
-                          : "hover:bg-muted border border-border text-foreground"
+                          ? "bg-primary border-primary text-primary-foreground font-bold shadow-sm shadow-primary/10"
+                          : "bg-transparent border-border text-foreground hover:bg-secondary/40"
                       }`}
                     >
                       {p}
@@ -1003,10 +1006,13 @@ export default function LeadsPage() {
             <button
               onClick={() => setPage((p) => Math.min(meta.totalPages, p + 1))}
               disabled={page >= meta.totalPages || isLoading}
-              className="px-2.5 py-1.5 rounded-md border border-border hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1 font-medium text-foreground"
+              className={`px-3 py-1.5 text-xs font-semibold rounded-xl border transition-all duration-200 focus:outline-none ${
+                page >= meta.totalPages || isLoading
+                  ? "bg-transparent border-border text-muted-foreground/30 cursor-not-allowed"
+                  : "bg-transparent border-border text-foreground hover:bg-secondary/40"
+              }`}
             >
-              <span>Next</span>
-              <ChevronRight className="w-3.5 h-3.5" />
+              Next &gt;
             </button>
           </div>
         </div>
