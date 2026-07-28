@@ -127,48 +127,27 @@ export function parseHotelPNRText(text: string, defaultYear: number): ParsedHote
   return result;
 }
 
-interface ParsedRooms {
-  single: number;
-  double: number;
-  triple: number;
-  quad: number;
-  custom: string;
-  customQty: number;
+interface RoomSelection {
+  roomType: string;
+  customRoomType: string;
+  qty: number;
 }
 
-function parseRoomTypesString(roomTypeStr: string, totalQty: number): ParsedRooms {
-  const result: ParsedRooms = {
-    single: 0,
-    double: 0,
-    triple: 0,
-    quad: 0,
-    custom: '',
-    customQty: 0
-  };
+function parseRoomSelections(roomTypeStr: string, totalQty: number): RoomSelection[] {
+  const standardRoomTypes = ['Single Room', 'Double Room', 'Triple Room', 'Quad Room'];
 
-  if (!roomTypeStr) return result;
+  if (!roomTypeStr) {
+    return [{ roomType: 'Quad Room', customRoomType: '', qty: totalQty || 1 }];
+  }
 
-  // Standard clean matches first
-  if (roomTypeStr === 'Single Room') {
-    result.single = totalQty;
-    return result;
-  }
-  if (roomTypeStr === 'Double Room') {
-    result.double = totalQty;
-    return result;
-  }
-  if (roomTypeStr === 'Triple Room') {
-    result.triple = totalQty;
-    return result;
-  }
-  if (roomTypeStr === 'Quad Room') {
-    result.quad = totalQty;
-    return result;
+  // If it's a simple standard room type
+  if (standardRoomTypes.includes(roomTypeStr)) {
+    return [{ roomType: roomTypeStr, customRoomType: '', qty: totalQty || 1 }];
   }
 
   // Parse combined string, e.g., "1 Triple Room + 1 Double Room"
   const parts = roomTypeStr.split(/\s*(?:\+|\band\b|,)\s*/i);
-  let matchedAny = false;
+  const selections: RoomSelection[] = [];
 
   for (const part of parts) {
     if (!part.trim()) continue;
@@ -180,32 +159,29 @@ function parseRoomTypesString(roomTypeStr: string, totalQty: number): ParsedRoom
       partName = numMatch[2].trim();
     }
 
-    const lowerName = partName.toLowerCase();
-    if (lowerName.includes('single')) {
-      result.single = partQty;
-      matchedAny = true;
-    } else if (lowerName.includes('double')) {
-      result.double = partQty;
-      matchedAny = true;
-    } else if (lowerName.includes('triple')) {
-      result.triple = partQty;
-      matchedAny = true;
-    } else if (lowerName.includes('quad')) {
-      result.quad = partQty;
-      matchedAny = true;
+    // Clean up singular/plural for standard match
+    let matchedType = '';
+    const cleanPartName = partName.replace(/s$/i, ''); // remove plural 's'
+    
+    for (const std of standardRoomTypes) {
+      if (std.toLowerCase() === partName.toLowerCase() || std.toLowerCase() === cleanPartName.toLowerCase() || partName.toLowerCase().includes(std.toLowerCase())) {
+        matchedType = std;
+        break;
+      }
+    }
+
+    if (matchedType) {
+      selections.push({ roomType: matchedType, customRoomType: '', qty: partQty });
     } else {
-      result.custom = partName;
-      result.customQty = partQty;
-      matchedAny = true;
+      selections.push({ roomType: 'Custom', customRoomType: partName, qty: partQty });
     }
   }
 
-  if (!matchedAny) {
-    result.custom = roomTypeStr;
-    result.customQty = totalQty;
+  if (selections.length === 0) {
+    return [{ roomType: 'Custom', customRoomType: roomTypeStr, qty: totalQty || 1 }];
   }
 
-  return result;
+  return selections;
 }
 
 export default function HotelReservationModal({
@@ -223,14 +199,10 @@ export default function HotelReservationModal({
   const [hotelName, setHotelName] = useState('');
   const [city, setCity] = useState('');
   
-  // Room Type quantities
-  const [singleQty, setSingleQty] = useState(0);
-  const [doubleQty, setDoubleQty] = useState(0);
-  const [tripleQty, setTripleQty] = useState(0);
-  const [quadQty, setQuadQty] = useState(0);
-  const [customRoomName, setCustomRoomName] = useState('');
-  const [customQty, setCustomQty] = useState(0);
-  const [isCustomEnabled, setIsCustomEnabled] = useState(false);
+  // Room Type selections
+  const [roomSelections, setRoomSelections] = useState<RoomSelection[]>([
+    { roomType: 'Quad Room', customRoomType: '', qty: 1 }
+  ]);
   const [checkInDate, setCheckInDate] = useState('');
   const [checkOutDate, setCheckOutDate] = useState('');
   const [checkInTime, setCheckInTime] = useState('16:00');
@@ -268,14 +240,8 @@ export default function HotelReservationModal({
         setCity(accommodationToEdit.city || '');
         
         // Handle Room Type dropdown vs custom
-        const parsedRooms = parseRoomTypesString(accommodationToEdit.roomType || '', accommodationToEdit.qty || 1);
-        setSingleQty(parsedRooms.single);
-        setDoubleQty(parsedRooms.double);
-        setTripleQty(parsedRooms.triple);
-        setQuadQty(parsedRooms.quad);
-        setCustomRoomName(parsedRooms.custom);
-        setCustomQty(parsedRooms.customQty);
-        setIsCustomEnabled(parsedRooms.customQty > 0 || !!parsedRooms.custom);
+        const parsedSelections = parseRoomSelections(accommodationToEdit.roomType || '', accommodationToEdit.qty || 1);
+        setRoomSelections(parsedSelections);
 
         // Check in date
         let formattedCheckIn = '';
@@ -362,13 +328,7 @@ export default function HotelReservationModal({
         setVendorId('');
         setHotelName('');
         setCity('');
-        setSingleQty(0);
-        setDoubleQty(0);
-        setTripleQty(0);
-        setQuadQty(1); // default to 1 Quad room
-        setCustomRoomName('');
-        setCustomQty(0);
-        setIsCustomEnabled(false);
+        setRoomSelections([{ roomType: 'Quad Room', customRoomType: '', qty: 1 }]);
         setCheckInDate('');
         setCheckOutDate('');
         setCheckInTime('16:00');
@@ -398,10 +358,10 @@ export default function HotelReservationModal({
   // Automatically calculate Qty based on selected room quantities
   useEffect(() => {
     if (isOpen) {
-      const totalRooms = singleQty + doubleQty + tripleQty + quadQty + (isCustomEnabled ? customQty : 0);
+      const totalRooms = roomSelections.reduce((sum, item) => sum + item.qty, 0);
       setQty(String(totalRooms));
     }
-  }, [singleQty, doubleQty, tripleQty, quadQty, customQty, isCustomEnabled, isOpen]);
+  }, [roomSelections, isOpen]);
 
   // Fetch Vendors
   const { data: vendorsData, isLoading: isLoadingVendors } = useQuery({
@@ -439,25 +399,24 @@ export default function HotelReservationModal({
 
     const finalMealType = mealTypeSelect === 'Custom' ? customMealType : mealTypeSelect;
 
-    const roomStrings: string[] = [];
-    if (singleQty > 0) roomStrings.push(`${singleQty} Single Room${singleQty > 1 ? 's' : ''}`);
-    if (doubleQty > 0) roomStrings.push(`${doubleQty} Double Room${doubleQty > 1 ? 's' : ''}`);
-    if (tripleQty > 0) roomStrings.push(`${tripleQty} Triple Room${tripleQty > 1 ? 's' : ''}`);
-    if (quadQty > 0) roomStrings.push(`${quadQty} Quad Room${quadQty > 1 ? 's' : ''}`);
-    if (isCustomEnabled && customQty > 0 && customRoomName.trim()) {
-      roomStrings.push(`${customQty} ${customRoomName.trim()}`);
-    }
+    const roomStrings = roomSelections.map(sel => {
+      const typeStr = sel.roomType === 'Custom' ? sel.customRoomType.trim() : sel.roomType;
+      const displayType = typeStr || 'Standard Room';
+      return `${sel.qty} ${displayType}`;
+    });
 
     let finalRoomType = '';
     if (roomStrings.length === 0) {
-      toast.error('Please select at least one room type and set its quantity');
+      toast.error('Please add at least one room selection');
       return;
     } else if (roomStrings.length === 1) {
-      const singleType = singleQty === 1 ? 'Single Room' : doubleQty === 1 ? 'Double Room' : tripleQty === 1 ? 'Triple Room' : quadQty === 1 ? 'Quad Room' : '';
-      if (singleType) {
-        finalRoomType = singleType;
+      const sel = roomSelections[0];
+      const typeStr = sel.roomType === 'Custom' ? sel.customRoomType.trim() : sel.roomType;
+      const displayType = typeStr || 'Standard Room';
+      if (sel.qty === 1 && sel.roomType !== 'Custom') {
+        finalRoomType = displayType;
       } else {
-        finalRoomType = roomStrings[0];
+        finalRoomType = `${sel.qty} ${displayType}`;
       }
     } else {
       finalRoomType = roomStrings.join(' + ');
@@ -528,30 +487,9 @@ export default function HotelReservationModal({
       if (parsed.confirmationNumber) setHotelConfirmationNumber(parsed.confirmationNumber);
       
       if (parsed.roomType) {
-        setSingleQty(0);
-        setDoubleQty(0);
-        setTripleQty(0);
-        setQuadQty(0);
-        setCustomRoomName('');
-        setCustomQty(0);
-        setIsCustomEnabled(false);
-
-        const lowerRt = parsed.roomType.toLowerCase();
         const parsedQty = parsed.qty ? Number(parsed.qty) : 1;
-
-        if (lowerRt.includes('single')) {
-          setSingleQty(parsedQty);
-        } else if (lowerRt.includes('double')) {
-          setDoubleQty(parsedQty);
-        } else if (lowerRt.includes('triple')) {
-          setTripleQty(parsedQty);
-        } else if (lowerRt.includes('quad')) {
-          setQuadQty(parsedQty);
-        } else {
-          setIsCustomEnabled(true);
-          setCustomRoomName(parsed.roomType);
-          setCustomQty(parsedQty);
-        }
+        const selections = parseRoomSelections(parsed.roomType, parsedQty);
+        setRoomSelections(selections);
       }
 
       if (parsed.price) setPrice(parsed.price);
@@ -612,7 +550,7 @@ export default function HotelReservationModal({
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Hotel Vendor */}
-              <div className="flex flex-col gap-1 col-span-2">
+              <div className="flex flex-col gap-1 md:col-span-2">
                 <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
                   Hotel Vendor *
                 </label>
@@ -632,7 +570,7 @@ export default function HotelReservationModal({
               </div>
 
               {/* Hotel Name */}
-              <div className="flex flex-col gap-1 relative">
+              <div className="flex flex-col gap-1 relative md:col-span-1">
                 <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
                   Hotel Name *
                 </label>
@@ -677,7 +615,7 @@ export default function HotelReservationModal({
               </div>
 
               {/* City */}
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-1 md:col-span-1">
                 <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
                   City
                 </label>
@@ -691,165 +629,116 @@ export default function HotelReservationModal({
               </div>
 
               {/* Rooms & Room Types Configuration */}
-              <div className="col-span-1 md:col-span-3 bg-secondary/15 p-4 rounded-xl border border-border space-y-3">
-                <label className="text-[10px] font-bold text-primary uppercase tracking-wider block">
-                  Rooms & Room Types Configuration
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {/* Single Room */}
-                  <div className="flex items-center justify-between p-2.5 bg-background border border-border rounded-lg">
-                    <span className="text-xs font-semibold text-foreground">Single Room</span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setSingleQty(q => Math.max(0, q - 1))}
-                        className="w-6 h-6 flex items-center justify-center rounded-md border border-border bg-secondary/20 text-foreground hover:bg-secondary/40 font-bold focus:outline-none"
-                      >
-                        -
-                      </button>
-                      <span className="text-xs font-bold w-6 text-center">{singleQty}</span>
-                      <button
-                        type="button"
-                        onClick={() => setSingleQty(q => q + 1)}
-                        className="w-6 h-6 flex items-center justify-center rounded-md border border-border bg-secondary/20 text-foreground hover:bg-secondary/40 font-bold focus:outline-none"
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Double Room */}
-                  <div className="flex items-center justify-between p-2.5 bg-background border border-border rounded-lg">
-                    <span className="text-xs font-semibold text-foreground">Double Room</span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setDoubleQty(q => Math.max(0, q - 1))}
-                        className="w-6 h-6 flex items-center justify-center rounded-md border border-border bg-secondary/20 text-foreground hover:bg-secondary/40 font-bold focus:outline-none"
-                      >
-                        -
-                      </button>
-                      <span className="text-xs font-bold w-6 text-center">{doubleQty}</span>
-                      <button
-                        type="button"
-                        onClick={() => setDoubleQty(q => q + 1)}
-                        className="w-6 h-6 flex items-center justify-center rounded-md border border-border bg-secondary/20 text-foreground hover:bg-secondary/40 font-bold focus:outline-none"
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Triple Room */}
-                  <div className="flex items-center justify-between p-2.5 bg-background border border-border rounded-lg">
-                    <span className="text-xs font-semibold text-foreground">Triple Room</span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setTripleQty(q => Math.max(0, q - 1))}
-                        className="w-6 h-6 flex items-center justify-center rounded-md border border-border bg-secondary/20 text-foreground hover:bg-secondary/40 font-bold focus:outline-none"
-                      >
-                        -
-                      </button>
-                      <span className="text-xs font-bold w-6 text-center">{tripleQty}</span>
-                      <button
-                        type="button"
-                        onClick={() => setTripleQty(q => q + 1)}
-                        className="w-6 h-6 flex items-center justify-center rounded-md border border-border bg-secondary/20 text-foreground hover:bg-secondary/40 font-bold focus:outline-none"
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Quad Room */}
-                  <div className="flex items-center justify-between p-2.5 bg-background border border-border rounded-lg">
-                    <span className="text-xs font-semibold text-foreground">Quad Room</span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setQuadQty(q => Math.max(0, q - 1))}
-                        className="w-6 h-6 flex items-center justify-center rounded-md border border-border bg-secondary/20 text-foreground hover:bg-secondary/40 font-bold focus:outline-none"
-                      >
-                        -
-                      </button>
-                      <span className="text-xs font-bold w-6 text-center">{quadQty}</span>
-                      <button
-                        type="button"
-                        onClick={() => setQuadQty(q => q + 1)}
-                        className="w-6 h-6 flex items-center justify-center rounded-md border border-border bg-secondary/20 text-foreground hover:bg-secondary/40 font-bold focus:outline-none"
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
+              <div className="col-span-1 md:col-span-2 bg-secondary/15 p-4 rounded-xl border border-border space-y-4">
+                <div className="flex items-center justify-between border-b border-border/60 pb-1.5">
+                  <label className="text-[10px] font-bold text-primary uppercase tracking-wider">
+                    Rooms & Room Types Configuration
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setRoomSelections(prev => [...prev, { roomType: 'Quad Room', customRoomType: '', qty: 1 }])}
+                    className="text-[10px] font-bold bg-primary text-primary-foreground px-2.5 py-1 rounded-md hover:bg-primary/95 transition-all focus:outline-none"
+                  >
+                    + Add Room Type
+                  </button>
                 </div>
 
-                {/* Custom Room Type */}
-                <div className="border-t border-border/50 pt-3">
-                  <div className="flex items-center justify-between">
-                    <label className="flex items-center gap-2 text-xs font-semibold text-foreground cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={isCustomEnabled}
-                        onChange={(e) => setIsCustomEnabled(e.target.checked)}
-                        className="w-3.5 h-3.5 rounded border-border text-primary focus:ring-primary focus:ring-0"
-                      />
-                      Add Custom Room Type
-                    </label>
-                  </div>
-
-                  {isCustomEnabled && (
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-3 animate-fadeIn">
-                      <div className="sm:col-span-2 flex flex-col gap-1">
-                        <label className="text-[10px] font-bold text-primary uppercase tracking-wider">
-                          Custom Room Type *
-                        </label>
-                        <input
-                          type="text"
-                          required={isCustomEnabled}
-                          placeholder="e.g. 1 Triple Room + Double room"
-                          value={customRoomName}
-                          onChange={(e) => setCustomRoomName(e.target.value)}
-                          className="text-xs py-1.5 px-3 bg-background border border-primary rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
-                        />
+                <div className="space-y-3">
+                  {roomSelections.map((selection, index) => (
+                    <div key={index} className="flex flex-col sm:flex-row items-start sm:items-center gap-3 bg-background p-3 rounded-lg border border-border">
+                      {/* Room Type Dropdown */}
+                      <div className="flex-1 w-full">
+                        <select
+                          value={selection.roomType}
+                          onChange={(e) => {
+                            const newSelections = [...roomSelections];
+                            newSelections[index] = {
+                              ...newSelections[index],
+                              roomType: e.target.value,
+                              customRoomType: e.target.value === 'Custom' ? newSelections[index].customRoomType : ''
+                            };
+                            setRoomSelections(newSelections);
+                          }}
+                          className="w-full text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                        >
+                          <option value="Single Room">Single Room</option>
+                          <option value="Double Room">Double Room</option>
+                          <option value="Triple Room">Triple Room</option>
+                          <option value="Quad Room">Quad Room</option>
+                          <option value="Custom">Custom Room Type</option>
+                        </select>
                       </div>
-                      <div className="flex flex-col gap-1">
-                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider text-center">
-                          Quantity
-                        </label>
-                        <div className="flex items-center justify-center gap-2 bg-background border border-border rounded-lg h-[30px]">
+
+                      {/* Custom Room Type Input */}
+                      {selection.roomType === 'Custom' && (
+                        <div className="flex-1 w-full">
+                          <input
+                            type="text"
+                            required
+                            placeholder="Enter custom room type"
+                            value={selection.customRoomType}
+                            onChange={(e) => {
+                              const newSelections = [...roomSelections];
+                              newSelections[index] = {
+                                ...newSelections[index],
+                                customRoomType: e.target.value
+                              };
+                              setRoomSelections(newSelections);
+                            }}
+                            className="w-full text-xs py-1.5 px-3 bg-background border border-primary rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                          />
+                        </div>
+                      )}
+
+                      {/* Quantity Controls & Delete button */}
+                      <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
+                        <div className="flex items-center gap-2">
                           <button
                             type="button"
-                            onClick={() => setCustomQty(q => Math.max(0, q - 1))}
+                            onClick={() => {
+                              const newSelections = [...roomSelections];
+                              newSelections[index].qty = Math.max(1, newSelections[index].qty - 1);
+                              setRoomSelections(newSelections);
+                            }}
                             className="w-6 h-6 flex items-center justify-center rounded-md border border-border bg-secondary/20 text-foreground hover:bg-secondary/40 font-bold focus:outline-none"
                           >
                             -
                           </button>
-                          <span className="text-xs font-bold w-6 text-center">{customQty}</span>
+                          <span className="text-xs font-bold w-6 text-center">{selection.qty}</span>
                           <button
                             type="button"
-                            onClick={() => setCustomQty(q => q + 1)}
+                            onClick={() => {
+                              const newSelections = [...roomSelections];
+                              newSelections[index].qty += 1;
+                              setRoomSelections(newSelections);
+                            }}
                             className="w-6 h-6 flex items-center justify-center rounded-md border border-border bg-secondary/20 text-foreground hover:bg-secondary/40 font-bold focus:outline-none"
                           >
                             +
                           </button>
                         </div>
+
+                        {roomSelections.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => setRoomSelections(prev => prev.filter((_, i) => i !== index))}
+                            className="text-red-500 hover:text-red-700 font-semibold text-xs ml-1 focus:outline-none"
+                          >
+                            Delete
+                          </button>
+                        )}
                       </div>
                     </div>
-                  )}
+                  ))}
                 </div>
 
                 {/* Selected Rooms Summary */}
                 {(() => {
-                  const roomStrings: string[] = [];
-                  if (singleQty > 0) roomStrings.push(`${singleQty} Single Room${singleQty > 1 ? 's' : ''}`);
-                  if (doubleQty > 0) roomStrings.push(`${doubleQty} Double Room${doubleQty > 1 ? 's' : ''}`);
-                  if (tripleQty > 0) roomStrings.push(`${tripleQty} Triple Room${tripleQty > 1 ? 's' : ''}`);
-                  if (quadQty > 0) roomStrings.push(`${quadQty} Quad Room${quadQty > 1 ? 's' : ''}`);
-                  if (isCustomEnabled && customQty > 0 && customRoomName.trim()) {
-                    roomStrings.push(`${customQty} ${customRoomName.trim()}`);
-                  }
+                  const roomStrings = roomSelections.map(sel => {
+                    const typeStr = sel.roomType === 'Custom' ? sel.customRoomType.trim() : sel.roomType;
+                    const displayType = typeStr || 'Standard Room';
+                    return `${sel.qty} ${displayType}`;
+                  });
                   return (
                     <div className="text-[10px] text-muted-foreground font-semibold flex items-center gap-1.5 bg-secondary/5 px-2.5 py-1.5 rounded-lg border border-border/40">
                       <span>Selected Room Types Summary:</span>
