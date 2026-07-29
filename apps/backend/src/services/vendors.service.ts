@@ -526,10 +526,12 @@ export class VendorsService {
         }
       });
 
-      // Validate duplicate checks
-      const alreadyPaidBookings = outstanding.filter(ob => ob.status === 'PAID');
-      if (alreadyPaidBookings.length > 0) {
-        throw new BadRequestException(`Booking reference ${alreadyPaidBookings[0].booking.bookingReference} has already been fully paid to this vendor.`);
+      // Validate duplicate checks only for explicitly selected bookings that are fully paid
+      if (bookingIds && bookingIds.length > 0) {
+        const alreadyPaidBookings = outstanding.filter(ob => ob.status === 'PAID' && ob.remainingBalance === 0);
+        if (alreadyPaidBookings.length > 0) {
+          throw new BadRequestException(`Booking reference ${alreadyPaidBookings[0].booking.bookingReference} has already been fully paid to this vendor.`);
+        }
       }
 
       let cashRemaining = amount;
