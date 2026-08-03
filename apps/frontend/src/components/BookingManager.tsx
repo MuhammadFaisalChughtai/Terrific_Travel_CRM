@@ -763,8 +763,26 @@ export default function BookingManager({
     agentMargin = 0;
   }
 
-  // Total Profit: if voided, company profit is the full rawProfit. Otherwise, subtract originalAgentMargin
-  const profit = booking.agentMarginVoided ? rawProfit : (rawProfit - originalAgentMargin);
+  // Calculate actual agent payout by summing up negative agent payout transaction amounts
+  const actualAgentPayout = booking.transactions
+    ? Math.abs(
+        booking.transactions
+          .filter(
+            (tx: any) =>
+              tx.paymentMethod === "AGENT PAYOUT" ||
+              tx.paymentMethod === "AGENT_PAYOUT",
+          )
+          .reduce((sum: number, tx: any) => sum + tx.amount, 0),
+      )
+    : 0;
+
+  // Total Profit: if voided, company profit is rawProfit. 
+  // If paid (hasAgentPayout), subtract actualAgentPayout. Otherwise, subtract originalAgentMargin.
+  const profit = booking.agentMarginVoided 
+    ? rawProfit 
+    : (hasAgentPayout 
+        ? rawProfit - actualAgentPayout 
+        : rawProfit - originalAgentMargin);
 
   return (
     <Modal
@@ -1306,7 +1324,7 @@ export default function BookingManager({
                             {(() => {
                               if (!tx.notes) return "—";
                               const receiptMatch = tx.notes.match(
-                                /(.*)Receipt:\s*(https?:\/\/[^|]+)(.*)/i,
+                                /(.*)Receipt:\s*((?:https?:\/\/|\/)[^\s|]+)(.*)/i,
                               );
 
                               let mainText = tx.notes;

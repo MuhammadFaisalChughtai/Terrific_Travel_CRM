@@ -37,8 +37,9 @@ export default function VisaReservationModal({
   const [price, setPrice] = useState('0');
   const [agentQuotedPrice, setAgentQuotedPrice] = useState('');
   const [confirmationNumber, setConfirmationNumber] = useState('');
-  const [currency, setCurrency] = useState('');
-  const [otherCurrency, setOtherCurrency] = useState('');
+  const [currency, setCurrency] = useState('GBP');
+  const [otherCurrencyType, setOtherCurrencyType] = useState('SAR');
+  const [otherCurrencyAmount, setOtherCurrencyAmount] = useState('');
   const [conversionRate, setConversionRate] = useState('');
   const [refundAmount, setRefundAmount] = useState('0.0');
   const [fineAmount, setFineAmount] = useState('0.0');
@@ -71,7 +72,8 @@ export default function VisaReservationModal({
         setAgentQuotedPrice(visaToEdit.agentQuotedPrice !== undefined && visaToEdit.agentQuotedPrice !== null ? String(visaToEdit.agentQuotedPrice) : '');
         setConfirmationNumber(visaToEdit.confirmationNumber || '');
         setCurrency(visaToEdit.currency || '');
-        setOtherCurrency(visaToEdit.otherCurrency || '');
+        setOtherCurrencyType(visaToEdit.otherCurrencyType || visaToEdit.otherCurrency || 'SAR');
+        setOtherCurrencyAmount(visaToEdit.otherCurrencyAmount ? String(visaToEdit.otherCurrencyAmount) : (visaToEdit.otherCurrency && !isNaN(Number(visaToEdit.otherCurrency)) ? visaToEdit.otherCurrency : ''));
         setConversionRate(visaToEdit.conversionRate ? String(visaToEdit.conversionRate) : '');
         setRefundAmount(String(visaToEdit.refundAmount ?? '0.0'));
         setFineAmount(String(visaToEdit.fineAmount ?? '0.0'));
@@ -89,8 +91,9 @@ export default function VisaReservationModal({
         setPrice('0');
         setAgentQuotedPrice('');
         setConfirmationNumber('');
-        setCurrency('');
-        setOtherCurrency('');
+        setCurrency('GBP');
+        setOtherCurrencyType('SAR');
+        setOtherCurrencyAmount('');
         setConversionRate('');
         setRefundAmount('0.0');
         setFineAmount('0.0');
@@ -150,7 +153,9 @@ export default function VisaReservationModal({
         expiryDate: expiryDate ? new Date(expiryDate).toISOString() : null,
         price: Number(price) || 0,
         currency: currency || 'GBP',
-        otherCurrency: otherCurrency || null,
+        otherCurrencyAmount: otherCurrencyAmount ? Number(otherCurrencyAmount) : null,
+        otherCurrencyType: otherCurrencyType || null,
+        otherCurrency: otherCurrencyAmount ? String(otherCurrencyAmount) : (otherCurrencyType || null),
         conversionRate: conversionRate ? Number(conversionRate) : null,
         refundAmount: Number(refundAmount) || 0,
         fineAmount: Number(fineAmount) || 0,
@@ -466,26 +471,46 @@ export default function VisaReservationModal({
                 <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
                   Currency
                 </label>
-                <input
-                  type="text"
-                  placeholder="e.g. GBP, SAR, USD"
+                <select
                   value={currency}
                   onChange={(e) => setCurrency(e.target.value)}
                   className="w-full text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
-                />
+                >
+                  <option value="GBP">GBP</option>
+                  <option value="SAR">SAR</option>
+                  <option value="USD">USD</option>
+                  <option value="EUR">EUR</option>
+                </select>
               </div>
 
-              {/* Other Currency */}
+              {/* Other Currency Type */}
               <div className="flex flex-col gap-1">
                 <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                  Other Currency
+                  Other Currency Type
+                </label>
+                <select
+                  value={otherCurrencyType}
+                  onChange={(e) => setOtherCurrencyType(e.target.value)}
+                  className="w-full text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                >
+                  <option value="SAR">SAR</option>
+                  <option value="USD">USD</option>
+                  <option value="EUR">EUR</option>
+                </select>
+              </div>
+
+              {/* Other Currency Amount */}
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Other Currency Amount
                 </label>
                 <input
-                  type="text"
-                  placeholder="e.g. 350"
-                  value={otherCurrency}
-                  onChange={(e) => setOtherCurrency(e.target.value)}
-                  className="w-full text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                  type="number"
+                  step="any"
+                  placeholder="0.00"
+                  value={otherCurrencyAmount}
+                  onChange={(e) => setOtherCurrencyAmount(e.target.value)}
+                  className="text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                 />
               </div>
 

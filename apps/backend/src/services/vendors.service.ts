@@ -372,8 +372,11 @@ export class VendorsService {
       receiptUrl,
       useWallet,
       bookingIds,
-      cardPaymentCharges
+      cardPaymentCharges,
+      transactionDate
     } = data;
+
+    const txDate = transactionDate ? new Date(transactionDate) : undefined;
 
     const amount = Number(paymentAmount) || 0;
     if (amount <= 0 && !useWallet) {
@@ -437,6 +440,7 @@ export class VendorsService {
           notes: notes || null,
           receiptUrl: receiptUrl || null,
           createdById,
+          ...(txDate ? { createdAt: txDate } : {}),
         }
       });
 
@@ -585,7 +589,8 @@ export class VendorsService {
               paymentMethod: paymentMethod,
               notes: `Vendor Payment (Ref: ${referenceNumber}). Allocated amount: £${totalAllocated.toFixed(2)}.` + 
                      (receiptUrl ? ` Receipt: ${receiptUrl}.` : '') + 
-                     (notes ? ` Notes: ${notes}` : '')
+                     (notes ? ` Notes: ${notes}` : ''),
+              ...(txDate ? { paidOn: txDate } : {}),
             }
           });
 
@@ -610,6 +615,7 @@ export class VendorsService {
               referenceNumber,
               notes: `Cash payment allocation from reference ${referenceNumber}` + (receiptUrl ? ` | Receipt: ${receiptUrl}` : ''),
               createdById,
+              createdAt: txDate,
             });
           }
 
@@ -624,6 +630,7 @@ export class VendorsService {
               referenceNumber,
               notes: `Wallet credit allocation from transaction ${referenceNumber}` + (receiptUrl ? ` | Receipt: ${receiptUrl}` : ''),
               createdById,
+              createdAt: txDate,
             });
 
             // Record wallet debit transaction
@@ -635,6 +642,7 @@ export class VendorsService {
                 reference: referenceNumber,
                 notes: `Deducted for booking #${ob.booking.bookingReference}`,
                 createdById,
+                ...(txDate ? { createdAt: txDate } : {}),
               }
             });
           }
@@ -669,7 +677,8 @@ export class VendorsService {
               bookingId: firstBookingId,
               amount: ccCharges,
               paymentMethod: 'Credit Card',
-              notes: `Credit Card Charges for vendor payment (Ref: ${referenceNumber})`
+              notes: `Credit Card Charges for vendor payment (Ref: ${referenceNumber})`,
+              ...(txDate ? { paidOn: txDate } : {}),
             }
           });
         }
@@ -689,6 +698,7 @@ export class VendorsService {
             reference: referenceNumber,
             notes: 'Overpayment credit allocation',
             createdById,
+            ...(txDate ? { createdAt: txDate } : {}),
           }
         });
 
@@ -701,6 +711,7 @@ export class VendorsService {
           referenceNumber,
           notes: `Overpayment cash processed from payment ${referenceNumber}` + (receiptUrl ? ` | Receipt: ${receiptUrl}` : ''),
           createdById,
+          createdAt: txDate,
         });
 
         await this.appendLedgerEntry(tx, {
@@ -711,6 +722,7 @@ export class VendorsService {
           referenceNumber,
           notes: `Surplus cash transferred to wallet credit` + (receiptUrl ? ` | Receipt: ${receiptUrl}` : ''),
           createdById,
+          createdAt: txDate,
         });
       }
 

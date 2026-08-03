@@ -624,7 +624,7 @@ export default function VendorPage() {
                             {(() => {
                               if (!e.notes) return "—";
                               const receiptMatch = e.notes.match(
-                                /(.*)Receipt:\s*(https?:\/\/[^|]+)(.*)/i,
+                                /(.*)Receipt:\s*((?:https?:\/\/|\/)[^\s|]+)(.*)/i,
                               );
                               if (receiptMatch) {
                                 const before = receiptMatch[1].trim();

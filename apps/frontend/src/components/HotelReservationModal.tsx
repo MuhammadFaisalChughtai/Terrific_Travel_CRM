@@ -212,7 +212,7 @@ export default function HotelReservationModal({
   const [price, setPrice] = useState('0');
   const [agentQuotedPrice, setAgentQuotedPrice] = useState('');
   const [confirmationNumber, setConfirmationNumber] = useState('');
-  const [currency, setCurrency] = useState('');
+  const [currency, setCurrency] = useState('GBP');
 
   // Search suggestion states
   const [hotelSearchQuery, setHotelSearchQuery] = useState('');
@@ -220,7 +220,8 @@ export default function HotelReservationModal({
 
   const [reservationNumber, setReservationNumber] = useState('');
   const [qty, setQty] = useState('1');
-  const [otherCurrency, setOtherCurrency] = useState('');
+  const [otherCurrencyType, setOtherCurrencyType] = useState('SAR');
+  const [otherCurrencyAmount, setOtherCurrencyAmount] = useState('');
   const [conversionRate, setConversionRate] = useState('');
 
   const [refundAmount, setRefundAmount] = useState('0.0');
@@ -288,7 +289,8 @@ export default function HotelReservationModal({
         setCurrency(accommodationToEdit.currency || '');
         setReservationNumber(accommodationToEdit.reservationNumber || '');
         setQty(String(accommodationToEdit.qty || '1'));
-        setOtherCurrency(accommodationToEdit.otherCurrency || '');
+        setOtherCurrencyType(accommodationToEdit.otherCurrencyType || accommodationToEdit.otherCurrency || 'SAR');
+        setOtherCurrencyAmount(accommodationToEdit.otherCurrencyAmount ? String(accommodationToEdit.otherCurrencyAmount) : (accommodationToEdit.otherCurrency && !isNaN(Number(accommodationToEdit.otherCurrency)) ? accommodationToEdit.otherCurrency : ''));
         setConversionRate(accommodationToEdit.conversionRate ? String(accommodationToEdit.conversionRate) : '');
 
         setRefundAmount(String(accommodationToEdit.refundAmount ?? '0.0'));
@@ -339,10 +341,11 @@ export default function HotelReservationModal({
         setPrice('0');
         setAgentQuotedPrice('');
         setConfirmationNumber('');
-        setCurrency('');
+        setCurrency('GBP');
         setReservationNumber('');
         setQty('1');
-        setOtherCurrency('');
+        setOtherCurrencyType('SAR');
+        setOtherCurrencyAmount('');
         setConversionRate('');
 
         setRefundAmount('0.0');
@@ -443,7 +446,9 @@ export default function HotelReservationModal({
         currency: currency || '',
         reservationNumber: reservationNumber || null,
         qty: Number(qty) || 1,
-        otherCurrency: otherCurrency || null,
+        otherCurrencyAmount: otherCurrencyAmount ? Number(otherCurrencyAmount) : null,
+        otherCurrencyType: otherCurrencyType || null,
+        otherCurrency: otherCurrencyAmount ? String(otherCurrencyAmount) : (otherCurrencyType || null),
         conversionRate: conversionRate ? Number(conversionRate) : null,
         refundAmount: Number(refundAmount) || 0,
         fineAmount: Number(fineAmount) || 0,
@@ -899,13 +904,16 @@ export default function HotelReservationModal({
                 <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
                   Currency
                 </label>
-                <input
-                  type="text"
-                  placeholder="e.g. GBP, SAR"
+                <select
                   value={currency}
                   onChange={(e) => setCurrency(e.target.value)}
-                  className="text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
-                />
+                  className="w-full text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                >
+                  <option value="GBP">GBP</option>
+                  <option value="SAR">SAR</option>
+                  <option value="USD">USD</option>
+                  <option value="EUR">EUR</option>
+                </select>
               </div>
 
               {/* Reservation Number */}
@@ -938,16 +946,33 @@ export default function HotelReservationModal({
                 />
               </div>
 
-              {/* Other Currency */}
+              {/* Other Currency Type */}
               <div className="flex flex-col gap-1">
                 <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                  Other Currency
+                  Other Currency Type
+                </label>
+                <select
+                  value={otherCurrencyType}
+                  onChange={(e) => setOtherCurrencyType(e.target.value)}
+                  className="w-full text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                >
+                  <option value="SAR">SAR</option>
+                  <option value="USD">USD</option>
+                  <option value="EUR">EUR</option>
+                </select>
+              </div>
+
+              {/* Other Currency Amount */}
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Other Currency Amount
                 </label>
                 <input
-                  type="text"
-                  placeholder="e.g. USD, EUR"
-                  value={otherCurrency}
-                  onChange={(e) => setOtherCurrency(e.target.value)}
+                  type="number"
+                  step="any"
+                  placeholder="0.00"
+                  value={otherCurrencyAmount}
+                  onChange={(e) => setOtherCurrencyAmount(e.target.value)}
                   className="text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                 />
               </div>

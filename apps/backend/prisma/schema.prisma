@@ -73,6 +73,7 @@ model User {
   createdLeads            Lead[]           @relation("CreatedLeads")
   updatedLeads            Lead[]           @relation("UpdatedLeads")
   createdStatusLogs       LeadStatusLog[]  @relation("CreatedStatusLogs")
+  journalEntries          JournalEntry[]
 }
 
 enum LeadStatus {
@@ -308,6 +309,8 @@ model Booking {
   agentMargin         AgentMargin?           @relation(fields: [agentMarginId], references: [id])
   agentMarginVoided   Boolean                @default(false)
   fullyPaidAt         DateTime?
+  journalEntries      JournalEntry[]
+  journalEntryLines   JournalEntryLine[]     @relation("LineBooking")
 
   @@index([bookingReference])
 }
@@ -413,10 +416,11 @@ model Agent {
   slabs         AgentSlab[]
   bookings      Booking[]
   passengers    Passenger[]
-  users         User[]
-  attendances   Attendance[]
-  agentMargins  AgentMargin[]
-  vendorLedgers VendorLedger[]
+  users             User[]
+  attendances       Attendance[]
+  agentMargins      AgentMargin[]
+  vendorLedgers     VendorLedger[]
+  journalEntryLines JournalEntryLine[]
 }
 
 model AgentSlab {
@@ -452,6 +456,7 @@ model Vendor {
   transportServices     TransportService[]
   visaServices          VisaService[]
   additionalServices    AdditionalService[]
+  journalEntryLines     JournalEntryLine[]
 }
 
 model BookingTransaction {
@@ -518,6 +523,8 @@ model AccommodationService {
   price                   Float
   currency                String
   otherCurrency           String?
+  otherCurrencyAmount     Float?
+  otherCurrencyType       String?
   conversionRate          Float?
   issueDate               DateTime?
   refundAmount            Float     @default(0.0)
@@ -598,6 +605,8 @@ model TransportService {
   price                Float
   currency             String
   otherCurrency        String?
+  otherCurrencyAmount  Float?
+  otherCurrencyType    String?
   conversionRate       Float?
   issueDate            DateTime?
   refundAmount         Float     @default(0.0)
@@ -619,9 +628,11 @@ model VisaService {
   expiryDate     DateTime?
   price          Float
   currency       String
-  otherCurrency  String?
-  conversionRate Float?
-  refundAmount   Float     @default(0.0)
+  otherCurrency        String?
+  otherCurrencyAmount  Float?
+  otherCurrencyType    String?
+  conversionRate       Float?
+  refundAmount         Float     @default(0.0)
   fineAmount     Float     @default(0.0)
   agentQuotedPrice Float?
   confirmationNumber String?
@@ -820,5 +831,59 @@ model AgentMargin {
   bookings         Booking[]
 
   @@unique([agentId, startDate, endDate])
+}
+
+model Account {
+  id          String             @id @default(uuid())
+  code        String             @unique
+  name        String
+  type        AccountType
+  description String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  lines       JournalEntryLine[]
+}
+
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+model JournalEntry {
+  id              String             @id @default(uuid())
+  referenceNumber String             @unique
+  bookingId       String?
+  booking         Booking?           @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  transactionDate DateTime           @default(now())
+  description     String?
+  createdById     String
+  createdBy       User               @relation(fields: [createdById], references: [id])
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  lines           JournalEntryLine[]
+}
+
+model JournalEntryLine {
+  id             String       @id @default(uuid())
+  journalEntryId String
+  journalEntry   JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  accountId      String
+  account        Account      @relation(fields: [accountId], references: [id])
+  debit          Decimal      @db.Decimal(12, 4) @default(0.0)
+  credit         Decimal      @db.Decimal(12, 4) @default(0.0)
+  description    String?
+  
+  // Optional links for sub-ledger reporting
+  bookingId      String?
+  booking        Booking?     @relation(name: "LineBooking", fields: [bookingId], references: [id], onDelete: SetNull)
+  vendorId       String?
+  vendor         Vendor?      @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  agentId        String?
+  agent          Agent?       @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  
+  createdAt      DateTime     @default(now())
 }
 

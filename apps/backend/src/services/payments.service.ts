@@ -277,6 +277,7 @@ export class PaymentsService {
             notes: data.notes,
             useWallet: data.useWallet || false,
             bookingIds: data.bookingIds || [],
+            transactionDate,
           },
           userId,
           adminName,

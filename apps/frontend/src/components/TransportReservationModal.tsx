@@ -46,8 +46,9 @@ export default function TransportReservationModal({
   const [price, setPrice] = useState('0');
   const [agentQuotedPrice, setAgentQuotedPrice] = useState('');
   const [confirmationNumber, setConfirmationNumber] = useState('');
-  const [currency, setCurrency] = useState('');
-  const [otherCurrency, setOtherCurrency] = useState('');
+  const [currency, setCurrency] = useState('GBP');
+  const [otherCurrencyType, setOtherCurrencyType] = useState('SAR');
+  const [otherCurrencyAmount, setOtherCurrencyAmount] = useState('');
   const [conversionRate, setConversionRate] = useState('');
 
   const [refundAmount, setRefundAmount] = useState('0.0');
@@ -104,7 +105,8 @@ export default function TransportReservationModal({
         setAgentQuotedPrice(transportToEdit.agentQuotedPrice !== undefined && transportToEdit.agentQuotedPrice !== null ? String(transportToEdit.agentQuotedPrice) : '');
         setConfirmationNumber(transportToEdit.confirmationNumber || '');
         setCurrency(transportToEdit.currency || '');
-        setOtherCurrency(transportToEdit.otherCurrency || '');
+        setOtherCurrencyType(transportToEdit.otherCurrencyType || transportToEdit.otherCurrency || 'SAR');
+        setOtherCurrencyAmount(transportToEdit.otherCurrencyAmount ? String(transportToEdit.otherCurrencyAmount) : (transportToEdit.otherCurrency && !isNaN(Number(transportToEdit.otherCurrency)) ? transportToEdit.otherCurrency : ''));
         setConversionRate(transportToEdit.conversionRate ? String(transportToEdit.conversionRate) : '');
         setPassengerId(transportToEdit.passengerId || '');
         setPassengerName(transportToEdit.passengerName || '');
@@ -126,8 +128,9 @@ export default function TransportReservationModal({
         setPrice('0');
         setAgentQuotedPrice('');
         setConfirmationNumber('');
-        setCurrency('');
-        setOtherCurrency('');
+        setCurrency('GBP');
+        setOtherCurrencyType('SAR');
+        setOtherCurrencyAmount('');
         setConversionRate('');
         setPassengerId('');
         setPassengerName('');
@@ -181,7 +184,9 @@ export default function TransportReservationModal({
         passengerName: passengerName || null,
         price: Number(price) || 0,
         currency: currency || 'GBP',
-        otherCurrency: otherCurrency || null,
+        otherCurrencyAmount: otherCurrencyAmount ? Number(otherCurrencyAmount) : null,
+        otherCurrencyType: otherCurrencyType || null,
+        otherCurrency: otherCurrencyAmount ? String(otherCurrencyAmount) : (otherCurrencyType || null),
         conversionRate: conversionRate ? Number(conversionRate) : null,
         issueDate: issueDate ? new Date(issueDate).toISOString() : null,
         refundAmount: Number(refundAmount) || 0,
@@ -588,26 +593,46 @@ export default function TransportReservationModal({
                 <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
                   Currency
                 </label>
-                <input
-                  type="text"
-                  placeholder="e.g. GBP, SAR, USD"
+                <select
                   value={currency}
                   onChange={(e) => setCurrency(e.target.value)}
                   className="w-full text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
-                />
+                >
+                  <option value="GBP">GBP</option>
+                  <option value="SAR">SAR</option>
+                  <option value="USD">USD</option>
+                  <option value="EUR">EUR</option>
+                </select>
               </div>
 
-              {/* Other Currency */}
+              {/* Other Currency Type */}
               <div className="flex flex-col gap-1">
                 <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                  Other Currency
+                  Other Currency Type
+                </label>
+                <select
+                  value={otherCurrencyType}
+                  onChange={(e) => setOtherCurrencyType(e.target.value)}
+                  className="w-full text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                >
+                  <option value="SAR">SAR</option>
+                  <option value="USD">USD</option>
+                  <option value="EUR">EUR</option>
+                </select>
+              </div>
+
+              {/* Other Currency Amount */}
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Other Currency Amount
                 </label>
                 <input
-                  type="text"
-                  placeholder="e.g. 350"
-                  value={otherCurrency}
-                  onChange={(e) => setOtherCurrency(e.target.value)}
-                  className="w-full text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                  type="number"
+                  step="any"
+                  placeholder="0.00"
+                  value={otherCurrencyAmount}
+                  onChange={(e) => setOtherCurrencyAmount(e.target.value)}
+                  className="text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                 />
               </div>
 

@@ -17,8 +17,11 @@ async function main() {
   let updatedCount = 0;
 
   for (const booking of bookings) {
-    // Calculate transaction total sum
-    const transactionTotal = booking.transactions.reduce((sum, tx) => sum + tx.amount, 0);
+    // Calculate transaction total sum (excluding agent payouts since they are expenses and do not represent client payments)
+    const clientTransactions = booking.transactions.filter(
+      (tx) => tx.paymentMethod !== 'AGENT PAYOUT' && tx.paymentMethod !== 'AGENT_PAYOUT'
+    );
+    const transactionTotal = clientTransactions.reduce((sum, tx) => sum + tx.amount, 0);
     
     // Check if there is a discrepancy with paidAmount
     const discrepancy = Math.abs(booking.paidAmount - transactionTotal);
@@ -29,7 +32,7 @@ async function main() {
       console.log(`Reference: ${booking.bookingReference}`);
       console.log(`Total Price (totalPrice): £${booking.totalPrice}`);
       console.log(`Current Client Received (paidAmount): £${booking.paidAmount}`);
-      console.log(`Actual Transaction Sum: £${transactionTotal}`);
+      console.log(`Actual Transaction Sum (excluding agent payouts): £${transactionTotal}`);
       
       const newPaidAmount = transactionTotal;
       const newRemainingAmount = Math.max(0, (booking.totalPrice - booking.refundAmount) - newPaidAmount);

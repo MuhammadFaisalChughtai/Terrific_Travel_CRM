@@ -72,6 +72,13 @@ export default function VendorPaymentModal({
   const [bankAccount, setBankAccount] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
   const [useWallet, setUseWallet] = useState<boolean>(false);
+  const [transactionDate, setTransactionDate] = useState<string>(() => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  });
 
   // Receipt upload states
   const [isUploading, setIsUploading] = useState(false);
@@ -116,6 +123,11 @@ export default function VendorPaymentModal({
       setReceiptUrl("");
       setReceiptFilename("");
       setBookingSearchQuery("");
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      setTransactionDate(`${year}-${month}-${day}`);
     } else if (defaultVendorId) {
       setSelectedVendorId(defaultVendorId);
     }
@@ -440,7 +452,8 @@ export default function VendorPaymentModal({
       bookingIds: selectedBookingIds,
       useWallet,
       receiptUrl: receiptUrl || undefined,
-      cardPaymentCharges: paymentMethod === "Credit Card" ? Number(cardPaymentCharges) || 0 : 0
+      cardPaymentCharges: paymentMethod === "Credit Card" ? Number(cardPaymentCharges) || 0 : 0,
+      transactionDate: transactionDate || undefined
     };
 
     recordTransactionMutation.mutate(payload);
@@ -749,6 +762,19 @@ export default function VendorPaymentModal({
               placeholder="e.g. Barclays"
               value={bankAccount}
               onChange={(e) => setBankAccount(e.target.value)}
+              className="w-full px-3 py-2 bg-secondary/10 border border-border rounded-lg text-foreground font-semibold focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary min-h-[36px]"
+            />
+          </div>
+
+          {/* Row 4, Col 1: Transaction Date */}
+          <div>
+            <label className="block text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-1">
+              Transaction Date
+            </label>
+            <input
+              type="date"
+              value={transactionDate}
+              onChange={(e) => setTransactionDate(e.target.value)}
               className="w-full px-3 py-2 bg-secondary/10 border border-border rounded-lg text-foreground font-semibold focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary min-h-[36px]"
             />
           </div>
