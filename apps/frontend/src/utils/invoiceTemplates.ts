@@ -2446,121 +2446,13 @@ export function renderFlightTicket(
   selectedAirline?: string | null,
   splitByAirline?: boolean,
 ): string {
-  if (!templateHtml || templateHtml.trim() === "{{FLIGHT_TICKET_PAGES}}") {
-    return generateFlightTicketHtml(
-      booking,
-      flight,
-      selectedPassengerId,
-      selectedAirline,
-      splitByAirline,
-    );
-  }
-
-  const passengers =
-    booking.passengers && booking.passengers.length > 0
-      ? booking.passengers
-      : [
-          {
-            firstName: "Valued",
-            lastName: "Passenger",
-            role: "Passenger",
-            dateOfBirth: "",
-          },
-        ];
-
-  const flightsToRender =
-    booking.flightServices && booking.flightServices.length > 0
-      ? booking.flightServices
-      : [flight];
-
-  const sortedFlights = [...flightsToRender].sort((a: any, b: any) => {
-    const dateA = new Date(a.date).getTime();
-    const dateB = new Date(b.date).getTime();
-    if (dateA !== dateB) return dateA - dateB;
-    return (a.departTime || "").localeCompare(b.departTime || "");
-  });
-
-  const renderSingle = (p: any) => {
-    let html = templateHtml;
-    html = html.replace(/{{COMPANY_LOGO}}/g, BRAND_LOGOS.companyLogo);
-    html = html.replace(/{{IATA_LOGO}}/g, BRAND_LOGOS.iataLogo);
-    html = html.replace(/{{ATOL_LOGO}}/g, BRAND_LOGOS.atolLogo);
-    html = html.replace(/{{DATE}}/g, formatDate(new Date()));
-    html = html.replace(/{{BOOKING_REF}}/g, booking.bookingReference || "—");
-
-    const mainFlight = sortedFlights[0] || {};
-    html = html.replace(
-      /{{PNR}}/g,
-      mainFlight.pnr || booking.bookingReference || "—",
-    );
-    html = html.replace(/{{FLIGHT_NO}}/g, mainFlight.flightNo || "—");
-    html = html.replace(/{{DEPART_CODE}}/g, mainFlight.departedFrom || "—");
-    html = html.replace(
-      /{{DEPART_CITY}}/g,
-      mainFlight.departedFromCity || mainFlight.departedFrom || "—",
-    );
-    html = html.replace(/{{DEPART_TIME}}/g, mainFlight.departTime || "—");
-    html = html.replace(/{{ARRIVE_CODE}}/g, mainFlight.arrivedAt || "—");
-    html = html.replace(
-      /{{ARRIVE_CITY}}/g,
-      mainFlight.arrivedAtCity || mainFlight.arrivedAt || "—",
-    );
-    html = html.replace(/{{ARRIVE_TIME}}/g, mainFlight.arrivalTime || "—");
-    html = html.replace(
-      /{{FLIGHT_DATE}}/g,
-      mainFlight.date ? formatDate(mainFlight.date) : "—",
-    );
-    html = html.replace(
-      /{{FLIGHT_CLASS}}/g,
-      mainFlight.flightClass || "Economy",
-    );
-    html = html.replace(/{{BAGGAGE}}/g, mainFlight.baggage || "23 KG");
-    html = html.replace(/{{CARRY_ON}}/g, mainFlight.carryOn || "7 KG");
-
-    html = html.replace(
-      /{{VENDOR_NAME}}/g,
-      mainFlight.vendor?.name || "Terrific Travel Partner",
-    );
-    html = html.replace(
-      /{{VENDOR_PHONE}}/g,
-      mainFlight.vendor?.phoneNumber || "—",
-    );
-    html = html.replace(
-      /{{VENDOR_EMAIL}}/g,
-      mainFlight.vendor?.supportEmail || "—",
-    );
-
-    html = html.replace(
-      /{{PASSENGER_NAME}}/g,
-      `${p.title || ""} ${p.firstName} ${p.lastName}`,
-    );
-    html = html.replace(/{{PASSENGER_DETAILS}}/g, `${p.age || "Adult"}`);
-    html = html.replace(/{{SEAT}}/g, p.seat || "—");
-
-    const passengerListHtml = passengers
-      .map(
-        (pass: any) => `
-      <div class="passenger-row">
-        <span><strong>${pass.title || ""} ${pass.firstName} ${pass.lastName}</strong></span>
-        <span>${pass.age || "Adult"}</span>
-        <span>Seat: ${pass.seat || "—"}</span>
-      </div>
-    `,
-      )
-      .join("");
-    html = html.replace(/{{PASSENGERS_LIST_ROWS}}/g, passengerListHtml);
-
-    return html;
-  };
-
-  if (!selectedPassengerId || selectedPassengerId === "all") {
-    return passengers
-      .map((p: any) => renderSingle(p))
-      .join('<div style="page-break-after: always; height: 1px;"></div>');
-  } else {
-    const p = passengers.find((pass: any) => pass.id === selectedPassengerId);
-    return renderSingle(p || passengers[0]);
-  }
+  return generateFlightTicketHtml(
+    booking,
+    flight,
+    selectedPassengerId,
+    selectedAirline,
+    splitByAirline,
+  );
 }
 
 export function renderHotelVoucher(
