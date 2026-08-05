@@ -56,7 +56,9 @@ export interface LeadStatusLog {
     | "PENDING"
     | "INTERESTING"
     | "NOT_INTERESTED"
-    | "SALE";
+    | "SALE"
+    | "CALL_BACK"
+    | "NO_RESPONSE";
   notes?: string | null;
   createdById?: string | null;
   createdBy?: LeadUser | null;
@@ -81,7 +83,9 @@ export interface Lead {
     | "PENDING"
     | "INTERESTING"
     | "NOT_INTERESTED"
-    | "SALE";
+    | "SALE"
+    | "CALL_BACK"
+    | "NO_RESPONSE";
   assignedAgentId?: string | null;
   assignedAgent?: LeadUser | null;
   createdById?: string | null;
@@ -174,6 +178,18 @@ const STATUS_CONFIG: Record<
     bg: "bg-green-500/10 dark:bg-green-500/20",
     text: "text-green-600 dark:text-green-400",
     border: "border-green-500/30",
+  },
+  CALL_BACK: {
+    label: "Call Back",
+    bg: "bg-indigo-500/10 dark:bg-indigo-500/20",
+    text: "text-indigo-600 dark:text-indigo-400",
+    border: "border-indigo-500/30",
+  },
+  NO_RESPONSE: {
+    label: "No Response",
+    bg: "bg-zinc-500/10 dark:bg-zinc-500/20",
+    text: "text-zinc-600 dark:text-zinc-400",
+    border: "border-zinc-500/30",
   },
 };
 
@@ -645,6 +661,8 @@ export default function LeadsPage() {
               <option value="INTERESTING">Interesting</option>
               <option value="NOT_INTERESTED">Not Interested</option>
               <option value="SALE">Sale</option>
+              <option value="CALL_BACK">Call Back</option>
+              <option value="NO_RESPONSE">No Response</option>
             </select>
           </div>
 
@@ -1124,6 +1142,8 @@ export default function LeadsPage() {
                   <option value="INTERESTING">Interesting</option>
                   <option value="NOT_INTERESTED">Not Interested</option>
                   <option value="SALE">Sale</option>
+                  <option value="CALL_BACK">Call Back</option>
+                  <option value="NO_RESPONSE">No Response</option>
                 </select>
               </div>
             </div>
@@ -1270,6 +1290,8 @@ export default function LeadsPage() {
                   <option value="INTERESTING">Interesting</option>
                   <option value="NOT_INTERESTED">Not Interested</option>
                   <option value="SALE">Sale</option>
+                  <option value="CALL_BACK">Call Back</option>
+                  <option value="NO_RESPONSE">No Response</option>
                 </select>
               </div>
             </div>
@@ -1420,6 +1442,8 @@ export default function LeadsPage() {
                   "INTERESTING",
                   "NOT_INTERESTED",
                   "SALE",
+                  "CALL_BACK",
+                  "NO_RESPONSE",
                 ].map((st) => {
                     const count =
                       activeViewLead.statusLogs?.filter((l: LeadStatusLog) => l.status === st)

@@ -11,7 +11,7 @@ import {
   FileText,
   Mail,
   Filter,
-  X
+  X,
 } from "lucide-react";
 import VendorPaymentModal from "../components/VendorPaymentModal";
 
@@ -60,22 +60,22 @@ export default function LedgerPage() {
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
 
   // Currency Conversion States
-  const [ledgerCurrency, setLedgerCurrency] = useState('GBP');
-  const [exchangeRate, setExchangeRate] = useState('4.85');
+  const [ledgerCurrency, setLedgerCurrency] = useState("GBP");
+  const [exchangeRate, setExchangeRate] = useState("4.85");
 
   const formatLedgerAmount = (amount: number) => {
     const rate = Number(exchangeRate) || 1.0;
     const converted = amount * rate;
-    if (ledgerCurrency === 'GBP') {
+    if (ledgerCurrency === "GBP") {
       return formatCurrency(amount);
     }
     const symbols: Record<string, string> = {
-      SAR: 'SR ',
-      USD: '$',
-      EUR: '€'
+      SAR: "SR ",
+      USD: "$",
+      EUR: "€",
     };
-    const symbol = symbols[ledgerCurrency] || '';
-    return `${symbol}${converted.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const symbol = symbols[ledgerCurrency] || "";
+    return `${symbol}${converted.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   // Fetch vendors list
@@ -94,16 +94,20 @@ export default function LedgerPage() {
       typeFilter,
       dateFrom,
       dateTo,
-      searchQuery
+      searchQuery,
     ],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (typeFilter && typeFilter !== "all") params.append("typeFilter", typeFilter);
+      if (typeFilter && typeFilter !== "all")
+        params.append("typeFilter", typeFilter);
       if (dateFrom) params.append("dateFrom", dateFrom);
       if (dateTo) params.append("dateTo", dateTo);
       if (searchQuery) params.append("searchQuery", searchQuery);
 
-      const url = selectedVendorId === "all" ? `/vendors/ledger?${params.toString()}` : `/vendors/${selectedVendorId}/ledger?${params.toString()}`;
+      const url =
+        selectedVendorId === "all"
+          ? `/vendors/ledger?${params.toString()}`
+          : `/vendors/${selectedVendorId}/ledger?${params.toString()}`;
       const res = await apiClient.get(url);
       return res.data.data;
     },
@@ -113,7 +117,9 @@ export default function LedgerPage() {
     return vendors?.find((v: any) => v.id === selectedVendorId);
   }, [vendors, selectedVendorId]);
 
-  const ledgerTitle = selectedVendor ? `${selectedVendor.name} Ledger` : "Global Financial Ledger";
+  const ledgerTitle = selectedVendor
+    ? `${selectedVendor.name} Ledger`
+    : "Global Financial Ledger";
 
   // Bind values from server-side query results
   const filteredLedger = ledgerResult?.items || [];
@@ -148,13 +154,13 @@ export default function LedgerPage() {
       <body>
         <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #e5e7eb; padding-bottom: 16px; margin-bottom: 20px;">
           <div>
-            <img src="/Logo.svg" alt="Terrific Travel Logo" style="height: 50px; width: auto; display: block; margin-bottom: 8px;" />
+            <img src="${window.location.origin}/Logo.svg" alt="Terrific Travel Logo" style="height: 50px; width: auto; display: block; margin-bottom: 8px;" />
             <h2 style="margin: 0; font-size: 18px; color: #0f172a;">${ledgerTitle}</h2>
             <p style="margin: 4px 0 0 0; color: #6b7280; font-size: 10px;">Printed on ${new Date().toLocaleString()}</p>
           </div>
           <div style="text-align: right; font-size: 10px; color: #4b5563; line-height: 1.5; font-weight: 500;">
-            <strong style="color: #0f172a; font-size: 12px;">Terrific Travel &amp; Tours Ltd</strong><br />
-            accounts@terrifictravel.co.uk | +44 20 7946 0958
+            <strong style="color: #0f172a; font-size: 12px;">Terrific Travel Ltd</strong><br />
+            office@terrifictravel.co.uk | +44 121 5291630
           </div>
         </div>
         ${content}
@@ -172,7 +178,14 @@ export default function LedgerPage() {
     };
 
     const rows = [
-      ["Doc No", "Type", "Date", `Debit (${ledgerCurrency})`, `Credit (${ledgerCurrency})`, "Notes"],
+      [
+        "Doc No",
+        "Type",
+        "Date",
+        `Debit (${ledgerCurrency})`,
+        `Credit (${ledgerCurrency})`,
+        "Notes",
+      ],
       ["", "Opening Balance", "", formatCSVCell(openingBalance), "0.00", ""],
       ...filteredLedger.map((e: any) => [
         e.referenceNumber || "",
@@ -180,13 +193,31 @@ export default function LedgerPage() {
         new Date(e.timestamp).toLocaleDateString("en-GB"),
         e.debit > 0 ? formatCSVCell(e.debit) : "",
         e.credit > 0 ? formatCSVCell(e.credit) : "",
-        e.notes || (e.vendorName ? `Vendor: ${e.vendorName}` : "") + (e.bookingReference ? ` | Booking: ${e.bookingReference}` : ""),
+        e.notes ||
+          (e.vendorName ? `Vendor: ${e.vendorName}` : "") +
+            (e.bookingReference ? ` | Booking: ${e.bookingReference}` : ""),
       ]),
-      ["", "Period Total", "", formatCSVCell(periodTotalDebit), formatCSVCell(periodTotalCredit), ""],
+      [
+        "",
+        "Period Total",
+        "",
+        formatCSVCell(periodTotalDebit),
+        formatCSVCell(periodTotalCredit),
+        "",
+      ],
       ["", "Closing Balance", "", formatCSVCell(closingBalance), "0.00", ""],
-      ["", "Final Closing Balance", "", formatCSVCell(closingBalance), "0.00", ""],
+      [
+        "",
+        "Final Closing Balance",
+        "",
+        formatCSVCell(closingBalance),
+        "0.00",
+        "",
+      ],
     ];
-    const csv = rows.map((r) => r.map((c: any) => `"${c}"`).join(",")).join("\n");
+    const csv = rows
+      .map((r) => r.map((c: any) => `"${c}"`).join(","))
+      .join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -207,7 +238,12 @@ export default function LedgerPage() {
     setSelectedVendorId("all");
   };
 
-  const hasFilters = dateFrom || dateTo || searchQuery || typeFilter !== "all" || selectedVendorId !== "all";
+  const hasFilters =
+    dateFrom ||
+    dateTo ||
+    searchQuery ||
+    typeFilter !== "all" ||
+    selectedVendorId !== "all";
 
   return (
     <div className="space-y-4 font-sans">
@@ -218,7 +254,8 @@ export default function LedgerPage() {
             {ledgerTitle}
           </h2>
           <p className="text-[11px] text-muted-foreground">
-            Complete audit trail — receipts, payments, refunds and agent payouts.
+            Complete audit trail — receipts, payments, refunds and agent
+            payouts.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -260,12 +297,12 @@ export default function LedgerPage() {
               const cur = e.target.value;
               setLedgerCurrency(cur);
               const rates: Record<string, string> = {
-                GBP: '1.0',
-                SAR: '4.85',
-                USD: '1.30',
-                EUR: '1.18'
+                GBP: "1.0",
+                SAR: "4.85",
+                USD: "1.30",
+                EUR: "1.18",
               };
-              setExchangeRate(rates[cur] || '1.0');
+              setExchangeRate(rates[cur] || "1.0");
             }}
             className="px-2 py-1.5 bg-secondary/20 border border-border rounded-lg text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary font-semibold"
           >
@@ -277,9 +314,11 @@ export default function LedgerPage() {
         </div>
 
         {/* Exchange Rate Input (Visible only if not GBP) */}
-        {ledgerCurrency !== 'GBP' && (
+        {ledgerCurrency !== "GBP" && (
           <div className="flex items-center gap-1.5 animate-fadeIn">
-            <span className="text-[10px] font-bold text-primary uppercase tracking-wider">Rate (1 £ =)</span>
+            <span className="text-[10px] font-bold text-primary uppercase tracking-wider">
+              Rate (1 £ =)
+            </span>
             <input
               type="number"
               step="any"
@@ -292,14 +331,18 @@ export default function LedgerPage() {
 
         {/* Date Range */}
         <div className="flex items-center gap-2 flex-wrap">
-          <label className="text-[9px] font-black uppercase tracking-wider text-muted-foreground">From</label>
+          <label className="text-[9px] font-black uppercase tracking-wider text-muted-foreground">
+            From
+          </label>
           <input
             type="date"
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
             className="px-2 py-1.5 bg-secondary/20 border border-border rounded-lg text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
           />
-          <label className="text-[9px] font-black uppercase tracking-wider text-muted-foreground">To</label>
+          <label className="text-[9px] font-black uppercase tracking-wider text-muted-foreground">
+            To
+          </label>
           <input
             type="date"
             value={dateTo}
@@ -318,7 +361,9 @@ export default function LedgerPage() {
           >
             <option value="all">All Types</option>
             {Object.entries(TYPE_LABELS).map(([k, v]) => (
-              <option key={k} value={k}>{v}</option>
+              <option key={k} value={k}>
+                {v}
+              </option>
             ))}
           </select>
         </div>
@@ -326,7 +371,10 @@ export default function LedgerPage() {
         {/* Inline Search */}
         <div className="flex items-center gap-1.5 flex-1 min-w-[160px]">
           <div className="relative flex-1">
-            <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Search
+              size={12}
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+            />
             <input
               type="text"
               placeholder="Search notes, vendor, booking ref…"
@@ -387,38 +435,57 @@ export default function LedgerPage() {
                   <th className="py-2.5 px-4 w-32">Doc No</th>
                   <th className="py-2.5 px-4 w-44">Type</th>
                   <th className="py-2.5 px-4 w-28">Date</th>
-                  <th className="py-2.5 px-4 text-right w-32">Debit ({ledgerCurrency})</th>
-                  <th className="py-2.5 px-4 text-right w-32">Credit ({ledgerCurrency})</th>
+                  <th className="py-2.5 px-4 text-right w-32">
+                    Debit ({ledgerCurrency})
+                  </th>
+                  <th className="py-2.5 px-4 text-right w-32">
+                    Credit ({ledgerCurrency})
+                  </th>
                   <th className="py-2.5 px-4">
-                    <span className="flex items-center gap-1">Notes <Search size={9} /></span>
+                    <span className="flex items-center gap-1">
+                      Notes <Search size={9} />
+                    </span>
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
-
                 {/* ── Opening Balance Row ── */}
                 <tr className="bg-blue-500/5 border-b border-blue-500/10">
                   <td className="py-2.5 px-4 text-[10px] text-muted-foreground/60"></td>
-                  <td className="py-2.5 px-4 font-black text-foreground text-[11px]">Opening Balance</td>
+                  <td className="py-2.5 px-4 font-black text-foreground text-[11px]">
+                    Opening Balance
+                  </td>
                   <td className="py-2.5 px-4 text-[10px] text-muted-foreground/60"></td>
                   <td className="py-2.5 px-4 text-right font-black text-foreground tabular-nums">
                     {formatLedgerAmount(openingBalance)}
                   </td>
-                  <td className="py-2.5 px-4 text-right text-muted-foreground/60 tabular-nums">0.00</td>
+                  <td className="py-2.5 px-4 text-right text-muted-foreground/60 tabular-nums">
+                    0.00
+                  </td>
                   <td className="py-2.5 px-4"></td>
                 </tr>
 
                 {/* ── Transaction Rows ── */}
                 {filteredLedger.length > 0 ? (
                   filteredLedger.map((e: any, idx: number) => {
-                    const hasReceipt = e.notes && e.notes.match(/Receipt:\s*(https?:\/\/[^|]+)/i);
-                    const receiptUrl = hasReceipt ? encodeURI(hasReceipt[1].trim()) : null;
-                    const cleanedNotes = e.notes ? e.notes.replace(/Receipt:\s*https?:\/\/[^|]+/i, "").trim() : "";
+                    const hasReceipt =
+                      e.notes &&
+                      e.notes.match(/Receipt:\s*(https?:\/\/[^|]+)/i);
+                    const receiptUrl = hasReceipt
+                      ? encodeURI(hasReceipt[1].trim())
+                      : null;
+                    const cleanedNotes = e.notes
+                      ? e.notes
+                          .replace(/Receipt:\s*https?:\/\/[^|]+/i, "")
+                          .trim()
+                      : "";
 
                     const notesParts = [
                       cleanedNotes,
                       e.vendorName ? `Vendor: ${e.vendorName}` : null,
-                      e.bookingReference ? `Booking: ${e.bookingReference}` : null,
+                      e.bookingReference
+                        ? `Booking: ${e.bookingReference}`
+                        : null,
                       e.adminName ? `By: ${e.adminName}` : null,
                     ].filter(Boolean);
 
@@ -435,7 +502,9 @@ export default function LedgerPage() {
                         </td>
 
                         {/* Type */}
-                        <td className={`py-2.5 px-4 font-semibold text-[11px] ${TYPE_COLORS[e.eventType] || "text-foreground"}`}>
+                        <td
+                          className={`py-2.5 px-4 font-semibold text-[11px] ${TYPE_COLORS[e.eventType] || "text-foreground"}`}
+                        >
                           {TYPE_LABELS[e.eventType] || e.eventType}
                         </td>
 
@@ -461,7 +530,9 @@ export default function LedgerPage() {
                         {/* Notes */}
                         <td className="py-2.5 px-4 text-[10px] text-muted-foreground max-w-sm">
                           <div className="flex flex-col gap-1">
-                            <span title={notesText} className="truncate block">{notesText || "—"}</span>
+                            <span title={notesText} className="truncate block">
+                              {notesText || "—"}
+                            </span>
                             {receiptUrl && (
                               <a
                                 href={receiptUrl}
@@ -480,7 +551,10 @@ export default function LedgerPage() {
                   })
                 ) : (
                   <tr>
-                    <td colSpan={6} className="py-14 text-center text-muted-foreground/60 text-xs">
+                    <td
+                      colSpan={6}
+                      className="py-14 text-center text-muted-foreground/60 text-xs"
+                    >
                       No ledger entries match your filters.
                     </td>
                   </tr>
@@ -512,7 +586,9 @@ export default function LedgerPage() {
                   <td className="py-2.5 px-4 text-right font-black text-foreground tabular-nums">
                     {formatLedgerAmount(closingBalance)}
                   </td>
-                  <td className="py-2.5 px-4 text-right text-muted-foreground/60 tabular-nums">0.00</td>
+                  <td className="py-2.5 px-4 text-right text-muted-foreground/60 tabular-nums">
+                    0.00
+                  </td>
                   <td className="py-2.5 px-4"></td>
                 </tr>
 
@@ -526,10 +602,11 @@ export default function LedgerPage() {
                   <td className="py-3 px-4 text-right font-black text-foreground tabular-nums">
                     {formatLedgerAmount(closingBalance)}
                   </td>
-                  <td className="py-3 px-4 text-right text-muted-foreground/60 tabular-nums">0.00</td>
+                  <td className="py-3 px-4 text-right text-muted-foreground/60 tabular-nums">
+                    0.00
+                  </td>
                   <td className="py-3 px-4"></td>
                 </tr>
-
               </tbody>
             </table>
           </div>

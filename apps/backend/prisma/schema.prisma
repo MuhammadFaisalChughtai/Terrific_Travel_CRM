@@ -90,6 +90,8 @@ enum LeadStatus {
   INTERESTING
   NOT_INTERESTED
   SALE
+  CALL_BACK
+  NO_RESPONSE
 }
 
 model Lead {
@@ -484,6 +486,7 @@ model Passenger {
   passportNumber     String?
   passportExpiryDate DateTime?
   passportIssuingCountry String?
+  eticket            String?
   agentId            String?
   agent              Agent?    @relation(fields: [agentId], references: [id], onDelete: SetNull)
   role               String    // Leader, Family Member

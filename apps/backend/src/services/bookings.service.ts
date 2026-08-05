@@ -1346,6 +1346,7 @@ export class BookingsService {
         passportNumber:     data.passportNumber || null,
         passportExpiryDate: data.passportExpiryDate ? new Date(data.passportExpiryDate) : null,
         passportIssuingCountry: data.passportIssuingCountry || null,
+        eticket:            data.eticket || null,
         agentId:            data.agentId || null,
         role:               isFirst ? 'Leader' : (data.role || 'Passenger'),
         collectPassport:    data.collectPassport !== undefined ? Boolean(data.collectPassport) : true,
@@ -1381,6 +1382,7 @@ export class BookingsService {
           ? (data.passportExpiryDate ? new Date(data.passportExpiryDate) : null)
           : undefined,
         passportIssuingCountry: data.passportIssuingCountry !== undefined ? data.passportIssuingCountry : undefined,
+        eticket:            data.eticket            !== undefined ? data.eticket            : undefined,
         agentId:            data.agentId            !== undefined ? data.agentId            : undefined,
         role:               data.role               !== undefined ? data.role               : undefined,
         collectPassport:    data.collectPassport    !== undefined ? Boolean(data.collectPassport) : undefined,

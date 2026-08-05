@@ -51,6 +51,7 @@ import {
   downloadDocument,
   generateBookingInvoiceHtml,
   generateFlightTicketHtml,
+  getAirlineKey,
   generateHotelVoucherHtml,
   generateVisaInvoiceHtml,
   generateTransportVoucherHtml,
@@ -431,6 +432,8 @@ export default function BookingManager({
   >(null);
   const [printTicketSelectedPassenger, setPrintTicketSelectedPassenger] =
     useState<string>("all");
+  const [printTicketSelectedAirline, setPrintTicketSelectedAirline] = useState<string>("all");
+  const [printTicketSplitByAirline, setPrintTicketSplitByAirline] = useState<boolean>(false);
   const [expandedTx, setExpandedTx] = useState<Record<string, boolean>>({});
   const [isHtmlEditorOpen, setIsHtmlEditorOpen] = useState(false);
   const [htmlEditorContent, setHtmlEditorContent] = useState("");
@@ -1666,11 +1669,16 @@ export default function BookingManager({
                                 {p.phoneNumber || "—"}
                               </div>
                             </td>
-                            {/* Passport */}
+                            {/* Passport & E-Ticket */}
                             <td className="px-3 py-2">
                               <div className="font-mono text-foreground">
                                 {p.passportNumber || "—"}
                               </div>
+                              {(p.eticket || p.ticketNo) && (
+                                <div className="text-[10px] font-mono text-sky-600 dark:text-sky-400 font-bold mt-0.5">
+                                  Tkt: {p.eticket || p.ticketNo}
+                                </div>
+                              )}
                               {p.passportExpiryDate && (
                                 <div className="text-[10px] text-muted-foreground">
                                   Exp:{" "}
@@ -2030,9 +2038,6 @@ export default function BookingManager({
                                             <p className="font-black text-foreground text-[15px] tracking-tight">{formatCurrency(fs.price)}</p>
                                             {fs.agentQuotedPrice !== undefined && fs.agentQuotedPrice !== null && (
                                               <p className="text-[10px] text-muted-foreground mt-0.5 font-medium block">Quoted: {formatCurrency(fs.agentQuotedPrice)}</p>
-                                            )}
-                                            {fs.confirmationNumber && (
-                                              <p className="text-[10px] text-muted-foreground mt-0.5 font-medium block">Conf: {fs.confirmationNumber}</p>
                                             )}
                                             {fs.baggage && (
                                               <p className="text-[9px] text-muted-foreground font-bold uppercase mt-0.5 block">🎒 {fs.baggage}</p>
@@ -3000,10 +3005,10 @@ export default function BookingManager({
       >
         <div className="p-4 flex flex-col gap-4 text-left font-sans">
           <p className="text-xs text-muted-foreground">
-            Choose whether to print a consolidated ticket for all passengers or
-            select an individual passenger.
+            Customize ticket generation by passenger, airline carrier, or output print format.
           </p>
 
+          {/* Select Passenger */}
           <div className="flex flex-col gap-1.5">
             <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
               Select Passenger
@@ -3014,16 +3019,61 @@ export default function BookingManager({
               className="text-xs py-2 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary w-full"
             >
               <option value="all">
-                Full Family / All Passengers (One page per passenger)
+                Full Family / All Passengers (Top Header Summary)
               </option>
               {booking?.passengers?.map((p: any) => (
                 <option key={p.id} value={p.id}>
-                  {p.title || ""} {p.firstName} {p.lastName} (
-                  {p.role || "Passenger"})
+                  {p.title || ""} {p.firstName} {p.lastName} ({p.role || "Passenger"})
                 </option>
               ))}
             </select>
           </div>
+
+          {/* Filter by Airline */}
+          {(() => {
+            const availableAirlines: string[] = Array.from(
+              new Set<string>(
+                (booking?.flightServices || []).map((fs: any) => getAirlineKey(fs)),
+              ),
+            );
+            return (
+              <>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                    Filter by Airline / Carrier
+                  </label>
+                  <select
+                    value={printTicketSelectedAirline}
+                    onChange={(e) => setPrintTicketSelectedAirline(e.target.value)}
+                    className="text-xs py-2 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary w-full"
+                  >
+                    <option value="all">All Airlines / Full Consolidated Itinerary</option>
+                    {availableAirlines.map((airline) => (
+                      <option key={airline} value={airline}>
+                        {airline}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {availableAirlines.length > 1 && printTicketSelectedAirline === "all" && (
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                      Print Format (Multiple Airlines Detected)
+                    </label>
+                    <select
+                      value={printTicketSplitByAirline ? "split" : "single"}
+                      onChange={(e) => setPrintTicketSplitByAirline(e.target.value === "split")}
+                      className="text-xs py-2 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary w-full"
+                    >
+                      <option value="single">Single Consolidated Page (All Airlines Combined)</option>
+                      <option value="split">Multiple Tickets (Separate Page Break per Airline)</option>
+                    </select>
+                  </div>
+                )}
+              </>
+            );
+          })()}
 
           <div className="flex justify-end gap-2 mt-4 pt-3 border-t border-border/60">
             <button
@@ -3045,8 +3095,10 @@ export default function BookingManager({
                       printTicketSelectedPassenger === "all"
                         ? null
                         : printTicketSelectedPassenger,
+                      printTicketSelectedAirline,
+                      printTicketSplitByAirline,
                     ),
-                    `E-Ticket_${printTicketSelectedFlight.flightNo}`,
+                    `E-Ticket_${booking?.bookingReference || printTicketSelectedFlight.flightNo}`,
                   );
                 }
                 setIsPrintTicketModalOpen(false);

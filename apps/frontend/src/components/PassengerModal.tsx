@@ -480,6 +480,7 @@ export default function PassengerModal({
   const [passportNumber, setPassportNumber] = useState("");
   const [passportExpiryDate, setPassportExpiryDate] = useState("");
   const [passportIssuingCountry, setPassportIssuingCountry] = useState("");
+  const [eticket, setEticket] = useState("");
   const [role, setRole] = useState("Passenger");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
@@ -541,6 +542,7 @@ export default function PassengerModal({
         setPassportNumber(passengerToEdit.passportNumber || "");
         setPassportExpiryDate(fmt(passengerToEdit.passportExpiryDate));
         setPassportIssuingCountry(passengerToEdit.passportIssuingCountry || "");
+        setEticket(passengerToEdit.eticket || passengerToEdit.ticketNo || "");
         setRole(passengerToEdit.role || "Passenger");
         setCollectPassport(passengerToEdit.collectPassport !== false);
         setCollectAdditional(!!passengerToEdit.collectAdditional);
@@ -559,6 +561,7 @@ export default function PassengerModal({
         setPassportNumber("");
         setPassportExpiryDate("");
         setPassportIssuingCountry("");
+        setEticket("");
         setRole("Passenger");
         setAddMode("link");
         setCollectPassport(true);
@@ -849,6 +852,7 @@ export default function PassengerModal({
           passportNumber: passportNumber || null,
           passportExpiryDate: passportExpiryDate || null,
           passportIssuingCountry: passportIssuingCountry || null,
+          eticket: eticket || null,
           role,
           collectPassport,
           collectAdditional,
@@ -865,6 +869,7 @@ export default function PassengerModal({
             firstName: firstName.trim(),
             lastName: lastName.trim(),
             email: email.trim(),
+            eticket: eticket || null,
             role,
             collectPassport,
             collectAdditional,
@@ -890,6 +895,7 @@ export default function PassengerModal({
             passportNumber: passportNumber || null,
             passportExpiryDate: passportExpiryDate || null,
             passportIssuingCountry: passportIssuingCountry || null,
+            eticket: eticket || null,
             role,
             collectPassport,
             collectAdditional,
@@ -1336,6 +1342,40 @@ export default function PassengerModal({
                 </div>
               </div>
             )}
+
+            {/* E-Ticket Information */}
+            <div className="bg-card p-4 rounded-xl border border-border/80 space-y-3">
+              <p className={sectionHeader}>
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="text-primary"
+                >
+                  <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z" />
+                  <path d="M13 5v14" />
+                </svg>
+                E-Ticket Number(s)
+              </p>
+              <div>
+                <label className={lbl}>E-Ticket / Ticket Number(s)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 176351172160, 07288492018"
+                  value={eticket}
+                  onChange={(e) => setEticket(e.target.value)}
+                  className={`${inp} font-mono`}
+                />
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  Associate specific E-ticket or confirmation ticket number(s) for this passenger.
+                </p>
+              </div>
+            </div>
           </div>
 
           {/* Right Column (Documents trigger, scan trigger, self-fill link) */}

@@ -69,11 +69,15 @@ export function parseAllPNRText(text: string, defaultYear: number): ParsedFlight
 
   // 2. Find all flight segments
   const amadeusRegex = /([A-Z0-9]{2})\s*([0-9]{1,4})\s+([A-Z])\s+([0-9]{1,2})([A-Z]{3})\s+([A-Z]{3})[\s/]*([A-Z]{3})\s*(?:[A-Z]{2}\d+)?\s*([0-9]{2}:?[0-9]{2})\s+([#+*]?\s*[0-9]{2}:?[0-9]{2}(?:\s*[#+*]\s*\d)?)/gi;
-  const sabreRegex = /([A-Z0-9]{2})\s*([0-9]{1,4})\s*([A-Z])\s+([0-9]{1,2})([A-Z]{3})\s+(?:[A-Z]{1,3}\s+)?([A-Z]{3})[\s/]*([A-Z]{3})(?:\*[A-Z]{2}\d+)?\s+([0-9]{3,4}[APap]?)\s+([0-9]{3,4}[APap]?)/gi;
+  const sabreRegex = /([A-Z0-9]{2})\s*([0-9]{1,4})\s*([A-Z])\s+([0-9]{1,2})([A-Z]{3})\s+(?:[A-Z]{1,3}\s+)?([A-Z]{3})[\s/]*([A-Z]{3})(?:\s+[A-Z0-9]{2,4})?(?:\*[A-Z]{2}\d+)?\s+([0-9]{3,4}[APap]?|[0-9]{2}:?[0-9]{2})\s+([#+*]?\s*[0-9]{3,4}[APap]?(?:\s*[#+*]\s*\d)?)/gi;
+  const sabreRegexFallback = /(?:^\d+\s+)?([A-Z0-9]{2})\s*([0-9]{1,4})\s*([A-Z]?)\s+([0-9]{1,2})([A-Z]{3})\s+(?:[A-Z0-9]{1,4}\s+)*?([A-Z]{3})[\s/]*([A-Z]{3})\s+(?:[A-Z0-9]{2,4}\s+)*?([0-9]{3,4}[APap]?|[0-9]{2}:?[0-9]{2})\s+([#+*]?\s*[0-9]{3,4}[APap]?(?:\s*[#+*]\s*\d)?)/gi;
 
   let matches = [...text.matchAll(amadeusRegex)];
   if (matches.length === 0) {
     matches = [...text.matchAll(sabreRegex)];
+  }
+  if (matches.length === 0) {
+    matches = [...text.matchAll(sabreRegexFallback)];
   }
 
   const monthNames = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
@@ -387,6 +391,7 @@ export default function PnrFlightModal({
   };
 
   const handleConvert = async () => {
+    if (isSubmitting) return;
     if (!pnrText.trim()) {
       toast.error("Please paste a PNR block first");
       return;
@@ -671,11 +676,19 @@ export default function PnrFlightModal({
               Enter Manually
             </button>
             <button
+              type="button"
               onClick={handleConvert}
-              disabled={!pnrText.trim()}
-              className="px-5 py-1.5 bg-primary text-primary-foreground font-bold rounded-lg text-xs hover:bg-primary/95 disabled:opacity-50 transition-all shadow-md cursor-pointer"
+              disabled={!pnrText.trim() || isSubmitting}
+              className="px-5 py-1.5 bg-primary text-primary-foreground font-bold rounded-lg text-xs hover:bg-primary/95 disabled:opacity-50 transition-all shadow-md cursor-pointer flex items-center gap-2"
             >
-              Convert & Continue
+              {isSubmitting ? (
+                <>
+                  <Loader2 size={13} className="animate-spin" />
+                  <span>Converting PNR...</span>
+                </>
+              ) : (
+                <span>Convert &amp; Continue</span>
+              )}
             </button>
           </div>
         </div>
@@ -1062,17 +1075,18 @@ export default function PnrFlightModal({
                   />
                 </div>
 
-                {/* Confirmation Number */}
-                <div className="flex flex-col gap-1 col-span-1">
+                {/* E-Ticket Numbers / Confirmation Numbers */}
+                <div className="flex flex-col gap-1 col-span-1 md:col-span-2">
                   <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                    Confirmation Number
+                    E-Ticket Numbers / Confirmation Numbers (Multiple supported)
                   </label>
-                  <input
-                    type="text"
-                    placeholder="Enter Confirmation Number"
+                  <textarea
+                    rows={2}
+                    name="eticket"
+                    placeholder="Enter E-Ticket Numbers (e.g. 953-1234567890, 953-1234567891, 953-1234567892)"
                     value={confirmationNumber}
                     onChange={(e) => setConfirmationNumber(e.target.value)}
-                    className="text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary w-full"
+                    className="text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary w-full font-mono resize-y"
                   />
                 </div>
 

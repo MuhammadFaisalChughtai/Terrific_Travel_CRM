@@ -143,93 +143,80 @@ const FLIGHT_TICKET_DEFAULT = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>Flight Ticket Template</title>
+<title>Flight Ticket / Itinerary Template</title>
 <style>
 ${SHARED_CSS}
-.ticket-wrapper { max-width: 780px; margin: 0 auto; }
-.ticket-card { background: linear-gradient(135deg, #0F172A 0%, #1E3A5F 100%); color: #FFFFFF; border-radius: 16px; padding: 24px 28px; margin-bottom: 16px; position: relative; overflow: hidden; }
-.ticket-card::before { content: ''; position: absolute; top: -30px; right: -30px; width: 140px; height: 140px; background: rgba(255,255,255,0.04); border-radius: 50%; }
-.airline-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
-.airline-name { font-size: 18px; font-weight: 900; letter-spacing: 0.5px; }
-.pnr-badge { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; padding: 6px 14px; text-align: center; }
-.pnr-label { font-size: 8px; font-weight: 700; opacity: 0.7; text-transform: uppercase; letter-spacing: 1px; }
-.pnr-value { font-size: 16px; font-weight: 900; letter-spacing: 2px; font-family: monospace; }
-.route-row { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
-.airport-code { font-size: 36px; font-weight: 900; letter-spacing: -1px; }
-.airport-city { font-size: 10px; opacity: 0.7; margin-top: 2px; }
-.route-line { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
-.route-dashes { width: 100%; height: 1px; border-top: 2px dashed rgba(255,255,255,0.25); }
-.flight-details-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; background: rgba(255,255,255,0.06); border-radius: 10px; padding: 12px 16px; }
-.detail-item label { font-size: 8px; font-weight: 700; opacity: 0.6; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 4px; }
-.detail-item span { font-size: 12px; font-weight: 700; }
-.passenger-section { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 14px 18px; margin-top: 14px; }
-.passenger-section h3 { font-size: 10px; font-weight: 800; color: #0EA5E9; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 8px; }
-.passenger-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #F1F5F9; font-size: 10px; }
-.baggage-strip { display: flex; gap: 12px; margin-top: 12px; }
-.baggage-item { background: rgba(255,255,255,0.1); border-radius: 8px; padding: 8px 14px; font-size: 10px; text-align: center; }
-.baggage-item span { display: block; font-size: 8px; opacity: 0.7; margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
-.footer-bar { font-size: 9px; color: #94A3B8; text-align: center; margin-top: 16px; padding-top: 12px; border-top: 1px solid #E2E8F0; }
+.document-container { padding: 16px 20px; max-width: 850px; margin: 0 auto; background: #ffffff; font-family: 'Outfit', 'Inter', sans-serif; }
+.doc-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #E2E8F0; padding-bottom: 12px; margin-bottom: 16px; }
+.brand-block p { margin-top: 6px; margin-bottom: 0; font-size: 9px; color: #64748B; line-height: 1.4; }
+.doc-title-section { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
+.doc-title { font-size: 18px; font-weight: 800; color: #0F172A; margin: 0; }
+.section-badge { background: #E0F2FE; color: #0369A1; font-size: 9px; font-weight: 700; padding: 2px 8px; border-radius: 99px; text-transform: uppercase; }
+.doc-meta { text-align: right; font-size: 10px; color: #475569; }
+.data-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 10px; }
+.data-table th { background: #0F172A; color: #FFFFFF; padding: 6px 10px; font-size: 9px; text-transform: uppercase; text-align: left; }
+.data-table td { padding: 6px 10px; border-bottom: 1px solid #E2E8F0; }
+.ticket-card { border: 1px solid #E2E8F0; margin-bottom: 14px; border-radius: 6px; overflow: hidden; background: #FFFFFF; }
+.ticket-card-header { background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%); padding: 8px 14px; display: flex; justify-content: space-between; align-items: center; }
+.ticket-card-body { padding: 12px 14px; display: grid; grid-template-columns: 2fr 1.2fr 2fr; align-items: center; gap: 12px; }
+.airport-code { font-size: 18px; font-weight: 800; color: #0F172A; margin: 0; line-height: 1; }
+.airport-name { font-size: 10px; font-weight: bold; color: #475569; margin: 2px 0 0 0; }
+.flight-meta-grid { display: flex; justify-content: space-between; align-items: center; padding: 8px 14px; background: #FAFAFA; border-top: 1px solid #F1F5F9; font-size: 10px; color: #475569; }
 </style>
 </head>
 <body>
-<div class="document-container ticket-wrapper">
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">
-    ${BRAND_LOGOS.companyLogo}
-    <div style="text-align:right;">
-      <div style="font-size:9px;color:#64748B;">Booking Reference</div>
-      <div style="font-size:14px;font-weight:900;color:#0F172A;">TT1100</div>
-      <div style="font-size:9px;color:#94A3B8;margin-top:2px;">Issued: {{DATE}}</div>
+<div class="document-container">
+  <div class="doc-header">
+    <div class="brand-block">
+      ${BRAND_LOGOS.companyLogo}
+      <p>
+        <strong>Terrific Travel &amp; Tours Ltd</strong><br>
+        Address: Office 1, 11 Walford Road, Birmingham, B11 1NP, UK<br>
+        Phone: 0121 529 1630 | Emergency: +44 7888 461474<br>
+        Email: office@terrifictravel.co.uk | Web: www.terrifictravel.co.uk<br>
+        IATA: 91263712
+      </p>
+    </div>
+    <div style="display: flex; align-items: center; height: 50px;">
+      <div class="logos-block">
+        ${BRAND_LOGOS.iataLogo}
+        ${BRAND_LOGOS.atolLogo}
+      </div>
     </div>
   </div>
 
-  <div class="ticket-card">
-    <div class="airline-row">
-      <div>
-        <div class="airline-name">✈ Terrific Travel — Flight Itinerary</div>
-        <div style="font-size:10px;opacity:0.7;margin-top:2px;">Economy Class · EK 001</div>
-      </div>
-      <div class="pnr-badge">
-        <div class="pnr-label">PNR</div>
-        <div class="pnr-value">ABC123</div>
-      </div>
+  <div class="doc-title-section">
+    <div>
+      <h1 class="doc-title">FLIGHT TICKET / ITINERARY</h1>
+      <span class="section-badge">STATUS: ISSUED</span>
     </div>
-
-    <div class="route-row">
-      <div style="text-align:center;">
-        <div class="airport-code">LHR</div>
-        <div class="airport-city">London Heathrow</div>
-        <div style="font-size:12px;font-weight:700;margin-top:6px;">09:00</div>
-      </div>
-      <div class="route-line">
-        <div style="font-size:9px;opacity:0.6;text-transform:uppercase;letter-spacing:1px;">Direct · 7h 15m</div>
-        <div class="route-dashes"></div>
-        <div style="font-size:11px;opacity:0.7;">→</div>
-      </div>
-      <div style="text-align:center;">
-        <div class="airport-code">DXB</div>
-        <div class="airport-city">Dubai International</div>
-        <div style="font-size:12px;font-weight:700;margin-top:6px;">19:15</div>
-      </div>
-    </div>
-
-    <div class="flight-details-grid">
-      <div class="detail-item"><label>Date</label><span>15 Jul 2026</span></div>
-      <div class="detail-item"><label>Flight Class</label><span>Economy (Y)</span></div>
-      <div class="detail-item"><label>Baggage</label><span>23 KG</span></div>
-      <div class="detail-item"><label>Carry-On</label><span>7 KG</span></div>
+    <div class="doc-meta">
+      <p style="margin: 0;">Booking Ref: <strong>{{BOOKING_REF}}</strong></p>
+      <p style="margin: 2px 0 0 0;">Supplier Ref (PNR): <strong style="font-family: monospace; font-size: 12px; color: #0EA5E9;">{{PNR}}</strong></p>
+      <p style="margin: 2px 0 0 0;">Issue Date: <strong>{{DATE}}</strong></p>
     </div>
   </div>
 
-  <div class="passenger-section">
-    <h3>Passengers on this Itinerary</h3>
-    <div class="passenger-row"><span><strong>Mr John Smith</strong></span><span>Adult · Passport: AB123456</span><span>Seat: 24A</span></div>
-    <div class="passenger-row"><span><strong>Mrs Jane Smith</strong></span><span>Adult · Passport: AB654321</span><span>Seat: 24B</span></div>
-  </div>
+  <!-- PASSENGER DETAILS TABLE -->
+  <h3 style="text-transform: uppercase; font-size: 10px; font-weight: 800; color: #0F172A; border-bottom: 1.5px solid #E2E8F0; padding-bottom: 4px; margin-bottom: 8px;">PASSENGER DETAILS</h3>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>PAX TYPE</th>
+        <th>PASSENGER NAME</th>
+        <th>E-TICKET NUMBER</th>
+        <th>AGENCY IATA</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{PASSENGERS_TABLE_ROWS}}
+    </tbody>
+  </table>
 
-  <div class="footer-bar">
-    Terrific Travel &amp; Tours Ltd | ATOL No: 11492 | accounts@terrifictravel.co.uk | +44 20 7946 0958<br>
-    This is an e-ticket. Please present this document along with a valid passport at check-in.
-  </div>
+  <!-- FLIGHT ITINERARY SEGMENTS -->
+  <h3 style="text-transform: uppercase; font-size: 10px; font-weight: 800; color: #0F172A; border-bottom: 1.5px solid #E2E8F0; padding-bottom: 4px; margin-bottom: 12px;">FLIGHT ITINERARY SEGMENTS</h3>
+  
+  {{FLIGHT_SEGMENTS_BLOCK}}
 </div>
 </body>
 </html>`;
@@ -1116,7 +1103,11 @@ export default function InvoiceTemplatesPage() {
     const matched = dbTemplates?.find(
       (t: any) => t.templateType.toUpperCase() === id.toUpperCase(),
     );
-    return matched ? matched.htmlContent : defaultHtml;
+    const content = matched?.htmlContent?.trim();
+    if (!content || content === "{{FLIGHT_TICKET_PAGES}}") {
+      return defaultHtml;
+    }
+    return content;
   };
 
   return (

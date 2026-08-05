@@ -531,7 +531,79 @@ tbody tr:nth-child(even) { background: #F8FAFC; }
     name: "Flight Ticket",
     description:
       "E-ticket itinerary with route, PNR, baggage and passenger details — one ticket per passenger.",
-    html: "{{FLIGHT_TICKET_PAGES}}",
+    html: `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Flight Ticket / Itinerary Template</title>
+<style>
+.document-container { padding: 16px 20px; max-width: 850px; margin: 0 auto; background: #ffffff; font-family: 'Outfit', 'Inter', sans-serif; }
+.doc-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #E2E8F0; padding-bottom: 12px; margin-bottom: 16px; }
+.brand-block p { margin-top: 6px; margin-bottom: 0; font-size: 9px; color: #64748B; line-height: 1.4; }
+.doc-title-section { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
+.doc-title { font-size: 18px; font-weight: 800; color: #0F172A; margin: 0; }
+.section-badge { background: #E0F2FE; color: #0369A1; font-size: 9px; font-weight: 700; padding: 2px 8px; border-radius: 99px; text-transform: uppercase; }
+.doc-meta { text-align: right; font-size: 10px; color: #475569; }
+.data-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 10px; }
+.data-table th { background: #0F172A; color: #FFFFFF; padding: 6px 10px; font-size: 9px; text-transform: uppercase; text-align: left; }
+.data-table td { padding: 6px 10px; border-bottom: 1px solid #E2E8F0; }
+.ticket-card { border: 1px solid #E2E8F0; margin-bottom: 14px; border-radius: 6px; overflow: hidden; background: #FFFFFF; }
+.ticket-card-header { background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%); padding: 8px 14px; display: flex; justify-content: space-between; align-items: center; }
+.ticket-card-body { padding: 12px 14px; display: grid; grid-template-columns: 2fr 1.2fr 2fr; align-items: center; gap: 12px; }
+.airport-code { font-size: 18px; font-weight: 800; color: #0F172A; margin: 0; line-height: 1; }
+.airport-name { font-size: 10px; font-weight: bold; color: #475569; margin: 2px 0 0 0; }
+.flight-meta-grid { display: flex; justify-content: space-between; align-items: center; padding: 8px 14px; background: #FAFAFA; border-top: 1px solid #F1F5F9; font-size: 10px; color: #475569; }
+</style>
+</head>
+<body>
+<div class="document-container">
+  <div class="doc-header">
+    <div class="brand-block">
+      <p>
+        <strong>Terrific Travel &amp; Tours Ltd</strong><br>
+        Address: Office 1, 11 Walford Road, Birmingham, B11 1NP, UK<br>
+        Phone: 0121 529 1630 | Emergency: +44 7888 461474<br>
+        Email: office@terrifictravel.co.uk | Web: www.terrifictravel.co.uk<br>
+        IATA: 91263712
+      </p>
+    </div>
+  </div>
+
+  <div class="doc-title-section">
+    <div>
+      <h1 class="doc-title">FLIGHT TICKET / ITINERARY</h1>
+      <span class="section-badge">STATUS: ISSUED</span>
+    </div>
+    <div class="doc-meta">
+      <p style="margin: 0;">Booking Ref: <strong>{{BOOKING_REF}}</strong></p>
+      <p style="margin: 2px 0 0 0;">Supplier Ref (PNR): <strong style="font-family: monospace; font-size: 12px; color: #0EA5E9;">{{PNR}}</strong></p>
+      <p style="margin: 2px 0 0 0;">Issue Date: <strong>{{DATE}}</strong></p>
+    </div>
+  </div>
+
+  <!-- PASSENGER DETAILS TABLE -->
+  <h3 style="text-transform: uppercase; font-size: 10px; font-weight: 800; color: #0F172A; border-bottom: 1.5px solid #E2E8F0; padding-bottom: 4px; margin-bottom: 8px;">PASSENGER DETAILS</h3>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>PAX TYPE</th>
+        <th>PASSENGER NAME</th>
+        <th>E-TICKET NUMBER</th>
+        <th>AGENCY IATA</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{PASSENGERS_TABLE_ROWS}}
+    </tbody>
+  </table>
+
+  <!-- FLIGHT ITINERARY SEGMENTS -->
+  <h3 style="text-transform: uppercase; font-size: 10px; font-weight: 800; color: #0F172A; border-bottom: 1.5px solid #E2E8F0; padding-bottom: 4px; margin-bottom: 12px;">FLIGHT ITINERARY SEGMENTS</h3>
+  
+  {{FLIGHT_SEGMENTS_BLOCK}}
+</div>
+</body>
+</html>`,
   },
 
   HOTEL_VOUCHER: {

@@ -1145,22 +1145,40 @@ export function generateBookingInvoiceHtml(booking: any) {
 }
 
 // Helper to generate deterministic realistic e-ticket number
-function getTicketNumber(passenger: any, flight: any): string {
+function getTicketNumber(passenger: any, flight: any, passengerIndex: number = 0): string {
+  if (passenger?.eticket) return passenger.eticket;
+  if (passenger?.ticketNo) return passenger.ticketNo;
+
+  const rawFlightTickets = flight?.confirmationNumber || flight?.eTicket;
+  if (rawFlightTickets) {
+    const list = String(rawFlightTickets)
+      .split(/[,;\n]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (list.length > 0) {
+      if (passengerIndex < list.length) {
+        return list[passengerIndex];
+      }
+      return list[0];
+    }
+  }
+
   const nameCode =
-    ((passenger.firstName || "").length * 7 +
-      (passenger.lastName || "").length * 3) %
+    ((passenger?.firstName || "").length * 7 +
+      (passenger?.lastName || "").length * 3) %
     1000000;
-  const passIdCode = passenger.id
+  const passIdCode = passenger?.id
     ? parseInt(passenger.id.replace(/[^0-9]/g, "").substring(0, 7)) || 1234567
     : 1234567;
   const num = String((nameCode * passIdCode) % 1000000000).padStart(9, "0");
 
-  const flightCarrier = (flight.flightNo || "").substring(0, 2).toUpperCase();
+  const flightCarrier = (flight?.flightNo || "").substring(0, 2).toUpperCase();
   let prefix = "157"; // Qatar Airways
   if (flightCarrier === "EK") prefix = "176";
   else if (flightCarrier === "BA") prefix = "125";
   else if (flightCarrier === "SV") prefix = "065";
   else if (flightCarrier === "WY") prefix = "910";
+  else if (flightCarrier === "W9" || flightCarrier === "W6") prefix = "953";
 
   return `${prefix}${num}`;
 }
@@ -1351,13 +1369,14 @@ function getAirlineName(flightNo: string): string {
   return airlines[code] || `${code} Air`;
 }
 
-function generateIndividualTicketHtml(
+function generateConsolidatedTicketHtml(
   booking: any,
-  passenger: any,
+  passengersList: any[],
   flights: any[],
 ) {
-  const ticketNo = passenger
-    ? getTicketNumber(passenger, flights[0] || {})
+  const primaryPax = passengersList[0] || {};
+  const ticketNo = primaryPax
+    ? getTicketNumber(primaryPax, flights[0] || {})
     : "—";
   const pnr = flights[0]?.pnr || booking.bookingReference || "—";
   const issueDate = flights[0]?.issueDate
@@ -1365,11 +1384,11 @@ function generateIndividualTicketHtml(
     : formatDate(booking.createdAt || new Date());
 
   return `
-    <div class="document-container">
-      <div class="doc-header" style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #E2E8F0; padding-bottom: 16px; margin-bottom: 24px;">
+    <div class="document-container" style="padding: 16px 20px; max-width: 850px; margin: 0 auto; background: #ffffff;">
+      <div class="doc-header" style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #E2E8F0; padding-bottom: 12px; margin-bottom: 16px;">
         <div class="brand-block">
           ${BRAND_LOGOS.companyLogo}
-          <p style="margin-top: 8px; margin-bottom: 0; font-size: 9px; color: #64748B; line-height: 1.4;">
+          <p style="margin-top: 6px; margin-bottom: 0; font-size: 9px; color: #64748B; line-height: 1.4;">
             <strong>Terrific Travel &amp; Tours Ltd</strong><br>
             Address: Office 1, 11 Walford Road, Birmingham, B11 1NP, UK<br>
             Phone: 0121 529 1630 | Emergency: +44 7888 461474<br>
@@ -1377,7 +1396,7 @@ function generateIndividualTicketHtml(
             IATA: 91263712  
           </p>
         </div>
-        <div style="display: flex; align-items: center; height: 60px;">
+        <div style="display: flex; align-items: center; height: 50px;">
           <div class="logos-block">
             ${BRAND_LOGOS.iataLogo}
             ${BRAND_LOGOS.atolLogo}
@@ -1385,39 +1404,47 @@ function generateIndividualTicketHtml(
         </div>
       </div>
 
-      <div class="doc-title-section">
+      <div class="doc-title-section" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
         <div>
-          <h1 class="doc-title">Flight Ticket / Itinerary</h1>
-          <span class="section-badge" style="background: #E0F2FE; color: #0369A1;">Status: Issued</span>
+          <h1 class="doc-title" style="font-family: 'Outfit', sans-serif; font-size: 18px; font-weight: 800; color: #0F172A; margin: 0;">Flight Ticket / Itinerary</h1>
+          <span class="section-badge" style="background: #E0F2FE; color: #0369A1; font-size: 9px; font-weight: 700; padding: 2px 8px; border-radius: 99px; text-transform: uppercase;">Status: Issued</span>
         </div>
-        <div class="doc-meta">
-          <p>Booking Ref: <strong>${booking.bookingReference || "—"}</strong></p>
-          <p>Supplier Ref (PNR): <strong style="font-family: monospace; font-size: 13px; color: #0EA5E9;">${pnr}</strong></p>
-          <p>Issue Date: <strong>${issueDate}</strong></p>
+        <div class="doc-meta" style="text-align: right; font-size: 10px; color: #475569;">
+          <p style="margin: 0;">Booking Ref: <strong>${booking.bookingReference || "—"}</strong></p>
+          <p style="margin: 2px 0 0 0;">Supplier Ref (PNR): <strong style="font-family: monospace; font-size: 12px; color: #0EA5E9;">${pnr}</strong></p>
+          <p style="margin: 2px 0 0 0;">Issue Date: <strong>${issueDate}</strong></p>
         </div>
       </div>
 
-      <h3 style="font-family: 'Outfit', sans-serif; text-transform: uppercase; font-size: 11px; color: #0F172A; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px; margin-bottom: 12px;">Passenger Details</h3>
-      <table class="data-table" style="margin-bottom: 24px;">
+      <!-- Top-Only Passenger Details Banner & Table -->
+      <h3 style="font-family: 'Outfit', sans-serif; text-transform: uppercase; font-size: 10px; font-weight: 800; color: #0F172A; border-bottom: 1.5px solid #E2E8F0; padding-bottom: 4px; margin-bottom: 8px;">Passenger Details</h3>
+      <table class="data-table" style="width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 10px;">
         <thead>
-          <tr>
-            <th>PAX Type</th>
-            <th>Passenger Name</th>
-            <th>E-Ticket Number</th>
-            <th>Agency IATA</th>
+          <tr style="background: #0F172A; color: #FFFFFF; text-align: left;">
+            <th style="padding: 6px 10px; font-size: 9px; text-transform: uppercase;">PAX Type</th>
+            <th style="padding: 6px 10px; font-size: 9px; text-transform: uppercase;">Passenger Name</th>
+            <th style="padding: 6px 10px; font-size: 9px; text-transform: uppercase;">E-Ticket Number</th>
+            <th style="padding: 6px 10px; font-size: 9px; text-transform: uppercase;">Agency IATA</th>
           </tr>
         </thead>
         <tbody>
-          <tr>
-            <td style="text-transform: uppercase; font-weight: bold;">${passenger.role || deriveAgeCategory(passenger.dateOfBirth)}</td>
-            <td><strong>${passenger.title || ""} ${passenger.firstName} ${passenger.lastName}</strong></td>
-            <td style="color: #0284C7; font-family: monospace; font-size: 12px; font-weight: bold;">${ticketNo}</td>
-            <td>91263712</td>
-          </tr>
+          ${passengersList
+            .map(
+              (p: any, idx: number) => `
+            <tr style="border-bottom: 1px solid #E2E8F0;">
+              <td style="padding: 6px 10px; text-transform: uppercase; font-weight: bold; color: #334155;">${p.role || deriveAgeCategory(p.dateOfBirth)}</td>
+              <td style="padding: 6px 10px; color: #0F172A;"><strong>${p.title || ""} ${p.firstName} ${p.lastName}</strong></td>
+              <td style="padding: 6px 10px; color: #0284C7; font-family: monospace; font-size: 11px; font-weight: bold;">${getTicketNumber(p, flights[0] || {}, idx)}</td>
+              <td style="padding: 6px 10px; color: #475569;">91263712</td>
+            </tr>
+          `,
+            )
+            .join("")}
         </tbody>
       </table>
 
-      <h3 style="font-family: 'Outfit', sans-serif; text-transform: uppercase; font-size: 11px; color: #0F172A; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px; margin-bottom: 16px;">Flight Itinerary Segments</h3>
+      <!-- Flight Segments Section -->
+      <h3 style="font-family: 'Outfit', sans-serif; text-transform: uppercase; font-size: 10px; font-weight: 800; color: #0F172A; border-bottom: 1.5px solid #E2E8F0; padding-bottom: 4px; margin-bottom: 12px;">Flight Itinerary Segments</h3>
 
       ${flights
         .map((f: any, idx: number) => {
@@ -1457,54 +1484,56 @@ function generateIndividualTicketHtml(
             }
           }
 
+          const segmentETicket = f.confirmationNumber || f.eTicket || ticketNo;
+
           return `
-          <div class="ticket-card" style="border: 1px solid #E2E8F0; margin-bottom: 20px;">
-            <div class="ticket-card-header" style="background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%); padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px solid #0F172A;">
-              <div style="font-weight: 900; color: #FFFFFF; font-size: 12px; display: flex; align-items: center; gap: 6px;">
+          <div class="ticket-card" style="border: 1px solid #E2E8F0; margin-bottom: 14px; border-radius: 6px; overflow: hidden; background: #FFFFFF;">
+            <div class="ticket-card-header" style="background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%); padding: 8px 14px; display: flex; justify-content: space-between; align-items: center;">
+              <div style="font-weight: 900; color: #FFFFFF; font-size: 11px; display: flex; align-items: center; gap: 6px;">
                 <span style="background: #0EA5E9; color: #FFFFFF; font-size: 9px; padding: 2px 6px; border-radius: 4px; font-weight: 900; text-transform: uppercase;">Segment #${idx + 1}</span>
                 <span>${f.flightNo}</span>
               </div>
-              <div style="font-size: 11px; font-weight: 800; font-family: monospace; color: #38BDF8; background: rgba(56, 189, 248, 0.1); padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(56, 189, 248, 0.2);">
+              <div style="font-size: 10px; font-weight: 800; font-family: monospace; color: #38BDF8; background: rgba(56, 189, 248, 0.1); padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(56, 189, 248, 0.2);">
                 PNR: ${f.pnr || "—"}
               </div>
             </div>
-            <div class="ticket-card-body" style="padding: 16px; display: grid; grid-template-cols: 2fr 1.2fr 2fr; align-items: center; gap: 15px;">
+            <div class="ticket-card-body" style="padding: 12px 14px; display: grid; grid-template-columns: 2fr 1.2fr 2fr; align-items: center; gap: 12px;">
               <div style="text-align: left;">
-                <p class="airport-code">${depCode}</p>
-                <p class="airport-name" style="font-size: 10px; font-weight: bold; color: #475569; margin-top: 2px;">${depName}</p>
-                ${depTerminal ? `<p style="font-size: 9px; font-weight: bold; color: #E11D48; margin-top: 2px;">Terminal: ${depTerminal}</p>` : ""}
-                <p style="font-size: 13px; font-weight: bold; color: #0F172A; margin-top: 4px;">${f.departTime || "—"}</p>
-                <p style="font-size: 9px; color: #64748B;">Date: ${depDateStr}</p>
+                <p class="airport-code" style="font-family: 'Outfit', sans-serif; font-size: 18px; font-weight: 800; color: #0F172A; margin: 0; line-height: 1;">${depCode}</p>
+                <p class="airport-name" style="font-size: 10px; font-weight: bold; color: #475569; margin: 2px 0 0 0;">${depName}</p>
+                ${depTerminal ? `<p style="font-size: 9px; font-weight: bold; color: #E11D48; margin: 2px 0 0 0;">Terminal: ${depTerminal}</p>` : ""}
+                <p style="font-size: 13px; font-weight: bold; color: #0F172A; margin: 4px 0 0 0;">${f.departTime || "—"}</p>
+                <p style="font-size: 9px; color: #64748B; margin: 2px 0 0 0;">Date: ${depDateStr}</p>
               </div>
               <div style="text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; min-width: 80px;">
                 <div style="font-size: 9px; text-transform: uppercase; color: #94A3B8; font-weight: 800; letter-spacing: 0.5px; margin-bottom: 2px;">NON-STOP</div>
                 <div style="width: 100%; display: flex; align-items: center; position: relative;">
                   <div style="height: 1px; flex-grow: 1; border-top: 1.5px dashed #E2E8F0;"></div>
-                  <div style="color: #0EA5E9; font-size: 14px; transform: rotate(90deg); margin: 0 4px; line-height: 1;">✈</div>
+                  <div style="color: #0EA5E9; font-size: 12px; transform: rotate(90deg); margin: 0 4px; line-height: 1;">✈</div>
                   <div style="height: 1px; flex-grow: 1; border-top: 1.5px dashed #E2E8F0;"></div>
                 </div>
               </div>
               <div style="text-align: right;">
-                <p class="airport-code">${arrCode}</p>
-                <p class="airport-name" style="font-size: 10px; font-weight: bold; color: #475569; margin-top: 2px;">${arrName}</p>
-                ${arrTerminal ? `<p style="font-size: 9px; font-weight: bold; color: #E11D48; margin-top: 2px;">Terminal: ${arrTerminal}</p>` : ""}
-                <p style="font-size: 13px; font-weight: bold; color: #0F172A; margin-top: 4px;">${f.arrivalTime || "—"}</p>
-                <p style="font-size: 9px; color: #64748B;">Date: ${arrDateStr}</p>
+                <p class="airport-code" style="font-family: 'Outfit', sans-serif; font-size: 18px; font-weight: 800; color: #0F172A; margin: 0; line-height: 1;">${arrCode}</p>
+                <p class="airport-name" style="font-size: 10px; font-weight: bold; color: #475569; margin: 2px 0 0 0;">${arrName}</p>
+                ${arrTerminal ? `<p style="font-size: 9px; font-weight: bold; color: #E11D48; margin: 2px 0 0 0;">Terminal: ${arrTerminal}</p>` : ""}
+                <p style="font-size: 13px; font-weight: bold; color: #0F172A; margin: 4px 0 0 0;">${f.arrivalTime || "—"}</p>
+                <p style="font-size: 9px; color: #64748B; margin: 2px 0 0 0;">Date: ${arrDateStr}</p>
               </div>
             </div>
             
-            <div class="flight-meta-grid">
-              <div class="meta-item">
-                <h5>Operating Carrier</h5>
-                <p>${getAirlineName(f.flightNo)}</p>
+            <div class="flight-meta-grid" style="display: flex; justify-content: space-between; align-items: center; padding: 8px 14px; background: #FAFAFA; border-top: 1px solid #F1F5F9; font-size: 10px; color: #475569;">
+              <div>
+                Operating Carrier: <strong style="color: #0F172A;">${getAirlineName(f.flightNo)}</strong>
               </div>
-              <div class="meta-item">
-                <h5>Baggage Allowance</h5>
-                <p>${f.baggage || "23 KG"}</p>
+              <div>
+                Baggage Allowance: <strong style="color: #0F172A;">${f.baggage || "23 KG"}</strong>
               </div>
-              <div class="meta-item">
-                <h5>Cabin Class</h5>
-                <p>${f.flightClass || "Economy"}</p>
+              <div>
+                Cabin Class: <strong style="color: #0F172A;">${f.flightClass || "Economy"}</strong>
+              </div>
+              <div>
+                Status: <strong style="color: #059669;">CONFIRMED</strong>
               </div>
             </div>
           </div>
@@ -1512,10 +1541,8 @@ function generateIndividualTicketHtml(
           ${
             layoverStr
               ? `
-            <div class="layover-divider">
-              <div style="position: absolute; left: 0; right: 0; top: 50%; height: 2px; border-top: 2px dashed #E2E8F0; z-index: 1;"></div>
-              <div style="position: relative; z-index: 2; background: #FFFBEB; border: 1.5px solid #FCD34D; border-radius: 99px; padding: 6px 18px; font-size: 11px; font-weight: 700; color: #B45309; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
-                <span style="font-size: 12px;">⏱️</span>
+            <div class="layover-divider" style="text-align: center; margin: -6px 0 10px 0;">
+              <div style="background: #FFFBEB; border: 1px solid #FCD34D; border-radius: 99px; padding: 4px 14px; font-size: 10px; font-weight: 700; color: #B45309; display: inline-flex; align-items: center; gap: 4px;">
                 <span>Transit Layover: <strong style="color: #92400E;">${layoverStr}</strong> at <strong>${transitHub}</strong></span>
               </div>
             </div>
@@ -1527,22 +1554,33 @@ function generateIndividualTicketHtml(
         .join("")}
 
       <!-- Bottom Notice matching ref style -->
-      <div style="font-size: 8px; line-height: 1.4; color: #64748B; border-top: 1px dashed #E2E8F0; padding-top: 10px; margin-top: 20px;">
-        <p style="margin: 0 0 5px 0; font-weight: bold; color: #334155;">Foreign &amp; Commonwealth Office Travel Advice:</p>
-        <p style="margin: 0 0 10px 0;">The Foreign &amp; Commonwealth Office (FCO) issues travel advice on destinations, which includes information on passports, visas, health, safety, and security. For more information refer to link: https://www.gov.uk/foreign-travel-advice</p>
+      <div style="font-size: 8px; line-height: 1.3; color: #64748B; border-top: 1px dashed #E2E8F0; padding-top: 8px; margin-top: 12px;">
+        <p style="margin: 0 0 3px 0; font-weight: bold; color: #334155;">Foreign &amp; Commonwealth Office Travel Advice:</p>
+        <p style="margin: 0 0 6px 0;">The Foreign &amp; Commonwealth Office (FCO) issues travel advice on destinations, which includes information on passports, visas, health, safety, and security. For more information refer to link: https://www.gov.uk/foreign-travel-advice</p>
         
-        <p style="margin: 0 0 5px 0; font-weight: bold; color: #0F172A;">NOTES &amp; REGULATORY DISCLOSURES :</p>
+        <p style="margin: 0 0 3px 0; font-weight: bold; color: #0F172A;">NOTES &amp; REGULATORY DISCLOSURES :</p>
         <p style="margin: 0;">1. Reconfirmation of any onward / return journey is passenger responsibility.</p>
         <p style="margin: 0;">2. Timings are subject to change. Please reconfirm with your airline operator before you fly.</p>
         <p style="margin: 0;">3. Present your e-ticket along with your original valid passport at check-in counter to obtain boarding passes.</p>
         <p style="margin: 0;">4. All flight ticket bookings are protected under the UK Civil Aviation Authority ATOL scheme (Reg 11492) and fully backed by our IATA credentials.</p>
       </div>
 
-      <div style="text-align: center; font-size: 9px; font-weight: bold; color: #94A3B8; margin-top: 15px; border-top: 1px solid #E2E8F0; padding-top: 8px;">
+      <div style="text-align: center; font-size: 9px; font-weight: bold; color: #94A3B8; margin-top: 10px; border-top: 1px solid #E2E8F0; padding-top: 6px;">
         Thank you for booking with Terrific Travel. Have a safe and comfortable flight!
       </div>
     </div>
   `;
+}
+
+export function getAirlineKey(flight: any): string {
+  if (!flight) return "Flight Service";
+  const rawFlightNo = (flight.flightNo || "").trim();
+  const codeMatch = rawFlightNo.match(/^([A-Z0-9]{2})/i);
+  if (codeMatch) {
+    const code = codeMatch[1].toUpperCase();
+    return getAirlineName(code);
+  }
+  return flight.vendor?.name || "Flight Service";
 }
 
 // 2. GENERATE FLIGHT TICKET
@@ -1550,18 +1588,28 @@ export function generateFlightTicketHtml(
   booking: any,
   flight: any,
   selectedPassengerId?: string | null,
+  selectedAirline?: string | null,
+  splitByAirline?: boolean,
 ) {
   const flightsToRender =
     booking.flightServices && booking.flightServices.length > 0
       ? booking.flightServices
       : [flight];
 
-  const sortedFlights = [...flightsToRender].sort((a: any, b: any) => {
+  let sortedFlights = [...flightsToRender].sort((a: any, b: any) => {
     const dateA = new Date(a.date).getTime();
     const dateB = new Date(b.date).getTime();
     if (dateA !== dateB) return dateA - dateB;
     return (a.departTime || "").localeCompare(b.departTime || "");
   });
+
+  // Filter by selected airline if specified and not 'all'
+  if (selectedAirline && selectedAirline !== "all") {
+    sortedFlights = sortedFlights.filter((f: any) => {
+      const airlineName = getAirlineKey(f);
+      return airlineName.toLowerCase() === selectedAirline.toLowerCase();
+    });
+  }
 
   const passengers =
     booking.passengers && booking.passengers.length > 0
@@ -1575,19 +1623,37 @@ export function generateFlightTicketHtml(
           },
         ];
 
-  if (!selectedPassengerId || selectedPassengerId === "all") {
-    // Return all passenger tickets separated by page break
-    return passengers
-      .map((p: any) => generateIndividualTicketHtml(booking, p, sortedFlights))
-      .join('<div style="page-break-after: always; height: 1px;"></div>');
-  } else {
-    const p = passengers.find((pass: any) => pass.id === selectedPassengerId);
-    return generateIndividualTicketHtml(
-      booking,
-      p || passengers[0],
-      sortedFlights,
-    );
+  const passengersToRender =
+    selectedPassengerId && selectedPassengerId !== "all"
+      ? passengers.filter((p: any) => p.id === selectedPassengerId)
+      : passengers;
+
+  const activePax = passengersToRender.length > 0 ? passengersToRender : passengers;
+
+  // Split by airline into separate pages if requested
+  if (splitByAirline) {
+    const groups: { [key: string]: any[] } = {};
+    sortedFlights.forEach((f: any) => {
+      const key = getAirlineKey(f);
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(f);
+    });
+
+    const airlineKeys = Object.keys(groups);
+    if (airlineKeys.length > 1) {
+      return airlineKeys
+        .map((airline) =>
+          generateConsolidatedTicketHtml(booking, activePax, groups[airline]),
+        )
+        .join('<div style="page-break-after: always; height: 1px;"></div>');
+    }
   }
+
+  return generateConsolidatedTicketHtml(
+    booking,
+    activePax,
+    sortedFlights,
+  );
 }
 
 // 3. GENERATE HOTEL VOUCHER
@@ -2377,9 +2443,17 @@ export function renderFlightTicket(
   booking: any,
   flight: any,
   selectedPassengerId?: string | null,
+  selectedAirline?: string | null,
+  splitByAirline?: boolean,
 ): string {
   if (!templateHtml || templateHtml.trim() === "{{FLIGHT_TICKET_PAGES}}") {
-    return generateFlightTicketHtml(booking, flight, selectedPassengerId);
+    return generateFlightTicketHtml(
+      booking,
+      flight,
+      selectedPassengerId,
+      selectedAirline,
+      splitByAirline,
+    );
   }
 
   const passengers =
