@@ -208,6 +208,132 @@ export class EmailService {
       throw error;
     }
   }
+
+  async sendMissingBookingDetailsReminder(params: {
+    recipients: string[];
+    bookingRef: string;
+    travelDateStr: string;
+    leadPassengerName: string;
+    agentName: string;
+    missingItems: string[];
+    flightDetails?: string;
+    hotelDetails?: string;
+  }) {
+    const { recipients, bookingRef, travelDateStr, leadPassengerName, agentName, missingItems, flightDetails, hotelDetails } = params;
+    const loginUrl = `${config.frontendUrl}/bookings?ref=${encodeURIComponent(bookingRef)}`;
+
+    const missingListHtml = missingItems
+      .map(
+        (item) => `
+        <li style="margin-bottom: 8px; color: #dc2626; font-weight: bold; font-size: 14px;">
+          ❌ ${item}
+        </li>`
+      )
+      .join('');
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>REMINDER: Missing Booking Details (${bookingRef})</title>
+      </head>
+      <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f7fafc; margin: 0; padding: 30px 0;">
+        <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); overflow: hidden; border: 1px solid #e2e8f0;">
+          <!-- Header Banner -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #e11d48 0%, #f43f5e 100%); padding: 25px 30px; text-align: center;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 800;">Terrific Travel</h1>
+              <p style="color: rgba(255, 255, 255, 0.9); margin: 4px 0 0 0; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">
+                ⚠️ Action Required: Missing Booking Details
+              </p>
+            </td>
+          </tr>
+          
+          <!-- Content -->
+          <tr>
+            <td style="padding: 30px; color: #2d3748; line-height: 1.6;">
+              <p style="font-size: 15px; margin-top: 0;">Attention <strong>${agentName || 'Agent'} / Operations Team</strong>,</p>
+              
+              <p style="font-size: 14px; color: #4a5568;">
+                The upcoming booking <strong>${bookingRef}</strong> scheduled for travel on <strong style="color: #0284c7;">${travelDateStr}</strong> (within 5 days) is currently missing required confirmation details:
+              </p>
+
+              <!-- Booking Details Box -->
+              <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; margin: 20px 0; font-size: 13px;">
+                <p style="margin: 0 0 6px 0;"><strong>Booking Reference:</strong> ${bookingRef}</p>
+                <p style="margin: 0 0 6px 0;"><strong>Lead Passenger:</strong> ${leadPassengerName}</p>
+                <p style="margin: 0 0 6px 0;"><strong>Travel Date:</strong> ${travelDateStr}</p>
+                ${agentName ? `<p style="margin: 0;"><strong>Assigned Agent:</strong> ${agentName}</p>` : ''}
+              </div>
+
+              <!-- Missing Items Warning Box -->
+              <div style="background-color: #fef2f2; border: 1px solid #fca5a5; border-radius: 8px; padding: 16px; margin: 20px 0;">
+                <p style="margin: 0 0 10px 0; color: #991b1b; font-weight: 800; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">
+                  Missing Required Information:
+                </p>
+                <ul style="margin: 0; padding-left: 20px;">
+                  ${missingListHtml}
+                </ul>
+              </div>
+
+              ${
+                flightDetails
+                  ? `<div style="font-size: 12px; color: #475569; margin-bottom: 12px;"><strong>Flight Route:</strong> ${flightDetails}</div>`
+                  : ''
+              }
+              ${
+                hotelDetails
+                  ? `<div style="font-size: 12px; color: #475569; margin-bottom: 12px;"><strong>Hotel Info:</strong> ${hotelDetails}</div>`
+                  : ''
+              }
+
+              <p style="font-size: 13px; color: #4a5568; margin: 20px 0;">
+                Please update the missing information in the CRM immediately. Reminders will continue every 3 hours until all required details are updated in the system.
+              </p>
+
+              <!-- CTA Button -->
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 25px 0; text-align: center;">
+                <tr>
+                  <td>
+                    <a href="${loginUrl}" target="_blank" style="background-color: #0f172a; color: #ffffff; padding: 12px 28px; font-size: 14px; font-weight: bold; text-decoration: none; border-radius: 8px; display: inline-block;">
+                      Update Booking Details in CRM
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f7fafc; padding: 16px; border-top: 1px solid #edf2f7; text-align: center; color: #718096; font-size: 11px;">
+              <p style="margin: 0 0 4px 0;">This automated reminder is sent to admin@terrifictravel.co.uk and the assigned agent email.</p>
+              <p style="margin: 0; font-weight: bold; color: #4a5568;">&copy; ${new Date().getFullYear()} Terrific Travel Ltd. All rights reserved.</p>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    `;
+
+    try {
+      const validRecipients = recipients.filter((r) => r && r.includes('@'));
+      if (validRecipients.length === 0) return { success: false, reason: 'No valid recipient emails' };
+
+      await this.transporter.sendMail({
+        from: `"${config.smtp.from.split('@')[0].replace('-', ' ')}" <${config.smtp.from}>`,
+        to: validRecipients.join(', '),
+        subject: `[REMINDER] Missing Booking Details: ${bookingRef} - Travel Date: ${travelDateStr}`,
+        html: htmlContent,
+      });
+      logger.info(`Successfully sent missing details reminder for booking ${bookingRef} to ${validRecipients.join(', ')}`);
+      return { success: true };
+    } catch (error) {
+      logger.error(`Failed to send missing details reminder for booking ${bookingRef}`, error);
+      return { success: false, error };
+    }
+  }
 }
 
 export const emailService = new EmailService();

@@ -416,3 +416,9 @@ export const updateVendorPaymentStatus = asyncHandler(async (req: AuthenticatedR
   const result = await bookingsService.updateVendorPaymentStatus(req.body, req.user!.id);
   res.status(200).json({ success: true, data: result });
 });
+
+export const triggerMissingDetailsReminders = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { runMissingDetailsCheck } = await import('../cron/missing-details-reminder.cron');
+  const result = await runMissingDetailsCheck();
+  res.status(200).json({ success: true, message: 'Missing details reminders check completed successfully.', data: result });
+});
