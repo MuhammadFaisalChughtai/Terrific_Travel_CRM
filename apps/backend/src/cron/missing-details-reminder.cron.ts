@@ -1,21 +1,37 @@
-import cron from 'node-cron';
-import { prisma, logger } from '../config';
-import { emailService } from '../services/email.service';
+import cron from "node-cron";
+import { prisma, logger } from "../config";
+import { emailService } from "../services/email.service";
 
 export const runMissingDetailsCheck = async () => {
-  logger.info('[CRON] Starting missing details check for upcoming bookings...');
+  logger.info("[CRON] Starting missing details check for upcoming bookings...");
 
   try {
     const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-    const fiveDaysFromNow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 5, 23, 59, 59, 999);
+    const today = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      0,
+      0,
+      0,
+      0,
+    );
+    const fiveDaysFromNow = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() + 5,
+      23,
+      59,
+      59,
+      999,
+    );
 
     // Fetch active bookings that are NOT CANCELLED or COMPLETED
     const bookings: any[] = await prisma.booking.findMany({
       where: {
         status: {
-          notIn: ['CANCELLED', 'COMPLETED'] as any
-        }
+          notIn: ["CANCELLED", "COMPLETED"] as any,
+        },
       },
       include: {
         flightServices: {
@@ -27,7 +43,7 @@ export const runMissingDetailsCheck = async () => {
             departedFrom: true,
             arrivedAt: true,
             status: true,
-          }
+          },
         },
         accommodations: {
           select: {
@@ -36,7 +52,7 @@ export const runMissingDetailsCheck = async () => {
             checkInDate: true,
             reservationNumber: true,
             hotelConfirmationNumber: true,
-          }
+          },
         },
         passengers: {
           select: {
@@ -44,14 +60,14 @@ export const runMissingDetailsCheck = async () => {
             lastName: true,
             role: true,
             title: true,
-          }
+          },
         },
         agent: {
           select: {
             id: true,
             name: true,
             email: true,
-          }
+          },
         },
         user: {
           select: {
@@ -59,30 +75,38 @@ export const runMissingDetailsCheck = async () => {
             firstName: true,
             lastName: true,
             email: true,
-          }
-        }
-      } as any
+          },
+        },
+      } as any,
     });
 
     const isMissing = (val: string | null | undefined): boolean => {
       if (!val) return true;
       const trimmed = val.trim().toLowerCase();
-      return trimmed === '' || trimmed === 'pending' || trimmed === 'n/a' || trimmed === 'null' || trimmed === '-';
+      return (
+        trimmed === "" ||
+        trimmed === "pending" ||
+        trimmed === "n/a" ||
+        trimmed === "null" ||
+        trimmed === "-"
+      );
     };
 
     const formatDateStr = (d: Date) => {
-      return new Date(d).toLocaleDateString('en-GB', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric'
+      return new Date(d).toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
       });
     };
 
     let countRemindersSent = 0;
 
     for (const booking of bookings) {
-      const activeFlights: any[] = (booking.flightServices || []).filter((f: any) => f.status !== 'CANCELLED');
-      const activeHotels: any[] = (booking.accommodations || []);
+      const activeFlights: any[] = (booking.flightServices || []).filter(
+        (f: any) => f.status !== "CANCELLED",
+      );
+      const activeHotels: any[] = booking.accommodations || [];
 
       if (activeFlights.length === 0 && activeHotels.length === 0) continue;
 
@@ -97,7 +121,9 @@ export const runMissingDetailsCheck = async () => {
 
       if (dates.length === 0) continue;
 
-      const earliestTravelDate = new Date(Math.min(...dates.map(d => d.getTime())));
+      const earliestTravelDate = new Date(
+        Math.min(...dates.map((d) => d.getTime())),
+      );
 
       // Check if earliest travel date is within 5 days from today
       if (earliestTravelDate < today || earliestTravelDate > fiveDaysFromNow) {
@@ -105,29 +131,50 @@ export const runMissingDetailsCheck = async () => {
       }
 
       const missingItems: string[] = [];
-      let flightDetailsStr = '';
-      let hotelDetailsStr = '';
+      let flightDetailsStr = "";
+      let hotelDetailsStr = "";
 
       // 1. Check Flight PNR
-      const missingPnrFlights = activeFlights.filter((f: any) => isMissing(f.pnr));
+      const missingPnrFlights = activeFlights.filter((f: any) =>
+        isMissing(f.pnr),
+      );
       if (missingPnrFlights.length > 0) {
-        missingItems.push('Flight PNR is missing');
-        flightDetailsStr = missingPnrFlights.map((f: any) => `${f.flightNo || 'Flight'} (${f.departedFrom || ''} → ${f.arrivedAt || ''})`).join(', ');
+        missingItems.push("Flight PNR is missing");
+        flightDetailsStr = missingPnrFlights
+          .map(
+            (f: any) =>
+              `${f.flightNo || "Flight"} (${f.departedFrom || ""} → ${f.arrivedAt || ""})`,
+          )
+          .join(", ");
       }
 
       // 2. Check Hotel Reservation Number
-      const missingReservationHotels = activeHotels.filter((h: any) => isMissing(h.reservationNumber));
+      const missingReservationHotels = activeHotels.filter((h: any) =>
+        isMissing(h.reservationNumber),
+      );
       if (missingReservationHotels.length > 0) {
-        missingItems.push('Hotel Reservation Number is missing');
-        hotelDetailsStr = missingReservationHotels.map((h: any) => `${h.hotelName} (Check-in: ${formatDateStr(h.checkInDate)})`).join(', ');
+        missingItems.push("Hotel Reservation Number is missing");
+        hotelDetailsStr = missingReservationHotels
+          .map(
+            (h: any) =>
+              `${h.hotelName} (Check-in: ${formatDateStr(h.checkInDate)})`,
+          )
+          .join(", ");
       }
 
       // 3. Check Hotel Confirmation Number
-      const missingConfirmationHotels = activeHotels.filter((h: any) => isMissing(h.hotelConfirmationNumber));
+      const missingConfirmationHotels = activeHotels.filter((h: any) =>
+        isMissing(h.hotelConfirmationNumber),
+      );
       if (missingConfirmationHotels.length > 0) {
-        missingItems.push('Hotel Confirmation Number is missing');
+        missingItems.push("Hotel Confirmation Number is missing");
         if (!hotelDetailsStr) {
-          hotelDetailsStr = missingConfirmationHotels.map((h: any) => `${h.hotelName} (Check-in: ${formatDateStr(h.checkInDate)})`).join(', ');
+          hotelDetailsStr = missingConfirmationHotels
+            .map(
+              (h: any) =>
+                `${h.hotelName} (Check-in: ${formatDateStr(h.checkInDate)})`,
+            )
+            .join(", ");
         }
       }
 
@@ -135,16 +182,24 @@ export const runMissingDetailsCheck = async () => {
       if (missingItems.length === 0) continue;
 
       // Determine recipients: admin@terrifictravel.co.uk + agent email
-      const recipientEmails: string[] = ['admin@terrifictravel.co.uk'];
+      const recipientEmails: string[] = ["hotels@terrifictravel.co.uk"];
 
       const agentEmail = booking.agent?.email || booking.user?.email;
       if (agentEmail && !recipientEmails.includes(agentEmail)) {
         recipientEmails.push(agentEmail);
       }
 
-      const leadPax = booking.passengers?.find((p: any) => p.role === 'Leader') || booking.passengers?.[0];
-      const leadPaxName = leadPax ? `${leadPax.title || ''} ${leadPax.firstName} ${leadPax.lastName}`.trim() : 'Valued Client';
-      const agentName = booking.agent?.name || (booking.user ? `${booking.user.firstName} ${booking.user.lastName}` : '');
+      const leadPax =
+        booking.passengers?.find((p: any) => p.role === "Leader") ||
+        booking.passengers?.[0];
+      const leadPaxName = leadPax
+        ? `${leadPax.title || ""} ${leadPax.firstName} ${leadPax.lastName}`.trim()
+        : "Valued Client";
+      const agentName =
+        booking.agent?.name ||
+        (booking.user
+          ? `${booking.user.firstName} ${booking.user.lastName}`
+          : "");
 
       // Send Reminder Email
       const res = await emailService.sendMissingBookingDetailsReminder({
@@ -155,7 +210,7 @@ export const runMissingDetailsCheck = async () => {
         agentName,
         missingItems,
         flightDetails: flightDetailsStr,
-        hotelDetails: hotelDetailsStr
+        hotelDetails: hotelDetailsStr,
       });
 
       if (res.success) {
@@ -163,18 +218,22 @@ export const runMissingDetailsCheck = async () => {
       }
     }
 
-    logger.info(`[CRON] Completed missing details check. Sent ${countRemindersSent} reminder emails.`);
+    logger.info(
+      `[CRON] Completed missing details check. Sent ${countRemindersSent} reminder emails.`,
+    );
     return { countRemindersSent };
   } catch (error) {
-    logger.error('[CRON] Error during missing details check:', error);
+    logger.error("[CRON] Error during missing details check:", error);
     throw error;
   }
 };
 
 export const startMissingDetailsReminderCron = () => {
   // Cron schedule: Every 3 hours (At minute 0 past every 3rd hour)
-  cron.schedule('0 */3 * * *', async () => {
+  cron.schedule("0 */3 * * *", async () => {
     await runMissingDetailsCheck();
   });
-  logger.info('Registered missing booking details reminder cron (every 3 hours)');
+  logger.info(
+    "Registered missing booking details reminder cron (every 3 hours)",
+  );
 };
