@@ -132,7 +132,7 @@ tbody tr:nth-child(even) { background: #F8FAFC; }
   </table>
 
   <div class="footer-bar">
-    Terrific Travel &amp; Tours Ltd | Registered in England &amp; Wales | Company No: 12345678 | ATOL No: 11492<br>
+    Terrific Travel &amp; Tours Ltd | Registered in England &amp; Wales | Company No: 12345678<br>
     Thank you for booking with us. All prices include applicable taxes unless stated otherwise.
   </div>
 </div>
@@ -299,7 +299,7 @@ ${SHARED_CSS}
     </table>
 
     <div class="footer-bar">
-      Terrific Travel &amp; Tours Ltd · ATOL Protected · Reg No: 11492 · accounts@terrifictravel.co.uk<br>
+      Terrific Travel &amp; Tours Ltd · ATOL Protected · accounts@terrifictravel.co.uk<br>
       Please present this voucher at check-in. All special requests are subject to availability.
     </div>
   </div>
@@ -437,7 +437,7 @@ tbody tr:nth-child(even) { background: #F8FAFC; }
     </div>
 
     <div class="footer-bar">
-      Terrific Travel &amp; Tours Ltd · ATOL Protected · Reg No: 11492 · accounts@terrifictravel.co.uk
+      Terrific Travel &amp; Tours Ltd · ATOL Protected · accounts@terrifictravel.co.uk
     </div>
   </div>
 </div>

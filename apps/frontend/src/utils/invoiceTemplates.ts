@@ -1,6 +1,6 @@
 import { formatCurrency } from "@tms/shared-utils";
 // @ts-ignore
-import html2pdf from 'html2pdf.js';
+import html2pdf from "html2pdf.js";
 
 // Embedded Vector SVGs for branding
 export const BRAND_LOGOS = {
@@ -28,7 +28,6 @@ export const BRAND_LOGOS = {
       <path d="M22 17L32 12L42 17L32 28L22 17Z" fill="#FFFFFF" opacity="0.2"/>
       <text x="32" y="19" font-family="'Arial Black', sans-serif" font-weight="900" font-size="9" fill="#FFFFFF" text-anchor="middle">ATOL</text>
       <text x="32" y="28" font-family="Arial, sans-serif" font-weight="bold" font-size="6" fill="#FFFFFF" text-anchor="middle" letter-spacing="0.5">PROTECTED</text>
-      <text x="32" y="35" font-family="Arial, sans-serif" font-size="4" fill="#FFFFFF" text-anchor="middle" opacity="0.8">REG. NO 11492</text>
     </svg>
   `,
 };
@@ -36,19 +35,19 @@ export const BRAND_LOGOS = {
 const parseTimeStr = (timeStr: string) => {
   if (!timeStr) return 0;
   const t = timeStr.trim().toUpperCase();
-  const firstPart = t.split('-')[0].trim();
-  const isPM = firstPart.includes('P');
-  const isAM = firstPart.includes('A');
-  let raw = firstPart.replace(/[APM:\s]/g, '');
-  if (raw.indexOf(':') !== -1) {
-    const parts = raw.split(':');
+  const firstPart = t.split("-")[0].trim();
+  const isPM = firstPart.includes("P");
+  const isAM = firstPart.includes("A");
+  let raw = firstPart.replace(/[APM:\s]/g, "");
+  if (raw.indexOf(":") !== -1) {
+    const parts = raw.split(":");
     let hours = parseInt(parts[0], 10) || 0;
     const minutes = parseInt(parts[1], 10) || 0;
     if (isPM && hours < 12) hours += 12;
     if (isAM && hours === 12) hours = 0;
-    return (hours * 60) + minutes;
+    return hours * 60 + minutes;
   }
-  let rawDigits = firstPart.replace(/[APM:\s:]/g, '');
+  let rawDigits = firstPart.replace(/[APM:\s:]/g, "");
   if (rawDigits.length === 3) rawDigits = "0" + rawDigits;
   if (rawDigits.length < 4) {
     const parsed = parseInt(rawDigits, 10);
@@ -58,7 +57,7 @@ const parseTimeStr = (timeStr: string) => {
   const minutes = parseInt(rawDigits.substring(2, 4), 10) || 0;
   if (isPM && hours < 12) hours += 12;
   if (isAM && hours === 12) hours = 0;
-  return (hours * 60) + (isNaN(minutes) ? 0 : minutes);
+  return hours * 60 + (isNaN(minutes) ? 0 : minutes);
 };
 
 // Common CSS rules for invoices and vouchers
@@ -505,15 +504,15 @@ export function downloadDocument(htmlContent: string, filename: string) {
       ${htmlContent}
     </div>
   `;
-  
+
   const opt = {
-    margin:       10,
-    filename:     filename,
-    image:        { type: 'jpeg' as const, quality: 0.98 },
-    html2canvas:  { scale: 2, useCORS: true },
-    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' as const }
+    margin: 10,
+    filename: filename,
+    image: { type: "jpeg" as const, quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true },
+    jsPDF: { unit: "mm", format: "a4", orientation: "portrait" as const },
   };
-  
+
   html2pdf().set(opt).from(element).save();
 }
 
@@ -559,7 +558,9 @@ function generateTimelineHtml(booking: any): string {
   };
 
   // Filter out cancelled flights for the main timeline
-  const activeFlights = (booking.flightServices || []).filter((f: any) => f.status !== 'CANCELLED');
+  const activeFlights = (booking.flightServices || []).filter(
+    (f: any) => f.status !== "CANCELLED",
+  );
 
   // Flights — grouped by PNR so each journey's layovers stay isolated
   if (activeFlights.length > 0) {
@@ -643,10 +644,12 @@ function generateTimelineHtml(booking: any): string {
         };
         const transitHub = extractCode(f.arrivedAt || "");
 
-        const isCancelled = f.status === 'CANCELLED';
-        const strikeStyle = isCancelled ? 'style="text-decoration: line-through; opacity: 0.5;"' : '';
-        const statusText = isCancelled ? 'Cancelled' : 'Confirmed';
-        const statusBadge = `<span class="timeline-badge-status ${isCancelled ? 'cancelled' : 'confirmed'}" style="margin-left: 8px; vertical-align: middle;">${statusText}</span>`;
+        const isCancelled = f.status === "CANCELLED";
+        const strikeStyle = isCancelled
+          ? 'style="text-decoration: line-through; opacity: 0.5;"'
+          : "";
+        const statusText = isCancelled ? "Cancelled" : "Confirmed";
+        const statusBadge = `<span class="timeline-badge-status ${isCancelled ? "cancelled" : "confirmed"}" style="margin-left: 8px; vertical-align: middle;">${statusText}</span>`;
 
         items.push({
           type: "FLIGHT",
@@ -663,7 +666,12 @@ function generateTimelineHtml(booking: any): string {
           notes: f.notes,
         });
 
-        if (isConnecting && layoverStr && f.status !== 'CANCELLED' && (!nextFlight || nextFlight.status !== 'CANCELLED')) {
+        if (
+          isConnecting &&
+          layoverStr &&
+          f.status !== "CANCELLED" &&
+          (!nextFlight || nextFlight.status !== "CANCELLED")
+        ) {
           const layoverDate = f.date
             ? new Date(new Date(f.date).getTime() + 1000)
             : new Date(new Date(booking.createdAt).getTime() + 1000);
@@ -745,7 +753,10 @@ function generateTimelineHtml(booking: any): string {
       items.push({
         type: "VISA",
         date: v.issueDate ? new Date(v.issueDate) : new Date(booking.createdAt),
-        title: count > 1 ? `Visa Application: ${v.visaType} (x${count})` : `Visa Application: ${v.visaType}`,
+        title:
+          count > 1
+            ? `Visa Application: ${v.visaType} (x${count})`
+            : `Visa Application: ${v.visaType}`,
         icon: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>`,
         badgeClass: "visa",
         details: `
@@ -782,22 +793,26 @@ function generateTimelineHtml(booking: any): string {
   const layoverCards = items.filter((i) => i.isLayoverCard);
   const pnrHeaders = items.filter((i) => i.type === "PNR_HEADER");
   const regularItems = items.filter(
-    (i) => !i.isLayoverCard && i.type !== "PNR_HEADER"
+    (i) => !i.isLayoverCard && i.type !== "PNR_HEADER",
   );
 
   // 1. Assign a base sorting date, parse exact time if available, and assign fallback phase
   regularItems.forEach((item) => {
     item.sortDate = new Date(item.date);
-    
+
     if (item.type === "FLIGHT") {
-      const match = item.details.match(/Departure: <strong>([0-9]{2}:[0-9]{2})/);
+      const match = item.details.match(
+        /Departure: <strong>([0-9]{2}:[0-9]{2})/,
+      );
       if (match) {
         const [h, m] = match[1].split(":");
         item.sortDate.setHours(parseInt(h, 10), parseInt(m, 10), 0, 0);
       }
       item.phase = 4;
     } else if (item.type === "TRANSFER") {
-      const match = item.details.match(/Pickup Time: <strong>([0-9]{2}:[0-9]{2})/);
+      const match = item.details.match(
+        /Pickup Time: <strong>([0-9]{2}:[0-9]{2})/,
+      );
       if (match) {
         const [h, m] = match[1].split(":");
         item.sortDate.setHours(parseInt(h, 10), parseInt(m, 10), 0, 0);
@@ -1044,11 +1059,12 @@ export function generateBookingInvoiceHtml(booking: any) {
         </table>
       </div>
 
-      ${
-        (() => {
-          const cancelledFlights = (booking.flightServices || []).filter((f: any) => f.status === 'CANCELLED');
-          if (cancelledFlights.length === 0) return "";
-          return `
+      ${(() => {
+        const cancelledFlights = (booking.flightServices || []).filter(
+          (f: any) => f.status === "CANCELLED",
+        );
+        if (cancelledFlights.length === 0) return "";
+        return `
             <div class="cancelled-flights-section" style="margin-top: 24px; margin-bottom: 24px; padding: 16px; background-color: #FEF2F2; border: 1px solid #FCA5A5; border-radius: 8px; page-break-inside: avoid;">
               <h3 style="margin-top: 0; margin-bottom: 12px; font-family: 'Outfit', sans-serif; font-size: 11px; color: #991B1B; display: flex; align-items: center; gap: 6px; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #FCA5A5; padding-bottom: 6px;">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: #DC2626; display: inline-block; vertical-align: middle;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
@@ -1069,14 +1085,13 @@ export function generateBookingInvoiceHtml(booking: any) {
                         </div>
                       </div>
                     </div>
-                  `
+                  `,
                   )
                   .join("")}
               </div>
             </div>
           `;
-        })()
-      }
+      })()}
 
       <div class="terms-grid">
         <div class="terms-card">
@@ -1113,7 +1128,7 @@ export function generateBookingInvoiceHtml(booking: any) {
         </div>
         <div class="terms-card">
           <h4>ℹ️ Important Travel Information</h4>
-          <p>Flight bookings are protected under the UK Civil Aviation Authority ATOL scheme (Reg 11492) and fully backed by our IATA credentials. Travel insurance is highly recommended for all overseas bookings.</p>
+          <p>Flight bookings are protected under the UK Civil Aviation Authority ATOL scheme and fully backed by our IATA credentials. Travel insurance is highly recommended for all overseas bookings.</p>
         </div>
         <div class="terms-card">
           <h4>⚖️ Disclaimer</h4>
@@ -1145,7 +1160,11 @@ export function generateBookingInvoiceHtml(booking: any) {
 }
 
 // Helper to generate deterministic realistic e-ticket number
-function getTicketNumber(passenger: any, flight: any, passengerIndex: number = 0): string {
+function getTicketNumber(
+  passenger: any,
+  flight: any,
+  passengerIndex: number = 0,
+): string {
   if (passenger?.eticket) return passenger.eticket;
   if (passenger?.ticketNo) return passenger.ticketNo;
 
@@ -1241,11 +1260,16 @@ function getIsConnecting(currentFlight: any, nextFlight: any): boolean {
         arrH,
         arrM,
       );
-      
-      const isSameDate = new Date(arrDateStr).toDateString() === new Date(currentFlight.date).toDateString();
-      // If arrival time is earlier in the day than departure time of the same flight, 
+
+      const isSameDate =
+        new Date(arrDateStr).toDateString() ===
+        new Date(currentFlight.date).toDateString();
+      // If arrival time is earlier in the day than departure time of the same flight,
       // and they are currently evaluated on the same date, it means it landed the next day.
-      if (isSameDate && (arrH < depH_arrSeg || (arrH === depH_arrSeg && arrM < depM_arrSeg))) {
+      if (
+        isSameDate &&
+        (arrH < depH_arrSeg || (arrH === depH_arrSeg && arrM < depM_arrSeg))
+      ) {
         arrTime.setDate(arrTime.getDate() + 1);
       }
 
@@ -1299,11 +1323,16 @@ function calculateLayover(arrivalSeg: any, departSeg: any): string {
       0,
       0,
     );
-    
-    const isSameDate = new Date(arrDateStr).toDateString() === new Date(arrivalSeg.date).toDateString();
-    // If arrival time is earlier in the day than departure time of the same flight, 
+
+    const isSameDate =
+      new Date(arrDateStr).toDateString() ===
+      new Date(arrivalSeg.date).toDateString();
+    // If arrival time is earlier in the day than departure time of the same flight,
     // and they are currently evaluated on the same date, it means the flight landed the next day.
-    if (isSameDate && (arrH < depH_arrSeg || (arrH === depH_arrSeg && arrM < depM_arrSeg))) {
+    if (
+      isSameDate &&
+      (arrH < depH_arrSeg || (arrH === depH_arrSeg && arrM < depM_arrSeg))
+    ) {
       arrTime.setDate(arrTime.getDate() + 1);
     }
 
@@ -1562,7 +1591,7 @@ function generateConsolidatedTicketHtml(
         <p style="margin: 0;">1. Reconfirmation of any onward / return journey is passenger responsibility.</p>
         <p style="margin: 0;">2. Timings are subject to change. Please reconfirm with your airline operator before you fly.</p>
         <p style="margin: 0;">3. Present your e-ticket along with your original valid passport at check-in counter to obtain boarding passes.</p>
-        <p style="margin: 0;">4. All flight ticket bookings are protected under the UK Civil Aviation Authority ATOL scheme (Reg 11492) and fully backed by our IATA credentials.</p>
+        <p style="margin: 0;">4. All flight ticket bookings are protected under the UK Civil Aviation Authority ATOL scheme and fully backed by our IATA credentials.</p>
       </div>
 
       <div style="text-align: center; font-size: 9px; font-weight: bold; color: #94A3B8; margin-top: 10px; border-top: 1px solid #E2E8F0; padding-top: 6px;">
@@ -1628,7 +1657,8 @@ export function generateFlightTicketHtml(
       ? passengers.filter((p: any) => p.id === selectedPassengerId)
       : passengers;
 
-  const activePax = passengersToRender.length > 0 ? passengersToRender : passengers;
+  const activePax =
+    passengersToRender.length > 0 ? passengersToRender : passengers;
 
   // Split by airline into separate pages if requested
   if (splitByAirline) {
@@ -1649,11 +1679,7 @@ export function generateFlightTicketHtml(
     }
   }
 
-  return generateConsolidatedTicketHtml(
-    booking,
-    activePax,
-    sortedFlights,
-  );
+  return generateConsolidatedTicketHtml(booking, activePax, sortedFlights);
 }
 
 // 3. GENERATE HOTEL VOUCHER
@@ -1889,9 +1915,9 @@ export function generateVisaInvoiceHtml(booking: any, visa: any) {
               const key = v.visaType || "Unknown Visa";
               if (!acc[key]) acc[key] = { ...v, count: 0, totalPrice: 0 };
               acc[key].count += 1;
-              acc[key].totalPrice += (Number(v.price) || 0);
+              acc[key].totalPrice += Number(v.price) || 0;
               return acc;
-            }, {})
+            }, {}),
           )
             .map(
               (v: any) => `
@@ -2060,9 +2086,12 @@ export function generateTransportVoucherHtml(booking: any, transport: any) {
         <tbody>
           ${[...transfers]
             .sort((a: any, b: any) => {
-              const dateDiff = new Date(a.date).getTime() - new Date(b.date).getTime();
+              const dateDiff =
+                new Date(a.date).getTime() - new Date(b.date).getTime();
               if (dateDiff !== 0) return dateDiff;
-              return parseTimeStr(a.departureTime) - parseTimeStr(b.departureTime);
+              return (
+                parseTimeStr(a.departureTime) - parseTimeStr(b.departureTime)
+              );
             })
             .map(
               (t: any) => `
@@ -2322,7 +2351,9 @@ export function renderBookingInvoice(
     </tr>
   `;
 
-  const activeFlights = (booking.flightServices || []).filter((f: any) => f.status !== 'CANCELLED');
+  const activeFlights = (booking.flightServices || []).filter(
+    (f: any) => f.status !== "CANCELLED",
+  );
 
   const servicesRows = [
     ...(activeFlights.map(
@@ -2349,13 +2380,13 @@ export function renderBookingInvoice(
       </tr>
     `,
     ) || []),
-    ...(Object.values(
+    ...Object.values(
       (booking.visaServices || []).reduce((acc: any, v: any) => {
         const key = v.visaType || "Unknown Visa";
         if (!acc[key]) acc[key] = { ...v, count: 0 };
         acc[key].count += 1;
         return acc;
-      }, {})
+      }, {}),
     ).map(
       (v: any) => `
       <tr>
@@ -2363,7 +2394,7 @@ export function renderBookingInvoice(
         <td>Visa Type: <strong>${v.visaType} ${v.count > 1 ? `(x${v.count})` : ""}</strong></td>
       </tr>
     `,
-    )),
+    ),
     ...(booking.additionalServices?.map(
       (a: any) => `
       <tr>
@@ -2403,7 +2434,9 @@ export function renderBookingInvoice(
   html = html.replace(/{{BALANCE_DUE}}/g, formatCurrency(balanceDue));
 
   // Dynamically inject the Cancelled Flights section if there are any cancelled flights
-  const cancelledFlights = (booking.flightServices || []).filter((f: any) => f.status === 'CANCELLED');
+  const cancelledFlights = (booking.flightServices || []).filter(
+    (f: any) => f.status === "CANCELLED",
+  );
   if (cancelledFlights.length > 0) {
     const cancelledHtml = `
       <div class="cancelled-flights-section" style="margin-top: 24px; margin-bottom: 24px; padding: 16px; background-color: #FEF2F2; border: 1px solid #FCA5A5; border-radius: 8px; page-break-inside: avoid;">
@@ -2426,13 +2459,16 @@ export function renderBookingInvoice(
                   </div>
                 </div>
               </div>
-            `
+            `,
             )
             .join("")}
         </div>
       </div>
     `;
-    html = html.replace(/(<div class="financial-panel">[\s\S]*?<\/div>)/i, `$1\n${cancelledHtml}`);
+    html = html.replace(
+      /(<div class="financial-panel">[\s\S]*?<\/div>)/i,
+      `$1\n${cancelledHtml}`,
+    );
   }
 
   return html;

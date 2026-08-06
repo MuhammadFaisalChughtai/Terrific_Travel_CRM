@@ -30,7 +30,6 @@ const BRAND_LOGOS = {
       <path d="M22 17L32 12L42 17L32 28L22 17Z" fill="#FFFFFF" opacity="0.2"/>
       <text x="32" y="19" font-family="'Arial Black', sans-serif" font-weight="900" font-size="9" fill="#FFFFFF" text-anchor="middle">ATOL</text>
       <text x="32" y="28" font-family="Arial, sans-serif" font-weight="bold" font-size="6" fill="#FFFFFF" text-anchor="middle" letter-spacing="0.5">PROTECTED</text>
-      <text x="32" y="35" font-family="Arial, sans-serif" font-size="4" fill="#FFFFFF" text-anchor="middle" opacity="0.8">REG. NO 11492</text>
     </svg>
   `,
 };
@@ -510,7 +509,7 @@ tbody tr:nth-child(even) { background: #F8FAFC; }
     </div>
     <div class="terms-card">
       <h4>ℹ️ Important Travel Information</h4>
-      <p>Flight bookings are protected under the UK Civil Aviation Authority ATOL scheme (Reg 11492) and fully backed by our IATA credentials. Travel insurance is highly recommended for all overseas bookings.</p>
+      <p>Flight bookings are protected under the UK Civil Aviation Authority ATOL scheme and fully backed by our IATA credentials. Travel insurance is highly recommended for all overseas bookings.</p>
     </div>
     <div class="terms-card">
       <h4>⚖️ Disclaimer</h4>
@@ -708,7 +707,7 @@ ${SHARED_CSS}
     </div>
 
     <div class="footer-bar">
-      Terrific Travel &amp; Tours Ltd · ATOL Protected · Reg No: 11492 · office@terrifictravel.co.uk<br>
+      Terrific Travel &amp; Tours Ltd · ATOL Protected · office@terrifictravel.co.uk<br>
       Please present this voucher at check-in. All special requests are subject to availability.
     </div>
   </div>
@@ -938,7 +937,7 @@ tbody tr:nth-child(even) { background: #F8FAFC; }
     </div>
 
     <div class="footer-bar">
-      Terrific Travel &amp; Tours Ltd · ATOL Protected · Reg No: 11492 · office@terrifictravel.co.uk
+      Terrific Travel &amp; Tours Ltd · ATOL Protected · office@terrifictravel.co.uk
     </div>
   </div>
 </div>
