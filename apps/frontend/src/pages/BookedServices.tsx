@@ -50,6 +50,15 @@ interface FlightServiceItem {
   status?: string;
   pnrMissing?: boolean;
   vendorPaymentStatus?: string;
+  flightSegments?: Array<{
+    id: string;
+    flightNo: string;
+    status: string;
+    pnr?: string;
+    departedFrom?: string;
+    arrivedAt?: string;
+    date?: string;
+  }>;
 }
 
 interface AccommodationServiceItem {
@@ -1101,20 +1110,43 @@ export default function BookedServicesPage() {
                             {getDaysLeftLabel(flight.date)}
                           </td>
                           <td className="px-4 py-3">
-                            <div className="font-semibold text-foreground">
-                              {flight.flightNo}
-                            </div>
-                            <div className="mt-1 flex items-center gap-1.5">
-                              {flight.status === "CANCELLED" ? (
-                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-900/50 uppercase">
-                                  Cancelled
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-900/50 uppercase">
-                                  Confirmed
-                                </span>
-                              )}
-                            </div>
+                            {flight.flightSegments && flight.flightSegments.length > 0 ? (
+                              <div className="space-y-1.5 min-w-[140px]">
+                                {flight.flightSegments.map((seg, sIdx) => (
+                                  <div key={seg.id || sIdx} className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="font-semibold text-foreground text-xs">
+                                      {seg.flightNo}
+                                    </span>
+                                    {seg.status === "CANCELLED" ? (
+                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[8.5px] font-extrabold bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-900/60 uppercase shrink-0">
+                                        Cancelled
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[8.5px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/60 uppercase shrink-0">
+                                        Confirmed
+                                      </span>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <>
+                                <div className="font-semibold text-foreground">
+                                  {flight.flightNo}
+                                </div>
+                                <div className="mt-1 flex items-center gap-1.5">
+                                  {flight.status === "CANCELLED" ? (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-900/50 uppercase">
+                                      Cancelled
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-900/50 uppercase">
+                                      Confirmed
+                                    </span>
+                                  )}
+                                </div>
+                              </>
+                            )}
                           </td>
                           <td className="px-4 py-3 text-foreground font-medium">
                             {flight.combinedRoute ? (

@@ -2478,7 +2478,16 @@ export class BookingsService {
           combinedRoute,
           isDone: doneIds.includes(b.id),
           status: collapsedStatus,
-          vendorPaymentStatus: vp ? vp.status : 'PENDING'
+          vendorPaymentStatus: vp ? vp.status : 'PENDING',
+          flightSegments: segments.map((s: any) => ({
+            id: s.id,
+            flightNo: s.flightNo,
+            status: s.status || 'CONFIRMED',
+            pnr: s.pnr,
+            departedFrom: s.departedFrom,
+            arrivedAt: s.arrivedAt,
+            date: s.date
+          }))
         };
       });
     }
