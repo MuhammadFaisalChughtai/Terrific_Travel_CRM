@@ -740,6 +740,39 @@ export class BookingsService {
       });
     }
 
+    if (booking.transactions && booking.transactions.length > 0) {
+      const clientPaidSum = booking.transactions.reduce((sum, t) => {
+        const notesLower = (t.notes || '').toLowerCase();
+        if (notesLower.includes('vendor payment')) return sum;
+        return sum + (t.amount || 0);
+      }, 0);
+
+      if (clientPaidSum > 0 && Math.abs(clientPaidSum - (booking.paidAmount || 0)) > 0.01) {
+        const netTotal = (booking.totalPrice || 0) - (booking.refundAmount || 0);
+        const newRemaining = Math.max(0, netTotal - clientPaidSum);
+        let newStatus = booking.paymentStatus;
+        if (newRemaining <= 0) {
+          newStatus = 'PAID';
+        } else {
+          newStatus = 'PARTIALLY_PAID';
+        }
+
+        booking.paidAmount = clientPaidSum;
+        booking.remainingAmount = newRemaining;
+        booking.paymentStatus = newStatus;
+
+        prisma.booking.update({
+          where: { id: booking.id },
+          data: {
+            paidAmount: clientPaidSum,
+            remainingAmount: newRemaining,
+            paymentStatus: newStatus,
+            ...(newRemaining <= 0 ? { fullyPaidAt: booking.fullyPaidAt || new Date() } : {})
+          }
+        }).catch(err => logger.error("Error auto-syncing booking paidAmount:", err));
+      }
+    }
+
     return booking;
   }
 

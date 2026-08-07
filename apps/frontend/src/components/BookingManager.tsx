@@ -656,8 +656,21 @@ export default function BookingManager({
   };
 
   // Financial Calculations
+  const clientTransactionsList =
+    booking.transactions?.filter((tx: any) => {
+      if (!tx.notes) return true;
+      const notesLower = tx.notes.toLowerCase();
+      if (notesLower.includes("vendor payment")) return false;
+      return true;
+    }) || [];
+
+  const clientTxSum = clientTransactionsList.reduce(
+    (sum: number, tx: any) => sum + (Number(tx.amount) || 0),
+    0,
+  );
+
   const totalPrice = booking.totalPrice || 0;
-  const paidAmount = booking.paidAmount || 0;
+  const paidAmount = clientTxSum > 0 ? clientTxSum : (booking.paidAmount || 0);
   const remainingAmount = Math.max(0, (totalPrice - (booking.refundAmount || 0)) - paidAmount);
 
   // Vendor Cost Calculations

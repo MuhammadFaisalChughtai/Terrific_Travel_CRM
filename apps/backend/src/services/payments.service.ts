@@ -145,7 +145,16 @@ export class PaymentsService {
             },
           });
 
-          const newPaidAmount = booking.paidAmount + amount;
+          const existingTxs = await tx.bookingTransaction.findMany({
+            where: { bookingId: data.bookingId },
+          });
+          const existingClientPaid = existingTxs.reduce((sum, t) => {
+            const notesLower = (t.notes || '').toLowerCase();
+            if (notesLower.includes('vendor payment')) return sum;
+            return sum + (t.amount || 0);
+          }, 0);
+
+          const newPaidAmount = existingClientPaid + amount;
           const netTotalPrice = booking.totalPrice - (booking.refundAmount || 0);
           const newRemainingAmount = Math.max(
             0,
