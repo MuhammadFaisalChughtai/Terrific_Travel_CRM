@@ -731,8 +731,33 @@ export default function Bookings() {
                         ? "bg-[#be123c] text-white font-bold px-2.5 py-0.5 rounded-full text-[10px]"
                         : "bg-[#0f766e] text-white font-bold px-2.5 py-0.5 rounded-full text-[10px]";
 
+                      const clientTxList =
+                        booking.transactions?.filter((tx: any) => {
+                          if (!tx.notes) return true;
+                          const notesLower = tx.notes.toLowerCase();
+                          if (notesLower.includes("vendor payment")) return false;
+                          return true;
+                        }) || [];
+
+                      const clientTxSum = clientTxList.reduce(
+                        (sum: number, tx: any) => sum + (Number(tx.amount) || 0),
+                        0,
+                      );
+
+                      const displayPaidAmount =
+                        clientTxSum > 0 ? clientTxSum : (booking.paidAmount || 0);
+                      const displayRemainingAmount = Math.max(
+                        0,
+                        (booking.totalPrice - (booking.refundAmount || 0)) - displayPaidAmount,
+                      );
+
                       // Payment Status Styling - matching user image (UNPAID gold block)
-                      const payStatus = booking.paymentStatus;
+                      const payStatus =
+                        displayRemainingAmount <= 0 && displayPaidAmount > 0
+                          ? "PAID"
+                          : displayPaidAmount > 0
+                            ? "PARTIALLY_PAID"
+                            : booking.paymentStatus || "UNPAID";
                       const paymentBadge =
                         payStatus === "PAID"
                           ? "bg-[#0f766e] text-white font-bold px-2.5 py-0.5 rounded-full text-[10px]"
@@ -813,10 +838,10 @@ export default function Bookings() {
                             {formatCurrency(booking.totalPrice)}
                           </td>
                           <td className="px-4 py-3.5 whitespace-nowrap text-right font-semibold text-emerald-600 dark:text-emerald-400 align-middle">
-                            {formatCurrency(booking.paidAmount || 0)}
+                            {formatCurrency(displayPaidAmount)}
                           </td>
                           <td className="px-4 py-3.5 whitespace-nowrap text-right font-semibold text-muted-foreground align-middle">
-                            {formatCurrency(booking.remainingAmount || 0)}
+                            {formatCurrency(displayRemainingAmount)}
                           </td>
                           {!isAgent && (
                             <td className="px-4 py-3.5 whitespace-nowrap text-right font-semibold text-blue-600 dark:text-blue-400 align-middle">
@@ -841,7 +866,7 @@ export default function Bookings() {
                             <span
                               className={`inline-block text-[9px] uppercase tracking-wider ${paymentBadge}`}
                             >
-                              {booking.paymentStatus || "UNPAID"}
+                              {payStatus}
                             </span>
                           </td>
                           <td className="px-4 py-3.5 whitespace-nowrap text-center align-middle">

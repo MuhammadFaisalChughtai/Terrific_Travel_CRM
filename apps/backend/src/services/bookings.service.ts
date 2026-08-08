@@ -699,6 +699,39 @@ export class BookingsService {
           return a.id.localeCompare(b.id);
         });
       }
+
+      if (item.transactions && item.transactions.length > 0) {
+        const clientPaidSum = item.transactions.reduce((sum: number, t: any) => {
+          const notesLower = (t.notes || '').toLowerCase();
+          if (notesLower.includes('vendor payment')) return sum;
+          return sum + (t.amount || 0);
+        }, 0);
+
+        if (clientPaidSum > 0 && Math.abs(clientPaidSum - (item.paidAmount || 0)) > 0.01) {
+          const netTotal = (item.totalPrice || 0) - (item.refundAmount || 0);
+          const newRemaining = Math.max(0, netTotal - clientPaidSum);
+          let newStatus = item.paymentStatus;
+          if (newRemaining <= 0) {
+            newStatus = 'PAID';
+          } else {
+            newStatus = 'PARTIALLY_PAID';
+          }
+
+          item.paidAmount = clientPaidSum;
+          item.remainingAmount = newRemaining;
+          item.paymentStatus = newStatus;
+
+          prisma.booking.update({
+            where: { id: item.id },
+            data: {
+              paidAmount: clientPaidSum,
+              remainingAmount: newRemaining,
+              paymentStatus: newStatus,
+              ...(newRemaining <= 0 ? { fullyPaidAt: item.fullyPaidAt || new Date() } : {})
+            }
+          }).catch((err: any) => logger.error("Error auto-syncing booking paidAmount in findAll:", err));
+        }
+      }
     }
 
     return { total, limit, offset, items };
