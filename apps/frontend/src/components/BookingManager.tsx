@@ -31,6 +31,8 @@ import {
   Save,
   Search,
   CalendarRange,
+  Calendar,
+  User,
   X,
   Printer,
   RotateCcw,
@@ -439,19 +441,37 @@ export default function BookingManager({
   const [htmlEditorContent, setHtmlEditorContent] = useState("");
   const [htmlEditorTitle, setHtmlEditorTitle] = useState("");
   const [editTotalPrice, setEditTotalPrice] = useState("");
+  const [editPaidAmount, setEditPaidAmount] = useState("");
+  const [editRemainingAmount, setEditRemainingAmount] = useState("");
   const [editAgentId, setEditAgentId] = useState("");
+  const [editBookingDate, setEditBookingDate] = useState("");
   const [editDepartureDate, setEditDepartureDate] = useState("");
+  const [editLeadPassengerName, setEditLeadPassengerName] = useState("");
+
+  const populateEditState = (b: any) => {
+    if (!b) return;
+    const leadPax = b.passengers?.find((p: any) => p.role === 'Leader') || b.passengers?.[0];
+    const leadPaxName = leadPax ? `${leadPax.firstName || ''} ${leadPax.lastName || ''}`.trim() : '';
+
+    setEditTotalPrice(String(b.totalPrice ?? ""));
+    setEditPaidAmount(String(b.paidAmount ?? ""));
+    setEditRemainingAmount(String(b.remainingAmount ?? ""));
+    setEditAgentId(b.agentId ?? "");
+    setEditBookingDate(
+      b.bookingDate
+        ? new Date(b.bookingDate).toISOString().split("T")[0]
+        : "",
+    );
+    setEditDepartureDate(
+      b.departureDate
+        ? new Date(b.departureDate).toISOString().split("T")[0]
+        : "",
+    );
+    setEditLeadPassengerName(leadPaxName);
+  };
 
   const startEditing = () => {
-    if (booking) {
-      setEditTotalPrice(String(booking.totalPrice ?? ""));
-      setEditAgentId(booking.agentId ?? "");
-      setEditDepartureDate(
-        booking.departureDate
-          ? new Date(booking.departureDate).toISOString().split("T")[0]
-          : "",
-      );
-    }
+    populateEditState(booking);
     setIsEditingDetails(true);
   };
 
@@ -539,13 +559,7 @@ export default function BookingManager({
   // Sync edit state when booking loads
   useEffect(() => {
     if (booking) {
-      setEditTotalPrice(String(booking.totalPrice ?? ""));
-      setEditAgentId(booking.agentId ?? "");
-      setEditDepartureDate(
-        booking.departureDate
-          ? new Date(booking.departureDate).toISOString().split("T")[0]
-          : "",
-      );
+      populateEditState(booking);
     }
   }, [booking?.id]);
 
@@ -553,21 +567,14 @@ export default function BookingManager({
   const updateDetailsMutation = useMutation({
     mutationFn: async () => {
       const payload: any = {};
-      if (
-        editTotalPrice !== "" &&
-        editTotalPrice !== String(booking?.totalPrice)
-      ) {
-        payload.totalPrice = parseFloat(editTotalPrice);
-      }
-      if (editAgentId !== (booking?.agentId ?? "")) {
-        payload.agentId = editAgentId || null;
-      }
-      const originalDate = booking?.departureDate
-        ? new Date(booking.departureDate).toISOString().split("T")[0]
-        : "";
-      if (editDepartureDate !== originalDate) {
-        payload.departureDate = editDepartureDate || null;
-      }
+      if (editTotalPrice !== "") payload.totalPrice = parseFloat(editTotalPrice);
+      if (editPaidAmount !== "") payload.paidAmount = parseFloat(editPaidAmount);
+      if (editRemainingAmount !== "") payload.remainingAmount = parseFloat(editRemainingAmount);
+      payload.agentId = editAgentId || null;
+      payload.bookingDate = editBookingDate || null;
+      payload.departureDate = editDepartureDate || null;
+      if (editLeadPassengerName !== undefined) payload.leadPassengerName = editLeadPassengerName;
+
       const res = await apiClient.patch(`/bookings/${bookingId}`, payload);
       return res.data;
     },
@@ -949,31 +956,57 @@ export default function BookingManager({
 
               {/* ── EDIT MODE ── */}
               {isEditingDetails && (
-                <div className="pl-5 pr-4 pt-4 pb-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-                    {/* Total Amount */}
+                <div className="pl-5 pr-4 pt-4 pb-4 space-y-4">
+                  {/* Row 1: Booking Name, Booking Date, Departure Date, Assigned Agent */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {/* Booking Name / Lead Passenger */}
                     <div className="space-y-1.5">
                       <div className="flex items-center gap-1.5">
-                        <Wallet size={10} className="text-primary" />
+                        <User size={10} className="text-primary" />
                         <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">
-                          Total Amount
+                          Booking Name / Passenger
                         </label>
                       </div>
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-primary font-black text-sm pointer-events-none">
-                          £
-                        </span>
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={editTotalPrice}
-                          onChange={(e) => setEditTotalPrice(e.target.value)}
-                          className="w-full pl-7 pr-3 py-2.5 bg-secondary/20 border border-border/60 rounded-lg text-sm font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 focus:bg-background transition-all"
-                          placeholder="0.00"
-                          autoFocus
-                        />
+                      <input
+                        type="text"
+                        value={editLeadPassengerName}
+                        onChange={(e) => setEditLeadPassengerName(e.target.value)}
+                        className="w-full px-3 py-2.5 bg-secondary/20 border border-border/60 rounded-lg text-sm font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 focus:bg-background transition-all"
+                        placeholder="e.g. ALIMUR RAHMAN MIAH"
+                        autoFocus
+                      />
+                    </div>
+
+                    {/* Booking Date */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <Calendar size={10} className="text-primary" />
+                        <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">
+                          Booking Date
+                        </label>
                       </div>
+                      <input
+                        type="date"
+                        value={editBookingDate}
+                        onChange={(e) => setEditBookingDate(e.target.value)}
+                        className="w-full px-3 py-2.5 bg-secondary/20 border border-border/60 rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 focus:bg-background transition-all"
+                      />
+                    </div>
+
+                    {/* Departure / Travel Date */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <CalendarRange size={10} className="text-primary" />
+                        <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">
+                          Departure / Travel Date
+                        </label>
+                      </div>
+                      <input
+                        type="date"
+                        value={editDepartureDate}
+                        onChange={(e) => setEditDepartureDate(e.target.value)}
+                        className="w-full px-3 py-2.5 bg-secondary/20 border border-border/60 rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 focus:bg-background transition-all"
+                      />
                     </div>
 
                     {/* Agent */}
@@ -1002,21 +1035,98 @@ export default function BookingManager({
                         ))}
                       </select>
                     </div>
+                  </div>
 
-                    {/* Departure / Travel Date */}
+                  {/* Row 2: Total Amount, Client Received, Client Pending */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
+                    {/* Total Amount */}
                     <div className="space-y-1.5">
                       <div className="flex items-center gap-1.5">
-                        <CalendarRange size={10} className="text-primary" />
+                        <Wallet size={10} className="text-primary" />
                         <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">
-                          Departure / Travel Date
+                          Total Amount
                         </label>
                       </div>
-                      <input
-                        type="date"
-                        value={editDepartureDate}
-                        onChange={(e) => setEditDepartureDate(e.target.value)}
-                        className="w-full px-3 py-2.5 bg-secondary/20 border border-border/60 rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 focus:bg-background transition-all"
-                      />
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-primary font-black text-sm pointer-events-none">
+                          £
+                        </span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={editTotalPrice}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setEditTotalPrice(val);
+                            const tot = parseFloat(val) || 0;
+                            const paid = parseFloat(editPaidAmount) || 0;
+                            setEditRemainingAmount(String(Math.max(0, tot - paid).toFixed(2)));
+                          }}
+                          className="w-full pl-7 pr-3 py-2.5 bg-secondary/20 border border-border/60 rounded-lg text-sm font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 focus:bg-background transition-all"
+                          placeholder="0.00"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Client Received */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <ArrowDownRight size={10} className="text-emerald-500" />
+                        <label className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">
+                          Client Received
+                        </label>
+                      </div>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-500 font-black text-sm pointer-events-none">
+                          £
+                        </span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={editPaidAmount}
+                          onChange={(e) => {
+                            const paid = e.target.value;
+                            setEditPaidAmount(paid);
+                            const tot = parseFloat(editTotalPrice) || 0;
+                            const p = parseFloat(paid) || 0;
+                            setEditRemainingAmount(String(Math.max(0, tot - p).toFixed(2)));
+                          }}
+                          className="w-full pl-7 pr-3 py-2.5 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-sm font-bold text-emerald-700 dark:text-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all"
+                          placeholder="0.00"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Client Pending */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <Clock size={10} className="text-orange-500" />
+                        <label className="text-[9px] font-black text-orange-600 dark:text-orange-400 uppercase tracking-widest">
+                          Client Pending
+                        </label>
+                      </div>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-orange-500 font-black text-sm pointer-events-none">
+                          £
+                        </span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={editRemainingAmount}
+                          onChange={(e) => {
+                            const rem = e.target.value;
+                            setEditRemainingAmount(rem);
+                            const tot = parseFloat(editTotalPrice) || 0;
+                            const r = parseFloat(rem) || 0;
+                            setEditPaidAmount(String(Math.max(0, tot - r).toFixed(2)));
+                          }}
+                          className="w-full pl-7 pr-3 py-2.5 bg-orange-500/10 border border-orange-500/30 rounded-lg text-sm font-bold text-orange-700 dark:text-orange-300 focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500 transition-all"
+                          placeholder="0.00"
+                        />
+                      </div>
                     </div>
                   </div>
 
@@ -2052,8 +2162,12 @@ export default function BookingManager({
                                             {fs.agentQuotedPrice !== undefined && fs.agentQuotedPrice !== null && (
                                               <p className="text-[10px] text-muted-foreground mt-0.5 font-medium block">Quoted: {formatCurrency(fs.agentQuotedPrice)}</p>
                                             )}
-                                            {fs.baggage && (
-                                              <p className="text-[9px] text-muted-foreground font-bold uppercase mt-0.5 block">🎒 {fs.baggage}</p>
+                                            {(fs.baggage || fs.carryOnBaggage || fs.personalItem) && (
+                                              <p className="text-[9px] text-muted-foreground font-bold uppercase mt-0.5 block space-x-1">
+                                                {fs.baggage && <span>🧳 {fs.baggage}</span>}
+                                                {fs.carryOnBaggage && <span>• 🛍️ {fs.carryOnBaggage}</span>}
+                                                {fs.personalItem && <span>• 👜 {fs.personalItem}</span>}
+                                              </p>
                                             )}
                                           </div>
                                           <div className="flex items-center gap-1 border-l border-border/80 pl-2 flex-shrink-0">

@@ -199,6 +199,7 @@ export default function PnrFlightModal({
   const [baggage, setBaggage] = useState('23 KG');
   const [carryOnBaggage, setCarryOnBaggage] = useState('7 KG');
   const [checkedBaggage, setCheckedBaggage] = useState('');
+  const [personalItem, setPersonalItem] = useState('1 Personal Item Bag');
   const [issueDate, setIssueDate] = useState('');
   const [notes, setNotes] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
@@ -262,6 +263,7 @@ export default function PnrFlightModal({
         setBaggage(flightToEdit.baggage || '');
         setCarryOnBaggage(flightToEdit.carryOnBaggage || '');
         setCheckedBaggage(flightToEdit.checkedBaggage || '');
+        setPersonalItem(flightToEdit.personalItem || '1 Personal Item Bag');
 
         let initialIsConnecting = false;
         let initialNotesText = flightToEdit.notes || '';
@@ -316,6 +318,7 @@ export default function PnrFlightModal({
         setBaggage('23 KG');
         setCarryOnBaggage('7 KG');
         setCheckedBaggage('');
+        setPersonalItem('1 Personal Item Bag');
         setIssueDate('');
         setNotes('');
         setIsConnecting(false);
@@ -453,6 +456,7 @@ export default function PnrFlightModal({
           baggage: "23 KG",
           carryOnBaggage: "7 KG",
           checkedBaggage: null,
+          personalItem: "1 Personal Item Bag",
           notes: JSON.stringify({
             isConnecting: false,
             depTerminal: "",
@@ -508,6 +512,7 @@ export default function PnrFlightModal({
           baggage: fs.baggage || "23 KG",
           carryOnBaggage: fs.carryOnBaggage || "7 KG",
           checkedBaggage: fs.checkedBaggage || "",
+          personalItem: fs.personalItem || "1 Personal Item Bag",
           notes: fs.notes || null,
           issueDate: fs.issueDate || null
         };
@@ -559,6 +564,7 @@ export default function PnrFlightModal({
         baggage: baggage || null,
         carryOnBaggage: carryOnBaggage || null,
         checkedBaggage: checkedBaggage || null,
+        personalItem: personalItem || null,
         notes: notesJson,
         issueDate: issueDate ? new Date(issueDate).toISOString() : null,
         status,
@@ -1127,23 +1133,37 @@ export default function PnrFlightModal({
                   </label>
                   <input
                     type="text"
-                    placeholder="23 KG"
+                    placeholder="e.g. 25 KG"
                     value={baggage}
                     onChange={(e) => setBaggage(e.target.value)}
                     className="text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                   />
                 </div>
 
-                {/* Carry On Baggage */}
+                {/* Hand Carry / Carry-on Baggage */}
                 <div className="flex flex-col gap-1">
                   <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                    Carry-on Baggage
+                    Hand Carry / Cabin Bag
                   </label>
                   <input
                     type="text"
-                    placeholder="7 KG"
+                    placeholder="e.g. 7 KG"
                     value={carryOnBaggage}
                     onChange={(e) => setCarryOnBaggage(e.target.value)}
+                    className="text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                  />
+                </div>
+
+                {/* Personal Item Bag */}
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                    Personal Item Bag
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 1 Laptop Bag / Small Backpack"
+                    value={personalItem}
+                    onChange={(e) => setPersonalItem(e.target.value)}
                     className="text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                   />
                 </div>

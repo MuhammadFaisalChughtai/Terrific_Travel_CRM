@@ -1551,15 +1551,21 @@ function generateConsolidatedTicketHtml(
               </div>
             </div>
             
-            <div class="flight-meta-grid" style="display: flex; justify-content: space-between; align-items: center; padding: 8px 14px; background: #FAFAFA; border-top: 1px solid #F1F5F9; font-size: 10px; color: #475569;">
+            <div class="flight-meta-grid" style="display: flex; justify-content: space-between; align-items: center; padding: 8px 14px; background: #FAFAFA; border-top: 1px solid #F1F5F9; font-size: 10px; color: #475569; flex-wrap: wrap; gap: 8px;">
               <div>
                 Operating Carrier: <strong style="color: #0F172A;">${getAirlineName(f.flightNo)}</strong>
               </div>
               <div>
-                Baggage Allowance: <strong style="color: #0F172A;">${f.baggage || "23 KG"}</strong>
+                Baggage Allowance: <strong style="color: #0F172A;">${f.baggage || "25 KG"}</strong>
               </div>
               <div>
-                Cabin Class: <strong style="color: #0F172A;">${f.flightClass || "Economy"}</strong>
+                Hand Carry: <strong style="color: #0F172A;">${f.carryOnBaggage || "7 KG"}</strong>
+              </div>
+              <div>
+                Personal Item: <strong style="color: #0F172A;">${f.personalItem || "1 Personal Item Bag"}</strong>
+              </div>
+              <div>
+                Cabin Class: <strong style="color: #0F172A;">${f.flightClass || "Economy Class"}</strong>
               </div>
               <div>
                 Status: <strong style="color: #059669;">CONFIRMED</strong>

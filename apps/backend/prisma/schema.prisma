@@ -583,6 +583,7 @@ model FlightService {
   baggage              String?
   carryOnBaggage       String?
   checkedBaggage       String?
+  personalItem         String?
   flightClass          String?
   notes                String?
   status               String             @default("CONFIRMED")

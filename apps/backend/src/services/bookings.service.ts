@@ -809,7 +809,19 @@ export class BookingsService {
     return booking;
   }
 
-  async updateBookingDetails(id: string, data: { totalPrice?: number; agentId?: string | null; departureDate?: string | null }, actorId?: string) {
+  async updateBookingDetails(
+    id: string,
+    data: {
+      totalPrice?: number;
+      paidAmount?: number;
+      remainingAmount?: number;
+      agentId?: string | null;
+      bookingDate?: string | null;
+      departureDate?: string | null;
+      leadPassengerName?: string | null;
+    },
+    actorId?: string
+  ) {
     const booking = await prisma.booking.findUnique({ where: { id } });
     if (!booking) throw new NotFoundException('Booking not found');
 
@@ -827,27 +839,82 @@ export class BookingsService {
       updateData.agentId = data.agentId || null;
     }
 
+    if (data.bookingDate !== undefined) {
+      updateData.bookingDate = data.bookingDate ? new Date(data.bookingDate) : null;
+    }
+
     if (data.departureDate !== undefined) {
       updateData.departureDate = data.departureDate ? new Date(data.departureDate) : null;
     }
 
-    // Recalculate remaining amount and payment status unconditionally
     const activeTotal = updateData.totalPrice !== undefined ? updateData.totalPrice : (booking.totalPrice || 0);
-    const paidAmount = booking.paidAmount || 0;
     const refundAmount = booking.refundAmount || 0;
-    const remainingAmount = Math.max(0, (activeTotal - refundAmount) - paidAmount);
-    updateData.remainingAmount = remainingAmount;
+
+    let finalPaidAmount = booking.paidAmount || 0;
+    let finalRemainingAmount = booking.remainingAmount || 0;
+
+    if (data.paidAmount !== undefined && data.paidAmount !== null) {
+      finalPaidAmount = Math.max(0, Number(data.paidAmount));
+      updateData.paidAmount = finalPaidAmount;
+      if (data.remainingAmount !== undefined && data.remainingAmount !== null) {
+        finalRemainingAmount = Math.max(0, Number(data.remainingAmount));
+        updateData.remainingAmount = finalRemainingAmount;
+      } else {
+        finalRemainingAmount = Math.max(0, (activeTotal - refundAmount) - finalPaidAmount);
+        updateData.remainingAmount = finalRemainingAmount;
+      }
+    } else if (data.remainingAmount !== undefined && data.remainingAmount !== null) {
+      finalRemainingAmount = Math.max(0, Number(data.remainingAmount));
+      updateData.remainingAmount = finalRemainingAmount;
+      finalPaidAmount = Math.max(0, (activeTotal - refundAmount) - finalRemainingAmount);
+      updateData.paidAmount = finalPaidAmount;
+    } else {
+      finalRemainingAmount = Math.max(0, (activeTotal - refundAmount) - finalPaidAmount);
+      updateData.remainingAmount = finalRemainingAmount;
+    }
 
     // Recalculate payment status
-    if (remainingAmount <= 0 && paidAmount > 0) {
+    if (finalRemainingAmount <= 0 && finalPaidAmount > 0) {
       updateData.paymentStatus = 'PAID';
       updateData.fullyPaidAt = booking.fullyPaidAt || new Date();
-    } else if (paidAmount > 0) {
+    } else if (finalPaidAmount > 0) {
       updateData.paymentStatus = 'PARTIALLY_PAID';
       updateData.fullyPaidAt = null;
     } else {
       updateData.paymentStatus = 'UNPAID';
       updateData.fullyPaidAt = null;
+    }
+
+    // Update Lead Passenger Name if provided
+    if (data.leadPassengerName !== undefined && data.leadPassengerName !== null) {
+      const trimmed = data.leadPassengerName.trim();
+      if (trimmed.length > 0) {
+        const nameParts = trimmed.split(' ');
+        const firstName = nameParts[0] || 'Client';
+        const lastName = nameParts.slice(1).join(' ') || '';
+
+        const leaderPax = await prisma.passenger.findFirst({
+          where: { bookingId: id, role: 'Leader' }
+        });
+
+        if (leaderPax) {
+          await prisma.passenger.update({
+            where: { id: leaderPax.id },
+            data: { firstName, lastName }
+          });
+        } else {
+          await prisma.passenger.create({
+            data: {
+              bookingId: id,
+              title: 'Mr',
+              firstName,
+              lastName,
+              age: 'Adult',
+              role: 'Leader'
+            }
+          });
+        }
+      }
     }
 
     const updated = await prisma.booking.update({
@@ -1069,6 +1136,7 @@ export class BookingsService {
         baggage: data.baggage || null,
         carryOnBaggage: data.carryOnBaggage || null,
         checkedBaggage: data.checkedBaggage || null,
+        personalItem: data.personalItem || null,
         notes: data.notes || null,
         issueDate: data.issueDate ? new Date(data.issueDate) : null,
         refundAmount: Number(data.refundAmount) || 0,
@@ -1113,6 +1181,7 @@ export class BookingsService {
         baggage: data.baggage !== undefined ? data.baggage : undefined,
         carryOnBaggage: data.carryOnBaggage !== undefined ? data.carryOnBaggage : undefined,
         checkedBaggage: data.checkedBaggage !== undefined ? data.checkedBaggage : undefined,
+        personalItem: data.personalItem !== undefined ? data.personalItem : undefined,
         notes: data.notes !== undefined ? data.notes : undefined,
         issueDate: data.issueDate !== undefined ? (data.issueDate ? new Date(data.issueDate) : null) : undefined,
         refundAmount: data.refundAmount !== undefined ? (Number(data.refundAmount) || 0) : undefined,
