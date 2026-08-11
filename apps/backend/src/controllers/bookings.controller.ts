@@ -99,8 +99,16 @@ export const addFlightService = asyncHandler(async (req: AuthenticatedRequest, r
   });
 });
 
+const isUserAdmin = (user?: any) => {
+  const roles = user?.roles || [];
+  return roles.some((r: string) => ['ADMIN', 'SUPER_ADMIN', 'Admin', 'Super Admin'].includes(r));
+};
+
 export const updateFlightService = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id, flightServiceId } = req.params;
+  if (!isUserAdmin(req.user) && req.body) {
+    delete req.body.price;
+  }
   const result = await bookingsService.updateFlightService(id, flightServiceId, req.body);
   res.status(200).json({
     success: true,
@@ -128,6 +136,9 @@ export const addAccommodationService = asyncHandler(async (req: AuthenticatedReq
 
 export const updateAccommodationService = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id, accommodationId } = req.params;
+  if (!isUserAdmin(req.user) && req.body) {
+    delete req.body.price;
+  }
   const result = await bookingsService.updateAccommodationService(id, accommodationId, req.body);
   res.status(200).json({
     success: true,
@@ -155,6 +166,9 @@ export const addTransportService = asyncHandler(async (req: AuthenticatedRequest
 
 export const updateTransportService = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id, transportServiceId } = req.params;
+  if (!isUserAdmin(req.user) && req.body) {
+    delete req.body.price;
+  }
   const result = await bookingsService.updateTransportService(id, transportServiceId, req.body);
   res.status(200).json({
     success: true,
@@ -343,6 +357,9 @@ export const addVisaService = asyncHandler(async (req: AuthenticatedRequest, res
 
 export const updateVisaService = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id, visaServiceId } = req.params;
+  if (!isUserAdmin(req.user) && req.body) {
+    delete req.body.price;
+  }
   const result = await bookingsService.updateVisaService(id, visaServiceId, req.body);
   res.status(200).json({
     success: true,
@@ -376,6 +393,10 @@ export const addAdditionalService = asyncHandler(async (req: AuthenticatedReques
 
 export const updateAdditionalService = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id, serviceId } = req.params;
+  if (!isUserAdmin(req.user) && req.body) {
+    delete req.body.price;
+    delete req.body.servicePrice;
+  }
   const result = await bookingsService.updateAdditionalService(id, serviceId, req.body);
   res.status(200).json({
     success: true,

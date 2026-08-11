@@ -55,6 +55,7 @@ export default function BookingTransactionModal({
   const [serviceIds, setServiceIds] = useState<string[]>([]);
   const [amount, setAmount] = useState<string>("");
   const [cardPaymentCharges, setCardPaymentCharges] = useState<string>("");
+  const [ccRate, setCcRate] = useState<string>("1");
   const [isPaidByCompany, setIsPaidByCompany] = useState<boolean>(true);
   const [bankAccount, setBankAccount] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
@@ -167,6 +168,7 @@ export default function BookingTransactionModal({
       setServiceIds([]);
       setAmount("");
       setCardPaymentCharges("");
+      setCcRate("1");
       setBankAccount("");
       setNotes("");
       setReceiptUrl("");
@@ -174,16 +176,17 @@ export default function BookingTransactionModal({
     }
   }, [isOpen]);
 
-  // Automatically calculate credit card charges as 1% of the transaction amount
+  // Automatically calculate credit card charges based on ccRate (%)
   useEffect(() => {
     if (paymentMethod === "Credit Card") {
       const baseAmount = Number(amount) || 0;
-      const charges = (baseAmount * 0.01).toFixed(2);
+      const rateNum = Number(ccRate) || 0;
+      const charges = ((baseAmount * rateNum) / 100).toFixed(2);
       setCardPaymentCharges(charges);
     } else {
       setCardPaymentCharges("");
     }
-  }, [paymentMethod, amount]);
+  }, [paymentMethod, amount, ccRate]);
 
   // Handle receipt upload
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -549,37 +552,98 @@ export default function BookingTransactionModal({
 
         {/* Credit Card Surcharges (Conditional for CC payment method across all types) */}
         {paymentMethod === "Credit Card" && (
-          <div className="p-3.5 bg-primary/5 border border-primary/20 rounded-xl space-y-2.5 animate-fadeIn">
+          <div className="p-3.5 bg-primary/5 border border-primary/20 rounded-xl space-y-3 animate-fadeIn">
             <div className="flex items-center gap-1.5 text-primary">
               <CreditCard size={14} />
               <span className="font-black uppercase tracking-wider text-[9px]">
-                Credit Card Charges
+                Credit Card Charges & Deduction
               </span>
             </div>
-            <div>
-              <label className="block text-[9px] font-black uppercase tracking-wider text-muted-foreground mb-1">
-                Credit Card Charges (£)
-              </label>
-              <div className="relative max-w-xs">
-                <Percent
-                  size={12}
-                  className="absolute left-3 top-2 text-primary"
-                />
-                <input
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={cardPaymentCharges}
-                  onChange={(e) => setCardPaymentCharges(e.target.value)}
-                  className="w-full pl-8 pr-3 py-1.5 bg-card border border-primary/20 rounded-lg text-foreground font-semibold focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-xs"
-                />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Rate (%) */}
+              <div>
+                <label className="block text-[9px] font-black uppercase tracking-wider text-muted-foreground mb-1">
+                  Credit Card Charge Rate (%)
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    placeholder="1.0"
+                    value={ccRate}
+                    onChange={(e) => {
+                      const r = e.target.value;
+                      setCcRate(r);
+                      const rateNum = parseFloat(r) || 0;
+                      const baseAmt = parseFloat(amount) || 0;
+                      const fee = ((baseAmt * rateNum) / 100).toFixed(2);
+                      setCardPaymentCharges(fee);
+                    }}
+                    className="w-full pr-8 pl-3 py-1.5 bg-card border border-primary/20 rounded-lg text-foreground font-semibold focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-xs"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-primary font-bold text-xs pointer-events-none">
+                    %
+                  </span>
+                </div>
+                <p className="text-[9px] text-muted-foreground mt-0.5">
+                  Type 1 for 1%, 2 for 2%, 3 for 3%, 4 for 4%.
+                </p>
               </div>
-              <p className="text-[9px] text-muted-foreground mt-1">
-                Charges will be recorded separately inside this booking.
-              </p>
+
+              {/* Calculated Fee (£) */}
+              <div>
+                <label className="block text-[9px] font-black uppercase tracking-wider text-muted-foreground mb-1">
+                  Credit Card Charges (£)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-primary font-bold text-xs pointer-events-none">
+                    £
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={cardPaymentCharges}
+                    onChange={(e) => {
+                      const feeStr = e.target.value;
+                      setCardPaymentCharges(feeStr);
+                      const feeNum = parseFloat(feeStr) || 0;
+                      const baseAmt = parseFloat(amount) || 0;
+                      if (baseAmt > 0) {
+                        setCcRate(((feeNum / baseAmt) * 100).toFixed(2));
+                      }
+                    }}
+                    className="w-full pl-7 pr-3 py-1.5 bg-card border border-primary/20 rounded-lg text-foreground font-semibold focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-xs"
+                  />
+                </div>
+                <p className="text-[9px] text-muted-foreground mt-0.5">
+                  Amount deducted as CC fee.
+                </p>
+              </div>
             </div>
 
-            <div className="flex items-center gap-2 select-none">
+            {/* Deduction Live Preview */}
+            {(Number(cardPaymentCharges) > 0 || Number(amount) > 0) && (
+              <div className="p-2 bg-card/70 border border-primary/15 rounded-lg flex items-center justify-between text-[11px] font-semibold text-foreground">
+                <span className="text-muted-foreground">
+                  Net Amount Received after {ccRate || "0"}% CC Deduction:
+                </span>
+                <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                  £
+                  {Math.max(
+                    0,
+                    (parseFloat(amount) || 0) -
+                      (parseFloat(cardPaymentCharges) || 0),
+                  ).toFixed(2)}
+                </span>
+              </div>
+            )}
+
+            <div className="flex items-center gap-2 select-none pt-0.5">
               <input
                 type="checkbox"
                 id="isPaidByCompany"

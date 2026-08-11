@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
+import { useAuthStore } from '../store/auth.store';
 import Modal from './Modal';
 import { toast } from 'sonner';
 import { Loader2, Search, Check, PlaneTakeoff, Info } from 'lucide-react';
@@ -172,6 +173,10 @@ export default function PnrFlightModal({
   flightToEdit = null,
   initialStep = 'pnr'
 }: PnrFlightModalProps) {
+  const user = useAuthStore((state) => state.user);
+  const isAdmin = user?.roles?.some(r => ['ADMIN', 'SUPER_ADMIN', 'Admin', 'Super Admin'].includes(r));
+  const isPriceDisabled = !!flightToEdit && !isAdmin;
+
   const [step, setStep] = useState<'pnr' | 'search' | 'form'>('pnr');
   const [pnrText, setPnrText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -1059,11 +1064,19 @@ export default function PnrFlightModal({
                     type="number"
                     step="any"
                     required
+                    disabled={isPriceDisabled}
                     placeholder="0.00"
                     value={price}
                     onChange={(e) => setPrice(e.target.value)}
-                    className="text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary font-bold text-foreground w-full"
+                    className={`text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary font-bold text-foreground w-full ${
+                      isPriceDisabled ? 'opacity-65 cursor-not-allowed bg-secondary/30' : ''
+                    }`}
                   />
+                  {isPriceDisabled && (
+                    <span className="text-[9px] text-amber-600 dark:text-amber-400 font-semibold mt-0.5">
+                      🔒 Price can only be edited by Admin / Super Admin
+                    </span>
+                  )}
                 </div>
 
                 {/* Agent Quoted Price */}

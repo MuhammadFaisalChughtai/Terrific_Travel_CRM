@@ -735,7 +735,16 @@ export default function Bookings() {
                         booking.transactions?.filter((tx: any) => {
                           if (!tx.notes) return true;
                           const notesLower = tx.notes.toLowerCase();
-                          if (notesLower.includes("vendor payment")) return false;
+                          if (
+                            notesLower.includes("vendor payment") ||
+                            notesLower.includes("vendor refund") ||
+                            notesLower.includes("vendor discount") ||
+                            notesLower.includes("refund from vendor") ||
+                            notesLower.includes("discount received") ||
+                            tx.paymentMethod === "Discount"
+                          ) {
+                            return false;
+                          }
                           return true;
                         }) || [];
 

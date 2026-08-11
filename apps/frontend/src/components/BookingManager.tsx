@@ -663,13 +663,25 @@ export default function BookingManager({
   };
 
   // Financial Calculations
+  const isCustomerTransaction = (tx: any) => {
+    if (!tx) return false;
+    if (!tx.notes) return true;
+    const notesLower = tx.notes.toLowerCase();
+    if (
+      notesLower.includes("vendor payment") ||
+      notesLower.includes("vendor refund") ||
+      notesLower.includes("vendor discount") ||
+      notesLower.includes("refund from vendor") ||
+      notesLower.includes("discount received") ||
+      tx.paymentMethod === "Discount"
+    ) {
+      return false;
+    }
+    return true;
+  };
+
   const clientTransactionsList =
-    booking.transactions?.filter((tx: any) => {
-      if (!tx.notes) return true;
-      const notesLower = tx.notes.toLowerCase();
-      if (notesLower.includes("vendor payment")) return false;
-      return true;
-    }) || [];
+    booking.transactions?.filter(isCustomerTransaction) || [];
 
   const clientTxSum = clientTransactionsList.reduce(
     (sum: number, tx: any) => sum + (Number(tx.amount) || 0),
@@ -1391,16 +1403,7 @@ export default function BookingManager({
                   <tbody className="text-foreground divide-y divide-border">
                     {(() => {
                       const clientTransactions =
-                        booking.transactions?.filter((tx: any) => {
-                          if (!tx.notes) return true;
-                          const notesLower = tx.notes.toLowerCase();
-                          if (
-                            notesLower.includes("vendor payment")
-                          ) {
-                            return false;
-                          }
-                          return true;
-                        }) || [];
+                        booking.transactions?.filter(isCustomerTransaction) || [];
 
                       if (clientTransactions.length === 0) {
                         return (
