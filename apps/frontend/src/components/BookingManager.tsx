@@ -665,15 +665,23 @@ export default function BookingManager({
   // Financial Calculations
   const isCustomerTransaction = (tx: any) => {
     if (!tx) return false;
+    const methodLower = (tx.paymentMethod || tx.method || "").toLowerCase();
+    if (
+      methodLower.includes("vendor") ||
+      methodLower.includes("discount") ||
+      methodLower.includes("agent") ||
+      methodLower.includes("payout")
+    ) {
+      return false;
+    }
     if (!tx.notes) return true;
     const notesLower = tx.notes.toLowerCase();
     if (
-      notesLower.includes("vendor payment") ||
-      notesLower.includes("vendor refund") ||
-      notesLower.includes("vendor discount") ||
-      notesLower.includes("refund from vendor") ||
-      notesLower.includes("discount received") ||
-      tx.paymentMethod === "Discount"
+      notesLower.includes("vendor") ||
+      notesLower.includes("discount") ||
+      notesLower.includes("agent") ||
+      notesLower.includes("payout") ||
+      notesLower.includes("refund from vendor")
     ) {
       return false;
     }

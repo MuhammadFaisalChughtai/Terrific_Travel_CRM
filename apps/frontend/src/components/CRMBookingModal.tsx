@@ -132,13 +132,25 @@ export default function CRMBookingModal({ isOpen, onClose, booking }: CRMBooking
             <tbody className="divide-y divide-border/30">
                {(() => {
                  const clientTransactions = booking.transactions?.filter((tx: any) => {
+                   if (!tx) return false;
+                   const methodLower = (tx.paymentMethod || tx.method || "").toLowerCase();
+                   if (
+                     methodLower.includes("vendor") ||
+                     methodLower.includes("discount") ||
+                     methodLower.includes("agent") ||
+                     methodLower.includes("payout")
+                   ) {
+                     return false;
+                   }
                    if (!tx.notes) return true;
                    const notesLower = tx.notes.toLowerCase();
-                   if (notesLower.includes("vendor payment") || 
-                       notesLower.includes("discount received") || 
-                       notesLower.includes("vendor refund") ||
-                       notesLower.includes("refund from vendor") ||
-                       tx.paymentMethod === "Discount") {
+                   if (
+                     notesLower.includes("vendor") ||
+                     notesLower.includes("discount") ||
+                     notesLower.includes("agent") ||
+                     notesLower.includes("payout") ||
+                     notesLower.includes("refund from vendor")
+                   ) {
                      return false;
                    }
                    return true;
