@@ -1627,7 +1627,16 @@ function generateConsolidatedTicketHtml(
             isConnecting && nextFlight ? calculateLayover(f, nextFlight) : "";
 
           const depDateStr = formatDate(f.date);
-          const arrDateStr = formatDate(f.date);
+          let flightArrDate = f.arrivalDate || f.date;
+          if (f.notes) {
+            try {
+              const parsed = JSON.parse(f.notes);
+              if (parsed.arrivalDate) {
+                flightArrDate = parsed.arrivalDate;
+              }
+            } catch (e) {}
+          }
+          const arrDateStr = formatDate(flightArrDate);
 
           // Extract codes and names for professional layout
           const extractCode = (str: string) => {
