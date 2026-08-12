@@ -14,6 +14,7 @@ interface PnrFlightModalProps {
   onSuccess: () => void;
   flightToEdit?: any | null;
   initialStep?: 'pnr' | 'form' | 'search';
+  bookingPassengers?: any[];
 }
 
 interface ParsedFlight {
@@ -171,7 +172,8 @@ export default function PnrFlightModal({
   bookingYear,
   onSuccess,
   flightToEdit = null,
-  initialStep = 'pnr'
+  initialStep = 'pnr',
+  bookingPassengers = [],
 }: PnrFlightModalProps) {
   const user = useAuthStore((state) => state.user);
   const isAdmin = user?.roles?.some(r => ['ADMIN', 'SUPER_ADMIN', 'Admin', 'Super Admin'].includes(r));
@@ -208,6 +210,7 @@ export default function PnrFlightModal({
   const [issueDate, setIssueDate] = useState('');
   const [notes, setNotes] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
+  const [associatedNationality, setAssociatedNationality] = useState<string>('ALL');
   const [refundAmount, setRefundAmount] = useState('0.0');
   const [fineAmount, setFineAmount] = useState('0.0');
   const [depTerminal, setDepTerminal] = useState('');
@@ -260,13 +263,13 @@ export default function PnrFlightModal({
         setDate(formattedDate);
         
         setFlightClass(getCabinClassFromCode(flightToEdit.flightClass || 'Economy Class'));
-        setPrice(String(flightToEdit.price || '0'));
-        setAgentQuotedPrice(flightToEdit.agentQuotedPrice !== undefined && flightToEdit.agentQuotedPrice !== null ? String(flightToEdit.agentQuotedPrice) : '');
+        setPrice(String(flightToEdit.price || 0));
+        setAgentQuotedPrice(flightToEdit.agentQuotedPrice ? String(flightToEdit.agentQuotedPrice) : '');
         setConfirmationNumber(flightToEdit.confirmationNumber || '');
-        setRefundAmount(String(flightToEdit.refundAmount ?? '0.0'));
-        setFineAmount(String(flightToEdit.fineAmount ?? '0.0'));
-        setBaggage(flightToEdit.baggage || '');
-        setCarryOnBaggage(flightToEdit.carryOnBaggage || '');
+        setRefundAmount(String(flightToEdit.refundAmount || 0));
+        setFineAmount(String(flightToEdit.fineAmount || 0));
+        setBaggage(flightToEdit.baggage || '23 KG');
+        setCarryOnBaggage(flightToEdit.carryOnBaggage || '7 KG');
         setCheckedBaggage(flightToEdit.checkedBaggage || '');
         setPersonalItem(flightToEdit.personalItem || '1 Personal Item Bag');
 
@@ -275,6 +278,7 @@ export default function PnrFlightModal({
         let initialDepTerminal = '';
         let initialArrTerminal = '';
         let initialArrivalDate = formattedDate;
+        let initialAssociatedNat = 'ALL';
         if (flightToEdit.notes) {
           try {
             const parsed = JSON.parse(flightToEdit.notes);
@@ -283,12 +287,14 @@ export default function PnrFlightModal({
             initialArrTerminal = parsed.arrTerminal || '';
             initialNotesText = parsed.actualNotes || '';
             initialArrivalDate = parsed.arrivalDate || formattedDate;
+            initialAssociatedNat = parsed.associatedNationality || 'ALL';
           } catch (e) {
             // normal string
           }
         }
         setNotes(initialNotesText);
         setIsConnecting(initialIsConnecting);
+        setAssociatedNationality(initialAssociatedNat);
         setDepTerminal(initialDepTerminal);
         setArrTerminal(initialArrTerminal);
         setArrivalDate(initialArrivalDate);
@@ -327,6 +333,7 @@ export default function PnrFlightModal({
         setIssueDate('');
         setNotes('');
         setIsConnecting(false);
+        setAssociatedNationality('ALL');
         setRefundAmount('0.0');
         setFineAmount('0.0');
         setDepTerminal('');
@@ -550,6 +557,7 @@ export default function PnrFlightModal({
         isConnecting,
         depTerminal: depTerminal || "",
         arrTerminal: arrTerminal || "",
+        associatedNationality: associatedNationality || "ALL",
         actualNotes: notes || "",
         arrivalDate: arrivalDate || "",
       });
@@ -1208,6 +1216,34 @@ export default function PnrFlightModal({
                       <span>Connecting Flight (Layovers apply before next segment)</span>
                     </label>
                   </div>
+                </div>
+
+                {/* Associated Passenger Nationality */}
+                <div className="flex flex-col gap-1.5 col-span-2 bg-sky-50 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-800/60 p-3 rounded-xl">
+                  <label className="text-[10px] font-extrabold text-sky-900 dark:text-sky-300 uppercase tracking-wider flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">🌐 ASSOCIATED PASSENGER NATIONALITY</span>
+                    <span className="text-[9px] bg-sky-100 dark:bg-sky-900 text-sky-800 dark:text-sky-200 px-2 py-0.5 rounded font-normal normal-case">
+                      Controls which nationality E-Ticket prints this flight
+                    </span>
+                  </label>
+                  <select
+                    value={associatedNationality}
+                    onChange={(e) => setAssociatedNationality(e.target.value)}
+                    className="text-xs py-2 px-3 bg-background border border-border rounded-lg text-foreground font-bold focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary w-full cursor-pointer"
+                  >
+                    <option value="ALL">🌐 All Nationalities (Default - Visible on all passenger tickets)</option>
+                    {Array.from(
+                      new Set<string>(
+                        (bookingPassengers || [])
+                          .map((p: any) => (p.nationality || "").trim().toUpperCase())
+                          .filter(Boolean),
+                      ),
+                    ).map((nat) => (
+                      <option key={nat} value={nat}>
+                        ✈️ {nat} Passengers Only
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 {/* Notes */}

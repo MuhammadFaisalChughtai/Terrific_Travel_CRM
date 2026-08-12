@@ -1805,6 +1805,22 @@ export function generateFlightTicketHtml(
     });
   }
 
+  // Filter flights by selected nationality if specified and not 'all'
+  if (selectedNationality && selectedNationality !== "all") {
+    sortedFlights = sortedFlights.filter((f: any) => {
+      let flightNat = "ALL";
+      if (f.notes) {
+        try {
+          const parsed = JSON.parse(f.notes);
+          if (parsed.associatedNationality) {
+            flightNat = parsed.associatedNationality.trim().toUpperCase();
+          }
+        } catch (e) {}
+      }
+      return flightNat === "ALL" || flightNat === selectedNationality.trim().toUpperCase();
+    });
+  }
+
   const passengers =
     booking.passengers && booking.passengers.length > 0
       ? booking.passengers
@@ -1847,9 +1863,22 @@ export function generateFlightTicketHtml(
     const natKeys = Object.keys(natGroups);
     if (natKeys.length > 1) {
       baseFlightHtml = natKeys
-        .map((nat) =>
-          generateConsolidatedTicketHtml(booking, natGroups[nat], sortedFlights, false),
-        )
+        .map((nat) => {
+          const natPax = natGroups[nat];
+          const natFlights = sortedFlights.filter((f: any) => {
+            let flightNat = "ALL";
+            if (f.notes) {
+              try {
+                const parsed = JSON.parse(f.notes);
+                if (parsed.associatedNationality) {
+                  flightNat = parsed.associatedNationality.trim().toUpperCase();
+                }
+              } catch (e) {}
+            }
+            return flightNat === "ALL" || flightNat === nat.trim().toUpperCase();
+          });
+          return generateConsolidatedTicketHtml(booking, natPax, natFlights, false);
+        })
         .join('<div style="page-break-after: always; height: 1px;"></div>');
       return baseFlightHtml;
     }

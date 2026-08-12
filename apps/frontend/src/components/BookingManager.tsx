@@ -1811,11 +1811,40 @@ export default function BookingManager({
                               <div className="font-mono text-foreground">
                                 {p.passportNumber || "—"}
                               </div>
-                              {(p.eticket || p.ticketNo) && (
-                                <div className="text-[10px] font-mono text-sky-600 dark:text-sky-400 font-bold mt-0.5">
-                                  Tkt: {p.eticket || p.ticketNo}
-                                </div>
-                              )}
+                              {(() => {
+                                const raw = (p.eticket || p.ticketNo || "").trim();
+                                if (!raw) return null;
+
+                                if (raw.startsWith("{") && raw.endsWith("}")) {
+                                  try {
+                                    const parsed = JSON.parse(raw);
+                                    const entries = Object.entries(parsed).filter(([_, v]) => !!v);
+                                    if (entries.length > 0) {
+                                      return (
+                                        <div className="flex flex-col gap-1 mt-1 max-w-[240px]">
+                                          {entries.map(([carrier, val]: [string, any]) => {
+                                            const etktNum = typeof val === "object" && val !== null ? val.eticket || "" : String(val);
+                                            const pnrNum = typeof val === "object" && val !== null ? val.pnr || "" : "";
+                                            return (
+                                              <div key={carrier} className="text-[10px] bg-sky-50 text-sky-900 dark:bg-sky-950/40 dark:text-sky-300 border border-sky-200 dark:border-sky-800 p-1.5 rounded-md flex flex-col font-mono leading-tight shadow-2xs">
+                                                <span className="font-extrabold text-[9px] text-sky-700 dark:text-sky-400 uppercase tracking-tight">✈️ {carrier}</span>
+                                                {etktNum && <span className="text-[10px]">Tkt: <strong className="font-bold">{etktNum}</strong></span>}
+                                                {pnrNum && <span className="text-[10px]">PNR: <strong className="font-bold text-sky-600 dark:text-sky-400">{pnrNum}</strong></span>}
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      );
+                                    }
+                                  } catch (e) {}
+                                }
+
+                                return (
+                                  <div className="text-[10px] font-mono text-sky-600 dark:text-sky-400 font-bold mt-0.5">
+                                    Tkt: {raw}
+                                  </div>
+                                );
+                              })()}
                               {p.passportExpiryDate && (
                                 <div className="text-[10px] text-muted-foreground">
                                   Exp:{" "}
@@ -2154,6 +2183,21 @@ export default function BookingManager({
                                                   Connecting
                                                 </span>
                                               )}
+                                              {(() => {
+                                                if (fs.notes) {
+                                                  try {
+                                                    const parsed = JSON.parse(fs.notes);
+                                                    if (parsed.associatedNationality && parsed.associatedNationality !== "ALL") {
+                                                      return (
+                                                        <span className="text-[9px] bg-sky-50 text-sky-800 dark:bg-sky-950 dark:text-sky-300 border border-sky-300 dark:border-sky-800 px-1.5 py-0.5 rounded font-black uppercase inline-flex items-center gap-1">
+                                                          🌐 {parsed.associatedNationality} Only
+                                                        </span>
+                                                      );
+                                                    }
+                                                  } catch (e) {}
+                                                }
+                                                return null;
+                                              })()}
                                             </div>
                                           </div>
                                         </div>
@@ -3113,6 +3157,7 @@ export default function BookingManager({
             ? new Date(booking.departureDate).getFullYear()
             : new Date().getFullYear()
         }
+        bookingPassengers={booking.passengers}
         flightToEdit={editingFlight}
         initialStep={pnrModalStep}
         onSuccess={() => {
