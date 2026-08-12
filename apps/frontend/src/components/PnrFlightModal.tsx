@@ -1221,7 +1221,7 @@ export default function PnrFlightModal({
                 {/* Associated Passenger Nationality */}
                 <div className="flex flex-col gap-1.5 col-span-2 bg-sky-50 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-800/60 p-3 rounded-xl">
                   <label className="text-[10px] font-extrabold text-sky-900 dark:text-sky-300 uppercase tracking-wider flex items-center justify-between">
-                    <span className="flex items-center gap-1.5">🌐 ASSOCIATED PASSENGER NATIONALITY</span>
+                    <span className="flex items-center gap-1.5">ASSOCIATED PASSENGER NATIONALITY</span>
                     <span className="text-[9px] bg-sky-100 dark:bg-sky-900 text-sky-800 dark:text-sky-200 px-2 py-0.5 rounded font-normal normal-case">
                       Controls which nationality E-Ticket prints this flight
                     </span>
@@ -1231,7 +1231,7 @@ export default function PnrFlightModal({
                     onChange={(e) => setAssociatedNationality(e.target.value)}
                     className="text-xs py-2 px-3 bg-background border border-border rounded-lg text-foreground font-bold focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary w-full cursor-pointer"
                   >
-                    <option value="ALL">🌐 All Nationalities (Default - Visible on all passenger tickets)</option>
+                    <option value="ALL">All Nationalities (Default - Visible on all passenger tickets)</option>
                     {Array.from(
                       new Set<string>(
                         (bookingPassengers || [])
@@ -1240,7 +1240,7 @@ export default function PnrFlightModal({
                       ),
                     ).map((nat) => (
                       <option key={nat} value={nat}>
-                        ✈️ {nat} Passengers Only
+                        {nat} Passengers Only
                       </option>
                     ))}
                   </select>

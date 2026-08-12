@@ -3264,10 +3264,10 @@ export default function BookingManager({
               onChange={(e: any) => setPrintTicketDocType(e.target.value)}
               className="text-xs py-2 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary w-full font-bold"
             >
-              <option value="eticket">✈️ Official Flight E-Ticket &amp; Itinerary (Default)</option>
-              <option value="full_package">📜 Full Package Itinerary (Flight + Hotel + Transport)</option>
-              <option value="hotel_voucher">🏨 Hotel / Accommodation Voucher Only</option>
-              <option value="agent_copy">💼 Agent Operations &amp; Internal Audit Record</option>
+              <option value="eticket">Official Flight E-Ticket &amp; Itinerary (Default)</option>
+              <option value="full_package">Full Package Itinerary (Flight + Hotel + Transport)</option>
+              <option value="hotel_voucher">Hotel / Accommodation Voucher Only</option>
+              <option value="agent_copy">Agent Operations &amp; Internal Audit Record</option>
             </select>
           </div>
 
@@ -3316,7 +3316,7 @@ export default function BookingManager({
                     <option value="all">All Nationalities / All Passengers</option>
                     {availableNationalities.map((nat) => (
                       <option key={nat} value={nat}>
-                        🌐 {nat} Passengers Only
+                        {nat} Passengers Only
                       </option>
                     ))}
                   </select>
@@ -3393,7 +3393,7 @@ export default function BookingManager({
                     className="rounded border-border text-primary focus:ring-primary w-4 h-4 cursor-pointer"
                   />
                   <label htmlFor="groupByNationalityBookingMgr" className="text-xs font-bold text-foreground cursor-pointer flex items-center gap-1.5">
-                    <span>🌐 Group Passengers by Nationality Headers on Ticket</span>
+                    <span>Group Passengers by Nationality Headers on Ticket</span>
                   </label>
                 </div>
               </>
