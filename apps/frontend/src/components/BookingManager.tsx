@@ -437,6 +437,9 @@ export default function BookingManager({
   const [printTicketSelectedAirline, setPrintTicketSelectedAirline] = useState<string>("all");
   const [printTicketSplitByAirline, setPrintTicketSplitByAirline] = useState<boolean>(false);
   const [printTicketGroupByNationality, setPrintTicketGroupByNationality] = useState<boolean>(false);
+  const [printTicketDocType, setPrintTicketDocType] = useState<"eticket" | "full_package" | "hotel_voucher" | "agent_copy">("eticket");
+  const [printTicketSelectedNationality, setPrintTicketSelectedNationality] = useState<string>("all");
+  const [printTicketSplitByNationality, setPrintTicketSplitByNationality] = useState<boolean>(false);
   const [expandedTx, setExpandedTx] = useState<Record<string, boolean>>({});
   const [isHtmlEditorOpen, setIsHtmlEditorOpen] = useState(false);
   const [htmlEditorContent, setHtmlEditorContent] = useState("");
@@ -2037,15 +2040,20 @@ export default function BookingManager({
                         return (
                           <div key={pnrKey} className="space-y-2 border-b border-border/40 pb-3 last:border-0 last:pb-0">
                             {/* PNR Header */}
-                            <div className="flex items-center justify-between bg-secondary/30 px-3 py-1.5 rounded-lg border border-border/50">
-                              <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                                <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse"></span>
+                            <div className="flex flex-wrap items-center justify-between bg-secondary/30 px-3 py-1.5 rounded-lg border border-border/50 gap-2">
+                              <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1.5 flex-wrap">
+                                <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse flex-shrink-0"></span>
                                 {pnrKey === "No PNR Assigned" ? (
                                   "No PNR Assigned"
                                 ) : (
-                                  <>
-                                    PNR Journey: <strong className="text-foreground">{pnrKey}</strong>
-                                  </>
+                                  <span className="flex flex-wrap items-center gap-1">
+                                    <span>PNR Journey:</span>
+                                    {pnrKey.split(/[,;\s]+/).map((pnrItem: string) => (
+                                      <strong key={pnrItem} className="text-foreground bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded font-mono font-bold text-[10px]">
+                                        {pnrItem}
+                                      </strong>
+                                    ))}
+                                  </span>
                                 )}
                               </span>
                               <span className="text-[9px] bg-primary/10 text-primary px-2 py-0.5 rounded-md font-extrabold uppercase">
@@ -2069,7 +2077,7 @@ export default function BookingManager({
                                 return (
                                   <React.Fragment key={fs.id}>
                                     <div className="w-full pb-1">
-                                      <div className={`border border-border bg-gradient-to-r from-card via-card to-secondary/10 rounded-xl p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:border-primary/40 transition-all text-[12px] shadow-sm relative overflow-hidden group w-full ${fs.status === 'CANCELLED' ? 'line-through opacity-60' : ''}`}>
+                                      <div className={`border border-border bg-gradient-to-r from-card via-card to-secondary/10 rounded-xl p-4 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 hover:border-primary/40 transition-all text-[12px] shadow-sm relative overflow-hidden group w-full ${fs.status === 'CANCELLED' ? 'line-through opacity-60' : ''}`}>
                                         {isConnecting && (
                                           <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-500"></div>
                                         )}
@@ -2078,11 +2086,11 @@ export default function BookingManager({
                                         )}
 
                                         {/* Left: Flight & PNR Info */}
-                                        <div className="flex items-start gap-3 min-w-[180px]">
+                                        <div className="flex items-start gap-3 w-full xl:w-auto xl:max-w-[260px] flex-shrink-0">
                                           <div className="w-10 h-10 bg-primary/10 text-primary border border-primary/20 rounded-xl flex items-center justify-center font-bold text-[12px] shadow-sm flex-shrink-0 mt-0.5">
                                             <Plane size={16} className="text-primary group-hover:rotate-12 transition-transform" />
                                           </div>
-                                          <div>
+                                          <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-2">
                                               <h4 className="font-extrabold text-foreground text-[15px] tracking-tight">
                                                 {fs.flightNo}
@@ -2091,10 +2099,38 @@ export default function BookingManager({
                                                 {fs.flightClass || "Y"}
                                               </span>
                                             </div>
-                                            <p className="text-[11px] text-muted-foreground mt-0.5 font-mono flex items-center gap-1">
-                                              <span>PNR:</span>
-                                              <strong className="text-foreground font-bold bg-secondary/50 px-1.5 py-0.5 rounded border border-border/50">{fs.pnr || "—"}</strong>
-                                            </p>
+
+                                            {/* PNR Micro-Pills */}
+                                            {(() => {
+                                              const pnrs = (fs.pnr || "").split(/[,;\s]+/).map((s: string) => s.trim()).filter(Boolean);
+                                              if (pnrs.length === 0) {
+                                                return (
+                                                  <p className="text-[11px] text-muted-foreground mt-0.5 font-mono flex items-center gap-1">
+                                                    <span>PNR:</span>
+                                                    <strong className="text-foreground font-bold bg-secondary/50 px-1.5 py-0.5 rounded border border-border/50">—</strong>
+                                                  </p>
+                                                );
+                                              }
+                                              if (pnrs.length === 1) {
+                                                return (
+                                                  <p className="text-[11px] text-muted-foreground mt-0.5 font-mono flex items-center gap-1">
+                                                    <span>PNR:</span>
+                                                    <strong className="text-foreground font-bold bg-secondary/50 px-1.5 py-0.5 rounded border border-border/50">{pnrs[0]}</strong>
+                                                  </p>
+                                                );
+                                              }
+                                              return (
+                                                <div className="flex flex-wrap items-center gap-1 mt-1 max-w-[240px]">
+                                                  <span className="text-[10px] font-bold text-muted-foreground font-mono">PNRs ({pnrs.length}):</span>
+                                                  {pnrs.map((pnrItem: string) => (
+                                                    <span key={pnrItem} className="bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800 px-1.5 py-0.5 rounded font-mono font-bold text-[10px]">
+                                                      {pnrItem}
+                                                    </span>
+                                                  ))}
+                                                </div>
+                                              );
+                                            })()}
+
                                             {fs.date && (
                                               <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1 font-medium">
                                                 <span>Date:</span>
@@ -2122,13 +2158,13 @@ export default function BookingManager({
                                           </div>
                                         </div>
 
-                                        {/* Middle: Route & Times (No Truncation) */}
-                                        <div className="flex-1 min-w-0 px-2 py-1 bg-secondary/15 rounded-xl border border-border/40 p-2.5">
+                                        {/* Middle: Route & Times */}
+                                        <div className="flex-1 w-full min-w-0 px-3 py-2 bg-secondary/15 rounded-xl border border-border/40">
                                           <div className="flex items-center gap-3 justify-between">
                                             {/* Departure */}
                                             <div className="text-left flex-1 min-w-0">
                                               <p className="font-black text-foreground text-[16px] leading-tight">{fs.departTime || "—"}</p>
-                                              <p className="text-[11px] text-foreground/80 font-bold tracking-wide uppercase mt-0.5 leading-snug break-words" title={fs.departedFrom}>
+                                              <p className="text-[11px] text-foreground/80 font-bold tracking-wide uppercase mt-0.5 leading-snug whitespace-normal break-normal" title={fs.departedFrom}>
                                                 {fs.departedFrom}
                                                 {(() => {
                                                   if (fs.notes) {
@@ -2149,7 +2185,7 @@ export default function BookingManager({
                                             </div>
 
                                             {/* Plane Path Icon */}
-                                            <div className="flex flex-col items-center px-2 relative flex-shrink-0 min-w-[70px]">
+                                            <div className="flex flex-col items-center px-2 relative flex-shrink-0 min-w-[60px]">
                                               <div className="h-[2px] w-full bg-gradient-to-r from-primary/20 via-primary/60 to-primary/20 absolute top-1/2 -translate-y-1/2"></div>
                                               <PlaneTakeoff size={14} className="text-primary relative bg-card p-1 rounded-full border border-border shadow-sm group-hover:translate-x-1 transition-transform" />
                                             </div>
@@ -2157,7 +2193,7 @@ export default function BookingManager({
                                             {/* Arrival */}
                                             <div className="text-right flex-1 min-w-0">
                                               <p className="font-black text-foreground text-[16px] leading-tight">{fs.arrivalTime || "—"}</p>
-                                              <p className="text-[11px] text-foreground/80 font-bold tracking-wide uppercase mt-0.5 leading-snug break-words" title={fs.arrivedAt}>
+                                              <p className="text-[11px] text-foreground/80 font-bold tracking-wide uppercase mt-0.5 leading-snug whitespace-normal break-normal" title={fs.arrivedAt}>
                                                 {fs.arrivedAt}
                                                 {(() => {
                                                   if (fs.notes) {
@@ -2180,7 +2216,7 @@ export default function BookingManager({
 
                                           {/* Baggage Micro-Pills */}
                                           {(fs.baggage || fs.carryOnBaggage || fs.personalItem) && (
-                                            <div className="flex flex-wrap items-center justify-center gap-1.5 mt-2.5 pt-2 border-t border-border/40">
+                                            <div className="flex flex-wrap items-center justify-start md:justify-center gap-1.5 mt-2.5 pt-2 border-t border-border/40">
                                               {fs.baggage && (
                                                 <span className="inline-flex items-center gap-1 bg-background text-foreground/90 border border-border px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider shadow-2xs">
                                                   🧳 Checked: {fs.baggage}
@@ -2201,8 +2237,8 @@ export default function BookingManager({
                                         </div>
 
                                         {/* Right: Price & Actions */}
-                                        <div className="flex items-center gap-4 flex-shrink-0 self-center">
-                                          <div className="text-right">
+                                        <div className="flex items-center justify-between xl:justify-end w-full xl:w-auto gap-4 flex-shrink-0 self-start xl:self-center border-t xl:border-t-0 border-border/40 pt-2 xl:pt-0 mt-1 xl:mt-0">
+                                          <div className="text-left xl:text-right">
                                             <p className="font-black text-primary text-[17px] tracking-tight">{formatCurrency(fs.price)}</p>
                                             {fs.agentQuotedPrice !== undefined && fs.agentQuotedPrice !== null && (
                                               <p className="text-[10px] text-muted-foreground font-semibold mt-0.5">Quoted: {formatCurrency(fs.agentQuotedPrice)}</p>
@@ -3173,6 +3209,23 @@ export default function BookingManager({
             Customize ticket generation by passenger, airline carrier, or output print format.
           </p>
 
+          {/* Ticket Document Type / Functionality Mode */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+              Ticket Document Type / Functionality Mode
+            </label>
+            <select
+              value={printTicketDocType}
+              onChange={(e: any) => setPrintTicketDocType(e.target.value)}
+              className="text-xs py-2 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary w-full font-bold"
+            >
+              <option value="eticket">✈️ Official Flight E-Ticket &amp; Itinerary (Default)</option>
+              <option value="full_package">📜 Full Package Itinerary (Flight + Hotel + Transport)</option>
+              <option value="hotel_voucher">🏨 Hotel / Accommodation Voucher Only</option>
+              <option value="agent_copy">💼 Agent Operations &amp; Internal Audit Record</option>
+            </select>
+          </div>
+
           {/* Select Passenger */}
           <div className="flex flex-col gap-1.5">
             <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
@@ -3193,6 +3246,55 @@ export default function BookingManager({
               ))}
             </select>
           </div>
+
+          {/* Filter / Split by Nationality */}
+          {(() => {
+            const availableNationalities: string[] = Array.from(
+              new Set<string>(
+                (booking?.passengers || [])
+                  .map((p: any) => (p.nationality || "").trim().toUpperCase())
+                  .filter(Boolean),
+              ),
+            );
+
+            return (
+              <>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                    Filter by Passenger Nationality
+                  </label>
+                  <select
+                    value={printTicketSelectedNationality}
+                    onChange={(e) => setPrintTicketSelectedNationality(e.target.value)}
+                    className="text-xs py-2 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary w-full font-medium"
+                  >
+                    <option value="all">All Nationalities / All Passengers</option>
+                    {availableNationalities.map((nat) => (
+                      <option key={nat} value={nat}>
+                        🌐 {nat} Passengers Only
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {availableNationalities.length > 1 && printTicketSelectedNationality === "all" && (
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                      Print Format (Multiple Nationalities Detected)
+                    </label>
+                    <select
+                      value={printTicketSplitByNationality ? "split" : "single"}
+                      onChange={(e) => setPrintTicketSplitByNationality(e.target.value === "split")}
+                      className="text-xs py-2 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary w-full font-medium"
+                    >
+                      <option value="single">Single Combined Ticket (All Nationalities on 1 Document)</option>
+                      <option value="split">Multiple Tickets (Separate Page Break per Nationality)</option>
+                    </select>
+                  </div>
+                )}
+              </>
+            );
+          })()}
 
           {/* Filter by Airline */}
           {(() => {
@@ -3246,7 +3348,7 @@ export default function BookingManager({
                     className="rounded border-border text-primary focus:ring-primary w-4 h-4 cursor-pointer"
                   />
                   <label htmlFor="groupByNationalityBookingMgr" className="text-xs font-bold text-foreground cursor-pointer flex items-center gap-1.5">
-                    <span>🌐 Group Passengers by Nationality on Ticket</span>
+                    <span>🌐 Group Passengers by Nationality Headers on Ticket</span>
                   </label>
                 </div>
               </>
@@ -3276,8 +3378,11 @@ export default function BookingManager({
                       printTicketSelectedAirline,
                       printTicketSplitByAirline,
                       printTicketGroupByNationality,
+                      printTicketDocType,
+                      printTicketSelectedNationality,
+                      printTicketSplitByNationality,
                     ),
-                    `E-Ticket_${booking?.bookingReference || printTicketSelectedFlight.flightNo}`,
+                    `${printTicketDocType.toUpperCase()}_${booking?.bookingReference || printTicketSelectedFlight.flightNo}`,
                   );
                 }
                 setIsPrintTicketModalOpen(false);

@@ -79,6 +79,12 @@ export default function InvoicesPage() {
     useState<string>("all");
   const [printTicketGroupByNationality, setPrintTicketGroupByNationality] =
     useState<boolean>(false);
+  const [printTicketDocType, setPrintTicketDocType] =
+    useState<"eticket" | "full_package" | "hotel_voucher" | "agent_copy">("eticket");
+  const [printTicketSelectedNationality, setPrintTicketSelectedNationality] =
+    useState<string>("all");
+  const [printTicketSplitByNationality, setPrintTicketSplitByNationality] =
+    useState<boolean>(false);
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -523,6 +529,72 @@ export default function InvoicesPage() {
             select an individual passenger.
           </p>
 
+          {/* Ticket Document Type / Functionality Mode */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+              Ticket Document Type / Functionality Mode
+            </label>
+            <select
+              value={printTicketDocType}
+              onChange={(e: any) => setPrintTicketDocType(e.target.value)}
+              className="text-xs py-2 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary w-full font-bold"
+            >
+              <option value="eticket">✈️ Official Flight E-Ticket &amp; Itinerary (Default)</option>
+              <option value="full_package">📜 Full Package Itinerary (Flight + Hotel + Transport)</option>
+              <option value="hotel_voucher">🏨 Hotel / Accommodation Voucher Only</option>
+              <option value="agent_copy">💼 Agent Operations &amp; Internal Audit Record</option>
+            </select>
+          </div>
+
+          {/* Filter / Split by Nationality */}
+          {(() => {
+            const availableNationalities: string[] = Array.from(
+              new Set<string>(
+                (printTicketSelectedBooking?.passengers || [])
+                  .map((p: any) => (p.nationality || "").trim().toUpperCase())
+                  .filter(Boolean),
+              ),
+            );
+
+            return (
+              <>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                    Filter by Passenger Nationality
+                  </label>
+                  <select
+                    value={printTicketSelectedNationality}
+                    onChange={(e) => setPrintTicketSelectedNationality(e.target.value)}
+                    className="text-xs py-2 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary w-full font-medium"
+                  >
+                    <option value="all">All Nationalities / All Passengers</option>
+                    {availableNationalities.map((nat) => (
+                      <option key={nat} value={nat}>
+                        🌐 {nat} Passengers Only
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {availableNationalities.length > 1 && printTicketSelectedNationality === "all" && (
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                      Print Format (Multiple Nationalities Detected)
+                    </label>
+                    <select
+                      value={printTicketSplitByNationality ? "split" : "single"}
+                      onChange={(e) => setPrintTicketSplitByNationality(e.target.value === "split")}
+                      className="text-xs py-2 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary w-full font-medium"
+                    >
+                      <option value="single">Single Combined Ticket (All Nationalities on 1 Document)</option>
+                      <option value="split">Multiple Tickets (Separate Page Break per Nationality)</option>
+                    </select>
+                  </div>
+                )}
+              </>
+            );
+          })()}
+
           <div className="flex flex-col gap-1.5">
             <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
               Select Passenger
@@ -553,7 +625,7 @@ export default function InvoicesPage() {
               className="rounded border-border text-primary focus:ring-primary w-4 h-4 cursor-pointer"
             />
             <label htmlFor="groupByNationalityInvoices" className="text-xs font-bold text-foreground cursor-pointer flex items-center gap-1.5">
-              <span>🌐 Group Passengers by Nationality on Ticket</span>
+              <span>🌐 Group Passengers by Nationality Headers on Ticket</span>
             </label>
           </div>
 
@@ -580,8 +652,11 @@ export default function InvoicesPage() {
                       "all",
                       false,
                       printTicketGroupByNationality,
+                      printTicketDocType,
+                      printTicketSelectedNationality,
+                      printTicketSplitByNationality,
                     ),
-                    `E-Ticket_${printTicketSelectedFlight.flightNo}`,
+                    `${printTicketDocType.toUpperCase()}_${printTicketSelectedFlight.flightNo}`,
                   );
                 }
                 setIsPrintTicketModalOpen(false);

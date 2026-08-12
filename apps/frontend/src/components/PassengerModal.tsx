@@ -482,7 +482,7 @@ export default function PassengerModal({
   const [passportExpiryDate, setPassportExpiryDate] = useState("");
   const [passportIssuingCountry, setPassportIssuingCountry] = useState("");
   const [eticket, setEticket] = useState("");
-  const [airlineEtickets, setAirlineEtickets] = useState<Record<string, string>>({});
+  const [airlineEtickets, setAirlineEtickets] = useState<Record<string, any>>({});
   const [role, setRole] = useState("Passenger");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
@@ -595,7 +595,17 @@ export default function PassengerModal({
         setEticket(rawEticket);
         if (rawEticket && rawEticket.trim().startsWith("{") && rawEticket.trim().endsWith("}")) {
           try {
-            setAirlineEtickets(JSON.parse(rawEticket));
+            const parsed = JSON.parse(rawEticket);
+            const res: Record<string, { eticket: string; pnr: string }> = {};
+            Object.keys(parsed).forEach((k) => {
+              const val = parsed[k];
+              if (typeof val === "object" && val !== null) {
+                res[k] = { eticket: val.eticket || "", pnr: val.pnr || "" };
+              } else if (typeof val === "string") {
+                res[k] = { eticket: val, pnr: "" };
+              }
+            });
+            setAirlineEtickets(parsed);
           } catch (e) {
             setAirlineEtickets({});
           }
@@ -1430,47 +1440,99 @@ export default function PassengerModal({
                 )}
               </div>
 
-              {availableAirlines.length > 1 ? (
+              {availableAirlines.length > 0 ? (
                 <div className="space-y-3 bg-secondary/10 p-3 rounded-lg border border-border/50">
                   <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                    Separate E-Ticket Numbers per Airline Carrier
+                    Bind Separate E-Ticket Numbers &amp; Passenger PNRs per Airline
                   </p>
-                  {availableAirlines.map((airlineName) => (
-                    <div key={airlineName} className="flex flex-col gap-1">
-                      <label className="text-[10px] font-bold text-foreground flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 bg-primary rounded-full"></span>
-                        {airlineName} E-Ticket Number:
-                      </label>
-                      <input
-                        type="text"
-                        placeholder={`e.g. ${airlineName.toLowerCase().includes("saudi") ? "065-1234567890" : "281-9876543210"}`}
-                        value={airlineEtickets[airlineName] || ""}
-                        onChange={(e) => {
-                          const updated = { ...airlineEtickets, [airlineName]: e.target.value };
-                          setAirlineEtickets(updated);
-                          setEticket(JSON.stringify(updated));
-                        }}
-                        className={`${inp} font-mono text-xs`}
-                      />
-                    </div>
-                  ))}
+                  {availableAirlines.map((airlineName) => {
+                    const existingEntry = airlineEtickets[airlineName];
+                    const currentEticket = typeof existingEntry === "object" && existingEntry !== null ? existingEntry.eticket || "" : (typeof existingEntry === "string" ? existingEntry : "");
+                    const currentPnr = typeof existingEntry === "object" && existingEntry !== null ? existingEntry.pnr || "" : "";
+
+                    return (
+                      <div key={airlineName} className="p-3 bg-card rounded-lg border border-border/60 space-y-2">
+                        <label className="text-[11px] font-extrabold text-primary flex items-center gap-1.5 uppercase tracking-wide">
+                          ✈️ {airlineName}
+                        </label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-[9px] font-bold text-muted-foreground uppercase">E-Ticket Number</label>
+                            <input
+                              type="text"
+                              placeholder={`e.g. ${airlineName.toLowerCase().includes("saudi") ? "065-1234567890" : "281-9876543210"}`}
+                              value={currentEticket}
+                              onChange={(e) => {
+                                const updated = {
+                                  ...airlineEtickets,
+                                  [airlineName]: { eticket: e.target.value, pnr: currentPnr },
+                                };
+                                setAirlineEtickets(updated);
+                                setEticket(JSON.stringify(updated));
+                              }}
+                              className={`${inp} font-mono text-xs mt-0.5`}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[9px] font-bold text-muted-foreground uppercase">Passenger PNR Code</label>
+                            <input
+                              type="text"
+                              placeholder="e.g. 2A59JJ"
+                              value={currentPnr}
+                              onChange={(e) => {
+                                const updated = {
+                                  ...airlineEtickets,
+                                  [airlineName]: { eticket: currentEticket, pnr: e.target.value.toUpperCase() },
+                                };
+                                setAirlineEtickets(updated);
+                                setEticket(JSON.stringify(updated));
+                              }}
+                              className={`${inp} font-mono text-xs mt-0.5 uppercase font-bold text-sky-700 dark:text-sky-400`}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                   <p className="text-[10px] text-muted-foreground mt-1">
-                    Specific E-Ticket number will be printed depending on which airline's ticket is generated.
+                    Specific E-Ticket number and Passenger PNR will be printed directly for this passenger on their ticket.
                   </p>
                 </div>
               ) : (
-                <div>
-                  <label className={lbl}>E-Ticket / Ticket Number(s)</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. 176351172160, 07288492018"
-                    value={eticket}
-                    onChange={(e) => setEticket(e.target.value)}
-                    className={`${inp} font-mono`}
-                  />
-                  <p className="text-[10px] text-muted-foreground mt-1">
-                    Associate specific E-ticket or confirmation ticket number(s) for this passenger.
-                  </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <div>
+                    <label className={lbl}>E-Ticket / Ticket Number(s)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 176351172160, 07288492018"
+                      value={eticket.startsWith("{") ? "" : eticket}
+                      onChange={(e) => setEticket(e.target.value)}
+                      className={`${inp} font-mono`}
+                    />
+                  </div>
+                  <div>
+                    <label className={lbl}>Passenger PNR Code</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 2A59JJ"
+                      value={(() => {
+                        const existing = airlineEtickets["default"];
+                        return typeof existing === "object" && existing !== null ? existing.pnr || "" : "";
+                      })()}
+                      onChange={(e) => {
+                        const pnrVal = e.target.value.toUpperCase();
+                        const existing = airlineEtickets["default"];
+                        const currentEticket = typeof existing === "object" && existing !== null ? existing.eticket || "" : (typeof existing === "string" ? existing : eticket);
+                        const updated = {
+                          ...airlineEtickets,
+                          default: { eticket: currentEticket, pnr: pnrVal },
+                        };
+                        setAirlineEtickets(updated);
+                        setEticket(JSON.stringify(updated));
+                      }}
+                      className={`${inp} font-mono uppercase font-bold text-sky-700 dark:text-sky-400`}
+                    />
+                  </div>
                 </div>
               )}
             </div>

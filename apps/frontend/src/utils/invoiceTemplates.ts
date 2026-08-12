@@ -1359,6 +1359,43 @@ function getAirlineName(flightNo: string): string {
   return airlines[code] || `${code} Air`;
 }
 
+// Helper to resolve specific passenger PNR
+function getPassengerPnr(passenger: any, flight: any): string {
+  if (passenger?.eticket) {
+    const raw = String(passenger.eticket).trim();
+    if (raw.startsWith("{") && raw.endsWith("}")) {
+      try {
+        const map = JSON.parse(raw);
+        const flightCarrier = (flight?.flightNo || "").substring(0, 2).toUpperCase();
+        const flightAirlineName = getAirlineName(flight?.flightNo);
+        const flightPnr = flight?.pnr;
+
+        for (const [key, val] of Object.entries(map)) {
+          if (!val) continue;
+          const kLower = key.toLowerCase();
+          if (
+            kLower.includes(flightAirlineName.toLowerCase()) ||
+            (flightCarrier && kLower.includes(flightCarrier.toLowerCase())) ||
+            (flightPnr && kLower.includes(flightPnr.toLowerCase()))
+          ) {
+            if (typeof val === "object" && val !== null && (val as any).pnr) {
+              return String((val as any).pnr);
+            }
+          }
+        }
+        for (const val of Object.values(map)) {
+          if (typeof val === "object" && val !== null && (val as any).pnr) {
+            return String((val as any).pnr);
+          }
+        }
+      } catch (e) {
+        // Fall back
+      }
+    }
+  }
+  return flight?.pnr || "—";
+}
+
 // Helper to generate deterministic realistic e-ticket number
 function getTicketNumber(
   passenger: any,
@@ -1382,11 +1419,19 @@ function getTicketNumber(
             (flightCarrier && kLower.includes(flightCarrier.toLowerCase())) ||
             (flightPnr && kLower.includes(flightPnr.toLowerCase()))
           ) {
+            if (typeof val === "object" && val !== null) {
+              return String((val as any).eticket || "");
+            }
             return String(val);
           }
         }
         const firstVal = Object.values(map).find((v) => !!v);
-        if (firstVal) return String(firstVal);
+        if (firstVal) {
+          if (typeof firstVal === "object" && firstVal !== null) {
+            return String((firstVal as any).eticket || "");
+          }
+          return String(firstVal);
+        }
       } catch (e) {
         // Fall back to raw string
       }
@@ -1478,6 +1523,7 @@ function generateConsolidatedTicketHtml(
               <th style="padding: 6px 10px; font-size: 9px; text-transform: uppercase;">PAX Type</th>
               <th style="padding: 6px 10px; font-size: 9px; text-transform: uppercase;">Passenger Name</th>
               <th style="padding: 6px 10px; font-size: 9px; text-transform: uppercase;">Nationality</th>
+              <th style="padding: 6px 10px; font-size: 9px; text-transform: uppercase;">PNR</th>
               <th style="padding: 6px 10px; font-size: 9px; text-transform: uppercase;">E-Ticket Number</th>
               <th style="padding: 6px 10px; font-size: 9px; text-transform: uppercase;">Agency IATA</th>
             </tr>
@@ -1490,6 +1536,7 @@ function generateConsolidatedTicketHtml(
                 <td style="padding: 6px 10px; text-transform: uppercase; font-weight: bold; color: #334155;">${p.role || deriveAgeCategory(p.dateOfBirth)}</td>
                 <td style="padding: 6px 10px; color: #0F172A;"><strong>${p.title || ""} ${p.firstName} ${p.lastName}</strong></td>
                 <td style="padding: 6px 10px; color: #475569; font-weight: bold;">${p.nationality || "—"}</td>
+                <td style="padding: 6px 10px; color: #0EA5E9; font-family: monospace; font-size: 11px; font-weight: bold;">${getPassengerPnr(p, flights[0] || {})}</td>
                 <td style="padding: 6px 10px; color: #0284C7; font-family: monospace; font-size: 11px; font-weight: bold;">${getTicketNumber(p, flights[0] || {}, idx)}</td>
                 <td style="padding: 6px 10px; color: #475569;">91263712</td>
               </tr>
@@ -1510,6 +1557,7 @@ function generateConsolidatedTicketHtml(
           <tr style="background: #0F172A; color: #FFFFFF; text-align: left;">
             <th style="padding: 6px 10px; font-size: 9px; text-transform: uppercase;">PAX Type</th>
             <th style="padding: 6px 10px; font-size: 9px; text-transform: uppercase;">Passenger Name</th>
+            <th style="padding: 6px 10px; font-size: 9px; text-transform: uppercase;">PNR</th>
             <th style="padding: 6px 10px; font-size: 9px; text-transform: uppercase;">E-Ticket Number</th>
             <th style="padding: 6px 10px; font-size: 9px; text-transform: uppercase;">Agency IATA</th>
           </tr>
@@ -1521,6 +1569,7 @@ function generateConsolidatedTicketHtml(
             <tr style="border-bottom: 1px solid #E2E8F0;">
               <td style="padding: 6px 10px; text-transform: uppercase; font-weight: bold; color: #334155;">${p.role || deriveAgeCategory(p.dateOfBirth)}</td>
               <td style="padding: 6px 10px; color: #0F172A;"><strong>${p.title || ""} ${p.firstName} ${p.lastName}</strong></td>
+              <td style="padding: 6px 10px; color: #0EA5E9; font-family: monospace; font-size: 11px; font-weight: bold;">${getPassengerPnr(p, flights[0] || {})}</td>
               <td style="padding: 6px 10px; color: #0284C7; font-family: monospace; font-size: 11px; font-weight: bold;">${getTicketNumber(p, flights[0] || {}, idx)}</td>
               <td style="padding: 6px 10px; color: #475569;">91263712</td>
             </tr>
@@ -1721,7 +1770,21 @@ export function generateFlightTicketHtml(
   selectedAirline?: string | null,
   splitByAirline?: boolean,
   groupByNationality?: boolean,
+  docType?: "eticket" | "full_package" | "hotel_voucher" | "agent_copy",
+  selectedNationality?: string | null,
+  splitByNationality?: boolean,
 ) {
+  // If Hotel Voucher mode requested:
+  if (docType === "hotel_voucher") {
+    const hotels = booking.accommodations || [];
+    if (hotels.length === 0) {
+      return `<div style="padding: 40px; text-align: center; font-family: sans-serif;"><h2>No Hotel Services Found</h2><p>This booking does not currently contain accommodation services.</p></div>`;
+    }
+    return hotels
+      .map((h: any) => generateHotelVoucherHtml(booking, h))
+      .join('<div style="page-break-after: always; height: 1px;"></div>');
+  }
+
   const flightsToRender =
     booking.flightServices && booking.flightServices.length > 0
       ? booking.flightServices
@@ -1754,13 +1817,43 @@ export function generateFlightTicketHtml(
           },
         ];
 
-  const passengersToRender =
+  let passengersToRender =
     selectedPassengerId && selectedPassengerId !== "all"
       ? passengers.filter((p: any) => p.id === selectedPassengerId)
       : passengers;
 
+  // Filter by selected nationality if specified and not 'all'
+  if (selectedNationality && selectedNationality !== "all") {
+    passengersToRender = passengersToRender.filter((p: any) => {
+      const pNat = (p.nationality || "Unspecified").trim().toUpperCase();
+      return pNat === selectedNationality.trim().toUpperCase();
+    });
+  }
+
   const activePax =
     passengersToRender.length > 0 ? passengersToRender : passengers;
+
+  let baseFlightHtml = "";
+
+  // Split by nationality into separate pages if requested
+  if (splitByNationality) {
+    const natGroups: { [key: string]: any[] } = {};
+    activePax.forEach((p: any) => {
+      const nat = (p.nationality || "Unspecified").toUpperCase();
+      if (!natGroups[nat]) natGroups[nat] = [];
+      natGroups[nat].push(p);
+    });
+
+    const natKeys = Object.keys(natGroups);
+    if (natKeys.length > 1) {
+      baseFlightHtml = natKeys
+        .map((nat) =>
+          generateConsolidatedTicketHtml(booking, natGroups[nat], sortedFlights, false),
+        )
+        .join('<div style="page-break-after: always; height: 1px;"></div>');
+      return baseFlightHtml;
+    }
+  }
 
   // Split by airline into separate pages if requested
   if (splitByAirline) {
@@ -1773,15 +1866,48 @@ export function generateFlightTicketHtml(
 
     const airlineKeys = Object.keys(groups);
     if (airlineKeys.length > 1) {
-      return airlineKeys
+      baseFlightHtml = airlineKeys
         .map((airline) =>
-          generateConsolidatedTicketHtml(booking, activePax, groups[airline]),
+          generateConsolidatedTicketHtml(booking, activePax, groups[airline], groupByNationality),
         )
         .join('<div style="page-break-after: always; height: 1px;"></div>');
+    } else {
+      baseFlightHtml = generateConsolidatedTicketHtml(booking, activePax, sortedFlights, groupByNationality);
     }
+  } else {
+    baseFlightHtml = generateConsolidatedTicketHtml(booking, activePax, sortedFlights, groupByNationality);
   }
 
-  return generateConsolidatedTicketHtml(booking, activePax, sortedFlights);
+  // Handle Full Package Mode (Flight + Hotel Vouchers)
+  if (docType === "full_package") {
+    const parts = [baseFlightHtml];
+    if (booking.accommodations && booking.accommodations.length > 0) {
+      booking.accommodations.forEach((h: any) => {
+        parts.push(generateHotelVoucherHtml(booking, h));
+      });
+    }
+    return parts.join('<div style="page-break-after: always; height: 1px;"></div>');
+  }
+
+  // Handle Agent Copy / Internal Operations Record Mode
+  if (docType === "agent_copy") {
+    const agentHeader = `
+      <div style="background: #1E293B; color: #F8FAFC; padding: 12px 18px; border-radius: 8px; margin-bottom: 16px; font-family: sans-serif; font-size: 11px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; padding-bottom: 6px; margin-bottom: 8px;">
+          <strong style="color: #38BDF8; font-size: 13px; text-transform: uppercase;">💼 AGENT OPERATIONS &amp; INTERNAL AUDIT COPY</strong>
+          <span style="background: #0EA5E9; color: #FFFFFF; padding: 2px 8px; border-radius: 4px; font-weight: 800;">CONFIDENTIAL</span>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+          <div>Assigned Agent: <strong>${booking.agent?.name || booking.user?.firstName || "System Admin"}</strong></div>
+          <div>Booking Ref: <strong>${booking.bookingReference}</strong></div>
+          <div>Client Paid Total: <strong>£${booking.paidTotal || 0}</strong></div>
+        </div>
+      </div>
+    `;
+    return agentHeader + baseFlightHtml;
+  }
+
+  return baseFlightHtml;
 }
 
 // 3. GENERATE HOTEL VOUCHER
@@ -2584,6 +2710,9 @@ export function renderFlightTicket(
   selectedAirline?: string | null,
   splitByAirline?: boolean,
   groupByNationality?: boolean,
+  docType?: "eticket" | "full_package" | "hotel_voucher" | "agent_copy",
+  selectedNationality?: string | null,
+  splitByNationality?: boolean,
 ): string {
   return generateFlightTicketHtml(
     booking,
@@ -2592,6 +2721,9 @@ export function renderFlightTicket(
     selectedAirline,
     splitByAirline,
     groupByNationality,
+    docType,
+    selectedNationality,
+    splitByNationality,
   );
 }
 
