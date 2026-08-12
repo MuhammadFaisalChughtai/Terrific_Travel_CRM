@@ -43,6 +43,7 @@ export const runMissingDetailsCheck = async () => {
             departedFrom: true,
             arrivedAt: true,
             status: true,
+            vendor: true,
           },
         },
         accommodations: {
@@ -50,8 +51,10 @@ export const runMissingDetailsCheck = async () => {
             id: true,
             hotelName: true,
             checkInDate: true,
+            checkOutDate: true,
             reservationNumber: true,
             hotelConfirmationNumber: true,
+            vendor: true,
           },
         },
         passengers: {
@@ -131,8 +134,6 @@ export const runMissingDetailsCheck = async () => {
       }
 
       const missingItems: string[] = [];
-      let flightDetailsStr = "";
-      let hotelDetailsStr = "";
 
       // 1. Check Flight PNR
       const missingPnrFlights = activeFlights.filter((f: any) =>
@@ -140,12 +141,6 @@ export const runMissingDetailsCheck = async () => {
       );
       if (missingPnrFlights.length > 0) {
         missingItems.push("Flight PNR is missing");
-        flightDetailsStr = missingPnrFlights
-          .map(
-            (f: any) =>
-              `${f.flightNo || "Flight"} (${f.departedFrom || ""} → ${f.arrivedAt || ""})`,
-          )
-          .join(", ");
       }
 
       // 2. Check Hotel Reservation Number
@@ -154,12 +149,6 @@ export const runMissingDetailsCheck = async () => {
       );
       if (missingReservationHotels.length > 0) {
         missingItems.push("Hotel Reservation Number is missing");
-        hotelDetailsStr = missingReservationHotels
-          .map(
-            (h: any) =>
-              `${h.hotelName} (Check-in: ${formatDateStr(h.checkInDate)})`,
-          )
-          .join(", ");
       }
 
       // 3. Check Hotel Confirmation Number
@@ -168,18 +157,60 @@ export const runMissingDetailsCheck = async () => {
       );
       if (missingConfirmationHotels.length > 0) {
         missingItems.push("Hotel Confirmation Number is missing");
-        if (!hotelDetailsStr) {
-          hotelDetailsStr = missingConfirmationHotels
-            .map(
-              (h: any) =>
-                `${h.hotelName} (Check-in: ${formatDateStr(h.checkInDate)})`,
-            )
-            .join(", ");
-        }
       }
 
       // If nothing is missing, skip this booking!
       if (missingItems.length === 0) continue;
+
+      const getAirlineName = (flightNo: string): string => {
+        if (!flightNo) return "";
+        const code = flightNo.trim().substring(0, 2).toUpperCase();
+        const airlines: Record<string, string> = {
+          TK: "Turkish Airlines",
+          SV: "Saudi Arabian Airlines",
+          EK: "Emirates",
+          QR: "Qatar Airways",
+          EY: "Etihad Airways",
+          WY: "Oman Air",
+          GF: "Gulf Air",
+          BA: "British Airways",
+          KU: "Kuwait Airways",
+          MS: "EgyptAir",
+          PK: "Pakistan International Airlines",
+          AI: "Air India",
+          FZ: "Flydubai",
+          G9: "Air Arabia",
+          XY: "Flynas",
+          PA: "Airblue",
+          ER: "Serene Air",
+          NL: "Shaheen Air",
+          PC: "Pegasus Airlines",
+          BG: "Biman Bangladesh Airlines",
+          J9: "Jazeera Airways",
+        };
+        return airlines[code] || `${code} Air`;
+      };
+
+      const hotelSummaries = activeHotels.map((h: any) => ({
+        hotelName: h.hotelName || "Hotel",
+        vendor: h.vendor || "N/A",
+        checkInDate: formatDateStr(h.checkInDate),
+        checkOutDate: h.checkOutDate ? formatDateStr(h.checkOutDate) : undefined,
+        reservationNumber: h.reservationNumber || undefined,
+        hotelConfirmationNumber: h.hotelConfirmationNumber || undefined,
+        isMissingConfirmation: isMissing(h.hotelConfirmationNumber),
+        isMissingReservation: isMissing(h.reservationNumber),
+      }));
+
+      const flightSummaries = activeFlights.map((f: any) => ({
+        flightNo: f.flightNo || "Flight",
+        airlineName: getAirlineName(f.flightNo),
+        vendor: f.vendor || "N/A",
+        route: `${f.departedFrom || "—"} → ${f.arrivedAt || "—"}`,
+        pnr: f.pnr || undefined,
+        date: f.date ? formatDateStr(f.date) : "—",
+        isMissingPnr: isMissing(f.pnr),
+      }));
 
       // Determine recipients: admin@terrifictravel.co.uk + agent email
       const recipientEmails: string[] = ["hotels@terrifictravel.co.uk"];
@@ -209,8 +240,8 @@ export const runMissingDetailsCheck = async () => {
         leadPassengerName: leadPaxName,
         agentName,
         missingItems,
-        flightDetails: flightDetailsStr,
-        hotelDetails: hotelDetailsStr,
+        hotelSummaries,
+        flightSummaries,
       });
 
       if (res.success) {

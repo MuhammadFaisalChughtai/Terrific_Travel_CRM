@@ -77,6 +77,8 @@ export default function InvoicesPage() {
   >(null);
   const [printTicketSelectedPassenger, setPrintTicketSelectedPassenger] =
     useState<string>("all");
+  const [printTicketGroupByNationality, setPrintTicketGroupByNationality] =
+    useState<boolean>(false);
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -542,6 +544,19 @@ export default function InvoicesPage() {
             </select>
           </div>
 
+          <div className="flex items-center gap-2 mt-1 pt-2.5 border-t border-border/50">
+            <input
+              type="checkbox"
+              id="groupByNationalityInvoices"
+              checked={printTicketGroupByNationality}
+              onChange={(e) => setPrintTicketGroupByNationality(e.target.checked)}
+              className="rounded border-border text-primary focus:ring-primary w-4 h-4 cursor-pointer"
+            />
+            <label htmlFor="groupByNationalityInvoices" className="text-xs font-bold text-foreground cursor-pointer flex items-center gap-1.5">
+              <span>🌐 Group Passengers by Nationality on Ticket</span>
+            </label>
+          </div>
+
           <div className="flex justify-end gap-2 mt-4 pt-3 border-t border-border/60">
             <button
               type="button"
@@ -562,6 +577,9 @@ export default function InvoicesPage() {
                       printTicketSelectedPassenger === "all"
                         ? null
                         : printTicketSelectedPassenger,
+                      "all",
+                      false,
+                      printTicketGroupByNationality,
                     ),
                     `E-Ticket_${printTicketSelectedFlight.flightNo}`,
                   );

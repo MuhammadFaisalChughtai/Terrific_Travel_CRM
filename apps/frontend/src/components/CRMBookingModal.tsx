@@ -131,36 +131,13 @@ export default function CRMBookingModal({ isOpen, onClose, booking }: CRMBooking
             </thead>
             <tbody className="divide-y divide-border/30">
                {(() => {
-                 const clientTransactions = booking.transactions?.filter((tx: any) => {
-                   if (!tx) return false;
-                   const methodLower = (tx.paymentMethod || tx.method || "").toLowerCase();
-                   if (
-                     methodLower.includes("vendor") ||
-                     methodLower.includes("discount") ||
-                     methodLower.includes("agent") ||
-                     methodLower.includes("payout")
-                   ) {
-                     return false;
-                   }
-                   if (!tx.notes) return true;
-                   const notesLower = tx.notes.toLowerCase();
-                   if (
-                     notesLower.includes("vendor") ||
-                     notesLower.includes("discount") ||
-                     notesLower.includes("agent") ||
-                     notesLower.includes("payout") ||
-                     notesLower.includes("refund from vendor")
-                   ) {
-                     return false;
-                   }
-                   return true;
-                 }) || [];
+                 const allTransactions = booking.transactions || [];
 
-                 if (clientTransactions.length === 0) {
+                 if (allTransactions.length === 0) {
                    return <EmptyRow colSpan={4} />;
                  }
 
-                 return clientTransactions.map((tx: any, idx: number) => {
+                 return allTransactions.map((tx: any, idx: number) => {
                    const isCcCharge = tx.notes?.toLowerCase().includes("credit card charges");
                    const isNegative = tx.amount < 0;
                    return (

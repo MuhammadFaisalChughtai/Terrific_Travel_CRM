@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "../api/client";
 import Modal from "./Modal";
 import { useAuthStore } from "../store/auth.store";
@@ -481,6 +482,7 @@ export default function PassengerModal({
   const [passportExpiryDate, setPassportExpiryDate] = useState("");
   const [passportIssuingCountry, setPassportIssuingCountry] = useState("");
   const [eticket, setEticket] = useState("");
+  const [airlineEtickets, setAirlineEtickets] = useState<Record<string, string>>({});
   const [role, setRole] = useState("Passenger");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
@@ -488,6 +490,53 @@ export default function PassengerModal({
   const [addMode, setAddMode] = useState<"link" | "manual">("link");
   const [collectPassport, setCollectPassport] = useState(true);
   const [collectAdditional, setCollectAdditional] = useState(false);
+
+  // Query booking details to detect flight services / airlines
+  const { data: bookingData } = useQuery({
+    queryKey: ["booking", bookingId],
+    queryFn: async () => {
+      if (!bookingId) return null;
+      const res = await apiClient.get(`/bookings/${bookingId}`);
+      return res.data?.data || null;
+    },
+    enabled: isOpen && !!bookingId,
+  });
+
+  const availableAirlines = useMemo(() => {
+    if (!bookingData?.flightServices || bookingData.flightServices.length === 0) {
+      return [];
+    }
+    const set = new Set<string>();
+    bookingData.flightServices.forEach((fs: any) => {
+      const flightCode = fs.flightNo ? fs.flightNo.trim().substring(0, 2).toUpperCase() : "";
+      const airlinesDict: Record<string, string> = {
+        TK: "Turkish Airlines",
+        SV: "Saudi Arabian Airlines",
+        EK: "Emirates",
+        QR: "Qatar Airways",
+        EY: "Etihad Airways",
+        WY: "Oman Air",
+        GF: "Gulf Air",
+        BA: "British Airways",
+        KU: "Kuwait Airways",
+        MS: "EgyptAir",
+        PK: "Pakistan International Airlines",
+        AI: "Air India",
+        FZ: "Flydubai",
+        G9: "Air Arabia",
+        XY: "Flynas",
+        PA: "Airblue",
+        ER: "Serene Air",
+        NL: "Shaheen Air",
+        PC: "Pegasus Airlines",
+        BG: "Biman Bangladesh Airlines",
+        J9: "Jazeera Airways",
+      };
+      const name = airlinesDict[flightCode] || (flightCode ? `${flightCode} Air` : "Airline Partner");
+      if (name) set.add(name);
+    });
+    return Array.from(set);
+  }, [bookingData?.flightServices]);
 
   // Passport scan state
   const [passportScanKey, setPassportScanKey] = useState<string | null>(null);
@@ -542,7 +591,17 @@ export default function PassengerModal({
         setPassportNumber(passengerToEdit.passportNumber || "");
         setPassportExpiryDate(fmt(passengerToEdit.passportExpiryDate));
         setPassportIssuingCountry(passengerToEdit.passportIssuingCountry || "");
-        setEticket(passengerToEdit.eticket || passengerToEdit.ticketNo || "");
+        const rawEticket = passengerToEdit.eticket || passengerToEdit.ticketNo || "";
+        setEticket(rawEticket);
+        if (rawEticket && rawEticket.trim().startsWith("{") && rawEticket.trim().endsWith("}")) {
+          try {
+            setAirlineEtickets(JSON.parse(rawEticket));
+          } catch (e) {
+            setAirlineEtickets({});
+          }
+        } else {
+          setAirlineEtickets({});
+        }
         setRole(passengerToEdit.role || "Passenger");
         setCollectPassport(passengerToEdit.collectPassport !== false);
         setCollectAdditional(!!passengerToEdit.collectAdditional);
@@ -562,6 +621,7 @@ export default function PassengerModal({
         setPassportExpiryDate("");
         setPassportIssuingCountry("");
         setEticket("");
+        setAirlineEtickets({});
         setRole("Passenger");
         setAddMode("link");
         setCollectPassport(true);
@@ -1345,36 +1405,74 @@ export default function PassengerModal({
 
             {/* E-Ticket Information */}
             <div className="bg-card p-4 rounded-xl border border-border/80 space-y-3">
-              <p className={sectionHeader}>
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="text-primary"
-                >
-                  <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z" />
-                  <path d="M13 5v14" />
-                </svg>
-                E-Ticket Number(s)
-              </p>
-              <div>
-                <label className={lbl}>E-Ticket / Ticket Number(s)</label>
-                <input
-                  type="text"
-                  placeholder="e.g. 176351172160, 07288492018"
-                  value={eticket}
-                  onChange={(e) => setEticket(e.target.value)}
-                  className={`${inp} font-mono`}
-                />
-                <p className="text-[10px] text-muted-foreground mt-1">
-                  Associate specific E-ticket or confirmation ticket number(s) for this passenger.
+              <div className="flex items-center justify-between">
+                <p className={sectionHeader}>
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="text-primary"
+                  >
+                    <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z" />
+                    <path d="M13 5v14" />
+                  </svg>
+                  E-Ticket Number(s)
                 </p>
+                {availableAirlines.length > 1 && (
+                  <span className="text-[9px] bg-primary/10 text-primary font-bold px-2 py-0.5 rounded-full uppercase border border-primary/20">
+                    {availableAirlines.length} Airlines Detected
+                  </span>
+                )}
               </div>
+
+              {availableAirlines.length > 1 ? (
+                <div className="space-y-3 bg-secondary/10 p-3 rounded-lg border border-border/50">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                    Separate E-Ticket Numbers per Airline Carrier
+                  </p>
+                  {availableAirlines.map((airlineName) => (
+                    <div key={airlineName} className="flex flex-col gap-1">
+                      <label className="text-[10px] font-bold text-foreground flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 bg-primary rounded-full"></span>
+                        {airlineName} E-Ticket Number:
+                      </label>
+                      <input
+                        type="text"
+                        placeholder={`e.g. ${airlineName.toLowerCase().includes("saudi") ? "065-1234567890" : "281-9876543210"}`}
+                        value={airlineEtickets[airlineName] || ""}
+                        onChange={(e) => {
+                          const updated = { ...airlineEtickets, [airlineName]: e.target.value };
+                          setAirlineEtickets(updated);
+                          setEticket(JSON.stringify(updated));
+                        }}
+                        className={`${inp} font-mono text-xs`}
+                      />
+                    </div>
+                  ))}
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    Specific E-Ticket number will be printed depending on which airline's ticket is generated.
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <label className={lbl}>E-Ticket / Ticket Number(s)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 176351172160, 07288492018"
+                    value={eticket}
+                    onChange={(e) => setEticket(e.target.value)}
+                    className={`${inp} font-mono`}
+                  />
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    Associate specific E-ticket or confirmation ticket number(s) for this passenger.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 

@@ -1159,48 +1159,6 @@ export function generateBookingInvoiceHtml(booking: any) {
   `;
 }
 
-// Helper to generate deterministic realistic e-ticket number
-function getTicketNumber(
-  passenger: any,
-  flight: any,
-  passengerIndex: number = 0,
-): string {
-  if (passenger?.eticket) return passenger.eticket;
-  if (passenger?.ticketNo) return passenger.ticketNo;
-
-  const rawFlightTickets = flight?.confirmationNumber || flight?.eTicket;
-  if (rawFlightTickets) {
-    const list = String(rawFlightTickets)
-      .split(/[,;\n]+/)
-      .map((s) => s.trim())
-      .filter(Boolean);
-    if (list.length > 0) {
-      if (passengerIndex < list.length) {
-        return list[passengerIndex];
-      }
-      return list[0];
-    }
-  }
-
-  const nameCode =
-    ((passenger?.firstName || "").length * 7 +
-      (passenger?.lastName || "").length * 3) %
-    1000000;
-  const passIdCode = passenger?.id
-    ? parseInt(passenger.id.replace(/[^0-9]/g, "").substring(0, 7)) || 1234567
-    : 1234567;
-  const num = String((nameCode * passIdCode) % 1000000000).padStart(9, "0");
-
-  const flightCarrier = (flight?.flightNo || "").substring(0, 2).toUpperCase();
-  let prefix = "157"; // Qatar Airways
-  if (flightCarrier === "EK") prefix = "176";
-  else if (flightCarrier === "BA") prefix = "125";
-  else if (flightCarrier === "SV") prefix = "065";
-  else if (flightCarrier === "WY") prefix = "910";
-  else if (flightCarrier === "W9" || flightCarrier === "W6") prefix = "953";
-
-  return `${prefix}${num}`;
-}
 
 function getIsConnecting(currentFlight: any, nextFlight: any): boolean {
   if (!nextFlight) return false;
@@ -1394,14 +1352,96 @@ function getAirlineName(flightNo: string): string {
     PA: "Airblue",
     ER: "Serene Air",
     NL: "Shaheen Air",
+    PC: "Pegasus Airlines",
+    BG: "Biman Bangladesh Airlines",
+    J9: "Jazeera Airways",
   };
   return airlines[code] || `${code} Air`;
+}
+
+// Helper to generate deterministic realistic e-ticket number
+function getTicketNumber(
+  passenger: any,
+  flight: any,
+  passengerIndex: number = 0,
+): string {
+  if (passenger?.eticket) {
+    const raw = String(passenger.eticket).trim();
+    if (raw.startsWith("{") && raw.endsWith("}")) {
+      try {
+        const map = JSON.parse(raw);
+        const flightCarrier = (flight?.flightNo || "").substring(0, 2).toUpperCase();
+        const flightAirlineName = getAirlineName(flight?.flightNo);
+        const flightPnr = flight?.pnr;
+
+        for (const [key, val] of Object.entries(map)) {
+          if (!val) continue;
+          const kLower = key.toLowerCase();
+          if (
+            kLower.includes(flightAirlineName.toLowerCase()) ||
+            (flightCarrier && kLower.includes(flightCarrier.toLowerCase())) ||
+            (flightPnr && kLower.includes(flightPnr.toLowerCase()))
+          ) {
+            return String(val);
+          }
+        }
+        const firstVal = Object.values(map).find((v) => !!v);
+        if (firstVal) return String(firstVal);
+      } catch (e) {
+        // Fall back to raw string
+      }
+    }
+    const list = raw.split(/[,;\n]+/).map((s) => s.trim()).filter(Boolean);
+    if (list.length > 1) {
+      if (passengerIndex < list.length) {
+        return list[passengerIndex];
+      }
+      return list[0];
+    }
+    return raw;
+  }
+  if (passenger?.ticketNo) return passenger.ticketNo;
+
+  const rawFlightTickets = flight?.confirmationNumber || flight?.eTicket;
+  if (rawFlightTickets) {
+    const list = String(rawFlightTickets)
+      .split(/[,;\n]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (list.length > 0) {
+      if (passengerIndex < list.length) {
+        return list[passengerIndex];
+      }
+      return list[0];
+    }
+  }
+
+  const nameCode =
+    ((passenger?.firstName || "").length * 7 +
+      (passenger?.lastName || "").length * 3) %
+    1000000;
+  const passIdCode = passenger?.id
+    ? parseInt(passenger.id.replace(/[^0-9]/g, "").substring(0, 7)) || 1234567
+    : 1234567;
+  const num = String((nameCode * passIdCode) % 1000000000).padStart(9, "0");
+
+  const flightCarrier = (flight?.flightNo || "").substring(0, 2).toUpperCase();
+  let prefix = "157"; // Qatar Airways
+  if (flightCarrier === "EK") prefix = "176";
+  else if (flightCarrier === "BA") prefix = "125";
+  else if (flightCarrier === "SV") prefix = "065";
+  else if (flightCarrier === "WY") prefix = "910";
+  else if (flightCarrier === "PC") prefix = "281";
+  else if (flightCarrier === "W9" || flightCarrier === "W6") prefix = "953";
+
+  return `${prefix}${num}`;
 }
 
 function generateConsolidatedTicketHtml(
   booking: any,
   passengersList: any[],
   flights: any[],
+  groupByNationality: boolean = false,
 ) {
   const primaryPax = passengersList[0] || {};
   const ticketNo = primaryPax
@@ -1411,6 +1451,86 @@ function generateConsolidatedTicketHtml(
   const issueDate = flights[0]?.issueDate
     ? formatDate(flights[0].issueDate)
     : formatDate(booking.createdAt || new Date());
+
+  let passengerSectionHtml = "";
+
+  if (groupByNationality) {
+    const groups: { [key: string]: any[] } = {};
+    passengersList.forEach((p: any) => {
+      const nat = (p.nationality || "Unspecified").toUpperCase();
+      if (!groups[nat]) groups[nat] = [];
+      groups[nat].push(p);
+    });
+
+    passengerSectionHtml = `
+      <h3 style="font-family: 'Outfit', sans-serif; text-transform: uppercase; font-size: 10px; font-weight: 800; color: #0F172A; border-bottom: 1.5px solid #E2E8F0; padding-bottom: 4px; margin-bottom: 8px;">Passenger Details (Grouped by Nationality)</h3>
+      ${Object.entries(groups)
+        .map(
+          ([nat, groupPax]) => `
+        <div style="margin-top: 10px; margin-bottom: 4px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1.5px solid #0EA5E9; padding-bottom: 3px;">
+          <h4 style="font-family: 'Outfit', sans-serif; font-size: 10px; font-weight: 800; color: #0EA5E9; margin: 0; text-transform: uppercase;">
+            🌐 Nationality: ${nat} (${groupPax.length} ${groupPax.length === 1 ? "Passenger" : "Passengers"})
+          </h4>
+        </div>
+        <table class="data-table" style="width: 100%; border-collapse: collapse; margin-bottom: 12px; font-size: 10px;">
+          <thead>
+            <tr style="background: #0F172A; color: #FFFFFF; text-align: left;">
+              <th style="padding: 6px 10px; font-size: 9px; text-transform: uppercase;">PAX Type</th>
+              <th style="padding: 6px 10px; font-size: 9px; text-transform: uppercase;">Passenger Name</th>
+              <th style="padding: 6px 10px; font-size: 9px; text-transform: uppercase;">Nationality</th>
+              <th style="padding: 6px 10px; font-size: 9px; text-transform: uppercase;">E-Ticket Number</th>
+              <th style="padding: 6px 10px; font-size: 9px; text-transform: uppercase;">Agency IATA</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${groupPax
+              .map(
+                (p: any, idx: number) => `
+              <tr style="border-bottom: 1px solid #E2E8F0;">
+                <td style="padding: 6px 10px; text-transform: uppercase; font-weight: bold; color: #334155;">${p.role || deriveAgeCategory(p.dateOfBirth)}</td>
+                <td style="padding: 6px 10px; color: #0F172A;"><strong>${p.title || ""} ${p.firstName} ${p.lastName}</strong></td>
+                <td style="padding: 6px 10px; color: #475569; font-weight: bold;">${p.nationality || "—"}</td>
+                <td style="padding: 6px 10px; color: #0284C7; font-family: monospace; font-size: 11px; font-weight: bold;">${getTicketNumber(p, flights[0] || {}, idx)}</td>
+                <td style="padding: 6px 10px; color: #475569;">91263712</td>
+              </tr>
+            `,
+              )
+              .join("")}
+          </tbody>
+        </table>
+      `,
+        )
+        .join("")}
+    `;
+  } else {
+    passengerSectionHtml = `
+      <h3 style="font-family: 'Outfit', sans-serif; text-transform: uppercase; font-size: 10px; font-weight: 800; color: #0F172A; border-bottom: 1.5px solid #E2E8F0; padding-bottom: 4px; margin-bottom: 8px;">Passenger Details</h3>
+      <table class="data-table" style="width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 10px;">
+        <thead>
+          <tr style="background: #0F172A; color: #FFFFFF; text-align: left;">
+            <th style="padding: 6px 10px; font-size: 9px; text-transform: uppercase;">PAX Type</th>
+            <th style="padding: 6px 10px; font-size: 9px; text-transform: uppercase;">Passenger Name</th>
+            <th style="padding: 6px 10px; font-size: 9px; text-transform: uppercase;">E-Ticket Number</th>
+            <th style="padding: 6px 10px; font-size: 9px; text-transform: uppercase;">Agency IATA</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${passengersList
+            .map(
+              (p: any, idx: number) => `
+            <tr style="border-bottom: 1px solid #E2E8F0;">
+              <td style="padding: 6px 10px; text-transform: uppercase; font-weight: bold; color: #334155;">${p.role || deriveAgeCategory(p.dateOfBirth)}</td>
+              <td style="padding: 6px 10px; color: #0F172A;"><strong>${p.title || ""} ${p.firstName} ${p.lastName}</strong></td>
+              <td style="padding: 6px 10px; color: #0284C7; font-family: monospace; font-size: 11px; font-weight: bold;">${getTicketNumber(p, flights[0] || {}, idx)}</td>
+              <td style="padding: 6px 10px; color: #475569;">91263712</td>
+            </tr>
+          `,
+            )
+            .join("")}
+        </tbody>
+      </table>
+    `;
+  }
 
   return `
     <div class="document-container" style="padding: 16px 20px; max-width: 850px; margin: 0 auto; background: #ffffff;">
@@ -1445,32 +1565,7 @@ function generateConsolidatedTicketHtml(
         </div>
       </div>
 
-      <!-- Top-Only Passenger Details Banner & Table -->
-      <h3 style="font-family: 'Outfit', sans-serif; text-transform: uppercase; font-size: 10px; font-weight: 800; color: #0F172A; border-bottom: 1.5px solid #E2E8F0; padding-bottom: 4px; margin-bottom: 8px;">Passenger Details</h3>
-      <table class="data-table" style="width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 10px;">
-        <thead>
-          <tr style="background: #0F172A; color: #FFFFFF; text-align: left;">
-            <th style="padding: 6px 10px; font-size: 9px; text-transform: uppercase;">PAX Type</th>
-            <th style="padding: 6px 10px; font-size: 9px; text-transform: uppercase;">Passenger Name</th>
-            <th style="padding: 6px 10px; font-size: 9px; text-transform: uppercase;">E-Ticket Number</th>
-            <th style="padding: 6px 10px; font-size: 9px; text-transform: uppercase;">Agency IATA</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${passengersList
-            .map(
-              (p: any, idx: number) => `
-            <tr style="border-bottom: 1px solid #E2E8F0;">
-              <td style="padding: 6px 10px; text-transform: uppercase; font-weight: bold; color: #334155;">${p.role || deriveAgeCategory(p.dateOfBirth)}</td>
-              <td style="padding: 6px 10px; color: #0F172A;"><strong>${p.title || ""} ${p.firstName} ${p.lastName}</strong></td>
-              <td style="padding: 6px 10px; color: #0284C7; font-family: monospace; font-size: 11px; font-weight: bold;">${getTicketNumber(p, flights[0] || {}, idx)}</td>
-              <td style="padding: 6px 10px; color: #475569;">91263712</td>
-            </tr>
-          `,
-            )
-            .join("")}
-        </tbody>
-      </table>
+      ${passengerSectionHtml}
 
       <!-- Flight Segments Section -->
       <h3 style="font-family: 'Outfit', sans-serif; text-transform: uppercase; font-size: 10px; font-weight: 800; color: #0F172A; border-bottom: 1.5px solid #E2E8F0; padding-bottom: 4px; margin-bottom: 12px;">Flight Itinerary Segments</h3>
@@ -1625,6 +1720,7 @@ export function generateFlightTicketHtml(
   selectedPassengerId?: string | null,
   selectedAirline?: string | null,
   splitByAirline?: boolean,
+  groupByNationality?: boolean,
 ) {
   const flightsToRender =
     booking.flightServices && booking.flightServices.length > 0
@@ -2487,6 +2583,7 @@ export function renderFlightTicket(
   selectedPassengerId?: string | null,
   selectedAirline?: string | null,
   splitByAirline?: boolean,
+  groupByNationality?: boolean,
 ): string {
   return generateFlightTicketHtml(
     booking,
@@ -2494,6 +2591,7 @@ export function renderFlightTicket(
     selectedPassengerId,
     selectedAirline,
     splitByAirline,
+    groupByNationality,
   );
 }
 

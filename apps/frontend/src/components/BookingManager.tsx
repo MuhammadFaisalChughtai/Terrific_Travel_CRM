@@ -436,6 +436,7 @@ export default function BookingManager({
     useState<string>("all");
   const [printTicketSelectedAirline, setPrintTicketSelectedAirline] = useState<string>("all");
   const [printTicketSplitByAirline, setPrintTicketSplitByAirline] = useState<boolean>(false);
+  const [printTicketGroupByNationality, setPrintTicketGroupByNationality] = useState<boolean>(false);
   const [expandedTx, setExpandedTx] = useState<Record<string, boolean>>({});
   const [isHtmlEditorOpen, setIsHtmlEditorOpen] = useState(false);
   const [htmlEditorContent, setHtmlEditorContent] = useState("");
@@ -1410,10 +1411,9 @@ export default function BookingManager({
                   </thead>
                   <tbody className="text-foreground divide-y divide-border">
                     {(() => {
-                      const clientTransactions =
-                        booking.transactions?.filter(isCustomerTransaction) || [];
+                      const allTransactions = booking.transactions || [];
 
-                      if (clientTransactions.length === 0) {
+                      if (allTransactions.length === 0) {
                         return (
                           <tr>
                             <td
@@ -1426,7 +1426,7 @@ export default function BookingManager({
                         );
                       }
 
-                      return clientTransactions.map((tx: any) => (
+                      return allTransactions.map((tx: any) => (
                         <tr
                           key={tx.id}
                           className="hover:bg-secondary/5 transition-colors"
@@ -3236,6 +3236,19 @@ export default function BookingManager({
                     </select>
                   </div>
                 )}
+
+                <div className="flex items-center gap-2 mt-1 pt-2.5 border-t border-border/50">
+                  <input
+                    type="checkbox"
+                    id="groupByNationalityBookingMgr"
+                    checked={printTicketGroupByNationality}
+                    onChange={(e) => setPrintTicketGroupByNationality(e.target.checked)}
+                    className="rounded border-border text-primary focus:ring-primary w-4 h-4 cursor-pointer"
+                  />
+                  <label htmlFor="groupByNationalityBookingMgr" className="text-xs font-bold text-foreground cursor-pointer flex items-center gap-1.5">
+                    <span>🌐 Group Passengers by Nationality on Ticket</span>
+                  </label>
+                </div>
               </>
             );
           })()}
@@ -3262,6 +3275,7 @@ export default function BookingManager({
                         : printTicketSelectedPassenger,
                       printTicketSelectedAirline,
                       printTicketSplitByAirline,
+                      printTicketGroupByNationality,
                     ),
                     `E-Ticket_${booking?.bookingReference || printTicketSelectedFlight.flightNo}`,
                   );

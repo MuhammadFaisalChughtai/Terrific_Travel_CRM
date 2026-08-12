@@ -218,8 +218,27 @@ export class EmailService {
     missingItems: string[];
     flightDetails?: string;
     hotelDetails?: string;
+    hotelSummaries?: {
+      hotelName: string;
+      vendor: string;
+      checkInDate: string;
+      checkOutDate?: string;
+      reservationNumber?: string;
+      hotelConfirmationNumber?: string;
+      isMissingConfirmation?: boolean;
+      isMissingReservation?: boolean;
+    }[];
+    flightSummaries?: {
+      flightNo: string;
+      airlineName?: string;
+      vendor: string;
+      route: string;
+      pnr?: string;
+      date: string;
+      isMissingPnr?: boolean;
+    }[];
   }) {
-    const { recipients, bookingRef, travelDateStr, leadPassengerName, agentName, missingItems, flightDetails, hotelDetails } = params;
+    const { recipients, bookingRef, travelDateStr, leadPassengerName, agentName, missingItems, flightDetails, hotelDetails, hotelSummaries, flightSummaries } = params;
     const loginUrl = `${config.frontendUrl}/bookings?ref=${encodeURIComponent(bookingRef)}`;
 
     const missingListHtml = missingItems
@@ -230,6 +249,63 @@ export class EmailService {
         </li>`
       )
       .join('');
+
+    const hotelsHtml = hotelSummaries && hotelSummaries.length > 0
+      ? `
+        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 15px 0;">
+          <p style="margin: 0 0 10px 0; font-weight: 800; font-size: 12px; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px;">
+            🏨 Accommodation &amp; Vendor Details
+          </p>
+          ${hotelSummaries
+            .map(
+              (h) => `
+            <div style="font-size: 13px; color: #334155; padding: 8px 0; border-bottom: 1px dashed #cbd5e1;">
+              <p style="margin: 0 0 4px 0;"><strong>Hotel Name:</strong> ${h.hotelName}</p>
+              <p style="margin: 0 0 4px 0;"><strong>Vendor / Supplier:</strong> <span style="background: #e0f2fe; color: #0369a1; padding: 2px 6px; border-radius: 4px; font-weight: 700;">${h.vendor}</span></p>
+              <p style="margin: 0 0 4px 0;"><strong>Check-in:</strong> ${h.checkInDate}${h.checkOutDate ? ` | <strong>Check-out:</strong> ${h.checkOutDate}` : ''}</p>
+              ${
+                h.isMissingConfirmation
+                  ? `<p style="margin: 0; color: #dc2626; font-weight: bold;"><strong>Hotel Confirmation #:</strong> ❌ Missing</p>`
+                  : `<p style="margin: 0; color: #059669; font-weight: bold;"><strong>Hotel Confirmation #:</strong> ${h.hotelConfirmationNumber}</p>`
+              }
+              ${
+                h.reservationNumber
+                  ? `<p style="margin: 3px 0 0 0;"><strong>Reservation / GDS #:</strong> ${h.reservationNumber}</p>`
+                  : ''
+              }
+            </div>
+          `
+            )
+            .join('')}
+        </div>
+      `
+      : '';
+
+    const flightsHtml = flightSummaries && flightSummaries.length > 0
+      ? `
+        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 15px 0;">
+          <p style="margin: 0 0 10px 0; font-weight: 800; font-size: 12px; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px;">
+            ✈️ Flight, Airline &amp; Vendor Details
+          </p>
+          ${flightSummaries
+            .map(
+              (f) => `
+            <div style="font-size: 13px; color: #334155; padding: 8px 0; border-bottom: 1px dashed #cbd5e1;">
+              <p style="margin: 0 0 4px 0;"><strong>Flight / Airline:</strong> ${f.flightNo}${f.airlineName ? ` (${f.airlineName})` : ''}</p>
+              <p style="margin: 0 0 4px 0;"><strong>Vendor / Supplier:</strong> <span style="background: #e0f2fe; color: #0369a1; padding: 2px 6px; border-radius: 4px; font-weight: 700;">${f.vendor}</span></p>
+              <p style="margin: 0 0 4px 0;"><strong>Route &amp; Date:</strong> ${f.route} (${f.date})</p>
+              ${
+                f.isMissingPnr
+                  ? `<p style="margin: 0; color: #dc2626; font-weight: bold;"><strong>Flight PNR:</strong> ❌ Missing</p>`
+                  : `<p style="margin: 0; color: #0284c7; font-weight: bold; font-family: monospace;"><strong>Flight PNR:</strong> ${f.pnr}</p>`
+              }
+            </div>
+          `
+            )
+            .join('')}
+        </div>
+      `
+      : '';
 
     const htmlContent = `
       <!DOCTYPE html>
@@ -277,16 +353,19 @@ export class EmailService {
                 </ul>
               </div>
 
+              ${hotelsHtml}
+              ${flightsHtml}
+
               ${
-                flightDetails
-                  ? `<div style="font-size: 12px; color: #475569; margin-bottom: 12px;"><strong>Flight Route:</strong> ${flightDetails}</div>`
-                  : ''
-              }
-              ${
-                hotelDetails
+                !hotelsHtml && hotelDetails
                   ? `<div style="font-size: 12px; color: #475569; margin-bottom: 12px;"><strong>Hotel Info:</strong> ${hotelDetails}</div>`
                   : ''
               }
+              ${
+                !flightsHtml && flightDetails
+                  ? `<div style="font-size: 12px; color: #475569; margin-bottom: 12px;"><strong>Flight Route:</strong> ${flightDetails}</div>`
+                  : ''
+              }     }
 
               <p style="font-size: 13px; color: #4a5568; margin: 20px 0;">
                 Please update the missing information in the CRM immediately. Reminders will continue every 3 hours until all required details are updated in the system.
