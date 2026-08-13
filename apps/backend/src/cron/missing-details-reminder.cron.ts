@@ -83,15 +83,19 @@ export const runMissingDetailsCheck = async () => {
       } as any,
     });
 
-    const isMissing = (val: string | null | undefined): boolean => {
-      if (!val) return true;
-      const trimmed = val.trim().toLowerCase();
+    const isMissing = (val: any): boolean => {
+      if (val === null || val === undefined) return true;
+      const str = String(val).trim().toLowerCase();
       return (
-        trimmed === "" ||
-        trimmed === "pending" ||
-        trimmed === "n/a" ||
-        trimmed === "null" ||
-        trimmed === "-"
+        str === "" ||
+        str === "pending" ||
+        str === "n/a" ||
+        str === "null" ||
+        str === "-" ||
+        str === "--" ||
+        str === "none" ||
+        str === "undefined" ||
+        str === "0"
       );
     };
 

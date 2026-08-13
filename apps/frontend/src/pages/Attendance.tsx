@@ -242,6 +242,42 @@ export default function Attendance() {
     return `${symbol}${(amount || 0).toFixed(2)}`;
   };
 
+  const formatMultiCurrencySummary = (
+    items: any[],
+    statusFilter?: string
+  ) => {
+    const filtered = statusFilter
+      ? items.filter((item: any) => item.status === statusFilter)
+      : items;
+
+    if (!filtered || filtered.length === 0) return "£0.00";
+
+    const totalsByCurrency: Record<string, number> = {};
+    filtered.forEach((item: any) => {
+      const code = (item.currency || "GBP").toUpperCase();
+      totalsByCurrency[code] = (totalsByCurrency[code] || 0) + (item.amount || 0);
+    });
+
+    const currencyCodes = Object.keys(totalsByCurrency);
+    if (currencyCodes.length === 0) return "£0.00";
+
+    const symbols: Record<string, string> = {
+      GBP: "£",
+      USD: "$",
+      EUR: "€",
+      PKR: "Rs ",
+      SAR: "SAR ",
+      AED: "AED ",
+    };
+
+    return currencyCodes
+      .map((code) => {
+        const sym = symbols[code] || `${code} `;
+        return `${sym}${totalsByCurrency[code].toFixed(2)}`;
+      })
+      .join(" + ");
+  };
+
   const renderLogAttendance = () => {
     const isCheckedIn = !!todayStatus?.checkInTime;
     const isCheckedOut = !!todayStatus?.checkOutTime;
@@ -329,19 +365,19 @@ export default function Attendance() {
             <div className="bg-card border border-rose-200 dark:border-rose-900/50 p-4 rounded-xl space-y-1">
               <p className="text-xs font-bold text-muted-foreground uppercase">Pending Fines</p>
               <p className="text-2xl font-black text-rose-600 dark:text-rose-400">
-                {formatFineAmount(myFinesSummary?.totalPending || 0, myFines[0]?.currency || "GBP")}
+                {formatMultiCurrencySummary(myFines, "PENDING")}
               </p>
             </div>
             <div className="bg-card border border-amber-200 dark:border-amber-900/50 p-4 rounded-xl space-y-1">
               <p className="text-xs font-bold text-muted-foreground uppercase">Deducted Fines</p>
               <p className="text-2xl font-black text-amber-600 dark:text-amber-400">
-                {formatFineAmount(myFinesSummary?.totalDeducted || 0, myFines[0]?.currency || "GBP")}
+                {formatMultiCurrencySummary(myFines, "DEDUCTED")}
               </p>
             </div>
             <div className="bg-card border border-emerald-200 dark:border-emerald-900/50 p-4 rounded-xl space-y-1">
               <p className="text-xs font-bold text-muted-foreground uppercase">Waived Fines</p>
               <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
-                {formatFineAmount(myFinesSummary?.totalWaived || 0, myFines[0]?.currency || "GBP")}
+                {formatMultiCurrencySummary(myFines, "WAIVED")}
               </p>
             </div>
           </div>
@@ -435,13 +471,13 @@ export default function Attendance() {
             <div className="bg-card border border-emerald-200 dark:border-emerald-900/50 p-4 rounded-xl space-y-1">
               <p className="text-xs font-bold text-muted-foreground uppercase">Pending Bonuses</p>
               <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
-                {formatFineAmount(myBonusesSummary?.totalPending || 0, myBonuses[0]?.currency || "GBP")}
+                {formatMultiCurrencySummary(myBonuses, "PENDING")}
               </p>
             </div>
             <div className="bg-card border border-blue-200 dark:border-blue-900/50 p-4 rounded-xl space-y-1">
               <p className="text-xs font-bold text-muted-foreground uppercase">Paid Bonuses</p>
               <p className="text-2xl font-black text-blue-600 dark:text-blue-400">
-                {formatFineAmount(myBonusesSummary?.totalPaid || 0, myBonuses[0]?.currency || "GBP")}
+                {formatMultiCurrencySummary(myBonuses, "PAID")}
               </p>
             </div>
           </div>
@@ -791,25 +827,25 @@ export default function Attendance() {
             <div className="bg-card border border-border p-4 rounded-xl space-y-1">
               <p className="text-xs font-bold text-muted-foreground uppercase">Total Fines Issued</p>
               <p className="text-2xl font-black text-foreground">
-                {formatFineAmount(allFinesSummary?.totalAmount || 0, allFines[0]?.currency || "GBP")}
+                {formatMultiCurrencySummary(allFines)}
               </p>
             </div>
             <div className="bg-card border border-rose-200 dark:border-rose-900/50 p-4 rounded-xl space-y-1">
               <p className="text-xs font-bold text-muted-foreground uppercase">Total Pending</p>
               <p className="text-2xl font-black text-rose-600 dark:text-rose-400">
-                {formatFineAmount(allFinesSummary?.totalPending || 0, allFines[0]?.currency || "GBP")}
+                {formatMultiCurrencySummary(allFines, "PENDING")}
               </p>
             </div>
             <div className="bg-card border border-amber-200 dark:border-amber-900/50 p-4 rounded-xl space-y-1">
               <p className="text-xs font-bold text-muted-foreground uppercase">Total Deducted</p>
               <p className="text-2xl font-black text-amber-600 dark:text-amber-400">
-                {formatFineAmount(allFinesSummary?.totalDeducted || 0, allFines[0]?.currency || "GBP")}
+                {formatMultiCurrencySummary(allFines, "DEDUCTED")}
               </p>
             </div>
             <div className="bg-card border border-emerald-200 dark:border-emerald-900/50 p-4 rounded-xl space-y-1">
               <p className="text-xs font-bold text-muted-foreground uppercase">Total Waived</p>
               <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
-                {formatFineAmount(allFinesSummary?.totalWaived || 0, allFines[0]?.currency || "GBP")}
+                {formatMultiCurrencySummary(allFines, "WAIVED")}
               </p>
             </div>
           </div>
@@ -939,19 +975,19 @@ export default function Attendance() {
             <div className="bg-card border border-emerald-200 dark:border-emerald-900/50 p-4 rounded-xl space-y-1">
               <p className="text-xs font-bold text-muted-foreground uppercase">Pending Bonuses</p>
               <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
-                {formatFineAmount(allBonusesSummary?.totalPending || 0, allBonuses[0]?.currency || "GBP")}
+                {formatMultiCurrencySummary(allBonuses, "PENDING")}
               </p>
             </div>
             <div className="bg-card border border-blue-200 dark:border-blue-900/50 p-4 rounded-xl space-y-1">
               <p className="text-xs font-bold text-muted-foreground uppercase">Paid Bonuses</p>
               <p className="text-2xl font-black text-blue-600 dark:text-blue-400">
-                {formatFineAmount(allBonusesSummary?.totalPaid || 0, allBonuses[0]?.currency || "GBP")}
+                {formatMultiCurrencySummary(allBonuses, "PAID")}
               </p>
             </div>
             <div className="bg-card border border-purple-200 dark:border-purple-900/50 p-4 rounded-xl space-y-1">
               <p className="text-xs font-bold text-muted-foreground uppercase">Total Awarded</p>
               <p className="text-2xl font-black text-purple-600 dark:text-purple-400">
-                {formatFineAmount(allBonusesSummary?.totalAmount || 0, allBonuses[0]?.currency || "GBP")}
+                {formatMultiCurrencySummary(allBonuses)}
               </p>
             </div>
           </div>
