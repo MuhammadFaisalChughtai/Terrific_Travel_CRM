@@ -41,8 +41,22 @@ export class AttendanceService {
     const agentId = user.agentId;
 
     // Get today's date (start of day UTC)
-    const today = new Date();
+    const now = new Date();
+    const today = new Date(now);
     today.setUTCHours(0, 0, 0, 0);
+
+    // Shift start time rule: 09:00 AM (or configurable), 15 min grace period (09:15 AM)
+    const shiftStart = new Date(now);
+    shiftStart.setHours(9, 0, 0, 0);
+    const graceCutoff = new Date(shiftStart.getTime() + 15 * 60 * 1000);
+
+    let isLate = false;
+    let lateMinutes = 0;
+
+    if (now > graceCutoff) {
+      isLate = true;
+      lateMinutes = Math.floor((now.getTime() - shiftStart.getTime()) / (1000 * 60));
+    }
 
     const existingRecord = await prisma.attendance.findUnique({
       where: {
@@ -53,25 +67,51 @@ export class AttendanceService {
       }
     });
 
+    let record: any;
+
     if (existingRecord) {
       if (existingRecord.checkInTime) {
         throw new BadRequestException('Already checked in for today');
       }
-      // If record exists (maybe pre-created absent or something, though unlikely), update it
-      return prisma.attendance.update({
+      record = await prisma.attendance.update({
         where: { id: existingRecord.id },
-        data: { checkInTime: new Date(), status: 'PRESENT' }
+        data: {
+          checkInTime: now,
+          status: 'PRESENT',
+          isLate,
+          lateMinutes
+        }
+      });
+    } else {
+      record = await prisma.attendance.create({
+        data: {
+          agentId,
+          date: today,
+          checkInTime: now,
+          status: 'PRESENT',
+          isLate,
+          lateMinutes
+        }
       });
     }
 
-    return prisma.attendance.create({
-      data: {
-        agentId,
-        date: today,
-        checkInTime: new Date(),
-        status: 'PRESENT'
-      }
-    });
+    // If check-in was late, auto-generate Late Arrival Fine (£10.00)
+    if (isLate) {
+      const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+      const { fineService } = require('./fine.service');
+      fineService
+        .issueFine({
+          agentId,
+          fineType: 'LATE_ARRIVAL',
+          amount: 10.0,
+          reason: `Late check-in at ${timeStr} (${lateMinutes} mins past 09:00 AM shift start)`,
+          date: today,
+          attendanceId: record.id
+        })
+        .catch((err: any) => console.error('Error auto-generating late fine:', err));
+    }
+
+    return record;
   }
 
   async checkOut(userId: string) {

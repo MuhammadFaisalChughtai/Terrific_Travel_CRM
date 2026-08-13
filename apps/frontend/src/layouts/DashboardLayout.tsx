@@ -33,6 +33,7 @@ import {
   Calculator,
   ArrowRightLeft,
   UserCheck,
+  ShieldAlert,
 } from "lucide-react";
 export default function DashboardLayout() {
   const location = useLocation();
@@ -91,6 +92,48 @@ export default function DashboardLayout() {
     const interval = setInterval(() => fetchNotifications(), 30000);
     return () => clearInterval(interval);
   }, [user?.id, fetchNotifications]);
+
+  // Query agent's fines for navbar badge (scoped to current month)
+  const { data: myFinesData } = useQuery({
+    queryKey: ["fines", "my-fines", "navbar"],
+    queryFn: async () => {
+      const res = await apiClient.get("/fines/my-fines");
+      return res.data.data;
+    },
+    enabled: !!user,
+    refetchInterval: 30000,
+  });
+
+  const pendingFinesList =
+    myFinesData?.items?.filter((f: any) => {
+      if (f.status !== "PENDING") return false;
+      const fineDate = new Date(f.date);
+      const now = new Date();
+      return (
+        fineDate.getMonth() === now.getMonth() &&
+        fineDate.getFullYear() === now.getFullYear()
+      );
+    }) || [];
+
+  const currentMonthFineTotal = pendingFinesList.reduce(
+    (sum: number, f: any) => sum + (f.amount || 0),
+    0
+  );
+  const currentMonthFineCurrency = pendingFinesList[0]?.currency || "GBP";
+
+  const formatNavbarFine = (amount: number, curr: string) => {
+    const code = (curr || "GBP").toUpperCase();
+    const symbols: Record<string, string> = {
+      GBP: "£",
+      USD: "$",
+      EUR: "€",
+      PKR: "Rs ",
+      SAR: "SAR ",
+      AED: "AED ",
+    };
+    const symbol = symbols[code] || `${code} `;
+    return `${symbol}${amount.toFixed(2)}`;
+  };
 
   useEffect(() => {
     // Auto-close sidebar on responsive screen when route/location changes
@@ -285,6 +328,18 @@ export default function DashboardLayout() {
           </div>
 
           <div className="flex items-center gap-4">
+            {/* Active Fine Badge for Current Month */}
+            {currentMonthFineTotal > 0 && (
+              <Link
+                to="/attendance"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 text-xs font-bold hover:bg-rose-100 dark:hover:bg-rose-900/80 transition-all shadow-sm"
+                title="Current Month Pending Fine (Resets at month end)"
+              >
+                <ShieldAlert size={14} className="animate-pulse text-rose-600 dark:text-rose-400" />
+                <span>Fine: {formatNavbarFine(currentMonthFineTotal, currentMonthFineCurrency)}</span>
+              </Link>
+            )}
+
             {/* Theme Toggle */}
             <button
               onClick={toggleTheme}

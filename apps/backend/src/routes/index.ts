@@ -18,6 +18,8 @@ import notificationsRoutes from './notifications.routes';
 import agentMarginRoutes from './agent-margin.routes';
 import reportsRoutes from './reports.routes';
 import leadsRoutes from './leads.routes';
+import fineRoutes from './fine.routes';
+import bonusRoutes from './bonus.routes';
 
 const router = Router();
 
@@ -36,6 +38,8 @@ router.use('/templates', templatesRoutes);
 router.use('/dashboard', dashboardRoutes);
 router.use('/uploads', uploadsRoutes);
 router.use('/attendance', attendanceRoutes);
+router.use('/fines', fineRoutes);
+router.use('/bonuses', bonusRoutes);
 router.use('/notifications', notificationsRoutes);
 router.use('/agent-margins', agentMarginRoutes);
 router.use('/reports', reportsRoutes);

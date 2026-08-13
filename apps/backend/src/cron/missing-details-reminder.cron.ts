@@ -143,17 +143,9 @@ export const runMissingDetailsCheck = async () => {
         missingItems.push("Flight PNR is missing");
       }
 
-      // 2. Check Hotel Reservation Number
-      const missingReservationHotels = activeHotels.filter((h: any) =>
-        isMissing(h.reservationNumber),
-      );
-      if (missingReservationHotels.length > 0) {
-        missingItems.push("Hotel Reservation Number is missing");
-      }
-
-      // 3. Check Hotel Confirmation Number
-      const missingConfirmationHotels = activeHotels.filter((h: any) =>
-        isMissing(h.hotelConfirmationNumber),
+      // 2. Check Hotel Confirmation / Reservation Number
+      const missingConfirmationHotels = activeHotels.filter(
+        (h: any) => isMissing(h.hotelConfirmationNumber) && isMissing(h.reservationNumber)
       );
       if (missingConfirmationHotels.length > 0) {
         missingItems.push("Hotel Confirmation Number is missing");
@@ -191,9 +183,27 @@ export const runMissingDetailsCheck = async () => {
         return airlines[code] || `${code} Air`;
       };
 
+      const getVendorName = (v: any): string => {
+        if (!v) return "N/A";
+        if (typeof v === "string") {
+          if (v === "[object Object]" || v.trim() === "" || v.trim() === "null") return "N/A";
+          try {
+            const parsed = JSON.parse(v);
+            if (parsed && typeof parsed === "object") {
+              return parsed.name || parsed.companyName || parsed.title || "N/A";
+            }
+          } catch (e) {}
+          return v;
+        }
+        if (typeof v === "object") {
+          return v.name || v.companyName || v.title || "N/A";
+        }
+        return String(v);
+      };
+
       const hotelSummaries = activeHotels.map((h: any) => ({
         hotelName: h.hotelName || "Hotel",
-        vendor: h.vendor || "N/A",
+        vendor: getVendorName(h.vendor),
         checkInDate: formatDateStr(h.checkInDate),
         checkOutDate: h.checkOutDate ? formatDateStr(h.checkOutDate) : undefined,
         reservationNumber: h.reservationNumber || undefined,
@@ -205,10 +215,10 @@ export const runMissingDetailsCheck = async () => {
       const flightSummaries = activeFlights.map((f: any) => ({
         flightNo: f.flightNo || "Flight",
         airlineName: getAirlineName(f.flightNo),
-        vendor: f.vendor || "N/A",
+        vendor: getVendorName(f.vendor),
         route: `${f.departedFrom || "—"} → ${f.arrivedAt || "—"}`,
+        date: formatDateStr(f.date),
         pnr: f.pnr || undefined,
-        date: f.date ? formatDateStr(f.date) : "—",
         isMissingPnr: isMissing(f.pnr),
       }));
 

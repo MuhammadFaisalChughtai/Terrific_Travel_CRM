@@ -250,6 +250,24 @@ export class EmailService {
       )
       .join('');
 
+    const formatVendorStr = (v: any): string => {
+      if (!v) return "N/A";
+      if (typeof v === "string") {
+        if (v === "[object Object]" || v.trim() === "" || v.trim() === "null") return "N/A";
+        try {
+          const parsed = JSON.parse(v);
+          if (parsed && typeof parsed === "object") {
+            return parsed.name || parsed.companyName || parsed.title || "N/A";
+          }
+        } catch (e) {}
+        return v;
+      }
+      if (typeof v === "object") {
+        return v.name || v.companyName || v.title || "N/A";
+      }
+      return String(v);
+    };
+
     const hotelsHtml = hotelSummaries && hotelSummaries.length > 0
       ? `
         <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 15px 0;">
@@ -261,7 +279,7 @@ export class EmailService {
               (h) => `
             <div style="font-size: 13px; color: #334155; padding: 8px 0; border-bottom: 1px dashed #cbd5e1;">
               <p style="margin: 0 0 4px 0;"><strong>Hotel Name:</strong> ${h.hotelName}</p>
-              <p style="margin: 0 0 4px 0;"><strong>Vendor / Supplier:</strong> <span style="background: #e0f2fe; color: #0369a1; padding: 2px 6px; border-radius: 4px; font-weight: 700;">${h.vendor}</span></p>
+              <p style="margin: 0 0 4px 0;"><strong>Vendor / Supplier:</strong> <span style="background: #e0f2fe; color: #0369a1; padding: 2px 6px; border-radius: 4px; font-weight: 700;">${formatVendorStr(h.vendor)}</span></p>
               <p style="margin: 0 0 4px 0;"><strong>Check-in:</strong> ${h.checkInDate}${h.checkOutDate ? ` | <strong>Check-out:</strong> ${h.checkOutDate}` : ''}</p>
               ${
                 h.isMissingConfirmation
@@ -292,7 +310,7 @@ export class EmailService {
               (f) => `
             <div style="font-size: 13px; color: #334155; padding: 8px 0; border-bottom: 1px dashed #cbd5e1;">
               <p style="margin: 0 0 4px 0;"><strong>Flight / Airline:</strong> ${f.flightNo}${f.airlineName ? ` (${f.airlineName})` : ''}</p>
-              <p style="margin: 0 0 4px 0;"><strong>Vendor / Supplier:</strong> <span style="background: #e0f2fe; color: #0369a1; padding: 2px 6px; border-radius: 4px; font-weight: 700;">${f.vendor}</span></p>
+              <p style="margin: 0 0 4px 0;"><strong>Vendor / Supplier:</strong> <span style="background: #e0f2fe; color: #0369a1; padding: 2px 6px; border-radius: 4px; font-weight: 700;">${formatVendorStr(f.vendor)}</span></p>
               <p style="margin: 0 0 4px 0;"><strong>Route &amp; Date:</strong> ${f.route} (${f.date})</p>
               ${
                 f.isMissingPnr
@@ -410,6 +428,351 @@ export class EmailService {
       return { success: true };
     } catch (error) {
       logger.error(`Failed to send missing details reminder for booking ${bookingRef}`, error);
+      return { success: false, error };
+    }
+  }
+
+  async sendAgentFineNotification(
+    agentEmail: string,
+    agentName: string,
+    fineDetails: {
+      fineType: string;
+      amount: number;
+      currency?: string;
+      dateStr: string;
+      reason: string;
+      status: string;
+    }
+  ) {
+    const portalUrl = `${config.frontendUrl}/attendance`;
+    const currCode = (fineDetails.currency || 'GBP').toUpperCase();
+    const currSymbols: Record<string, string> = {
+      GBP: '£',
+      USD: '$',
+      EUR: '€',
+      PKR: 'Rs ',
+      SAR: 'SAR ',
+      AED: 'AED ',
+    };
+    const formattedAmount = `${currSymbols[currCode] || `${currCode} `}${fineDetails.amount.toFixed(2)}`;
+
+    const typeLabel =
+      fineDetails.fineType === 'LATE_ARRIVAL'
+        ? 'Late Arrival Fine'
+        : fineDetails.fineType === 'ABSENCE'
+        ? 'Unexcused Absence Fine'
+        : 'Disciplinary / Manual Fine';
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Notice of Fine Issued</title>
+      </head>
+      <body style="font-family: Arial, sans-serif; background-color: #f4f6f9; margin: 0; padding: 20px;">
+        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+          <!-- Header -->
+          <tr>
+            <td style="background-color: #991b1b; padding: 20px; text-align: center;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 20px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">
+                ⚠️ NOTICE OF FINE ISSUED
+              </h1>
+            </td>
+          </tr>
+          
+          <!-- Content -->
+          <tr>
+            <td style="padding: 24px;">
+              <p style="margin: 0 0 16px 0; color: #1e293b; font-size: 15px;">Dear <strong>${agentName}</strong>,</p>
+              <p style="margin: 0 0 20px 0; color: #475569; font-size: 14px; line-height: 1.5;">
+                This email is an official notification that a fine has been applied to your staff account in accordance with company attendance and operational policies.
+              </p>
+
+              <!-- Fine Summary Box -->
+              <div style="background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 18px; margin: 20px 0;">
+                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="font-size: 14px; color: #334155;">
+                  <tr>
+                    <td style="padding: 4px 0; font-weight: bold; width: 140px;">Fine Type:</td>
+                    <td style="padding: 4px 0; color: #991b1b; font-weight: 800;">${typeLabel}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 4px 0; font-weight: bold;">Amount:</td>
+                    <td style="padding: 4px 0; color: #dc2626; font-weight: 800; font-size: 16px;">${formattedAmount} (${currCode})</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 4px 0; font-weight: bold;">Violation Date:</td>
+                    <td style="padding: 4px 0;">${fineDetails.dateStr}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 4px 0; font-weight: bold;">Reason / Details:</td>
+                    <td style="padding: 4px 0; font-style: italic;">${fineDetails.reason}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 4px 0; font-weight: bold;">Status:</td>
+                    <td style="padding: 4px 0;"><span style="background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 12px;">${fineDetails.status}</span></td>
+                  </tr>
+                </table>
+              </div>
+
+              <p style="margin: 20px 0 10px 0; color: #64748b; font-size: 13px; line-height: 1.5;">
+                You can review your complete attendance and fines ledger at any time via your Agent Portal.
+              </p>
+
+              <!-- CTA Button -->
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 25px 0; text-align: center;">
+                <tr>
+                  <td>
+                    <a href="${portalUrl}" target="_blank" style="background-color: #0f172a; color: #ffffff; padding: 12px 28px; font-size: 14px; font-weight: bold; text-decoration: none; border-radius: 8px; display: inline-block;">
+                      View Fines in Agent Portal
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f8fafc; padding: 16px; border-top: 1px solid #e2e8f0; text-align: center; color: #64748b; font-size: 11px;">
+              <p style="margin: 0; font-weight: bold; color: #475569;">&copy; ${new Date().getFullYear()} Terrific Travel Ltd — Staff Operations</p>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    `;
+
+    try {
+      if (!agentEmail || !agentEmail.includes('@')) return { success: false, reason: 'Invalid agent email' };
+      await this.transporter.sendMail({
+        from: `"${config.smtp.from.split('@')[0].replace('-', ' ')}" <${config.smtp.from}>`,
+        to: agentEmail,
+        subject: `[NOTICE] Fine Issued: ${formattedAmount} - ${typeLabel}`,
+        html: htmlContent,
+      });
+      logger.info(`Sent fine notification email to ${agentEmail}`);
+      return { success: true };
+    } catch (error) {
+      logger.error(`Failed to send fine notification to ${agentEmail}`, error);
+      return { success: false, error };
+    }
+  }
+
+  async sendAgentFineWaivedNotification(
+    agentEmail: string,
+    agentName: string,
+    fineDetails: {
+      fineType: string;
+      amount: number;
+      currency?: string;
+      dateStr: string;
+      waivedReason?: string;
+    }
+  ) {
+    const portalUrl = `${config.frontendUrl}/attendance`;
+    const currCode = (fineDetails.currency || 'GBP').toUpperCase();
+    const currSymbols: Record<string, string> = {
+      GBP: '£',
+      USD: '$',
+      EUR: '€',
+      PKR: 'Rs ',
+      SAR: 'SAR ',
+      AED: 'AED ',
+    };
+    const formattedAmount = `${currSymbols[currCode] || `${currCode} `}${fineDetails.amount.toFixed(2)}`;
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Notice of Fine Waived</title>
+      </head>
+      <body style="font-family: Arial, sans-serif; background-color: #f4f6f9; margin: 0; padding: 20px;">
+        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+          <!-- Header -->
+          <tr>
+            <td style="background-color: #059669; padding: 20px; text-align: center;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 20px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">
+                ✅ NOTICE OF FINE WAIVED
+              </h1>
+            </td>
+          </tr>
+          
+          <!-- Content -->
+          <tr>
+            <td style="padding: 24px;">
+              <p style="margin: 0 0 16px 0; color: #1e293b; font-size: 15px;">Dear <strong>${agentName}</strong>,</p>
+              <p style="margin: 0 0 20px 0; color: #475569; font-size: 14px; line-height: 1.5;">
+                We are pleased to inform you that your fine of <strong>${formattedAmount}</strong> for the violation on <strong>${fineDetails.dateStr}</strong> has been officially <strong style="color: #059669;">WAIVED</strong> by management.
+              </p>
+
+              ${
+                fineDetails.waivedReason
+                  ? `<div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 14px; margin: 15px 0; color: #166534; font-size: 13px;">
+                      <strong>Waiver Note:</strong> ${fineDetails.waivedReason}
+                    </div>`
+                  : ''
+              }
+
+              <!-- CTA Button -->
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 25px 0; text-align: center;">
+                <tr>
+                  <td>
+                    <a href="${portalUrl}" target="_blank" style="background-color: #0f172a; color: #ffffff; padding: 12px 28px; font-size: 14px; font-weight: bold; text-decoration: none; border-radius: 8px; display: inline-block;">
+                      View Updated Ledger in Portal
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f8fafc; padding: 16px; border-top: 1px solid #e2e8f0; text-align: center; color: #64748b; font-size: 11px;">
+              <p style="margin: 0; font-weight: bold; color: #475569;">&copy; ${new Date().getFullYear()} Terrific Travel Ltd — Staff Operations</p>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    `;
+
+    try {
+      if (!agentEmail || !agentEmail.includes('@')) return { success: false, reason: 'Invalid agent email' };
+      await this.transporter.sendMail({
+        from: `"${config.smtp.from.split('@')[0].replace('-', ' ')}" <${config.smtp.from}>`,
+        to: agentEmail,
+        subject: `[CONFIRMATION] Fine of ${formattedAmount} Has Been Waived`,
+        html: htmlContent,
+      });
+      logger.info(`Sent fine waiver notification email to ${agentEmail}`);
+      return { success: true };
+    } catch (error) {
+      logger.error(`Failed to send fine waiver notification to ${agentEmail}`, error);
+      return { success: false, error };
+    }
+  }
+
+  async sendAgentBonusNotification(
+    agentEmail: string,
+    agentName: string,
+    bonusDetails: {
+      bonusType: string;
+      amount: number;
+      currency?: string;
+      dateStr: string;
+      reason: string;
+      status: string;
+    }
+  ) {
+    const portalUrl = `${config.frontendUrl}/attendance`;
+    const currCode = (bonusDetails.currency || 'GBP').toUpperCase();
+    const currSymbols: Record<string, string> = {
+      GBP: '£',
+      USD: '$',
+      EUR: '€',
+      PKR: 'Rs ',
+      SAR: 'SAR ',
+      AED: 'AED ',
+    };
+    const formattedAmount = `${currSymbols[currCode] || `${currCode} `}${bonusDetails.amount.toFixed(2)}`;
+
+    const typeLabel =
+      bonusDetails.bonusType === 'EARLY_CHECKIN'
+        ? 'Early Check-in Bonus'
+        : bonusDetails.bonusType === 'ON_TIME'
+        ? 'Punctuality Bonus'
+        : bonusDetails.bonusType === 'PERFORMANCE'
+        ? 'Performance Award'
+        : 'Special Bonus';
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Congratulations! Bonus Awarded</title>
+      </head>
+      <body style="font-family: Arial, sans-serif; background-color: #f4f6f9; margin: 0; padding: 20px;">
+        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+          <!-- Header -->
+          <tr>
+            <td style="background-color: #059669; padding: 20px; text-align: center;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 20px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">
+                🎉 CONGRATULATIONS! BONUS AWARDED
+              </h1>
+            </td>
+          </tr>
+          
+          <!-- Content -->
+          <tr>
+            <td style="padding: 24px;">
+              <p style="margin: 0 0 16px 0; color: #1e293b; font-size: 15px;">Dear <strong>${agentName}</strong>,</p>
+              <p style="margin: 0 0 20px 0; color: #475569; font-size: 14px; line-height: 1.5;">
+                We are excited to inform you that a staff bonus has been awarded to your account for your outstanding punctuality or performance.
+              </p>
+
+              <!-- Bonus Summary Box -->
+              <div style="background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 18px; margin: 20px 0;">
+                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="font-size: 14px; color: #065f46;">
+                  <tr>
+                    <td style="padding: 4px 0; font-weight: bold; width: 140px;">Bonus Type:</td>
+                    <td style="padding: 4px 0; font-weight: 800;">${typeLabel}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 4px 0; font-weight: bold;">Bonus Amount:</td>
+                    <td style="padding: 4px 0; font-weight: 800; font-size: 18px; color: #047857;">${formattedAmount} (${currCode})</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 4px 0; font-weight: bold;">Date Awarded:</td>
+                    <td style="padding: 4px 0;">${bonusDetails.dateStr}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 4px 0; font-weight: bold;">Reason / Details:</td>
+                    <td style="padding: 4px 0; font-style: italic;">${bonusDetails.reason}</td>
+                  </tr>
+                </table>
+              </div>
+
+              <!-- CTA Button -->
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 25px 0; text-align: center;">
+                <tr>
+                  <td>
+                    <a href="${portalUrl}" target="_blank" style="background-color: #0f172a; color: #ffffff; padding: 12px 28px; font-size: 14px; font-weight: bold; text-decoration: none; border-radius: 8px; display: inline-block;">
+                      View Bonus Ledger in Portal
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f8fafc; padding: 16px; border-top: 1px solid #e2e8f0; text-align: center; color: #64748b; font-size: 11px;">
+              <p style="margin: 0; font-weight: bold; color: #475569;">&copy; ${new Date().getFullYear()} Terrific Travel Ltd — Staff Operations</p>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    `;
+
+    try {
+      if (!agentEmail || !agentEmail.includes('@')) return { success: false, reason: 'Invalid agent email' };
+      await this.transporter.sendMail({
+        from: `"${config.smtp.from.split('@')[0].replace('-', ' ')}" <${config.smtp.from}>`,
+        to: agentEmail,
+        subject: `[BONUS] Awarded: ${formattedAmount} - ${typeLabel}`,
+        html: htmlContent,
+      });
+      logger.info(`Sent bonus notification email to ${agentEmail}`);
+      return { success: true };
+    } catch (error) {
+      logger.error(`Failed to send bonus notification to ${agentEmail}`, error);
       return { success: false, error };
     }
   }

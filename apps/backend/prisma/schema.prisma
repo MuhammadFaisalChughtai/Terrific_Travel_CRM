@@ -21,6 +21,31 @@ enum AttendanceStatus {
   ABSENT
 }
 
+enum FineType {
+  LATE_ARRIVAL
+  ABSENCE
+  MANUAL
+}
+
+enum FineStatus {
+  PENDING
+  DEDUCTED
+  WAIVED
+}
+
+enum BonusType {
+  EARLY_CHECKIN
+  ON_TIME
+  PERFORMANCE
+  MANUAL
+}
+
+enum BonusStatus {
+  PENDING
+  PAID
+  CANCELLED
+}
+
 enum PaymentStatus {
   PENDING
   SUCCESS
@@ -74,6 +99,9 @@ model User {
   updatedLeads            Lead[]           @relation("UpdatedLeads")
   createdStatusLogs       LeadStatusLog[]  @relation("CreatedStatusLogs")
   journalEntries          JournalEntry[]
+  issuedFines             AgentFine[]      @relation("IssuedFines")
+  waivedFines             AgentFine[]      @relation("WaivedFines")
+  issuedBonuses           AgentBonus[]     @relation("IssuedBonuses")
 }
 
 enum LeadStatus {
@@ -423,6 +451,8 @@ model Agent {
   agentMargins      AgentMargin[]
   vendorLedgers     VendorLedger[]
   journalEntryLines JournalEntryLine[]
+  fines             AgentFine[]
+  bonuses           AgentBonus[]
 }
 
 model AgentSlab {
@@ -809,10 +839,64 @@ model Attendance {
   checkInTime   DateTime?
   checkOutTime  DateTime?
   status        AttendanceStatus
+  isLate        Boolean          @default(false)
+  lateMinutes   Int              @default(0)
+  hasBonus      Boolean          @default(false)
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
+  fines         AgentFine[]
+  bonuses       AgentBonus[]
 
   @@unique([agentId, date])
+}
+
+model AgentFine {
+  id            String      @id @default(uuid())
+  agentId       String
+  agent         Agent       @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  attendanceId  String?
+  attendance    Attendance? @relation(fields: [attendanceId], references: [id], onDelete: SetNull)
+  fineType      FineType
+  amount        Float
+  currency      String      @default("GBP")
+  reason        String
+  date          DateTime    @db.Date
+  status        FineStatus  @default(PENDING)
+  issuedById    String?
+  issuedBy      User?       @relation("IssuedFines", fields: [issuedById], references: [id], onDelete: SetNull)
+  waivedById    String?
+  waivedBy      User?       @relation("WaivedFines", fields: [waivedById], references: [id], onDelete: SetNull)
+  waivedReason  String?
+  deductedAt    DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([agentId])
+  @@index([status])
+  @@index([date])
+}
+
+model AgentBonus {
+  id            String      @id @default(uuid())
+  agentId       String
+  agent         Agent       @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  attendanceId  String?
+  attendance    Attendance? @relation(fields: [attendanceId], references: [id], onDelete: SetNull)
+  bonusType     BonusType
+  amount        Float
+  currency      String      @default("GBP")
+  reason        String
+  date          DateTime    @db.Date
+  status        BonusStatus @default(PENDING)
+  issuedById    String?
+  issuedBy      User?       @relation("IssuedBonuses", fields: [issuedById], references: [id], onDelete: SetNull)
+  paidAt        DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([agentId])
+  @@index([status])
+  @@index([date])
 }
 
 model AgentMargin {
