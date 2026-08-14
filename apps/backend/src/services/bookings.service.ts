@@ -2234,6 +2234,42 @@ export class BookingsService {
     return { success: true };
   }
 
+  async deleteTransaction(bookingId: string, transactionId: string) {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: { transactions: true }
+    });
+    if (!booking) throw new NotFoundException('Booking not found');
+
+    const transaction = await prisma.bookingTransaction.findFirst({
+      where: { id: transactionId, bookingId }
+    });
+    if (!transaction) throw new NotFoundException('Transaction record not found');
+
+    // Delete transaction from database
+    await prisma.bookingTransaction.delete({
+      where: { id: transactionId }
+    });
+
+    // Recalculate remaining transactions sum
+    const remainingTxs = await prisma.bookingTransaction.findMany({
+      where: { bookingId }
+    });
+    const newPaidAmount = remainingTxs.reduce((sum, tx) => sum + (tx.amount || 0), 0);
+
+    // Update booking paidAmount
+    await prisma.booking.update({
+      where: { id: bookingId },
+      data: { paidAmount: newPaidAmount }
+    });
+
+    await rabbitMQService.publish('booking.updated', {
+      bookingId: booking.id,
+    });
+
+    return { success: true, newPaidAmount };
+  }
+
   async getUniqueHotels(search: string) {
     const accommodations = await prisma.accommodationService.findMany({
       where: search ? {

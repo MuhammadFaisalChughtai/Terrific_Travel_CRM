@@ -346,6 +346,12 @@ export const deleteVendorPayment = asyncHandler(async (req: AuthenticatedRequest
   res.status(200).json(result);
 });
 
+export const deleteTransaction = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id, transactionId } = req.params;
+  const result = await bookingsService.deleteTransaction(id, transactionId);
+  res.status(200).json({ success: true, data: result });
+});
+
 export const addVisaService = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
   const result = await bookingsService.addVisaService(id, req.body);

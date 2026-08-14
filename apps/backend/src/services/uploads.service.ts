@@ -1,3 +1,4 @@
+import path from 'path';
 import { prisma } from '../config';
 import { minioService } from './minio.service';
 import { BadRequestException, NotFoundException } from '../middleware/error.middleware';
@@ -15,7 +16,18 @@ export class UploadsService {
       throw new BadRequestException('File size exceeds 5MB limit');
     }
 
-    const key = `${Date.now()}-${file.originalname}`;
+    let ext = path.extname(file.originalname || '');
+    if (!ext || ext.length <= 1) {
+      if (file.mimetype === 'image/jpeg') ext = '.jpg';
+      else if (file.mimetype === 'image/png') ext = '.png';
+      else if (file.mimetype === 'application/pdf') ext = '.pdf';
+      else ext = '';
+    }
+
+    const rawName = file.originalname || 'upload';
+    const cleanOriginalName = rawName.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const finalFilename = cleanOriginalName.endsWith(ext) ? cleanOriginalName : `${cleanOriginalName}${ext}`;
+    const key = `${Date.now()}-${finalFilename}`;
     const bucket = file.mimetype.startsWith('image/') ? 'users' : 'documents';
 
     const fileUrl = await minioService.uploadFile(

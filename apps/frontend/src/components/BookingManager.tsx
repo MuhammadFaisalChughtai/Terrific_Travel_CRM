@@ -252,6 +252,49 @@ export default function BookingManager({
   const [editingAdditional, setEditingAdditional] = useState<any | null>(null);
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
 
+  const isAdmin =
+    user?.roles?.some((r: string) =>
+      ["ADMIN", "SUPER_ADMIN", "MANAGER"].includes(r.toUpperCase()),
+    ) || false;
+
+  const handleDeleteTransaction = async (txId: string, amount: number) => {
+    if (!booking) return;
+
+    if (!isAdmin) {
+      toast.error("Only Admins are authorized to delete transaction history.");
+      return;
+    }
+
+    if (
+      !window.confirm(
+        `Are you sure you want to delete this payment transaction of ${formatCurrency(
+          Math.abs(amount),
+        )}? This will remove the record and update financial balances everywhere.`,
+      )
+    ) {
+      return;
+    }
+
+    const toastId = toast.loading("Deleting transaction...");
+    try {
+      await apiClient.delete(`/bookings/${booking.id}/transactions/${txId}`);
+      toast.success(
+        "Transaction deleted successfully and financial balances updated!",
+        { id: toastId },
+      );
+      queryClient.invalidateQueries({ queryKey: ["booking", booking.id] });
+      queryClient.invalidateQueries({ queryKey: ["bookings"] });
+      queryClient.invalidateQueries({ queryKey: ["financials"] });
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["ledgers"] });
+    } catch (err: any) {
+      toast.error(
+        err?.response?.data?.message || "Failed to delete transaction",
+        { id: toastId },
+      );
+    }
+  };
+
   const handleDeletePassenger = async (passengerId: string) => {
     if (!booking) return;
     const passenger = booking.passengers?.find(
@@ -1410,6 +1453,9 @@ export default function BookingManager({
                       <th className="px-4 py-2">Method</th>
                       <th className="px-4 py-2 text-right">Amount</th>
                       <th className="px-4 py-2">Notes</th>
+                      {isAdmin && (
+                        <th className="px-4 py-2 text-center w-10">Actions</th>
+                      )}
                     </tr>
                   </thead>
                   <tbody className="text-foreground divide-y divide-border">
@@ -1420,7 +1466,7 @@ export default function BookingManager({
                         return (
                           <tr>
                             <td
-                              colSpan={4}
+                              colSpan={isAdmin ? 5 : 4}
                               className="text-center py-4 text-muted-foreground italic text-[12px]"
                             >
                               No transactions recorded.
@@ -1520,6 +1566,21 @@ export default function BookingManager({
                               );
                             })()}
                           </td>
+                          {isAdmin && (
+                            <td className="px-4 py-2 text-center">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteTransaction(tx.id, tx.amount);
+                                }}
+                                className="p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded transition-colors"
+                                title="Delete Transaction (Admin Only)"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </td>
+                          )}
                         </tr>
                       ));
                     })()}
