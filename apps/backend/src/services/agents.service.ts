@@ -70,6 +70,9 @@ export class AgentsService {
           client: data.client,
           pcc: data.pcc,
           jobStatus: data.jobStatus || 'Active',
+          shiftStartTime: data.shiftStartTime || '09:00',
+          shiftEndTime: data.shiftEndTime || '17:00',
+          gracePeriodMinutes: data.gracePeriodMinutes !== undefined ? Number(data.gracePeriodMinutes) : 15,
           passwordHash,
           walletBalance: 0.0, // Initial wallet balance defaults to 0.0, non-editable
           slabs: {
@@ -111,6 +114,9 @@ export class AgentsService {
       client: data.client,
       pcc: data.pcc,
       jobStatus: data.jobStatus,
+      shiftStartTime: data.shiftStartTime || undefined,
+      shiftEndTime: data.shiftEndTime || undefined,
+      gracePeriodMinutes: data.gracePeriodMinutes !== undefined ? Number(data.gracePeriodMinutes) : undefined,
     };
 
     if (data.password) {

@@ -45,10 +45,19 @@ export class AttendanceService {
     const today = new Date(now);
     today.setUTCHours(0, 0, 0, 0);
 
-    // Shift start time rule: 09:00 AM (or configurable), 15 min grace period (09:15 AM)
+    // Agent specific shift start time and grace period
+    const agentObj = user.agent;
+    const shiftTimeStr = agentObj?.shiftStartTime || "09:00";
+    const graceMins = agentObj?.gracePeriodMinutes ?? 15;
+
+    const [startHourStr, startMinStr] = shiftTimeStr.split(":");
+    const startHour = parseInt(startHourStr || "9", 10);
+    const startMin = parseInt(startMinStr || "0", 10);
+
     const shiftStart = new Date(now);
-    shiftStart.setHours(9, 0, 0, 0);
-    const graceCutoff = new Date(shiftStart.getTime() + 15 * 60 * 1000);
+    shiftStart.setHours(startHour, startMin, 0, 0);
+
+    const graceCutoff = new Date(shiftStart.getTime() + graceMins * 60 * 1000);
 
     let isLate = false;
     let lateMinutes = 0;
@@ -57,6 +66,12 @@ export class AttendanceService {
       isLate = true;
       lateMinutes = Math.floor((now.getTime() - shiftStart.getTime()) / (1000 * 60));
     }
+
+    const formattedShiftStart = shiftStart.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
 
     const existingRecord = await prisma.attendance.findUnique({
       where: {
@@ -93,22 +108,6 @@ export class AttendanceService {
           lateMinutes
         }
       });
-    }
-
-    // If check-in was late, auto-generate Late Arrival Fine (£10.00)
-    if (isLate) {
-      const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-      const { fineService } = require('./fine.service');
-      fineService
-        .issueFine({
-          agentId,
-          fineType: 'LATE_ARRIVAL',
-          amount: 10.0,
-          reason: `Late check-in at ${timeStr} (${lateMinutes} mins past 09:00 AM shift start)`,
-          date: today,
-          attendanceId: record.id
-        })
-        .catch((err: any) => console.error('Error auto-generating late fine:', err));
     }
 
     return record;

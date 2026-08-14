@@ -25,7 +25,7 @@ export const startAttendanceCron = () => {
 
         if (!record) {
           // Agent forgot to check in at all
-          const created = await prisma.attendance.create({
+          await prisma.attendance.create({
             data: {
               agentId: agent.id,
               date: today,
@@ -33,19 +33,6 @@ export const startAttendanceCron = () => {
             }
           });
           logger.info(`Marked agent ${agent.id} as ABSENT (No check-in)`);
-
-          // Auto-issue ABSENCE Fine (£25.00)
-          const { fineService } = require('../services/fine.service');
-          fineService
-            .issueFine({
-              agentId: agent.id,
-              fineType: 'ABSENCE',
-              amount: 25.0,
-              reason: 'Unexcused missing check-in for scheduled shift',
-              date: today,
-              attendanceId: created.id
-            })
-            .catch((err: any) => logger.error(`Error issuing absence fine for agent ${agent.id}:`, err));
         } else if (record.checkInTime && !record.checkOutTime) {
           // Agent checked in but forgot to check out
           await prisma.attendance.update({

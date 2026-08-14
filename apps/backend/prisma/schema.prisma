@@ -438,10 +438,13 @@ model Agent {
   gdsSystem     String
   client        String
   pcc           String
-  jobStatus     String      @default("Active")
-  passwordHash  String
-  walletBalance Float       @default(0.0)
-  createdAt     DateTime    @default(now())
+  jobStatus          String      @default("Active")
+  passwordHash       String
+  walletBalance      Float       @default(0.0)
+  shiftStartTime     String      @default("09:00")
+  shiftEndTime       String      @default("17:00")
+  gracePeriodMinutes Int         @default(15)
+  createdAt          DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   slabs         AgentSlab[]
   bookings      Booking[]

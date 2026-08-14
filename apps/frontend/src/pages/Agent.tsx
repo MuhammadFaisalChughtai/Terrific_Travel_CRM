@@ -20,6 +20,7 @@ import {
   Briefcase,
   BarChart3,
   BadgeDollarSign,
+  Clock,
 } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -60,6 +61,9 @@ interface Agent {
   pcc: string;
   jobStatus: "Active" | "Inactive";
   walletBalance: number;
+  shiftStartTime?: string;
+  shiftEndTime?: string;
+  gracePeriodMinutes?: number;
   createdAt: string;
   slabs: Slab[];
 }
@@ -115,6 +119,9 @@ export default function AgentPage() {
   const [pcc, setPcc] = useState("");
   const [jobStatus, setJobStatus] = useState<"Active" | "Inactive">("Active");
   const [walletBalance, setWalletBalance] = useState(0);
+  const [shiftStartTime, setShiftStartTime] = useState("09:00");
+  const [shiftEndTime, setShiftEndTime] = useState("17:00");
+  const [gracePeriodMinutes, setGracePeriodMinutes] = useState(15);
   const [slabs, setSlabs] = useState<
     Array<{
       minSales: number | "";
@@ -195,6 +202,9 @@ export default function AgentPage() {
     setPcc("");
     setJobStatus("Active");
     setWalletBalance(0);
+    setShiftStartTime("09:00");
+    setShiftEndTime("17:00");
+    setGracePeriodMinutes(15);
     setSlabs(DEFAULT_SLABS_INIT);
     setErrors({});
     setIsFormModalOpen(true);
@@ -211,6 +221,9 @@ export default function AgentPage() {
     setPcc(agent.pcc);
     setJobStatus(agent.jobStatus);
     setWalletBalance(agent.walletBalance || 0);
+    setShiftStartTime(agent.shiftStartTime || "09:00");
+    setShiftEndTime(agent.shiftEndTime || "17:00");
+    setGracePeriodMinutes(agent.gracePeriodMinutes ?? 15);
     setSlabs(
       agent.slabs
         ? agent.slabs.map((s) => ({
@@ -300,6 +313,9 @@ export default function AgentPage() {
 
     const payload = {
       ...basicData,
+      shiftStartTime,
+      shiftEndTime,
+      gracePeriodMinutes: Number(gracePeriodMinutes) || 15,
       slabs: validatedSlabs,
     };
 
@@ -410,6 +426,10 @@ export default function AgentPage() {
                         <div className="space-y-0.5">
                           <p className="font-medium text-foreground/90">
                             {agent.email}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                            <Clock size={10} className="text-primary shrink-0" />
+                            <span>{agent.shiftStartTime || "09:00"} - {agent.shiftEndTime || "17:00"} (+{agent.gracePeriodMinutes ?? 15}m grace)</span>
                           </p>
                           <p className="text-[10px] text-muted-foreground">
                             {agent.phoneNumber}
@@ -671,6 +691,44 @@ export default function AgentPage() {
                     <option value="Active">Active</option>
                     <option value="Inactive">Inactive</option>
                   </select>
+                </div>
+              </div>
+
+              {/* ── Shift Schedule & Grace Period ── */}
+              <div className="pt-2 border-t border-border/60">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <Clock size={12} className="text-primary" /> Shift Schedule &amp; Grace Period
+                </p>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-[11px] font-medium text-foreground mb-1 block">Shift Start</label>
+                    <input
+                      type="time"
+                      value={shiftStartTime}
+                      onChange={(e) => setShiftStartTime(e.target.value)}
+                      className={fieldCls}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-medium text-foreground mb-1 block">Shift End</label>
+                    <input
+                      type="time"
+                      value={shiftEndTime}
+                      onChange={(e) => setShiftEndTime(e.target.value)}
+                      className={fieldCls}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-medium text-foreground mb-1 block">Grace Mins</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={120}
+                      value={gracePeriodMinutes}
+                      onChange={(e) => setGracePeriodMinutes(Number(e.target.value))}
+                      className={fieldCls}
+                    />
+                  </div>
                 </div>
               </div>
 

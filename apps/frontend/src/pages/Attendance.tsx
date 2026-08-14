@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, differenceInMinutes } from "date-fns";
 import { useAuthStore } from "../store/auth.store";
 import { apiClient } from "../api/client";
-import { LogIn, LogOut, CheckCircle2, XCircle, Clock, Filter, Users, Loader2, Edit, AlertCircle, ShieldAlert, ShieldCheck, Plus, Check, Gift, Award } from "lucide-react";
+import { LogIn, LogOut, CheckCircle2, XCircle, Clock, Filter, Users, Loader2, Edit, AlertCircle, ShieldAlert, ShieldCheck, Plus, Check, Gift, Award, Calendar } from "lucide-react";
 import { toast } from "sonner";
 import Modal from "../components/Modal";
 import EditAttendanceModal from "../components/EditAttendanceModal";
@@ -823,6 +823,53 @@ export default function Attendance() {
             </button>
           </div>
 
+          {/* Filter Toolbar for Fines */}
+          <div className="flex flex-wrap items-center gap-4 bg-card border border-border p-3.5 rounded-xl shadow-sm">
+            <div className="flex items-center gap-2">
+              <Users size={14} className="text-muted-foreground shrink-0" />
+              <span className="text-xs font-bold text-muted-foreground">Staff Member:</span>
+              <select
+                value={filters.agentId}
+                onChange={(e) => setFilters((prev) => ({ ...prev, agentId: e.target.value }))}
+                className="bg-background border border-border rounded-lg px-3 py-1.5 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-primary"
+              >
+                <option value="all">All Agents &amp; Staff</option>
+                {agents?.map((a: any) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name} ({a.email})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Calendar size={14} className="text-muted-foreground shrink-0" />
+              <span className="text-xs font-bold text-muted-foreground">From:</span>
+              <input
+                type="date"
+                value={filters.fromDate}
+                onChange={(e) => setFilters((prev) => ({ ...prev, fromDate: e.target.value }))}
+                className="bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+              <span className="text-xs font-bold text-muted-foreground">To:</span>
+              <input
+                type="date"
+                value={filters.toDate}
+                onChange={(e) => setFilters((prev) => ({ ...prev, toDate: e.target.value }))}
+                className="bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+
+            {(filters.agentId !== "all" || filters.fromDate !== "" || filters.toDate !== "") && (
+              <button
+                onClick={() => setFilters({ agentId: "all", fromDate: "", toDate: "", status: "all" })}
+                className="px-3 py-1.5 bg-secondary text-foreground text-xs font-bold rounded-lg hover:bg-secondary/80 transition-colors"
+              >
+                Reset Filters
+              </button>
+            )}
+          </div>
+
           <div className="grid grid-cols-4 gap-4">
             <div className="bg-card border border-border p-4 rounded-xl space-y-1">
               <p className="text-xs font-bold text-muted-foreground uppercase">Total Fines Issued</p>
@@ -968,6 +1015,53 @@ export default function Attendance() {
             >
               <Plus size={14} /> Award Staff Bonus
             </button>
+          </div>
+
+          {/* Filter Toolbar for Bonuses */}
+          <div className="flex flex-wrap items-center gap-4 bg-card border border-border p-3.5 rounded-xl shadow-sm">
+            <div className="flex items-center gap-2">
+              <Users size={14} className="text-muted-foreground shrink-0" />
+              <span className="text-xs font-bold text-muted-foreground">Staff Member:</span>
+              <select
+                value={filters.agentId}
+                onChange={(e) => setFilters((prev) => ({ ...prev, agentId: e.target.value }))}
+                className="bg-background border border-border rounded-lg px-3 py-1.5 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-primary"
+              >
+                <option value="all">All Agents &amp; Staff</option>
+                {agents?.map((a: any) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name} ({a.email})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Calendar size={14} className="text-muted-foreground shrink-0" />
+              <span className="text-xs font-bold text-muted-foreground">From:</span>
+              <input
+                type="date"
+                value={filters.fromDate}
+                onChange={(e) => setFilters((prev) => ({ ...prev, fromDate: e.target.value }))}
+                className="bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+              <span className="text-xs font-bold text-muted-foreground">To:</span>
+              <input
+                type="date"
+                value={filters.toDate}
+                onChange={(e) => setFilters((prev) => ({ ...prev, toDate: e.target.value }))}
+                className="bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+
+            {(filters.agentId !== "all" || filters.fromDate !== "" || filters.toDate !== "") && (
+              <button
+                onClick={() => setFilters({ agentId: "all", fromDate: "", toDate: "", status: "all" })}
+                className="px-3 py-1.5 bg-secondary text-foreground text-xs font-bold rounded-lg hover:bg-secondary/80 transition-colors"
+              >
+                Reset Filters
+              </button>
+            )}
           </div>
 
           {/* Bonus Cards */}
