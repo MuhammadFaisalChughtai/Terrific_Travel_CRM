@@ -253,9 +253,10 @@ export default function BookingManager({
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
 
   const isAdmin =
-    user?.roles?.some((r: string) =>
-      ["ADMIN", "SUPER_ADMIN", "MANAGER"].includes(r.toUpperCase()),
-    ) || false;
+    user?.roles?.some((r: string) => {
+      const normalized = String(r).toUpperCase().replace(/[\s_-]+/g, "");
+      return ["ADMIN", "SUPERADMIN", "MANAGER", "BRANCHMANAGER", "ADMINISTRATOR"].includes(normalized);
+    }) || false;
 
   const handleDeleteTransaction = async (txId: string, amount: number) => {
     if (!booking) return;
