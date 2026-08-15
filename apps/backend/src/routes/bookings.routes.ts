@@ -43,8 +43,9 @@ router.patch('/:id/status', requireBookingOwnership as any, updateStatus);
 router.patch('/:id/lock', requireRoles('Admin', 'Manager') as any, toggleLock);
 router.patch('/:id/finalize-margin', requireRoles('Admin') as any, finalizeMargin);
 
-// Booking segments edits require ownership
-router.delete('/:id/vendor-payments/:paymentId', requireRoles('SUPER_ADMIN', 'ADMIN') as any, deleteVendorPayment);
+// Booking segments & transaction edits require admin/ownership
+router.delete('/:id/vendor-payments/:paymentId', requireRoles('SUPER_ADMIN', 'ADMIN', 'Super Admin', 'Admin') as any, deleteVendorPayment);
+router.delete('/:id/transactions/:transactionId', requireRoles('SUPER_ADMIN', 'ADMIN', 'Super Admin', 'Admin', 'Manager') as any, deleteTransaction);
 
 router.post('/:id/flights', requireBookingOwnership as any, addFlightService);
 router.patch('/:id/flights/:flightServiceId', requireBookingOwnership as any, updateFlightService);
