@@ -582,18 +582,6 @@ export class VendorsService {
             }
           });
 
-          await tx.bookingTransaction.create({
-            data: {
-              bookingId: ob.bookingId,
-              amount: totalAllocated,
-              paymentMethod: paymentMethod,
-              notes: `Vendor Payment (Ref: ${referenceNumber}). Allocated amount: £${totalAllocated.toFixed(2)}.` + 
-                     (receiptUrl ? ` Receipt: ${receiptUrl}.` : '') + 
-                     (notes ? ` Notes: ${notes}` : ''),
-              ...(txDate ? { paidOn: txDate } : {}),
-            }
-          });
-
           // Create allocation
           await tx.vendorPaymentAllocation.create({
             data: {

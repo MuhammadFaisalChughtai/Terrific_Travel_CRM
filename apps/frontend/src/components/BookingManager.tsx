@@ -1461,7 +1461,9 @@ export default function BookingManager({
                   </thead>
                   <tbody className="text-foreground divide-y divide-border">
                     {(() => {
-                      const allTransactions = booking.transactions || [];
+                      const allTransactions = (booking.transactions || []).filter(
+                        (tx: any) => !tx.notes?.startsWith("Vendor Payment (Ref:")
+                      );
 
                       if (allTransactions.length === 0) {
                         return (
