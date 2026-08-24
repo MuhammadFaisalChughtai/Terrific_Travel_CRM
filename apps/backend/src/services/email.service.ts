@@ -776,6 +776,105 @@ export class EmailService {
       return { success: false, error };
     }
   }
+
+  async sendLeadFollowUpReminderEmail(params: {
+    agentEmail: string;
+    agentName: string;
+    leadName: string;
+    phoneNumber: string;
+    scheduledAt: Date;
+    notes?: string | null;
+    leadId: string;
+  }) {
+    const { agentEmail, agentName, leadName, phoneNumber, scheduledAt, notes } = params;
+
+    const formattedTime = scheduledAt.toLocaleString("en-GB", {
+      dateStyle: "full",
+      timeStyle: "short",
+    });
+
+    const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f4f6f8; margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .header { background: linear-gradient(135deg, #f97316, #ea580c); padding: 28px; text-align: center; color: #ffffff; }
+        .header h1 { margin: 0; font-size: 22px; font-weight: 700; }
+        .header p { margin: 6px 0 0 0; font-size: 13px; opacity: 0.9; }
+        .body { padding: 30px; }
+        .badge { display: inline-block; background-color: #ffedd5; color: #c2410c; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 700; text-transform: uppercase; margin-bottom: 20px; }
+        .card { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 18px; margin-bottom: 20px; }
+        .field { margin-bottom: 12px; }
+        .field:last-child { margin-bottom: 0; }
+        .label { font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 700; margin-bottom: 2px; }
+        .value { font-size: 15px; color: #0f172a; font-weight: 600; }
+        .btn { display: inline-block; background-color: #ea580c; color: #ffffff !important; padding: 12px 24px; border-radius: 8px; font-weight: 700; font-size: 14px; text-decoration: none; margin-top: 10px; }
+        .footer { text-align: center; padding: 20px; font-size: 12px; color: #94a3b8; border-top: 1px solid #f1f5f9; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Pending Lead Follow-Up Reminder</h1>
+          <p>Terrific Travel CRM Notification</p>
+        </div>
+        <div class="body">
+          <div class="badge">⏰ Follow-up Due Now</div>
+          <p>Hi <strong>${agentName}</strong>,</p>
+          <p>This is a single reminder for your scheduled lead follow-up action due at <strong>${formattedTime}</strong>.</p>
+          
+          <div class="card">
+            <div class="field">
+              <div class="label">Lead Name</div>
+              <div class="value">${leadName}</div>
+            </div>
+            <div class="field">
+              <div class="label">Phone Number</div>
+              <div class="value">${phoneNumber}</div>
+            </div>
+            <div class="field">
+              <div class="label">Scheduled Date & Time</div>
+              <div class="value">${formattedTime}</div>
+            </div>
+            ${notes ? `
+            <div class="field">
+              <div class="label">Activity / Follow-up Notes</div>
+              <div class="value" style="font-size:13px; font-weight:400; color:#334155;">${notes}</div>
+            </div>
+            ` : ''}
+          </div>
+
+          <p style="font-size:13px; color:#475569;">Please contact the client and update their lead status in the CRM.</p>
+          <div style="text-align: center;">
+            <a href="${config.frontendUrl}/leads" class="btn">Open Leads Console</a>
+          </div>
+        </div>
+        <div class="footer">
+          Terrific Travel TMS &copy; ${new Date().getFullYear()} • Automated Notification System
+        </div>
+      </div>
+    </body>
+    </html>
+    `;
+
+    try {
+      if (!agentEmail || !agentEmail.includes('@')) return { success: false, reason: 'Invalid agent email' };
+      await this.transporter.sendMail({
+        from: `"${config.smtp.from.split('@')[0].replace('-', ' ')}" <${config.smtp.from}>`,
+        to: agentEmail,
+        subject: `[Follow-Up Reminder] Pending Lead: ${leadName}`,
+        html: htmlContent,
+      });
+      logger.info(`Sent lead follow-up reminder email to ${agentEmail} for lead ${leadName}`);
+      return { success: true };
+    } catch (error) {
+      logger.error(`Failed to send follow-up reminder email for lead ${leadName} to ${agentEmail}`, error);
+      return { success: false, error };
+    }
+  }
 }
 
 export const emailService = new EmailService();

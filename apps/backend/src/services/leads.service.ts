@@ -212,9 +212,12 @@ export class LeadsService {
       }
     }
 
+    const isFollowUp = status === LeadStatus.FOLLOW_UP || status === LeadStatus.CALL_BACK;
+    const nextFollowUpAt = isFollowUp && data.nextFollowUpAt ? new Date(data.nextFollowUpAt) : null;
+
     const initialNote = data.notes && data.notes.trim() !== ''
-      ? `Lead created with status: ${status}. Initial Note: "${data.notes.trim()}"`
-      : `Lead created with status: ${status}.`;
+      ? `Lead created with status: ${status}. Initial Note: "${data.notes.trim()}"` + (nextFollowUpAt ? ` (Follow-up scheduled for ${nextFollowUpAt.toLocaleString("en-GB")})` : '')
+      : `Lead created with status: ${status}.` + (nextFollowUpAt ? ` (Follow-up scheduled for ${nextFollowUpAt.toLocaleString("en-GB")})` : '');
 
     const lead = await prisma.lead.create({
       data: {
@@ -223,6 +226,8 @@ export class LeadsService {
         notes: data.notes ? data.notes.trim() : null,
         status,
         assignedAgentId: data.assignedAgentId && data.assignedAgentId.trim() ? data.assignedAgentId.trim() : null,
+        nextFollowUpAt,
+        followUpReminderSent: false,
         createdById: currentUserId || null,
         updatedById: currentUserId || null,
         statusLogs: {
@@ -280,6 +285,21 @@ export class LeadsService {
         changes.push(`Status changed from ${existing.status} to ${statusUpper}`);
         updateData.status = statusUpper as LeadStatus;
       }
+    }
+
+    const targetStatus = updateData.status || existing.status;
+    const isFollowUpStatus = targetStatus === LeadStatus.FOLLOW_UP || targetStatus === LeadStatus.CALL_BACK;
+
+    if (isFollowUpStatus) {
+      if (data.nextFollowUpAt) {
+        const parsedDate = new Date(data.nextFollowUpAt);
+        updateData.nextFollowUpAt = parsedDate;
+        updateData.followUpReminderSent = false;
+        changes.push(`Follow-up scheduled for ${parsedDate.toLocaleString("en-GB")}`);
+      }
+    } else {
+      updateData.nextFollowUpAt = null;
+      updateData.followUpReminderSent = false;
     }
 
     const newAgentId = data.assignedAgentId && data.assignedAgentId.trim() !== "UNASSIGNED" ? data.assignedAgentId.trim() : null;

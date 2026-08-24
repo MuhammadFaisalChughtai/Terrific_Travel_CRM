@@ -10,6 +10,7 @@ import mainRouter from './routes';
 import { errorHandler } from './middleware/error.middleware';
 import { startAttendanceCron } from './cron/attendance.cron';
 import { startMissingDetailsReminderCron } from './cron/missing-details-reminder.cron';
+import { startLeadFollowUpReminderCron } from './cron/lead-followup-reminder.cron';
 
 async function bootstrap() {
   const app = express();
@@ -91,6 +92,7 @@ async function bootstrap() {
   // Start cron jobs
   startAttendanceCron();
   startMissingDetailsReminderCron();
+  startLeadFollowUpReminderCron();
 
   app.listen(config.port, () => {
     logger.info(`Express server listening on port ${config.port}`);

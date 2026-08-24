@@ -130,6 +130,8 @@ model Lead {
   status          LeadStatus  @default(NEW)
   assignedAgentId String?
   assignedAgent   User?       @relation("AssignedLeads", fields: [assignedAgentId], references: [id], onDelete: SetNull)
+  nextFollowUpAt       DateTime?
+  followUpReminderSent Boolean         @default(false)
   createdById     String?
   createdBy       User?       @relation("CreatedLeads", fields: [createdById], references: [id], onDelete: SetNull)
   updatedById     String?
@@ -142,6 +144,7 @@ model Lead {
   @@index([phoneNumber])
   @@index([assignedAgentId])
   @@index([status])
+  @@index([nextFollowUpAt, followUpReminderSent])
 }
 
 model LeadStatusLog {

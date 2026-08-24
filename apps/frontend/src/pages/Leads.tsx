@@ -88,6 +88,8 @@ export interface Lead {
     | "NO_RESPONSE";
   assignedAgentId?: string | null;
   assignedAgent?: LeadUser | null;
+  nextFollowUpAt?: string | null;
+  followUpReminderSent?: boolean;
   createdById?: string | null;
   createdBy?: LeadUser | null;
   updatedById?: string | null;
@@ -331,17 +333,38 @@ export default function LeadsPage() {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
 
   // Form states
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    fullName: string;
+    phoneNumber: string;
+    assignedAgentId: string;
+    status: string;
+    notes: string;
+    nextFollowUpAt: string;
+  }>({
     fullName: "",
     phoneNumber: "",
     assignedAgentId: "",
     status: "NEW",
     notes: "",
+    nextFollowUpAt: "",
   });
   const [formErrors, setFormErrors] = useState<{
     fullName?: string;
     phoneNumber?: string;
+    nextFollowUpAt?: string;
   }>({});
+
+  const formatDateTimeLocal = (dateStr?: string | null) => {
+    if (!dateStr) return "";
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return "";
+      const pad = (n: number) => n.toString().padStart(2, "0");
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    } catch {
+      return "";
+    }
+  };
 
   const resetForm = () => {
     setFormData({
@@ -350,6 +373,7 @@ export default function LeadsPage() {
       assignedAgentId: "",
       status: "NEW",
       notes: "",
+      nextFollowUpAt: "",
     });
     setFormErrors({});
   };
@@ -371,6 +395,7 @@ export default function LeadsPage() {
       assignedAgentId: lead.assignedAgentId || "",
       status: lead.status || "NEW",
       notes: lead.notes || "",
+      nextFollowUpAt: formatDateTimeLocal(lead.nextFollowUpAt),
     });
     setFormErrors({});
     setIsEditModalOpen(true);
@@ -393,12 +418,18 @@ export default function LeadsPage() {
 
   // Validation
   const validateForm = () => {
-    const errors: { fullName?: string; phoneNumber?: string } = {};
+    const errors: { fullName?: string; phoneNumber?: string; nextFollowUpAt?: string } = {};
     if (!formData.fullName.trim()) {
       errors.fullName = "Lead Full Name is required";
     }
     if (!formData.phoneNumber.trim()) {
       errors.phoneNumber = "Phone Number is required";
+    }
+    if (
+      (formData.status === "FOLLOW_UP" || formData.status === "CALL_BACK") &&
+      !formData.nextFollowUpAt
+    ) {
+      errors.nextFollowUpAt = "Please select a scheduled date and time for the follow-up.";
     }
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
@@ -848,11 +879,24 @@ export default function LeadsPage() {
 
                       {/* Status */}
                       <td className="py-3.5 px-4">
-                        <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusConf.bg} ${statusConf.text} ${statusConf.border}`}
-                        >
-                          {statusConf.label}
-                        </span>
+                        <div className="flex flex-col gap-1 items-start">
+                          <span
+                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusConf.bg} ${statusConf.text} ${statusConf.border}`}
+                          >
+                            {statusConf.label}
+                          </span>
+                          {lead.nextFollowUpAt && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-md whitespace-nowrap">
+                              <Clock size={10} />
+                              {new Date(lead.nextFollowUpAt).toLocaleString("en-GB", {
+                                month: "short",
+                                day: "2-digit",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       {/* Assigned Agent */}
@@ -1148,6 +1192,35 @@ export default function LeadsPage() {
               </div>
             </div>
 
+            {(formData.status === "FOLLOW_UP" ||
+              formData.status === "CALL_BACK") && (
+              <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg space-y-1.5">
+                <label className="block text-xs font-bold text-amber-700 dark:text-amber-300">
+                  Follow-up Scheduled Date &amp; Time <span className="text-destructive">*</span>
+                </label>
+                <input
+                  type="datetime-local"
+                  value={formData.nextFollowUpAt}
+                  onChange={(e) =>
+                    setFormData({ ...formData, nextFollowUpAt: e.target.value })
+                  }
+                  className={`w-full px-3 py-2 bg-background border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 ${
+                    formErrors.nextFollowUpAt
+                      ? "border-destructive focus:ring-destructive/50"
+                      : "border-border focus:ring-amber-500/50"
+                  }`}
+                />
+                {formErrors.nextFollowUpAt && (
+                  <p className="text-xs text-destructive font-medium">
+                    {formErrors.nextFollowUpAt}
+                  </p>
+                )}
+                <p className="text-[11px] text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1">
+                  <span>⏰</span> System will send an email reminder to the assigned agent ONCE when this follow-up is due.
+                </p>
+              </div>
+            )}
+
             <div>
               <label className="block text-xs font-semibold text-foreground mb-1">
                 Initial Activity Note
@@ -1295,6 +1368,35 @@ export default function LeadsPage() {
                 </select>
               </div>
             </div>
+
+            {(formData.status === "FOLLOW_UP" ||
+              formData.status === "CALL_BACK") && (
+              <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg space-y-1.5">
+                <label className="block text-xs font-bold text-amber-700 dark:text-amber-300">
+                  Follow-up Scheduled Date &amp; Time <span className="text-destructive">*</span>
+                </label>
+                <input
+                  type="datetime-local"
+                  value={formData.nextFollowUpAt}
+                  onChange={(e) =>
+                    setFormData({ ...formData, nextFollowUpAt: e.target.value })
+                  }
+                  className={`w-full px-3 py-2 bg-background border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 ${
+                    formErrors.nextFollowUpAt
+                      ? "border-destructive focus:ring-destructive/50"
+                      : "border-border focus:ring-amber-500/50"
+                  }`}
+                />
+                {formErrors.nextFollowUpAt && (
+                  <p className="text-xs text-destructive font-medium">
+                    {formErrors.nextFollowUpAt}
+                  </p>
+                )}
+                <p className="text-[11px] text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1">
+                  <span>⏰</span> System will send an email reminder to the assigned agent ONCE when this follow-up is due.
+                </p>
+              </div>
+            )}
 
             <div>
               <label className="block text-xs font-semibold text-foreground mb-1">
