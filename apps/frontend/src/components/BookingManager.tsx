@@ -2133,26 +2133,56 @@ export default function BookingManager({
                         return (
                           <div key={pnrKey} className="space-y-2 border-b border-border/40 pb-3 last:border-0 last:pb-0">
                             {/* PNR Header */}
-                            <div className="flex flex-wrap items-center justify-between bg-secondary/30 px-3 py-1.5 rounded-lg border border-border/50 gap-2">
-                              <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1.5 flex-wrap">
-                                <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse flex-shrink-0"></span>
-                                {pnrKey === "No PNR Assigned" ? (
-                                  "No PNR Assigned"
-                                ) : (
-                                  <span className="flex flex-wrap items-center gap-1">
-                                    <span>PNR Journey:</span>
-                                    {pnrKey.split(/[,;\s]+/).map((pnrItem: string) => (
-                                      <strong key={pnrItem} className="text-foreground bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded font-mono font-bold text-[10px]">
-                                        {pnrItem}
-                                      </strong>
-                                    ))}
+                            {(() => {
+                              const extractCode = (str: string) => {
+                                if (!str) return "";
+                                const match = str.match(/\(([^)]+)\)/);
+                                return match ? match[1].toUpperCase() : str.trim().toUpperCase();
+                              };
+                              let groupRouteSummary = "";
+                              if (sortedFlights.length === 1) {
+                                const dep = extractCode(sortedFlights[0].departedFrom);
+                                const arr = extractCode(sortedFlights[0].arrivedAt);
+                                groupRouteSummary = dep && arr ? `${dep} → ${arr}` : "";
+                              } else if (sortedFlights.length > 1) {
+                                const points: string[] = [];
+                                sortedFlights.forEach((f: any, i: number) => {
+                                  const dep = extractCode(f.departedFrom);
+                                  const arr = extractCode(f.arrivedAt);
+                                  if (i === 0 && dep) points.push(dep);
+                                  if (arr) points.push(arr);
+                                });
+                                groupRouteSummary = points.join(" → ");
+                              }
+
+                              return (
+                                <div className="flex flex-wrap items-center justify-between bg-secondary/30 px-3 py-1.5 rounded-lg border border-border/50 gap-2">
+                                  <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1.5 flex-wrap">
+                                    <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse flex-shrink-0"></span>
+                                    {pnrKey === "No PNR Assigned" ? (
+                                      <span>No PNR Assigned {groupRouteSummary && `(${groupRouteSummary})`}</span>
+                                    ) : (
+                                      <span className="flex flex-wrap items-center gap-1">
+                                        <span>PNR Journey:</span>
+                                        {pnrKey.split(/[,;\s]+/).map((pnrItem: string) => (
+                                          <strong key={pnrItem} className="text-foreground bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded font-mono font-bold text-[10px]">
+                                            {pnrItem}
+                                          </strong>
+                                        ))}
+                                        {groupRouteSummary && (
+                                          <span className="text-muted-foreground font-semibold text-[10px] ml-1">
+                                            ({groupRouteSummary})
+                                          </span>
+                                        )}
+                                      </span>
+                                    )}
                                   </span>
-                                )}
-                              </span>
-                              <span className="text-[9px] bg-primary/10 text-primary px-2 py-0.5 rounded-md font-extrabold uppercase">
-                                {sortedFlights.length} {sortedFlights.length === 1 ? "segment" : "segments"}
-                              </span>
-                            </div>
+                                  <span className="text-[9px] bg-primary/10 text-primary px-2 py-0.5 rounded-md font-extrabold uppercase">
+                                    {sortedFlights.length} {sortedFlights.length === 1 ? "segment" : "segments"}
+                                  </span>
+                                </div>
+                              );
+                            })()}
 
                             {/* Group Segment Cards */}
                             <div className="space-y-2 pl-1">

@@ -18,6 +18,7 @@ import {
   Trash2,
 } from "lucide-react";
 import Tesseract from "tesseract.js";
+import { NationalitySelect } from "../components/NationalitySelect";
 
 function deriveAgeCategory(dob: string): string {
   if (!dob) return "";
@@ -1077,14 +1078,10 @@ export default function PassengerForm() {
                     </div>
                     <div>
                       <label className={lbl}>Nationality</label>
-                      <input
-                        type="text"
-                        value={activeP?.nationality}
-                        onChange={(e) =>
-                          handleFieldChange("nationality", e.target.value)
-                        }
+                      <NationalitySelect
+                        value={activeP?.nationality || ""}
+                        onChange={(val) => handleFieldChange("nationality", val)}
                         className={inp}
-                        placeholder="e.g. British"
                       />
                     </div>
                     <div>

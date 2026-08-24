@@ -1368,21 +1368,47 @@ function getPassengerPnr(passenger: any, flight: any): string {
         const map = JSON.parse(raw);
         const flightCarrier = (flight?.flightNo || "").substring(0, 2).toUpperCase();
         const flightAirlineName = getAirlineName(flight?.flightNo);
-        const flightPnr = flight?.pnr;
+        const flightPnr = (flight?.pnr || "").trim().toUpperCase();
+        const depCode = (flight?.departedFrom || "").match(/\(([^)]+)\)/)?.[1] || "";
+        const arrCode = (flight?.arrivedAt || "").match(/\(([^)]+)\)/)?.[1] || "";
+
+        let bestVal: any = null;
+        let highestScore = -1;
 
         for (const [key, val] of Object.entries(map)) {
           if (!val) continue;
-          const kLower = key.toLowerCase();
+          const kUpper = key.toUpperCase();
+          let score = 0;
+
+          // 1. PNR Match (+100)
+          if (flightPnr && flightPnr.length >= 2 && kUpper.includes(flightPnr)) {
+            score += 100;
+          }
+          // 2. Route Sector Match (+30)
+          if (depCode && arrCode && kUpper.includes(depCode.toUpperCase()) && kUpper.includes(arrCode.toUpperCase())) {
+            score += 30;
+          }
+          // 3. Airline / Carrier Match (+10)
           if (
-            kLower.includes(flightAirlineName.toLowerCase()) ||
-            (flightCarrier && kLower.includes(flightCarrier.toLowerCase())) ||
-            (flightPnr && kLower.includes(flightPnr.toLowerCase()))
+            (flightAirlineName && kUpper.includes(flightAirlineName.toUpperCase())) ||
+            (flightCarrier && kUpper.includes(flightCarrier))
           ) {
-            if (typeof val === "object" && val !== null && (val as any).pnr) {
-              return String((val as any).pnr);
-            }
+            score += 10;
+          }
+
+          if (score > highestScore && score > 0) {
+            highestScore = score;
+            bestVal = val;
           }
         }
+
+        if (bestVal) {
+          if (typeof bestVal === "object" && bestVal !== null && (bestVal as any).pnr) {
+            return String((bestVal as any).pnr);
+          }
+          if (typeof bestVal === "string") return bestVal;
+        }
+
         for (const val of Object.values(map)) {
           if (typeof val === "object" && val !== null && (val as any).pnr) {
             return String((val as any).pnr);
@@ -1409,22 +1435,44 @@ function getTicketNumber(
         const map = JSON.parse(raw);
         const flightCarrier = (flight?.flightNo || "").substring(0, 2).toUpperCase();
         const flightAirlineName = getAirlineName(flight?.flightNo);
-        const flightPnr = flight?.pnr;
+        const flightPnr = (flight?.pnr || "").trim().toUpperCase();
+        const depCode = (flight?.departedFrom || "").match(/\(([^)]+)\)/)?.[1] || "";
+        const arrCode = (flight?.arrivedAt || "").match(/\(([^)]+)\)/)?.[1] || "";
+
+        let bestVal: any = null;
+        let highestScore = -1;
 
         for (const [key, val] of Object.entries(map)) {
           if (!val) continue;
-          const kLower = key.toLowerCase();
+          const kUpper = key.toUpperCase();
+          let score = 0;
+
+          if (flightPnr && flightPnr.length >= 2 && kUpper.includes(flightPnr)) {
+            score += 100;
+          }
+          if (depCode && arrCode && kUpper.includes(depCode.toUpperCase()) && kUpper.includes(arrCode.toUpperCase())) {
+            score += 30;
+          }
           if (
-            kLower.includes(flightAirlineName.toLowerCase()) ||
-            (flightCarrier && kLower.includes(flightCarrier.toLowerCase())) ||
-            (flightPnr && kLower.includes(flightPnr.toLowerCase()))
+            (flightAirlineName && kUpper.includes(flightAirlineName.toUpperCase())) ||
+            (flightCarrier && kUpper.includes(flightCarrier))
           ) {
-            if (typeof val === "object" && val !== null) {
-              return String((val as any).eticket || "");
-            }
-            return String(val);
+            score += 10;
+          }
+
+          if (score > highestScore && score > 0) {
+            highestScore = score;
+            bestVal = val;
           }
         }
+
+        if (bestVal) {
+          if (typeof bestVal === "object" && bestVal !== null) {
+            return String((bestVal as any).eticket || "");
+          }
+          return String(bestVal);
+        }
+
         const firstVal = Object.values(map).find((v) => !!v);
         if (firstVal) {
           if (typeof firstVal === "object" && firstVal !== null) {

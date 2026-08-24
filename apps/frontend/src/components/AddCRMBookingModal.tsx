@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import Modal from "./Modal";
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "../api/client";
-import { Trash2, Plus } from "lucide-react";
+import { Trash2, Plus, RefreshCw } from "lucide-react";
 
 interface AddCRMBookingModalProps {
   isOpen: boolean;
@@ -474,6 +474,22 @@ export default function AddCRMBookingModal({
                         className="px-3 py-2 bg-background border border-border rounded-lg text-xs"
                       />
                     </div>
+                    {flightServices.length > 1 && (f.vendorId || f.pnr) && (
+                      <div className="pt-1 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = flightServices.map((item, i) =>
+                              i === idx ? item : { ...item, vendorId: f.vendorId, pnr: f.pnr }
+                            );
+                            setFlightServices(updated);
+                          }}
+                          className="text-[10px] text-primary font-bold hover:underline flex items-center gap-1 bg-primary/10 px-2 py-1 rounded"
+                        >
+                          <RefreshCw size={10} /> Apply Vendor &amp; PNR to all other legs
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

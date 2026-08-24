@@ -18,6 +18,7 @@ import {
   X,
 } from "lucide-react";
 import Tesseract from "tesseract.js";
+import { NationalitySelect } from "./NationalitySelect";
 
 interface PassengerModalProps {
   isOpen: boolean;
@@ -502,41 +503,106 @@ export default function PassengerModal({
     enabled: isOpen && !!bookingId,
   });
 
-  const availableAirlines = useMemo(() => {
+  interface SectorBindingItem {
+    key: string;
+    airlineName: string;
+    pnr: string;
+    routeSummary: string;
+  }
+
+  const availableSectors = useMemo<SectorBindingItem[]>(() => {
     if (!bookingData?.flightServices || bookingData.flightServices.length === 0) {
       return [];
     }
-    const set = new Set<string>();
-    bookingData.flightServices.forEach((fs: any) => {
+
+    const airlinesDict: Record<string, string> = {
+      TK: "Turkish Airlines",
+      SV: "Saudi Arabian Airlines",
+      EK: "Emirates",
+      QR: "Qatar Airways",
+      EY: "Etihad Airways",
+      WY: "Oman Air",
+      GF: "Gulf Air",
+      BA: "British Airways",
+      KU: "Kuwait Airways",
+      MS: "EgyptAir",
+      PK: "Pakistan International Airlines",
+      AI: "Air India",
+      FZ: "Flydubai",
+      G9: "Air Arabia",
+      XY: "Flynas",
+      PA: "Airblue",
+      ER: "Serene Air",
+      NL: "Shaheen Air",
+      PC: "Pegasus Airlines",
+      BG: "Biman Bangladesh Airlines",
+      J9: "Jazeera Airways",
+    };
+
+    const extractCode = (str?: string) => {
+      if (!str) return "";
+      const match = str.match(/\(([^)]+)\)/);
+      return match ? match[1].toUpperCase() : str.trim().toUpperCase();
+    };
+
+    // Group flights by airline + PNR (or sector route if PNR is absent)
+    const groups: { [groupKey: string]: any[] } = {};
+    bookingData.flightServices.forEach((fs: any, idx: number) => {
       const flightCode = fs.flightNo ? fs.flightNo.trim().substring(0, 2).toUpperCase() : "";
-      const airlinesDict: Record<string, string> = {
-        TK: "Turkish Airlines",
-        SV: "Saudi Arabian Airlines",
-        EK: "Emirates",
-        QR: "Qatar Airways",
-        EY: "Etihad Airways",
-        WY: "Oman Air",
-        GF: "Gulf Air",
-        BA: "British Airways",
-        KU: "Kuwait Airways",
-        MS: "EgyptAir",
-        PK: "Pakistan International Airlines",
-        AI: "Air India",
-        FZ: "Flydubai",
-        G9: "Air Arabia",
-        XY: "Flynas",
-        PA: "Airblue",
-        ER: "Serene Air",
-        NL: "Shaheen Air",
-        PC: "Pegasus Airlines",
-        BG: "Biman Bangladesh Airlines",
-        J9: "Jazeera Airways",
-      };
-      const name = airlinesDict[flightCode] || (flightCode ? `${flightCode} Air` : "Airline Partner");
-      if (name) set.add(name);
+      const airlineName = airlinesDict[flightCode] || (flightCode ? `${flightCode} Air` : "Airline Partner");
+      const rawPnr = (fs.pnr || "").trim().toUpperCase();
+      const pnrKey = rawPnr && rawPnr !== "PENDING" && rawPnr !== "N/A" ? rawPnr : "";
+
+      const groupKey = pnrKey ? `${airlineName}___${pnrKey}` : `${airlineName}___SEC_${idx}`;
+      if (!groups[groupKey]) groups[groupKey] = [];
+      groups[groupKey].push({ ...fs, airlineName, pnrKey });
     });
-    return Array.from(set);
+
+    const totalGroups = Object.keys(groups).length;
+
+    return Object.entries(groups).map(([_, flights]) => {
+      const first = flights[0];
+      const airlineName = first.airlineName;
+      const pnr = first.pnrKey;
+
+      let routeSummary = "";
+      if (flights.length === 1) {
+        const dep = extractCode(first.departedFrom);
+        const arr = extractCode(first.arrivedAt);
+        routeSummary = dep && arr ? `${dep} → ${arr}` : (first.departedFrom || first.arrivedAt || "Route");
+      } else {
+        const points: string[] = [];
+        flights.forEach((f: any, i: number) => {
+          const dep = extractCode(f.departedFrom);
+          const arr = extractCode(f.arrivedAt);
+          if (i === 0 && dep) points.push(dep);
+          if (arr) points.push(arr);
+        });
+        routeSummary = points.join(" → ");
+      }
+
+      let key = airlineName;
+      const sameAirlineCount = Object.keys(groups).filter((k) => k.startsWith(`${airlineName}___`)).length;
+      if (sameAirlineCount > 1 || totalGroups > 1) {
+        if (pnr) {
+          key = `${airlineName} (${routeSummary} · PNR: ${pnr})`;
+        } else {
+          key = `${airlineName} (${routeSummary})`;
+        }
+      }
+
+      return {
+        key,
+        airlineName,
+        pnr,
+        routeSummary,
+      };
+    });
   }, [bookingData?.flightServices]);
+
+  const availableAirlines = useMemo(() => {
+    return Array.from(new Set(availableSectors.map((s) => s.airlineName)));
+  }, [availableSectors]);
 
   // Passport scan state
   const [passportScanKey, setPassportScanKey] = useState<string | null>(null);
@@ -1267,11 +1333,9 @@ export default function PassengerModal({
                     </div>
                     <div>
                       <label className={lbl}>Nationality</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. British"
+                      <NationalitySelect
                         value={nationality}
-                        onChange={(e) => setNationality(e.target.value)}
+                        onChange={(val) => setNationality(val)}
                         className={inp}
                       />
                     </div>
@@ -1433,39 +1497,57 @@ export default function PassengerModal({
                   </svg>
                   E-Ticket Number(s)
                 </p>
-                {availableAirlines.length > 1 && (
+                {availableSectors.length > 1 && (
                   <span className="text-[9px] bg-primary/10 text-primary font-bold px-2 py-0.5 rounded-full uppercase border border-primary/20">
-                    {availableAirlines.length} Airlines Detected
+                    {availableSectors.length} Flight Sector(s) / PNR(s)
                   </span>
                 )}
               </div>
 
-              {availableAirlines.length > 0 ? (
+              {availableSectors.length > 0 ? (
                 <div className="space-y-3 bg-secondary/10 p-3 rounded-lg border border-border/50">
                   <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                    Bind Separate E-Ticket Numbers &amp; Passenger PNRs per Airline
+                    Bind Separate E-Ticket Numbers &amp; Passenger PNRs per Sector / Airline
                   </p>
-                  {availableAirlines.map((airlineName) => {
-                    const existingEntry = airlineEtickets[airlineName];
-                    const currentEticket = typeof existingEntry === "object" && existingEntry !== null ? existingEntry.eticket || "" : (typeof existingEntry === "string" ? existingEntry : "");
-                    const currentPnr = typeof existingEntry === "object" && existingEntry !== null ? existingEntry.pnr || "" : "";
+                  {availableSectors.map((sector) => {
+                    const existingEntry =
+                      airlineEtickets[sector.key] ||
+                      (sector.pnr ? airlineEtickets[sector.pnr] : null) ||
+                      airlineEtickets[sector.airlineName];
+                    const currentEticket =
+                      typeof existingEntry === "object" && existingEntry !== null
+                        ? existingEntry.eticket || ""
+                        : typeof existingEntry === "string"
+                        ? existingEntry
+                        : "";
+                    const currentPnr =
+                      typeof existingEntry === "object" && existingEntry !== null
+                        ? existingEntry.pnr || sector.pnr || ""
+                        : sector.pnr || "";
 
                     return (
-                      <div key={airlineName} className="p-3 bg-card rounded-lg border border-border/60 space-y-2">
-                        <label className="text-[11px] font-extrabold text-primary flex items-center gap-1.5 uppercase tracking-wide">
-                          ✈️ {airlineName}
-                        </label>
+                      <div key={sector.key} className="p-3 bg-card rounded-lg border border-border/60 space-y-2">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <label className="text-[11px] font-extrabold text-primary flex items-center gap-1.5 uppercase tracking-wide">
+                            ✈️ {sector.airlineName} <span className="text-muted-foreground font-normal">({sector.routeSummary})</span>
+                          </label>
+                          {sector.pnr && (
+                            <span className="text-[10px] bg-primary/10 text-primary border border-primary/20 font-mono font-bold px-2 py-0.5 rounded">
+                              PNR: {sector.pnr}
+                            </span>
+                          )}
+                        </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                           <div>
                             <label className="text-[9px] font-bold text-muted-foreground uppercase">E-Ticket Number</label>
                             <input
                               type="text"
-                              placeholder={`e.g. ${airlineName.toLowerCase().includes("saudi") ? "065-1234567890" : "281-9876543210"}`}
+                              placeholder={`e.g. ${sector.airlineName.toLowerCase().includes("saudi") ? "065-1234567890" : "281-9876543210"}`}
                               value={currentEticket}
                               onChange={(e) => {
                                 const updated = {
                                   ...airlineEtickets,
-                                  [airlineName]: { eticket: e.target.value, pnr: currentPnr },
+                                  [sector.key]: { eticket: e.target.value, pnr: currentPnr },
                                 };
                                 setAirlineEtickets(updated);
                                 setEticket(JSON.stringify(updated));
@@ -1477,12 +1559,12 @@ export default function PassengerModal({
                             <label className="text-[9px] font-bold text-muted-foreground uppercase">Passenger PNR Code</label>
                             <input
                               type="text"
-                              placeholder="e.g. 2A59JJ"
+                              placeholder={`e.g. ${sector.pnr || "2A59JJ"}`}
                               value={currentPnr}
                               onChange={(e) => {
                                 const updated = {
                                   ...airlineEtickets,
-                                  [airlineName]: { eticket: currentEticket, pnr: e.target.value.toUpperCase() },
+                                  [sector.key]: { eticket: currentEticket, pnr: e.target.value.toUpperCase() },
                                 };
                                 setAirlineEtickets(updated);
                                 setEticket(JSON.stringify(updated));
@@ -1495,7 +1577,7 @@ export default function PassengerModal({
                     );
                   })}
                   <p className="text-[10px] text-muted-foreground mt-1">
-                    Specific E-Ticket number and Passenger PNR will be printed directly for this passenger on their ticket.
+                    Specific E-Ticket number and Passenger PNR will be printed directly for this passenger on their ticket per flight sector.
                   </p>
                 </div>
               ) : (

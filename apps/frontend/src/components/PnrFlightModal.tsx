@@ -4,7 +4,7 @@ import { apiClient } from '../api/client';
 import { useAuthStore } from '../store/auth.store';
 import Modal from './Modal';
 import { toast } from 'sonner';
-import { Loader2, Search, Check, PlaneTakeoff, Info } from 'lucide-react';
+import { Loader2, Search, Check, PlaneTakeoff, Info, RefreshCw } from 'lucide-react';
 
 interface PnrFlightModalProps {
   isOpen: boolean;
@@ -356,6 +356,38 @@ export default function PnrFlightModal({
 
   const flightVendors = vendorsData?.filter((v: any) => v.vendorType?.toLowerCase() === 'flight') || [];
 
+  // Fetch Current Booking details to get all flight segments
+  const { data: currentBookingData } = useQuery({
+    queryKey: ['booking-detail-modal-propagate', bookingId],
+    queryFn: async () => {
+      if (!bookingId) return null;
+      const res = await apiClient.get(`/bookings/${bookingId}`);
+      return res.data?.data || null;
+    },
+    enabled: isOpen && !!bookingId,
+  });
+
+  const extractAirportCode = (str?: string) => {
+    if (!str) return "";
+    const match = str.match(/\(([^)]+)\)/);
+    return match ? match[1].toUpperCase() : str.trim().toUpperCase();
+  };
+
+  const otherSegments = useMemo(() => {
+    if (!currentBookingData?.flightServices) return [];
+    return currentBookingData.flightServices.filter(
+      (fs: any) => !flightToEdit || fs.id !== flightToEdit.id
+    );
+  }, [currentBookingData?.flightServices, flightToEdit?.id]);
+
+  const [selectedSegmentsToPropagate, setSelectedSegmentsToPropagate] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedSegmentsToPropagate([]);
+    }
+  }, [isOpen, flightToEdit]);
+
   // Fetch Bookings based on search query
   const { data: allBookings, isLoading: isAllBookingsLoading } = useQuery({
     queryKey: ['bookings-search-modal', searchQuery],
@@ -587,10 +619,31 @@ export default function PnrFlightModal({
 
       if (flightToEdit) {
         await apiClient.patch(`/bookings/${bookingId}/flights/${flightToEdit.id}`, payload);
-        toast.success("Flight service updated successfully!");
       } else {
         await apiClient.post(`/bookings/${bookingId}/flights`, payload);
-        toast.success("Flight service added successfully!");
+      }
+
+      if (selectedSegmentsToPropagate.length > 0) {
+        let updatedCount = 0;
+        for (const otherId of selectedSegmentsToPropagate) {
+          const otherFs = otherSegments.find((s: any) => s.id === otherId);
+          if (otherFs) {
+            await apiClient.patch(`/bookings/${bookingId}/flights/${otherId}`, {
+              vendorId: vendorId,
+              pnr: pnr,
+            });
+            updatedCount++;
+          }
+        }
+        toast.success(
+          `Successfully saved flight service and applied Vendor & PNR to ${updatedCount} other segment(s)!`
+        );
+      } else {
+        toast.success(
+          flightToEdit
+            ? "Flight service updated successfully!"
+            : "Flight service added successfully!"
+        );
       }
 
       onSuccess();
@@ -897,6 +950,89 @@ export default function PnrFlightModal({
                     className="text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary font-mono uppercase"
                   />
                 </div>
+
+                {/* Bulk Propagate Vendor & PNR Option Card */}
+                {otherSegments.length > 0 && (
+                  <div className="col-span-2 p-3 bg-primary/5 rounded-xl border border-primary/20 space-y-2.5 my-1">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <label className="text-[11px] font-extrabold text-primary flex items-center gap-1.5 uppercase tracking-wide">
+                        <RefreshCw size={13} className="text-primary" /> Apply Same Vendor &amp; PNR to Other Segments
+                      </label>
+                      <span className="text-[9px] bg-primary/10 text-primary font-bold px-2 py-0.5 rounded-full uppercase border border-primary/20">
+                        {otherSegments.length} Other Segment(s) Available
+                      </span>
+                    </div>
+
+                    <p className="text-[10px] text-muted-foreground leading-relaxed">
+                      Select which other flight legs in this booking should also update to Vendor:{" "}
+                      <strong className="text-foreground">
+                        {flightVendors.find((v: any) => v.id === vendorId)?.name || "Selected Vendor"}
+                      </strong>{" "}
+                      and PNR: <strong className="font-mono text-primary font-bold">{pnr || "—"}</strong>
+                    </p>
+
+                    <div className="flex items-center gap-2 text-[10px] font-bold">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedSegmentsToPropagate(otherSegments.map((s: any) => s.id))}
+                        className="text-primary hover:underline"
+                      >
+                        Select All ({otherSegments.length})
+                      </button>
+                      <span className="text-muted-foreground">•</span>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedSegmentsToPropagate([])}
+                        className="text-muted-foreground hover:underline"
+                      >
+                        Deselect All
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-36 overflow-y-auto pr-1">
+                      {otherSegments.map((s: any) => {
+                        const isChecked = selectedSegmentsToPropagate.includes(s.id);
+                        const dep = extractAirportCode(s.departedFrom);
+                        const arr = extractAirportCode(s.arrivedAt);
+                        const sectorLabel = dep && arr ? `${dep} → ${arr}` : `${s.departedFrom || ""} → ${s.arrivedAt || ""}`;
+
+                        return (
+                          <label
+                            key={s.id}
+                            className={`flex items-center gap-2 p-2 rounded-lg border text-xs cursor-pointer transition-all ${
+                              isChecked
+                                ? "bg-primary/10 border-primary/50 text-foreground font-bold shadow-sm"
+                                : "bg-card border-border/60 text-muted-foreground hover:border-border"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedSegmentsToPropagate([...selectedSegmentsToPropagate, s.id]);
+                                } else {
+                                  setSelectedSegmentsToPropagate(
+                                    selectedSegmentsToPropagate.filter((id) => id !== s.id)
+                                  );
+                                }
+                              }}
+                              className="rounded text-primary focus:ring-primary h-3.5 w-3.5"
+                            />
+                            <div className="flex flex-col min-w-0">
+                              <span className="text-[11px] font-bold text-foreground truncate">
+                                ✈️ {sectorLabel}
+                              </span>
+                              <span className="text-[9px] text-muted-foreground font-mono truncate">
+                                {s.flightNo || "Flight"} · PNR: {s.pnr || "—"}
+                              </span>
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 {/* Departed From */}
                 <div className="flex flex-col gap-1">
