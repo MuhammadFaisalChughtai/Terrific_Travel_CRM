@@ -40,6 +40,44 @@ interface AttendanceRecord {
   };
 }
 
+function getPktTimeFromUkTime(ukTimeStr: string): string {
+  if (!ukTimeStr) return "—";
+  const [hStr, mStr] = ukTimeStr.split(":");
+  let h = parseInt(hStr, 10);
+  const m = parseInt(mStr, 10);
+  if (isNaN(h) || isNaN(m)) return "—";
+
+  let diff = 4;
+  try {
+    const now = new Date();
+    const ukHourStr = now.toLocaleTimeString("en-US", {
+      timeZone: "Europe/London",
+      hour: "numeric",
+      hour12: false,
+    });
+    const pktHourStr = now.toLocaleTimeString("en-US", {
+      timeZone: "Asia/Karachi",
+      hour: "numeric",
+      hour12: false,
+    });
+    const ukH = parseInt(ukHourStr, 10);
+    const pktH = parseInt(pktHourStr, 10);
+    if (!isNaN(ukH) && !isNaN(pktH)) {
+      diff = pktH - ukH;
+      if (diff < 0) diff += 24;
+    }
+  } catch (e) {
+    diff = 4;
+  }
+
+  const pktHour = (h + diff) % 24;
+  const ampm = pktHour >= 12 ? "PM" : "AM";
+  let displayH = pktHour % 12;
+  if (displayH === 0) displayH = 12;
+  const displayM = m < 10 ? `0${m}` : `${m}`;
+  return `${displayH}:${displayM} ${ampm} PKT`;
+}
+
 export default function Attendance() {
   const user = useAuthStore((state) => state.user);
   const queryClient = useQueryClient();
@@ -800,15 +838,21 @@ export default function Attendance() {
                         <tr key={record.id} className="hover:bg-muted/30 transition-colors">
                           <td className="p-3 font-bold text-foreground">
                             <div>{record.agent?.name || "N/A"}</div>
-                            <div className="text-[10px] text-muted-foreground font-normal">
+                            <div className="text-[10px] text-muted-foreground font-normal space-y-0.5 mt-0.5">
                               {isWeekendRec ? (
                                 isOffDayRec ? (
                                   <span className="text-emerald-600 font-bold">Weekend (Day Off)</span>
                                 ) : (
-                                  <span>Sat/Sun: {shiftStartStr} - {shiftEndStr} (+{grace}m)</span>
+                                  <div>
+                                    <span>🇬🇧 {shiftStartStr}-{shiftEndStr} UK (+{grace}m)</span>
+                                    <span className="ml-1.5 text-emerald-700 dark:text-emerald-400 font-bold">🇵🇰 ({getPktTimeFromUkTime(shiftStartStr)} - {getPktTimeFromUkTime(shiftEndStr)})</span>
+                                  </div>
                                 )
                               ) : (
-                                <span>Shift: {shiftStartStr} - {shiftEndStr} (+{grace}m grace)</span>
+                                <div>
+                                  <span>🇬🇧 {shiftStartStr}-{shiftEndStr} UK (+{grace}m grace)</span>
+                                  <span className="ml-1.5 text-emerald-700 dark:text-emerald-400 font-bold">🇵🇰 ({getPktTimeFromUkTime(shiftStartStr)} - {getPktTimeFromUkTime(shiftEndStr)})</span>
+                                </div>
                               )}
                             </div>
                           </td>

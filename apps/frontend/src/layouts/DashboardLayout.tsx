@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "../store/auth.store";
@@ -40,6 +40,29 @@ export default function DashboardLayout() {
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const clearAuth = useAuthStore((state) => state.clearAuth);
+  const [headerClocks, setHeaderClocks] = useState({ uk: "", pkt: "" });
+
+  useEffect(() => {
+    const updateNavbarClocks = () => {
+      const now = new Date();
+      const uk = now.toLocaleTimeString("en-GB", {
+        timeZone: "Europe/London",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      });
+      const pkt = now.toLocaleTimeString("en-GB", {
+        timeZone: "Asia/Karachi",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      });
+      setHeaderClocks({ uk, pkt });
+    };
+    updateNavbarClocks();
+    const interval = setInterval(updateNavbarClocks, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const { data: pendingApprovals } = useQuery({
     queryKey: ["payment-requests", "PENDING"],
@@ -328,6 +351,19 @@ export default function DashboardLayout() {
           </div>
 
           <div className="flex items-center gap-4">
+            {/* Live Dual Timezone Clocks (UK & Pakistan) */}
+            <div className="hidden sm:flex items-center gap-2 bg-secondary/80 dark:bg-secondary/40 border border-border/80 rounded-xl px-3 py-1.5 text-xs font-semibold shadow-inner">
+              <div className="flex items-center gap-1.5 pr-2.5 border-r border-border/60">
+                <span className="text-xs">🇬🇧</span>
+                <span className="text-[10px] font-black text-muted-foreground uppercase tracking-wider">UK:</span>
+                <span className="font-bold font-mono text-foreground text-xs">{headerClocks.uk || "—"}</span>
+              </div>
+              <div className="flex items-center gap-1.5 pl-0.5">
+                <span className="text-xs">🇵🇰</span>
+                <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">PKT:</span>
+                <span className="font-bold font-mono text-emerald-700 dark:text-emerald-300 text-xs">{headerClocks.pkt || "—"}</span>
+              </div>
+            </div>
             {/* Active Fine Badge for Current Month */}
             {currentMonthFineTotal > 0 && (
               <Link
