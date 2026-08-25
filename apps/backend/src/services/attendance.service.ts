@@ -45,10 +45,23 @@ export class AttendanceService {
     const today = new Date(now);
     today.setUTCHours(0, 0, 0, 0);
 
-    // Agent specific shift start time and grace period
+    // Agent specific shift start time and grace period based on weekday vs weekend vs holiday
     const agentObj = user.agent;
-    const shiftTimeStr = agentObj?.shiftStartTime || "09:00";
-    const graceMins = agentObj?.gracePeriodMinutes ?? 15;
+    const dayOfWeek = now.getUTCDay(); // 0 is Sunday, 6 is Saturday
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
+    let shiftTimeStr = agentObj?.shiftStartTime || "09:00";
+    let graceMins = agentObj?.gracePeriodMinutes ?? 15;
+    let isOffDay = false;
+
+    if (isWeekend) {
+      if (agentObj?.isWeekendOff) {
+        isOffDay = true;
+      } else if (agentObj?.weekendShiftStartTime) {
+        shiftTimeStr = agentObj.weekendShiftStartTime;
+        graceMins = agentObj.weekendGracePeriodMinutes ?? 15;
+      }
+    }
 
     const [startHourStr, startMinStr] = shiftTimeStr.split(":");
     const startHour = parseInt(startHourStr || "9", 10);
@@ -62,7 +75,7 @@ export class AttendanceService {
     let isLate = false;
     let lateMinutes = 0;
 
-    if (now > graceCutoff) {
+    if (!isOffDay && now > graceCutoff) {
       isLate = true;
       lateMinutes = Math.floor((now.getTime() - shiftStart.getTime()) / (1000 * 60));
     }
@@ -210,6 +223,15 @@ export class AttendanceService {
                 shiftStartTime: true,
                 shiftEndTime: true,
                 gracePeriodMinutes: true,
+                weekendShiftStartTime: true,
+                weekendShiftEndTime: true,
+                weekendGracePeriodMinutes: true,
+                isWeekendOff: true,
+                holidayShiftStartTime: true,
+                holidayShiftEndTime: true,
+                holidayGracePeriodMinutes: true,
+                isHolidayOff: true,
+                workDays: true,
               }
             }
           },
@@ -233,6 +255,15 @@ export class AttendanceService {
             shiftStartTime: true,
             shiftEndTime: true,
             gracePeriodMinutes: true,
+            weekendShiftStartTime: true,
+            weekendShiftEndTime: true,
+            weekendGracePeriodMinutes: true,
+            isWeekendOff: true,
+            holidayShiftStartTime: true,
+            holidayShiftEndTime: true,
+            holidayGracePeriodMinutes: true,
+            isHolidayOff: true,
+            workDays: true,
           }
         }
       },

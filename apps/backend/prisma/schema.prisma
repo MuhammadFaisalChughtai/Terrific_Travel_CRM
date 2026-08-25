@@ -444,11 +444,20 @@ model Agent {
   jobStatus          String      @default("Active")
   passwordHash       String
   walletBalance      Float       @default(0.0)
-  shiftStartTime     String      @default("09:00")
-  shiftEndTime       String      @default("17:00")
-  gracePeriodMinutes Int         @default(15)
-  createdAt          DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  shiftStartTime             String      @default("09:00")
+  shiftEndTime               String      @default("17:00")
+  gracePeriodMinutes         Int         @default(15)
+  weekendShiftStartTime     String?     @default("10:00")
+  weekendShiftEndTime       String?     @default("16:00")
+  weekendGracePeriodMinutes Int?        @default(15)
+  isWeekendOff              Boolean     @default(false)
+  holidayShiftStartTime     String?     @default("10:00")
+  holidayShiftEndTime       String?     @default("15:00")
+  holidayGracePeriodMinutes Int?        @default(15)
+  isHolidayOff              Boolean     @default(true)
+  workDays                  String?     @default("Mon,Tue,Wed,Thu,Fri")
+  createdAt                  DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
   slabs         AgentSlab[]
   bookings      Booking[]
   passengers    Passenger[]

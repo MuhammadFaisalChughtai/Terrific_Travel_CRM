@@ -28,6 +28,15 @@ interface AttendanceRecord {
     shiftStartTime?: string;
     shiftEndTime?: string;
     gracePeriodMinutes?: number;
+    weekendShiftStartTime?: string;
+    weekendShiftEndTime?: string;
+    weekendGracePeriodMinutes?: number;
+    isWeekendOff?: boolean;
+    holidayShiftStartTime?: string;
+    holidayShiftEndTime?: string;
+    holidayGracePeriodMinutes?: number;
+    isHolidayOff?: boolean;
+    workDays?: string;
   };
 }
 
@@ -753,23 +762,37 @@ export default function Attendance() {
                       const hours = Math.floor(totalMinutes / 60);
                       const minutes = totalMinutes % 60;
 
-                      const shiftStartStr = record.agent?.shiftStartTime || "09:00";
-                      const shiftEndStr = record.agent?.shiftEndTime || "17:00";
-                      const grace = record.agent?.gracePeriodMinutes ?? 15;
+                      const recDate = new Date(record.date);
+                      const dayOfWeek = recDate.getDay(); // 0 is Sunday, 6 is Saturday
+                      const isWeekendRec = dayOfWeek === 0 || dayOfWeek === 6;
+
+                      let shiftStartStr = record.agent?.shiftStartTime || "09:00";
+                      let shiftEndStr = record.agent?.shiftEndTime || "17:00";
+                      let grace = record.agent?.gracePeriodMinutes ?? 15;
+                      let isOffDayRec = false;
+
+                      if (isWeekendRec) {
+                        if (record.agent?.isWeekendOff) {
+                          isOffDayRec = true;
+                        } else if (record.agent?.weekendShiftStartTime) {
+                          shiftStartStr = record.agent.weekendShiftStartTime;
+                          shiftEndStr = record.agent.weekendShiftEndTime || "16:00";
+                          grace = record.agent.weekendGracePeriodMinutes ?? 15;
+                        }
+                      }
 
                       // Check if past shift start time + grace period without check in
                       const [sHourStr, sMinStr] = shiftStartStr.split(":");
                       const sHour = parseInt(sHourStr || "9", 10);
                       const sMin = parseInt(sMinStr || "0", 10);
                       
-                      const recDate = new Date(record.date);
                       const nowTime = new Date();
                       const isTodayRec = format(recDate, "yyyy-MM-dd") === format(nowTime, "yyyy-MM-dd");
 
                       const shiftCutoff = new Date(recDate);
                       shiftCutoff.setHours(sHour, sMin + grace, 0, 0);
 
-                      const isNotCheckedInLate = !record.checkInTime && (
+                      const isNotCheckedInLate = !isOffDayRec && !record.checkInTime && (
                         !isTodayRec || nowTime > shiftCutoff
                       );
 
@@ -778,7 +801,15 @@ export default function Attendance() {
                           <td className="p-3 font-bold text-foreground">
                             <div>{record.agent?.name || "N/A"}</div>
                             <div className="text-[10px] text-muted-foreground font-normal">
-                              Shift: {shiftStartStr} - {shiftEndStr} (+{grace}m grace)
+                              {isWeekendRec ? (
+                                isOffDayRec ? (
+                                  <span className="text-emerald-600 font-bold">Weekend (Day Off)</span>
+                                ) : (
+                                  <span>Sat/Sun: {shiftStartStr} - {shiftEndStr} (+{grace}m)</span>
+                                )
+                              ) : (
+                                <span>Shift: {shiftStartStr} - {shiftEndStr} (+{grace}m grace)</span>
+                              )}
                             </div>
                           </td>
                           <td className="p-3 font-semibold">{format(new Date(record.date), "dd MMM yyyy")}</td>
@@ -795,11 +826,15 @@ export default function Attendance() {
                             ) : (
                               <>
                                 <span>—</span>
-                                {isNotCheckedInLate && (
+                                {isOffDayRec ? (
+                                  <span className="ml-1.5 text-[9px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 px-1.5 py-0.5 rounded font-bold">
+                                    DAY OFF (EXEMPT)
+                                  </span>
+                                ) : isNotCheckedInLate ? (
                                   <span className="ml-1.5 text-[9px] bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-300 dark:border-rose-800 px-1.5 py-0.5 rounded font-black">
                                     LATE (NOT CHECKED IN)
                                   </span>
-                                )}
+                                ) : null}
                               </>
                             )}
                           </td>

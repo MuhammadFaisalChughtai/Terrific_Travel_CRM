@@ -117,6 +117,15 @@ export class AgentsService {
       shiftStartTime: data.shiftStartTime || undefined,
       shiftEndTime: data.shiftEndTime || undefined,
       gracePeriodMinutes: data.gracePeriodMinutes !== undefined ? Number(data.gracePeriodMinutes) : undefined,
+      weekendShiftStartTime: data.weekendShiftStartTime !== undefined ? data.weekendShiftStartTime : undefined,
+      weekendShiftEndTime: data.weekendShiftEndTime !== undefined ? data.weekendShiftEndTime : undefined,
+      weekendGracePeriodMinutes: data.weekendGracePeriodMinutes !== undefined ? Number(data.weekendGracePeriodMinutes) : undefined,
+      isWeekendOff: data.isWeekendOff !== undefined ? Boolean(data.isWeekendOff) : undefined,
+      holidayShiftStartTime: data.holidayShiftStartTime !== undefined ? data.holidayShiftStartTime : undefined,
+      holidayShiftEndTime: data.holidayShiftEndTime !== undefined ? data.holidayShiftEndTime : undefined,
+      holidayGracePeriodMinutes: data.holidayGracePeriodMinutes !== undefined ? Number(data.holidayGracePeriodMinutes) : undefined,
+      isHolidayOff: data.isHolidayOff !== undefined ? Boolean(data.isHolidayOff) : undefined,
+      workDays: data.workDays !== undefined ? data.workDays : undefined,
     };
 
     if (data.password) {
