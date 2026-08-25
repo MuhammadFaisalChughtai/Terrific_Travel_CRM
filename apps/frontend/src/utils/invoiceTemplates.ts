@@ -2,6 +2,15 @@ import { formatCurrency } from "@tms/shared-utils";
 // @ts-ignore
 import html2pdf from "html2pdf.js";
 
+export function formatPassengerName(p: any): string {
+  if (!p) return "";
+  const title = (p.title || "").trim();
+  const firstName = (p.firstName || "").trim();
+  const lastName = (p.lastName || "").trim();
+  const fullName = `${title} ${firstName} ${lastName}`.trim().replace(/\s+/g, " ");
+  return fullName.toUpperCase();
+}
+
 // Embedded Vector SVGs for branding
 export const BRAND_LOGOS = {
   // Premium Terrific Travel & Tours Logo
@@ -995,7 +1004,7 @@ export function generateBookingInvoiceHtml(booking: any) {
       <div class="info-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 20px;">
         <div class="info-box">
           <h3>Lead Passenger / Client</h3>
-          <p><strong>${leader ? `${leader.title || ""} ${leader.firstName} ${leader.lastName}` : "Valued Customer"}</strong></p>
+          <p><strong>${leader ? formatPassengerName(leader) : "VALUED CUSTOMER"}</strong></p>
           ${leader && leader.email ? `<p>Email: ${leader.email}</p>` : ""}
           ${leader && leader.phoneNumber ? `<p>Phone: ${leader.phoneNumber}</p>` : ""}
         </div>
@@ -1023,7 +1032,7 @@ export function generateBookingInvoiceHtml(booking: any) {
                   .map(
                     (p: any) => `
             <tr>
-              <td><strong>${p.title || ""} ${p.firstName} ${p.lastName}</strong></td>
+              <td><strong>${formatPassengerName(p)}</strong></td>
               <td>${p.age || "Adult"} (${p.role || "Passenger"})</td>
               <td>${p.nationality || "—"}</td>
             </tr>
@@ -1582,7 +1591,7 @@ function generateConsolidatedTicketHtml(
                 (p: any, idx: number) => `
               <tr style="border-bottom: 1px solid #E2E8F0;">
                 <td style="padding: 6px 10px; text-transform: uppercase; font-weight: bold; color: #334155;">${p.role || deriveAgeCategory(p.dateOfBirth)}</td>
-                <td style="padding: 6px 10px; color: #0F172A;"><strong>${p.title || ""} ${p.firstName} ${p.lastName}</strong></td>
+                <td style="padding: 6px 10px; color: #0F172A; text-transform: uppercase;"><strong>${formatPassengerName(p)}</strong></td>
                 <td style="padding: 6px 10px; color: #475569; font-weight: bold;">${p.nationality || "—"}</td>
                 <td style="padding: 6px 10px; color: #0EA5E9; font-family: monospace; font-size: 11px; font-weight: bold;">${getPassengerPnr(p, flights[0] || {})}</td>
                 <td style="padding: 6px 10px; color: #0284C7; font-family: monospace; font-size: 11px; font-weight: bold;">${getTicketNumber(p, flights[0] || {}, idx)}</td>
@@ -1616,7 +1625,7 @@ function generateConsolidatedTicketHtml(
               (p: any, idx: number) => `
             <tr style="border-bottom: 1px solid #E2E8F0;">
               <td style="padding: 6px 10px; text-transform: uppercase; font-weight: bold; color: #334155;">${p.role || deriveAgeCategory(p.dateOfBirth)}</td>
-              <td style="padding: 6px 10px; color: #0F172A;"><strong>${p.title || ""} ${p.firstName} ${p.lastName}</strong></td>
+              <td style="padding: 6px 10px; color: #0F172A; text-transform: uppercase;"><strong>${formatPassengerName(p)}</strong></td>
               <td style="padding: 6px 10px; color: #0EA5E9; font-family: monospace; font-size: 11px; font-weight: bold;">${getPassengerPnr(p, flights[0] || {})}</td>
               <td style="padding: 6px 10px; color: #0284C7; font-family: monospace; font-size: 11px; font-weight: bold;">${getTicketNumber(p, flights[0] || {}, idx)}</td>
               <td style="padding: 6px 10px; color: #475569;">91263712</td>
@@ -2041,7 +2050,7 @@ export function generateHotelVoucherHtml(booking: any, hotel: any) {
       <div class="info-grid">
         <div class="info-box">
           <h3>Guest / Lead Client Details</h3>
-          <p><strong>${leader ? `${leader.title || ""} ${leader.firstName} ${leader.lastName}` : "Valued Guest"}</strong></p>
+          <p><strong>${leader ? formatPassengerName(leader) : "VALUED GUEST"}</strong></p>
           ${leader && leader.email ? `<p>Email: ${leader.email}</p>` : ""}
           ${leader && leader.phoneNumber ? `<p>Phone: ${leader.phoneNumber}</p>` : ""}
           <p>Total Guests: <strong>${booking.passengers?.length || 1} Person(s)</strong></p>
@@ -2105,7 +2114,7 @@ export function generateHotelVoucherHtml(booking: any, hotel: any) {
                     (p: any, idx: number) => `
             <tr>
               <td class="text-center">${idx + 1}</td>
-              <td><strong>${p.title || ""} ${p.firstName} ${p.lastName}</strong></td>
+              <td style="text-transform: uppercase;"><strong>${formatPassengerName(p)}</strong></td>
               <td>${p.age || "Adult"}</td>
               <td>${p.nationality || "—"}</td>
             </tr>
@@ -2196,7 +2205,7 @@ export function generateVisaInvoiceHtml(booking: any, visa: any) {
       <div class="info-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px;">
         <div class="info-box">
           <h3>Applicant / Client Info</h3>
-          <p><strong>${leader ? `${leader.title || ""} ${leader.firstName} ${leader.lastName}` : "Valued Applicant"}</strong></p>
+          <p><strong>${leader ? formatPassengerName(leader) : "VALUED APPLICANT"}</strong></p>
           ${leader && leader.email ? `<p>Email: ${leader.email}</p>` : ""}
           ${leader && leader.phoneNumber ? `<p>Phone: ${leader.phoneNumber}</p>` : ""}
         </div>
@@ -2297,8 +2306,8 @@ export function generateTransportVoucherHtml(booking: any, transport: any) {
 
   // Lead guest name
   const guestName = leader
-    ? `${leader.title || ""} ${leader.firstName} ${leader.lastName}`.trim()
-    : "Valued Passenger";
+    ? formatPassengerName(leader)
+    : "VALUED PASSENGER";
 
   // Passenger count
   const paxCount = booking.passengers?.length || 1;
@@ -2526,7 +2535,7 @@ export function generateSpecialServiceInvoiceHtml(booking: any, service: any) {
       <div class="info-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px;">
         <div class="info-box">
           <h3>Lead Passenger / Guest</h3>
-          <p><strong>${leader ? `${leader.title || ""} ${leader.firstName} ${leader.lastName}` : "Valued Passenger"}</strong></p>
+          <p><strong>${leader ? formatPassengerName(leader) : "VALUED PASSENGER"}</strong></p>
           ${leader && leader.email ? `<p>Email: ${leader.email}</p>` : ""}
           ${leader && leader.phoneNumber ? `<p>Phone: ${leader.phoneNumber}</p>` : ""}
         </div>
@@ -2635,7 +2644,7 @@ export function renderBookingInvoice(
   const balanceDue = Math.max(0, totalPrice - paidAmount);
 
   const leadPassengerBlock = `
-    <p><strong>${leader ? `${leader.title || ""} ${leader.firstName} ${leader.lastName}` : "Valued Customer"}</strong></p>
+    <p><strong>${leader ? formatPassengerName(leader) : "VALUED CUSTOMER"}</strong></p>
     ${leader && leader.email ? `<p>Email: ${leader.email}</p>` : ""}
     ${leader && leader.phoneNumber ? `<p>Phone: ${leader.phoneNumber}</p>` : ""}
   `;
@@ -2652,7 +2661,7 @@ export function renderBookingInvoice(
           .map(
             (p: any) => `
     <tr>
-      <td><strong>${p.title || ""} ${p.firstName} ${p.lastName}</strong></td>
+      <td><strong style="text-transform: uppercase;">${formatPassengerName(p)}</strong></td>
       <td>${p.age || "Adult"} (${p.role || "Passenger"})</td>
       <td>${p.nationality || "—"}</td>
     </tr>
@@ -2826,7 +2835,7 @@ export function renderHotelVoucher(
   const voucherNo = `HTL-${hotel.id.substring(0, 8).toUpperCase()}`;
 
   const leadPassengerBlock = `
-    <p><strong>${leader ? `${leader.title || ""} ${leader.firstName} ${leader.lastName}` : "Valued Guest"}</strong></p>
+    <p><strong>${leader ? formatPassengerName(leader) : "VALUED GUEST"}</strong></p>
     ${leader && leader.email ? `<p>Email: ${leader.email}</p>` : ""}
     ${leader && leader.phoneNumber ? `<p>Phone: ${leader.phoneNumber}</p>` : ""}
   `;
@@ -2854,7 +2863,7 @@ export function renderHotelVoucher(
             (p: any, idx: number) => `
     <tr>
       <td class="text-center">${idx + 1}</td>
-      <td><strong>${p.title || ""} ${p.firstName} ${p.lastName}</strong></td>
+      <td style="text-transform: uppercase;"><strong>${formatPassengerName(p)}</strong></td>
       <td>${p.age || "Adult"}</td>
       <td>${p.nationality || "—"}</td>
     </tr>
@@ -2941,7 +2950,7 @@ export function renderTransportVoucher(
         : formatDate(new Date());
 
   const leadPassengerBlock = `
-    <p><strong>${leader ? `${leader.title || ""} ${leader.firstName} ${leader.lastName}` : "Valued Passenger"}</strong></p>
+    <p><strong>${leader ? formatPassengerName(leader) : "VALUED PASSENGER"}</strong></p>
     ${leader && leader.email ? `<p>Email: ${leader.email}</p>` : ""}
     ${leader && leader.phoneNumber ? `<p>Phone: ${leader.phoneNumber}</p>` : ""}
   `;
@@ -3092,7 +3101,7 @@ export function renderVisaInvoice(
         : formatDate(new Date());
 
   const leadPassengerBlock = `
-    <p><strong>${leader ? `${leader.title || ""} ${leader.firstName} ${leader.lastName}` : "Valued Applicant"}</strong></p>
+    <p><strong>${leader ? formatPassengerName(leader) : "VALUED APPLICANT"}</strong></p>
     ${leader && leader.email ? `<p>Email: ${leader.email}</p>` : ""}
     ${leader && leader.phoneNumber ? `<p>Phone: ${leader.phoneNumber}</p>` : ""}
   `;
@@ -3163,7 +3172,7 @@ export function renderSpecialServicesInvoice(
   );
 
   const leadPassengerBlock = `
-    <p><strong>${leader ? `${leader.title || ""} ${leader.firstName} ${leader.lastName}` : "Valued Passenger"}</strong></p>
+    <p><strong>${leader ? formatPassengerName(leader) : "VALUED PASSENGER"}</strong></p>
     ${leader && leader.email ? `<p>Email: ${leader.email}</p>` : ""}
     ${leader && leader.phoneNumber ? `<p>Phone: ${leader.phoneNumber}</p>` : ""}
   `;

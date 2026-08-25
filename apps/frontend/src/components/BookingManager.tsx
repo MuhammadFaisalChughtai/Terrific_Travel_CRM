@@ -1834,7 +1834,7 @@ export default function BookingManager({
                           >
                             {/* Name */}
                             <td className="px-3 py-2">
-                              <div className="font-bold text-foreground">
+                              <div className="font-bold text-foreground uppercase">
                                 {p.title} {p.firstName} {p.lastName}
                               </div>
                               <div className="text-[10px] text-muted-foreground">
@@ -3380,7 +3380,7 @@ export default function BookingManager({
               </option>
               {booking?.passengers?.map((p: any) => (
                 <option key={p.id} value={p.id}>
-                  {p.title || ""} {p.firstName} {p.lastName} ({p.role || "Passenger"})
+                  {((p.title ? `${p.title} ` : "") + `${p.firstName || ""} ${p.lastName || ""}`).toUpperCase()} ({p.role || "Passenger"})
                 </option>
               ))}
             </select>

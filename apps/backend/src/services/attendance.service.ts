@@ -204,7 +204,13 @@ export class AttendanceService {
           where: whereClause,
           include: {
             agent: {
-              select: { name: true }
+              select: {
+                id: true,
+                name: true,
+                shiftStartTime: true,
+                shiftEndTime: true,
+                gracePeriodMinutes: true,
+              }
             }
           },
           orderBy: { date: 'desc' },
@@ -221,7 +227,13 @@ export class AttendanceService {
       where: whereClause,
       include: {
         agent: {
-          select: { name: true }
+          select: {
+            id: true,
+            name: true,
+            shiftStartTime: true,
+            shiftEndTime: true,
+            gracePeriodMinutes: true,
+          }
         }
       },
       orderBy: { date: 'desc' }
@@ -244,6 +256,12 @@ export class AttendanceService {
     }
     if (data.status !== undefined) {
       updateData.status = data.status;
+    }
+    if (data.isLate !== undefined) {
+      updateData.isLate = Boolean(data.isLate);
+    }
+    if (data.lateMinutes !== undefined) {
+      updateData.lateMinutes = Number(data.lateMinutes) || 0;
     }
 
     return prisma.attendance.update({

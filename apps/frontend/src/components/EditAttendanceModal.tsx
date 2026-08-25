@@ -16,11 +16,16 @@ export default function EditAttendanceModal({ isOpen, onClose, record }: EditAtt
   const [checkOutTime, setCheckOutTime] = useState('');
   const [status, setStatus] = useState('PRESENT');
 
+  const [isLate, setIsLate] = useState(false);
+  const [lateMinutes, setLateMinutes] = useState(0);
+
   useEffect(() => {
     if (isOpen && record) {
       setCheckInTime(record.checkInTime ? new Date(record.checkInTime).toISOString().slice(0, 16) : '');
       setCheckOutTime(record.checkOutTime ? new Date(record.checkOutTime).toISOString().slice(0, 16) : '');
       setStatus(record.status || 'PRESENT');
+      setIsLate(Boolean(record.isLate));
+      setLateMinutes(record.lateMinutes || 0);
     }
   }, [isOpen, record]);
 
@@ -43,7 +48,9 @@ export default function EditAttendanceModal({ isOpen, onClose, record }: EditAtt
     updateMutation.mutate({
       checkInTime: checkInTime ? new Date(checkInTime).toISOString() : null,
       checkOutTime: checkOutTime ? new Date(checkOutTime).toISOString() : null,
-      status
+      status,
+      isLate,
+      lateMinutes: isLate ? Number(lateMinutes) : 0,
     });
   };
 
@@ -81,6 +88,30 @@ export default function EditAttendanceModal({ isOpen, onClose, record }: EditAtt
             onChange={(e) => setCheckOutTime(e.target.value)}
             className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-primary"
           />
+        </div>
+
+        <div className="p-3 bg-muted/40 rounded-lg space-y-2 border border-border">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-bold text-foreground">Flagged as Late?</label>
+            <input
+              type="checkbox"
+              checked={isLate}
+              onChange={(e) => setIsLate(e.target.checked)}
+              className="w-4 h-4 text-primary rounded focus:ring-primary"
+            />
+          </div>
+          {isLate && (
+            <div className="pt-2 border-t border-border/60 flex items-center justify-between">
+              <label className="text-xs font-medium text-muted-foreground">Late Minutes</label>
+              <input
+                type="number"
+                min={0}
+                value={lateMinutes}
+                onChange={(e) => setLateMinutes(Number(e.target.value))}
+                className="w-24 bg-background border border-border rounded-lg px-2.5 py-1 text-xs font-bold text-right focus:ring-1 focus:ring-primary"
+              />
+            </div>
+          )}
         </div>
 
         <div className="flex justify-end gap-2 pt-4">

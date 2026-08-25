@@ -179,9 +179,9 @@ export default function CRMBookingModal({ isOpen, onClose, booking }: CRMBooking
               {booking.passengers && booking.passengers.length > 0 ? (
                 booking.passengers.map((p: any, idx: number) => (
                   <tr key={idx} className={idx % 2 === 0 ? "bg-secondary/5" : ""}>
-                    <TableCell>{p.title}</TableCell>
-                    <TableCell>{p.firstName}</TableCell>
-                    <TableCell>{p.lastName}</TableCell>
+                    <TableCell><span className="uppercase font-medium">{p.title}</span></TableCell>
+                    <TableCell><span className="uppercase font-bold">{p.firstName}</span></TableCell>
+                    <TableCell><span className="uppercase font-bold">{p.lastName}</span></TableCell>
                     <TableCell>{p.age}</TableCell>
                     <TableCell>{p.email || "0"}</TableCell>
                     <TableCell>{p.phoneNumber || ""}</TableCell>

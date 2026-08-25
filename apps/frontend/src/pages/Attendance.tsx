@@ -11,6 +11,7 @@ import IssueFineModal from "../components/IssueFineModal";
 import WaiveFineModal from "../components/WaiveFineModal";
 import IssueBonusModal from "../components/IssueBonusModal";
 import Pagination from "../components/Pagination";
+import AgentTimetablesModal from "../components/AgentTimetablesModal";
 
 interface AttendanceRecord {
   id: string;
@@ -21,7 +22,13 @@ interface AttendanceRecord {
   status: "PRESENT" | "ABSENT" | "ON_LEAVE";
   isLate?: boolean;
   lateMinutes?: number;
-  agent?: { name: string };
+  agent?: {
+    id?: string;
+    name: string;
+    shiftStartTime?: string;
+    shiftEndTime?: string;
+    gracePeriodMinutes?: number;
+  };
 }
 
 export default function Attendance() {
@@ -47,11 +54,12 @@ export default function Attendance() {
   const [selectedRecord, setSelectedRecord] = useState<any>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
-  // Fine & Bonus Modals State
+  // Fine & Bonus & Timetables Modals State
   const [isIssueFineOpen, setIsIssueFineOpen] = useState(false);
   const [selectedFineForWaiver, setSelectedFineForWaiver] = useState<any>(null);
   const [isWaiveFineOpen, setIsWaiveFineOpen] = useState(false);
   const [isIssueBonusOpen, setIsIssueBonusOpen] = useState(false);
+  const [isTimetablesOpen, setIsTimetablesOpen] = useState(false);
 
   const [page, setPage] = useState(1);
   const [finePage, setFinePage] = useState(1);
@@ -604,6 +612,14 @@ export default function Attendance() {
             </div>
             <div className="flex gap-2">
               <button
+                onClick={() => setIsTimetablesOpen(true)}
+                className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-xs transition-colors shadow-sm cursor-pointer"
+              >
+                <Clock size={16} />
+                Agent Timetables
+              </button>
+
+              <button
                 onClick={() => setIsIssueFineOpen(true)}
                 className="flex items-center gap-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold text-xs transition-colors shadow-sm cursor-pointer"
               >
@@ -737,16 +753,54 @@ export default function Attendance() {
                       const hours = Math.floor(totalMinutes / 60);
                       const minutes = totalMinutes % 60;
 
+                      const shiftStartStr = record.agent?.shiftStartTime || "09:00";
+                      const shiftEndStr = record.agent?.shiftEndTime || "17:00";
+                      const grace = record.agent?.gracePeriodMinutes ?? 15;
+
+                      // Check if past shift start time + grace period without check in
+                      const [sHourStr, sMinStr] = shiftStartStr.split(":");
+                      const sHour = parseInt(sHourStr || "9", 10);
+                      const sMin = parseInt(sMinStr || "0", 10);
+                      
+                      const recDate = new Date(record.date);
+                      const nowTime = new Date();
+                      const isTodayRec = format(recDate, "yyyy-MM-dd") === format(nowTime, "yyyy-MM-dd");
+
+                      const shiftCutoff = new Date(recDate);
+                      shiftCutoff.setHours(sHour, sMin + grace, 0, 0);
+
+                      const isNotCheckedInLate = !record.checkInTime && (
+                        !isTodayRec || nowTime > shiftCutoff
+                      );
+
                       return (
                         <tr key={record.id} className="hover:bg-muted/30 transition-colors">
-                          <td className="p-3 font-bold text-foreground">{record.agent?.name || "N/A"}</td>
+                          <td className="p-3 font-bold text-foreground">
+                            <div>{record.agent?.name || "N/A"}</div>
+                            <div className="text-[10px] text-muted-foreground font-normal">
+                              Shift: {shiftStartStr} - {shiftEndStr} (+{grace}m grace)
+                            </div>
+                          </td>
                           <td className="p-3 font-semibold">{format(new Date(record.date), "dd MMM yyyy")}</td>
                           <td className="p-3 font-medium">
-                            {record.checkInTime ? format(new Date(record.checkInTime), "hh:mm a") : "—"}
-                            {record.isLate && (
-                              <span className="ml-1 text-[9px] bg-amber-100 text-amber-800 px-1 py-0.5 rounded font-black">
-                                LATE ({record.lateMinutes}m)
-                              </span>
+                            {record.checkInTime ? (
+                              <>
+                                {format(new Date(record.checkInTime), "hh:mm a")}
+                                {record.isLate && (
+                                  <span className="ml-1.5 text-[9px] bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800 px-1.5 py-0.5 rounded font-black">
+                                    LATE ({record.lateMinutes}m)
+                                  </span>
+                                )}
+                              </>
+                            ) : (
+                              <>
+                                <span>—</span>
+                                {isNotCheckedInLate && (
+                                  <span className="ml-1.5 text-[9px] bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-300 dark:border-rose-800 px-1.5 py-0.5 rounded font-black">
+                                    LATE (NOT CHECKED IN)
+                                  </span>
+                                )}
+                              </>
                             )}
                           </td>
                           <td className="p-3 font-medium">
@@ -1187,6 +1241,11 @@ export default function Attendance() {
         isOpen={isIssueBonusOpen}
         onClose={() => setIsIssueBonusOpen(false)}
         agents={agents || []}
+      />
+
+      <AgentTimetablesModal
+        isOpen={isTimetablesOpen}
+        onClose={() => setIsTimetablesOpen(false)}
       />
     </div>
   );

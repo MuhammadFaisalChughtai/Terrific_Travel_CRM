@@ -204,7 +204,7 @@ export default function InvoicesPage() {
                     booking.passengers?.find((p: any) => p.role === "Leader") ||
                     booking.passengers?.[0];
                   const clientName = leadPassenger
-                    ? `${leadPassenger.title || ""} ${leadPassenger.firstName} ${leadPassenger.lastName}`
+                    ? `${leadPassenger.title ? leadPassenger.title + " " : ""}${leadPassenger.firstName || ""} ${leadPassenger.lastName || ""}`.trim().toUpperCase()
                     : "No passengers";
                   const clientEmail = leadPassenger?.email || "—";
 
@@ -609,8 +609,7 @@ export default function InvoicesPage() {
               </option>
               {printTicketSelectedBooking?.passengers?.map((p: any) => (
                 <option key={p.id} value={p.id}>
-                  {p.title || ""} {p.firstName} {p.lastName} (
-                  {p.role || "Passenger"})
+                  {((p.title ? `${p.title} ` : "") + `${p.firstName || ""} ${p.lastName || ""}`).toUpperCase()} ({p.role || "Passenger"})
                 </option>
               ))}
             </select>
