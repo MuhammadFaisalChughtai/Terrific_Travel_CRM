@@ -5097,7 +5097,7 @@ tbody tr:nth-child(even) { background: #F8FAFC; }
         Address: Office 1, 11 Walford Road, Birmingham, B11 1NP, UK<br>
         Phone: 0121 529 1630 | Emergency: +44 77 0090 0077<br>
         Email: office@terrifictravel.co.uk | Web: www.terrifictravel.co.uk<br>
-        ATOL: 11492 | IATA: 91263712 | Reg No: 09384812
+        ATOL: 11492 | IATA: 91206076 | Reg No: 09384812
       </p>
     </div>
     <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
@@ -5228,7 +5228,7 @@ tbody tr:nth-child(even) { background: #FFF7F0; }
         Address: Office 1, 11 Walford Road, Birmingham, B11 1NP, UK<br>
         Phone: 0121 529 1630 | Emergency: +44 77 0090 0077<br>
         Email: office@terrifictravel.co.uk | Web: www.terrifictravel.co.uk<br>
-        ATOL: 11492 | IATA: 91263712 | Reg No: 09384812
+        ATOL: 11492 | IATA: 91206076 | Reg No: 09384812
       </p>
     </div>
     <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
@@ -5880,7 +5880,7 @@ tbody tr:nth-child(even) {
                 Address: Office 1, 11 Walford Road, Birmingham, B11 1NP, UK<br> 
                 Phone: 0121 529 1630 | Emergency: +44 7888 461474<br> 
                 Email: office@terrifictravel.co.uk | Web: www.terrifictravel.co.uk<br> 
-                IATA: 91263712
+                IATA: 91206076
             </p> 
         </div> 
         <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;"> 
@@ -6373,7 +6373,7 @@ tbody tr:nth-child(even) {
         Address: Office 1, 11 Walford Road, Birmingham, B11 1NP, UK<br>
         Phone: 0121 529 1630 | Emergency: +44 77 0090 0077<br>
         Email: office@terrifictravel.co.uk | Web: www.terrifictravel.co.uk<br>
-        IATA: 91263712
+        IATA: 91206076
       </p>
     </div>
     <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
@@ -6844,7 +6844,7 @@ tbody tr:nth-child(even) {
         Address: Office 1, 11 Walford Road, Birmingham, B11 1NP, UK<br>
         Phone: 0121 529 1630 | Emergency: +44 7888 461474<br>
         Email: office@terrifictravel.co.uk | Web: www.terrifictravel.co.uk<br>
-        IATA: 91263712
+        IATA: 91206076
       </p>
     </div>
     <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">

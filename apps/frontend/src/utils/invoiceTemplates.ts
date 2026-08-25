@@ -7,7 +7,9 @@ export function formatPassengerName(p: any): string {
   const title = (p.title || "").trim();
   const firstName = (p.firstName || "").trim();
   const lastName = (p.lastName || "").trim();
-  const fullName = `${title} ${firstName} ${lastName}`.trim().replace(/\s+/g, " ");
+  const fullName = `${title} ${firstName} ${lastName}`
+    .trim()
+    .replace(/\s+/g, " ");
   return fullName.toUpperCase();
 }
 
@@ -977,7 +979,7 @@ export function generateBookingInvoiceHtml(booking: any) {
             Address: Office 1, 11 Walford Road, Birmingham, B11 1NP, UK<br>
             Phone: 0121 529 1630 | Emergency: +44 7888 461474<br>
             Email: office@terrifictravel.co.uk | Web: www.terrifictravel.co.uk<br>
-            IATA: 91263712  
+            IATA: 91206076  
           </p>
         </div>
         <div style="display: flex; align-items: center; height: 60px;">
@@ -1167,7 +1169,6 @@ export function generateBookingInvoiceHtml(booking: any) {
     </div>
   `;
 }
-
 
 function getIsConnecting(currentFlight: any, nextFlight: any): boolean {
   if (!nextFlight) return false;
@@ -1375,11 +1376,15 @@ function getPassengerPnr(passenger: any, flight: any): string {
     if (raw.startsWith("{") && raw.endsWith("}")) {
       try {
         const map = JSON.parse(raw);
-        const flightCarrier = (flight?.flightNo || "").substring(0, 2).toUpperCase();
+        const flightCarrier = (flight?.flightNo || "")
+          .substring(0, 2)
+          .toUpperCase();
         const flightAirlineName = getAirlineName(flight?.flightNo);
         const flightPnr = (flight?.pnr || "").trim().toUpperCase();
-        const depCode = (flight?.departedFrom || "").match(/\(([^)]+)\)/)?.[1] || "";
-        const arrCode = (flight?.arrivedAt || "").match(/\(([^)]+)\)/)?.[1] || "";
+        const depCode =
+          (flight?.departedFrom || "").match(/\(([^)]+)\)/)?.[1] || "";
+        const arrCode =
+          (flight?.arrivedAt || "").match(/\(([^)]+)\)/)?.[1] || "";
 
         let bestVal: any = null;
         let highestScore = -1;
@@ -1390,16 +1395,26 @@ function getPassengerPnr(passenger: any, flight: any): string {
           let score = 0;
 
           // 1. PNR Match (+100)
-          if (flightPnr && flightPnr.length >= 2 && kUpper.includes(flightPnr)) {
+          if (
+            flightPnr &&
+            flightPnr.length >= 2 &&
+            kUpper.includes(flightPnr)
+          ) {
             score += 100;
           }
           // 2. Route Sector Match (+30)
-          if (depCode && arrCode && kUpper.includes(depCode.toUpperCase()) && kUpper.includes(arrCode.toUpperCase())) {
+          if (
+            depCode &&
+            arrCode &&
+            kUpper.includes(depCode.toUpperCase()) &&
+            kUpper.includes(arrCode.toUpperCase())
+          ) {
             score += 30;
           }
           // 3. Airline / Carrier Match (+10)
           if (
-            (flightAirlineName && kUpper.includes(flightAirlineName.toUpperCase())) ||
+            (flightAirlineName &&
+              kUpper.includes(flightAirlineName.toUpperCase())) ||
             (flightCarrier && kUpper.includes(flightCarrier))
           ) {
             score += 10;
@@ -1412,7 +1427,11 @@ function getPassengerPnr(passenger: any, flight: any): string {
         }
 
         if (bestVal) {
-          if (typeof bestVal === "object" && bestVal !== null && (bestVal as any).pnr) {
+          if (
+            typeof bestVal === "object" &&
+            bestVal !== null &&
+            (bestVal as any).pnr
+          ) {
             return String((bestVal as any).pnr);
           }
           if (typeof bestVal === "string") return bestVal;
@@ -1442,11 +1461,15 @@ function getTicketNumber(
     if (raw.startsWith("{") && raw.endsWith("}")) {
       try {
         const map = JSON.parse(raw);
-        const flightCarrier = (flight?.flightNo || "").substring(0, 2).toUpperCase();
+        const flightCarrier = (flight?.flightNo || "")
+          .substring(0, 2)
+          .toUpperCase();
         const flightAirlineName = getAirlineName(flight?.flightNo);
         const flightPnr = (flight?.pnr || "").trim().toUpperCase();
-        const depCode = (flight?.departedFrom || "").match(/\(([^)]+)\)/)?.[1] || "";
-        const arrCode = (flight?.arrivedAt || "").match(/\(([^)]+)\)/)?.[1] || "";
+        const depCode =
+          (flight?.departedFrom || "").match(/\(([^)]+)\)/)?.[1] || "";
+        const arrCode =
+          (flight?.arrivedAt || "").match(/\(([^)]+)\)/)?.[1] || "";
 
         let bestVal: any = null;
         let highestScore = -1;
@@ -1456,14 +1479,24 @@ function getTicketNumber(
           const kUpper = key.toUpperCase();
           let score = 0;
 
-          if (flightPnr && flightPnr.length >= 2 && kUpper.includes(flightPnr)) {
+          if (
+            flightPnr &&
+            flightPnr.length >= 2 &&
+            kUpper.includes(flightPnr)
+          ) {
             score += 100;
           }
-          if (depCode && arrCode && kUpper.includes(depCode.toUpperCase()) && kUpper.includes(arrCode.toUpperCase())) {
+          if (
+            depCode &&
+            arrCode &&
+            kUpper.includes(depCode.toUpperCase()) &&
+            kUpper.includes(arrCode.toUpperCase())
+          ) {
             score += 30;
           }
           if (
-            (flightAirlineName && kUpper.includes(flightAirlineName.toUpperCase())) ||
+            (flightAirlineName &&
+              kUpper.includes(flightAirlineName.toUpperCase())) ||
             (flightCarrier && kUpper.includes(flightCarrier))
           ) {
             score += 10;
@@ -1493,7 +1526,10 @@ function getTicketNumber(
         // Fall back to raw string
       }
     }
-    const list = raw.split(/[,;\n]+/).map((s) => s.trim()).filter(Boolean);
+    const list = raw
+      .split(/[,;\n]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
     if (list.length > 1) {
       if (passengerIndex < list.length) {
         return list[passengerIndex];
@@ -1595,7 +1631,7 @@ function generateConsolidatedTicketHtml(
                 <td style="padding: 6px 10px; color: #475569; font-weight: bold;">${p.nationality || "—"}</td>
                 <td style="padding: 6px 10px; color: #0EA5E9; font-family: monospace; font-size: 11px; font-weight: bold;">${getPassengerPnr(p, flights[0] || {})}</td>
                 <td style="padding: 6px 10px; color: #0284C7; font-family: monospace; font-size: 11px; font-weight: bold;">${getTicketNumber(p, flights[0] || {}, idx)}</td>
-                <td style="padding: 6px 10px; color: #475569;">91263712</td>
+                <td style="padding: 6px 10px; color: #475569;">91206076</td>
               </tr>
             `,
               )
@@ -1628,7 +1664,7 @@ function generateConsolidatedTicketHtml(
               <td style="padding: 6px 10px; color: #0F172A; text-transform: uppercase;"><strong>${formatPassengerName(p)}</strong></td>
               <td style="padding: 6px 10px; color: #0EA5E9; font-family: monospace; font-size: 11px; font-weight: bold;">${getPassengerPnr(p, flights[0] || {})}</td>
               <td style="padding: 6px 10px; color: #0284C7; font-family: monospace; font-size: 11px; font-weight: bold;">${getTicketNumber(p, flights[0] || {}, idx)}</td>
-              <td style="padding: 6px 10px; color: #475569;">91263712</td>
+              <td style="padding: 6px 10px; color: #475569;">91206076</td>
             </tr>
           `,
             )
@@ -1648,7 +1684,7 @@ function generateConsolidatedTicketHtml(
             Address: Office 1, 11 Walford Road, Birmingham, B11 1NP, UK<br>
             Phone: 0121 529 1630 | Emergency: +44 7888 461474<br>
             Email: office@terrifictravel.co.uk | Web: www.terrifictravel.co.uk<br>
-            IATA: 91263712  
+            IATA: 91206076  
           </p>
         </div>
         <div style="display: flex; align-items: center; height: 50px;">
@@ -1883,7 +1919,10 @@ export function generateFlightTicketHtml(
           }
         } catch (e) {}
       }
-      return flightNat === "ALL" || flightNat === selectedNationality.trim().toUpperCase();
+      return (
+        flightNat === "ALL" ||
+        flightNat === selectedNationality.trim().toUpperCase()
+      );
     });
   }
 
@@ -1941,9 +1980,16 @@ export function generateFlightTicketHtml(
                 }
               } catch (e) {}
             }
-            return flightNat === "ALL" || flightNat === nat.trim().toUpperCase();
+            return (
+              flightNat === "ALL" || flightNat === nat.trim().toUpperCase()
+            );
           });
-          return generateConsolidatedTicketHtml(booking, natPax, natFlights, false);
+          return generateConsolidatedTicketHtml(
+            booking,
+            natPax,
+            natFlights,
+            false,
+          );
         })
         .join('<div style="page-break-after: always; height: 1px;"></div>');
       return baseFlightHtml;
@@ -1963,14 +2009,29 @@ export function generateFlightTicketHtml(
     if (airlineKeys.length > 1) {
       baseFlightHtml = airlineKeys
         .map((airline) =>
-          generateConsolidatedTicketHtml(booking, activePax, groups[airline], groupByNationality),
+          generateConsolidatedTicketHtml(
+            booking,
+            activePax,
+            groups[airline],
+            groupByNationality,
+          ),
         )
         .join('<div style="page-break-after: always; height: 1px;"></div>');
     } else {
-      baseFlightHtml = generateConsolidatedTicketHtml(booking, activePax, sortedFlights, groupByNationality);
+      baseFlightHtml = generateConsolidatedTicketHtml(
+        booking,
+        activePax,
+        sortedFlights,
+        groupByNationality,
+      );
     }
   } else {
-    baseFlightHtml = generateConsolidatedTicketHtml(booking, activePax, sortedFlights, groupByNationality);
+    baseFlightHtml = generateConsolidatedTicketHtml(
+      booking,
+      activePax,
+      sortedFlights,
+      groupByNationality,
+    );
   }
 
   // Handle Full Package Mode (Flight + Hotel Vouchers)
@@ -1981,7 +2042,9 @@ export function generateFlightTicketHtml(
         parts.push(generateHotelVoucherHtml(booking, h));
       });
     }
-    return parts.join('<div style="page-break-after: always; height: 1px;"></div>');
+    return parts.join(
+      '<div style="page-break-after: always; height: 1px;"></div>',
+    );
   }
 
   // Handle Agent Copy / Internal Operations Record Mode
@@ -2022,7 +2085,7 @@ export function generateHotelVoucherHtml(booking: any, hotel: any) {
             Address: Office 1, 11 Walford Road, Birmingham, B11 1NP, UK<br>
             Phone: 0121 529 1630 | Emergency: +44 7888 461474<br>
             Email: office@terrifictravel.co.uk | Web: www.terrifictravel.co.uk<br>
-            IATA: 91263712  
+            IATA: 91206076  
           </p>
         </div>
         <div style="display: flex; align-items: center; height: 60px;">
@@ -2179,7 +2242,7 @@ export function generateVisaInvoiceHtml(booking: any, visa: any) {
             Address: Office 1, 11 Walford Road, Birmingham, B11 1NP, UK<br>
             Phone: 0121 529 1630 | Emergency: +44 7888 461474<br>
             Email: office@terrifictravel.co.uk | Web: www.terrifictravel.co.uk<br>
-            IATA: 91263712  
+            IATA: 91206076  
           </p>
         </div>
         <div style="display: flex; align-items: center; height: 60px;">
@@ -2305,9 +2368,7 @@ export function generateTransportVoucherHtml(booking: any, transport: any) {
         : formatDate(new Date());
 
   // Lead guest name
-  const guestName = leader
-    ? formatPassengerName(leader)
-    : "VALUED PASSENGER";
+  const guestName = leader ? formatPassengerName(leader) : "VALUED PASSENGER";
 
   // Passenger count
   const paxCount = booking.passengers?.length || 1;
@@ -2509,7 +2570,7 @@ export function generateSpecialServiceInvoiceHtml(booking: any, service: any) {
             Address: Office 1, 11 Walford Road, Birmingham, B11 1NP, UK<br>
             Phone: 0121 529 1630 | Emergency: +44 7888 461474<br>
             Email: office@terrifictravel.co.uk | Web: www.terrifictravel.co.uk<br>
-            IATA: 91263712  
+            IATA: 91206076  
           </p>
         </div>
         <div style="display: flex; align-items: center; height: 60px;">
