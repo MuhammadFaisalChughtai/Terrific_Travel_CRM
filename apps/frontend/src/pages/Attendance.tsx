@@ -32,6 +32,8 @@ interface AttendanceRecord {
     weekendShiftEndTime?: string;
     weekendGracePeriodMinutes?: number;
     isWeekendOff?: boolean;
+    isSaturdayOff?: boolean;
+    isSundayOff?: boolean;
     holidayShiftStartTime?: string;
     holidayShiftEndTime?: string;
     holidayGracePeriodMinutes?: number;
@@ -809,8 +811,16 @@ export default function Attendance() {
                       let grace = record.agent?.gracePeriodMinutes ?? 15;
                       let isOffDayRec = false;
 
-                      if (isWeekendRec) {
-                        if (record.agent?.isWeekendOff) {
+                      if (dayOfWeek === 6) { // Saturday
+                        if (record.agent?.isSaturdayOff || record.agent?.isWeekendOff) {
+                          isOffDayRec = true;
+                        } else if (record.agent?.weekendShiftStartTime) {
+                          shiftStartStr = record.agent.weekendShiftStartTime;
+                          shiftEndStr = record.agent.weekendShiftEndTime || "16:00";
+                          grace = record.agent.weekendGracePeriodMinutes ?? 15;
+                        }
+                      } else if (dayOfWeek === 0) { // Sunday
+                        if (record.agent?.isSundayOff || record.agent?.isWeekendOff) {
                           isOffDayRec = true;
                         } else if (record.agent?.weekendShiftStartTime) {
                           shiftStartStr = record.agent.weekendShiftStartTime;
@@ -841,10 +851,10 @@ export default function Attendance() {
                             <div className="text-[10px] text-muted-foreground font-normal space-y-0.5 mt-0.5">
                               {isWeekendRec ? (
                                 isOffDayRec ? (
-                                  <span className="text-emerald-600 font-bold">Weekend (Day Off)</span>
+                                  <span className="text-emerald-600 font-bold">{dayOfWeek === 6 ? "Saturday" : "Sunday"} (Day Off)</span>
                                 ) : (
                                   <div>
-                                    <span>🇬🇧 {shiftStartStr}-{shiftEndStr} UK (+{grace}m)</span>
+                                    <span>🇬🇧 {dayOfWeek === 6 ? "Sat" : "Sun"}: {shiftStartStr}-{shiftEndStr} UK (+{grace}m)</span>
                                     <span className="ml-1.5 text-emerald-700 dark:text-emerald-400 font-bold">🇵🇰 ({getPktTimeFromUkTime(shiftStartStr)} - {getPktTimeFromUkTime(shiftEndStr)})</span>
                                   </div>
                                 )

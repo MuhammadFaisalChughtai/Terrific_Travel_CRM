@@ -24,6 +24,8 @@ interface AgentScheduleState {
   weekendShiftEndTime: string;
   weekendGracePeriodMinutes: number;
   isWeekendOff: boolean;
+  isSaturdayOff: boolean;
+  isSundayOff: boolean;
   // Holiday
   holidayShiftStartTime: string;
   holidayShiftEndTime: string;
@@ -129,6 +131,8 @@ export default function AgentTimetablesModal({
           weekendShiftEndTime: a.weekendShiftEndTime || "16:00",
           weekendGracePeriodMinutes: a.weekendGracePeriodMinutes ?? 15,
           isWeekendOff: Boolean(a.isWeekendOff),
+          isSaturdayOff: a.isSaturdayOff !== undefined ? Boolean(a.isSaturdayOff) : Boolean(a.isWeekendOff),
+          isSundayOff: a.isSundayOff !== undefined ? Boolean(a.isSundayOff) : Boolean(a.isWeekendOff),
           holidayShiftStartTime: a.holidayShiftStartTime || "10:00",
           holidayShiftEndTime: a.holidayShiftEndTime || "15:00",
           holidayGracePeriodMinutes: a.holidayGracePeriodMinutes ?? 15,
@@ -151,7 +155,9 @@ export default function AgentTimetablesModal({
         weekendShiftStartTime: agent.weekendShiftStartTime,
         weekendShiftEndTime: agent.weekendShiftEndTime,
         weekendGracePeriodMinutes: agent.weekendGracePeriodMinutes,
-        isWeekendOff: agent.isWeekendOff,
+        isWeekendOff: agent.isSaturdayOff && agent.isSundayOff,
+        isSaturdayOff: agent.isSaturdayOff,
+        isSundayOff: agent.isSundayOff,
         holidayShiftStartTime: agent.holidayShiftStartTime,
         holidayShiftEndTime: agent.holidayShiftEndTime,
         holidayGracePeriodMinutes: agent.holidayGracePeriodMinutes,
@@ -203,7 +209,9 @@ export default function AgentTimetablesModal({
             weekendShiftStartTime: agent.weekendShiftStartTime,
             weekendShiftEndTime: agent.weekendShiftEndTime,
             weekendGracePeriodMinutes: agent.weekendGracePeriodMinutes,
-            isWeekendOff: agent.isWeekendOff,
+            isWeekendOff: agent.isSaturdayOff && agent.isSundayOff,
+            isSaturdayOff: agent.isSaturdayOff,
+            isSundayOff: agent.isSundayOff,
             holidayShiftStartTime: agent.holidayShiftStartTime,
             holidayShiftEndTime: agent.holidayShiftEndTime,
             holidayGracePeriodMinutes: agent.holidayGracePeriodMinutes,
@@ -311,7 +319,7 @@ export default function AgentTimetablesModal({
             {activeCategory === "weekdays" &&
               "Weekdays Shift Rules (Monday - Friday)"}
             {activeCategory === "weekends" &&
-              "Weekend Shift Rules (Saturday - Sunday)"}
+              "Weekend Shift Rules (Saturday - Sunday Off Days)"}
             {activeCategory === "holidays" &&
               "Holiday Shift Rules & Offday Exemptions"}
           </p>
@@ -324,9 +332,7 @@ export default function AgentTimetablesModal({
           )}
           {activeCategory === "weekends" && (
             <span>
-              Configure weekend shift hours or toggle{" "}
-              <strong>Weekend Day Off</strong> to exempt staff from attendance
-              penalties on Saturdays &amp; Sundays.
+              Configure custom off-days for each agent. Select <strong>Saturday Off</strong> or <strong>Sunday Off</strong> independently so staff working weekend rotas are evaluated correctly.
             </span>
           )}
           {activeCategory === "holidays" && (
@@ -359,7 +365,7 @@ export default function AgentTimetablesModal({
                     )}
                     {activeCategory === "weekends" && (
                       <>
-                        <th className="p-3">Day Off Status</th>
+                        <th className="p-3">Weekend Off Days</th>
                         <th className="p-3">Sat/Sun Shift Start</th>
                         <th className="p-3">Sat/Sun Shift End</th>
                         <th className="p-3 w-28">Grace (Mins)</th>
@@ -470,31 +476,55 @@ export default function AgentTimetablesModal({
                       {activeCategory === "weekends" && (
                         <>
                           <td className="p-3">
-                            <label className="flex items-center gap-1.5 font-bold cursor-pointer text-xs">
-                              <input
-                                type="checkbox"
-                                checked={ag.isWeekendOff}
-                                onChange={(e) =>
-                                  handleFieldChange(
-                                    ag.id,
-                                    "isWeekendOff",
-                                    e.target.checked
-                                  )
-                                }
-                                className="w-4 h-4 rounded text-primary focus:ring-primary"
-                              />
-                              <span
-                                className={
-                                  ag.isWeekendOff
-                                    ? "text-emerald-600 font-extrabold"
-                                    : "text-foreground"
-                                }
-                              >
-                                {ag.isWeekendOff
-                                  ? "DAY OFF (EXEMPT)"
-                                  : "WORKING SHIFT"}
-                              </span>
-                            </label>
+                            <div className="space-y-1.5">
+                              <label className="flex items-center gap-1.5 font-bold cursor-pointer text-xs">
+                                <input
+                                  type="checkbox"
+                                  checked={ag.isSaturdayOff}
+                                  onChange={(e) =>
+                                    handleFieldChange(
+                                      ag.id,
+                                      "isSaturdayOff",
+                                      e.target.checked
+                                    )
+                                  }
+                                  className="w-3.5 h-3.5 rounded text-primary focus:ring-primary"
+                                />
+                                <span
+                                  className={
+                                    ag.isSaturdayOff
+                                      ? "text-emerald-600 dark:text-emerald-400 font-black"
+                                      : "text-foreground"
+                                  }
+                                >
+                                  Sat: {ag.isSaturdayOff ? "DAY OFF" : "WORK SHIFT"}
+                                </span>
+                              </label>
+
+                              <label className="flex items-center gap-1.5 font-bold cursor-pointer text-xs">
+                                <input
+                                  type="checkbox"
+                                  checked={ag.isSundayOff}
+                                  onChange={(e) =>
+                                    handleFieldChange(
+                                      ag.id,
+                                      "isSundayOff",
+                                      e.target.checked
+                                    )
+                                  }
+                                  className="w-3.5 h-3.5 rounded text-primary focus:ring-primary"
+                                />
+                                <span
+                                  className={
+                                    ag.isSundayOff
+                                      ? "text-emerald-600 dark:text-emerald-400 font-black"
+                                      : "text-foreground"
+                                  }
+                                >
+                                  Sun: {ag.isSundayOff ? "DAY OFF" : "WORK SHIFT"}
+                                </span>
+                              </label>
+                            </div>
                           </td>
                           <td className="p-3">
                             <div className="space-y-1">
@@ -504,7 +534,7 @@ export default function AgentTimetablesModal({
                                 </span>
                                 <input
                                   type="time"
-                                  disabled={ag.isWeekendOff}
+                                  disabled={ag.isSaturdayOff && ag.isSundayOff}
                                   value={ag.weekendShiftStartTime}
                                   onChange={(e) =>
                                     handleFieldChange(
@@ -516,7 +546,7 @@ export default function AgentTimetablesModal({
                                   className="bg-background border border-border rounded px-2 py-1 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-40"
                                 />
                               </div>
-                              {!ag.isWeekendOff && (
+                              {!(ag.isSaturdayOff && ag.isSundayOff) && (
                                 <div className="text-[10px] text-emerald-700 dark:text-emerald-400 font-bold flex items-center gap-1">
                                   <span>🇵🇰</span>{" "}
                                   {getPktTimeFromUkTime(
@@ -534,7 +564,7 @@ export default function AgentTimetablesModal({
                                 </span>
                                 <input
                                   type="time"
-                                  disabled={ag.isWeekendOff}
+                                  disabled={ag.isSaturdayOff && ag.isSundayOff}
                                   value={ag.weekendShiftEndTime}
                                   onChange={(e) =>
                                     handleFieldChange(
@@ -546,7 +576,7 @@ export default function AgentTimetablesModal({
                                   className="bg-background border border-border rounded px-2 py-1 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-40"
                                 />
                               </div>
-                              {!ag.isWeekendOff && (
+                              {!(ag.isSaturdayOff && ag.isSundayOff) && (
                                 <div className="text-[10px] text-emerald-700 dark:text-emerald-400 font-bold flex items-center gap-1">
                                   <span>🇵🇰</span>{" "}
                                   {getPktTimeFromUkTime(ag.weekendShiftEndTime)}
@@ -560,7 +590,7 @@ export default function AgentTimetablesModal({
                                 type="number"
                                 min={0}
                                 max={120}
-                                disabled={ag.isWeekendOff}
+                                disabled={ag.isSaturdayOff && ag.isSundayOff}
                                 value={ag.weekendGracePeriodMinutes}
                                 onChange={(e) =>
                                   handleFieldChange(

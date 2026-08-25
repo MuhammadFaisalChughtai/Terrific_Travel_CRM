@@ -54,8 +54,15 @@ export class AttendanceService {
     let graceMins = agentObj?.gracePeriodMinutes ?? 15;
     let isOffDay = false;
 
-    if (isWeekend) {
-      if (agentObj?.isWeekendOff) {
+    if (dayOfWeek === 6) { // Saturday
+      if (agentObj?.isSaturdayOff || agentObj?.isWeekendOff) {
+        isOffDay = true;
+      } else if (agentObj?.weekendShiftStartTime) {
+        shiftTimeStr = agentObj.weekendShiftStartTime;
+        graceMins = agentObj.weekendGracePeriodMinutes ?? 15;
+      }
+    } else if (dayOfWeek === 0) { // Sunday
+      if (agentObj?.isSundayOff || agentObj?.isWeekendOff) {
         isOffDay = true;
       } else if (agentObj?.weekendShiftStartTime) {
         shiftTimeStr = agentObj.weekendShiftStartTime;
@@ -227,6 +234,8 @@ export class AttendanceService {
                 weekendShiftEndTime: true,
                 weekendGracePeriodMinutes: true,
                 isWeekendOff: true,
+                isSaturdayOff: true,
+                isSundayOff: true,
                 holidayShiftStartTime: true,
                 holidayShiftEndTime: true,
                 holidayGracePeriodMinutes: true,
@@ -259,6 +268,8 @@ export class AttendanceService {
             weekendShiftEndTime: true,
             weekendGracePeriodMinutes: true,
             isWeekendOff: true,
+            isSaturdayOff: true,
+            isSundayOff: true,
             holidayShiftStartTime: true,
             holidayShiftEndTime: true,
             holidayGracePeriodMinutes: true,

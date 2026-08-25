@@ -121,6 +121,8 @@ export class AgentsService {
       weekendShiftEndTime: data.weekendShiftEndTime !== undefined ? data.weekendShiftEndTime : undefined,
       weekendGracePeriodMinutes: data.weekendGracePeriodMinutes !== undefined ? Number(data.weekendGracePeriodMinutes) : undefined,
       isWeekendOff: data.isWeekendOff !== undefined ? Boolean(data.isWeekendOff) : undefined,
+      isSaturdayOff: data.isSaturdayOff !== undefined ? Boolean(data.isSaturdayOff) : undefined,
+      isSundayOff: data.isSundayOff !== undefined ? Boolean(data.isSundayOff) : undefined,
       holidayShiftStartTime: data.holidayShiftStartTime !== undefined ? data.holidayShiftStartTime : undefined,
       holidayShiftEndTime: data.holidayShiftEndTime !== undefined ? data.holidayShiftEndTime : undefined,
       holidayGracePeriodMinutes: data.holidayGracePeriodMinutes !== undefined ? Number(data.holidayGracePeriodMinutes) : undefined,

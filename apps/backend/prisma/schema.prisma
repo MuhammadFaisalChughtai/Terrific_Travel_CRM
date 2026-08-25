@@ -451,6 +451,8 @@ model Agent {
   weekendShiftEndTime       String?     @default("16:00")
   weekendGracePeriodMinutes Int?        @default(15)
   isWeekendOff              Boolean     @default(false)
+  isSaturdayOff             Boolean     @default(false)
+  isSundayOff               Boolean     @default(false)
   holidayShiftStartTime     String?     @default("10:00")
   holidayShiftEndTime       String?     @default("15:00")
   holidayGracePeriodMinutes Int?        @default(15)
