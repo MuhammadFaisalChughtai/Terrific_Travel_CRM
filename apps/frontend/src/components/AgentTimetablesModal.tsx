@@ -141,7 +141,7 @@ export default function AgentTimetablesModal({
 
   const updateAgentMutation = useMutation({
     mutationFn: async (agent: AgentScheduleState) => {
-      return apiClient.put(`/agents/${agent.id}`, {
+      return apiClient.patch(`/agents/${agent.id}`, {
         name: agent.name,
         email: agent.email,
         shiftStartTime: agent.shiftStartTime,
@@ -193,7 +193,7 @@ export default function AgentTimetablesModal({
     try {
       await Promise.all(
         agentsList.map((agent) =>
-          apiClient.put(`/agents/${agent.id}`, {
+          apiClient.patch(`/agents/${agent.id}`, {
             name: agent.name,
             email: agent.email,
             shiftStartTime: agent.shiftStartTime,
