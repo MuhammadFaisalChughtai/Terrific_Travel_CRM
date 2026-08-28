@@ -133,10 +133,11 @@ export default function Attendance() {
 
   // Fetch agents for the dropdown
   const { data: agents } = useQuery({
-    queryKey: ["agents"],
+    queryKey: ["agents", "active"],
     queryFn: async () => {
-      const res = await apiClient.get("/agents");
-      return res.data.data.items;
+      const res = await apiClient.get("/agents?jobStatus=Active");
+      const items = res.data.data.items || [];
+      return items.filter((a: any) => !a.jobStatus || a.jobStatus.toUpperCase() === "ACTIVE");
     },
     enabled: canViewAudit,
   });

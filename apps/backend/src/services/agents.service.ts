@@ -7,9 +7,17 @@ export class AgentsService {
     const limit = Number(query.limit) || 100;
     const offset = Number(query.offset) || 0;
 
+    const where: any = {};
+    if (query.jobStatus) {
+      where.jobStatus = { equals: query.jobStatus, mode: 'insensitive' };
+    } else if (query.activeOnly === 'true') {
+      where.jobStatus = { equals: 'Active', mode: 'insensitive' };
+    }
+
     const [total, items] = await Promise.all([
-      prisma.agent.count(),
+      prisma.agent.count({ where }),
       prisma.agent.findMany({
+        where,
         take: limit,
         skip: offset,
         include: {

@@ -110,7 +110,7 @@ export default function AgentTimetablesModal({
   const { data: agentsData, isLoading } = useQuery({
     queryKey: ["agents", "timetables"],
     queryFn: async () => {
-      const res = await apiClient.get("/agents");
+      const res = await apiClient.get("/agents?jobStatus=Active");
       return res.data.data.items || [];
     },
     enabled: isOpen,
@@ -118,8 +118,14 @@ export default function AgentTimetablesModal({
 
   useEffect(() => {
     if (agentsData && Array.isArray(agentsData)) {
+      const activeAgents = agentsData.filter((a: any) => {
+        if (!a) return false;
+        const status = (a.jobStatus || "Active").toUpperCase();
+        return status === "ACTIVE";
+      });
+
       setAgentsList(
-        agentsData.map((a: any) => ({
+        activeAgents.map((a: any) => ({
           id: a.id,
           name: a.name,
           email: a.email,
