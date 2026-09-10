@@ -847,29 +847,29 @@ export class BookingsService {
       updateData.departureDate = data.departureDate ? new Date(data.departureDate) : null;
     }
 
-    const activeTotal = updateData.totalPrice !== undefined ? updateData.totalPrice : (booking.totalPrice || 0);
-    const refundAmount = booking.refundAmount || 0;
+    const activeTotal = updateData.totalPrice !== undefined ? Math.round(updateData.totalPrice * 100) / 100 : (booking.totalPrice || 0);
+    const refundAmount = booking.refundAmount ? Math.round(booking.refundAmount * 100) / 100 : 0;
 
-    let finalPaidAmount = booking.paidAmount || 0;
-    let finalRemainingAmount = booking.remainingAmount || 0;
+    let finalPaidAmount = booking.paidAmount ? Math.round(booking.paidAmount * 100) / 100 : 0;
+    let finalRemainingAmount = booking.remainingAmount ? Math.round(booking.remainingAmount * 100) / 100 : 0;
 
     if (data.paidAmount !== undefined && data.paidAmount !== null) {
-      finalPaidAmount = Math.max(0, Number(data.paidAmount));
+      finalPaidAmount = Math.max(0, Math.round(Number(data.paidAmount) * 100) / 100);
       updateData.paidAmount = finalPaidAmount;
       if (data.remainingAmount !== undefined && data.remainingAmount !== null) {
-        finalRemainingAmount = Math.max(0, Number(data.remainingAmount));
+        finalRemainingAmount = Math.max(0, Math.round(Number(data.remainingAmount) * 100) / 100);
         updateData.remainingAmount = finalRemainingAmount;
       } else {
-        finalRemainingAmount = Math.max(0, (activeTotal - refundAmount) - finalPaidAmount);
+        finalRemainingAmount = Math.max(0, Math.round(((activeTotal - refundAmount) - finalPaidAmount) * 100) / 100);
         updateData.remainingAmount = finalRemainingAmount;
       }
     } else if (data.remainingAmount !== undefined && data.remainingAmount !== null) {
-      finalRemainingAmount = Math.max(0, Number(data.remainingAmount));
+      finalRemainingAmount = Math.max(0, Math.round(Number(data.remainingAmount) * 100) / 100);
       updateData.remainingAmount = finalRemainingAmount;
-      finalPaidAmount = Math.max(0, (activeTotal - refundAmount) - finalRemainingAmount);
+      finalPaidAmount = Math.max(0, Math.round(((activeTotal - refundAmount) - finalRemainingAmount) * 100) / 100);
       updateData.paidAmount = finalPaidAmount;
     } else {
-      finalRemainingAmount = Math.max(0, (activeTotal - refundAmount) - finalPaidAmount);
+      finalRemainingAmount = Math.max(0, Math.round(((activeTotal - refundAmount) - finalPaidAmount) * 100) / 100);
       updateData.remainingAmount = finalRemainingAmount;
     }
 

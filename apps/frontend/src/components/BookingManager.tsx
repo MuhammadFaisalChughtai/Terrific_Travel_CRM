@@ -496,14 +496,48 @@ export default function BookingManager({
   const [editDepartureDate, setEditDepartureDate] = useState("");
   const [editLeadPassengerName, setEditLeadPassengerName] = useState("");
 
+  const calculateBookingAmounts = (b: any) => {
+    if (!b) return { total: 0, paid: 0, remaining: 0, refund: 0 };
+    const isCustomerTx = (tx: any) => {
+      if (!tx.notes) return true;
+      const notesLower = tx.notes.toLowerCase();
+      if (
+        notesLower.includes("vendor") ||
+        notesLower.includes("discount") ||
+        notesLower.includes("agent") ||
+        notesLower.includes("payout") ||
+        notesLower.includes("refund from vendor")
+      ) {
+        return false;
+      }
+      return true;
+    };
+    const clientTxs = b.transactions?.filter(isCustomerTx) || [];
+    const clientTxSum = clientTxs.reduce(
+      (sum: number, tx: any) => sum + (Number(tx.amount) || 0),
+      0
+    );
+    const total = Number(b.totalPrice) || 0;
+    const refund = Number(b.refundAmount) || 0;
+    const paid = clientTxSum > 0 ? clientTxSum : (Number(b.paidAmount) || 0);
+    const remaining = Math.max(0, (total - refund) - paid);
+    return {
+      total: Math.round(total * 100) / 100,
+      paid: Math.round(paid * 100) / 100,
+      remaining: Math.round(remaining * 100) / 100,
+      refund: Math.round(refund * 100) / 100,
+    };
+  };
+
   const populateEditState = (b: any) => {
     if (!b) return;
     const leadPax = b.passengers?.find((p: any) => p.role === 'Leader') || b.passengers?.[0];
     const leadPaxName = leadPax ? `${leadPax.firstName || ''} ${leadPax.lastName || ''}`.trim() : '';
+    const amounts = calculateBookingAmounts(b);
 
-    setEditTotalPrice(String(b.totalPrice ?? ""));
-    setEditPaidAmount(String(b.paidAmount ?? ""));
-    setEditRemainingAmount(String(b.remainingAmount ?? ""));
+    setEditTotalPrice(amounts.total > 0 ? amounts.total.toFixed(2) : "");
+    setEditPaidAmount(amounts.paid >= 0 ? amounts.paid.toFixed(2) : "");
+    setEditRemainingAmount(amounts.remaining >= 0 ? amounts.remaining.toFixed(2) : "");
     setEditAgentId(b.agentId ?? "");
     setEditBookingDate(
       b.bookingDate
@@ -615,9 +649,9 @@ export default function BookingManager({
   const updateDetailsMutation = useMutation({
     mutationFn: async () => {
       const payload: any = {};
-      if (editTotalPrice !== "") payload.totalPrice = parseFloat(editTotalPrice);
-      if (editPaidAmount !== "") payload.paidAmount = parseFloat(editPaidAmount);
-      if (editRemainingAmount !== "") payload.remainingAmount = parseFloat(editRemainingAmount);
+      if (editTotalPrice !== "") payload.totalPrice = Math.round((parseFloat(editTotalPrice) || 0) * 100) / 100;
+      if (editPaidAmount !== "") payload.paidAmount = Math.round((parseFloat(editPaidAmount) || 0) * 100) / 100;
+      if (editRemainingAmount !== "") payload.remainingAmount = Math.round((parseFloat(editRemainingAmount) || 0) * 100) / 100;
       payload.agentId = editAgentId || null;
       payload.bookingDate = editBookingDate || null;
       payload.departureDate = editDepartureDate || null;
@@ -1129,7 +1163,9 @@ export default function BookingManager({
                             setEditTotalPrice(val);
                             const tot = parseFloat(val) || 0;
                             const paid = parseFloat(editPaidAmount) || 0;
-                            setEditRemainingAmount(String(Math.max(0, tot - paid).toFixed(2)));
+                            const ref = Number(booking?.refundAmount) || 0;
+                            const newRem = Math.max(0, (tot - ref) - paid);
+                            setEditRemainingAmount(newRem.toFixed(2));
                           }}
                           className="w-full pl-7 pr-3 py-2.5 bg-secondary/20 border border-border/60 rounded-lg text-sm font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 focus:bg-background transition-all"
                           placeholder="0.00"
@@ -1159,7 +1195,9 @@ export default function BookingManager({
                             setEditPaidAmount(paid);
                             const tot = parseFloat(editTotalPrice) || 0;
                             const p = parseFloat(paid) || 0;
-                            setEditRemainingAmount(String(Math.max(0, tot - p).toFixed(2)));
+                            const ref = Number(booking?.refundAmount) || 0;
+                            const newRem = Math.max(0, (tot - ref) - p);
+                            setEditRemainingAmount(newRem.toFixed(2));
                           }}
                           className="w-full pl-7 pr-3 py-2.5 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-sm font-bold text-emerald-700 dark:text-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all"
                           placeholder="0.00"
@@ -1189,7 +1227,9 @@ export default function BookingManager({
                             setEditRemainingAmount(rem);
                             const tot = parseFloat(editTotalPrice) || 0;
                             const r = parseFloat(rem) || 0;
-                            setEditPaidAmount(String(Math.max(0, tot - r).toFixed(2)));
+                            const ref = Number(booking?.refundAmount) || 0;
+                            const newPaid = Math.max(0, (tot - ref) - r);
+                            setEditPaidAmount(newPaid.toFixed(2));
                           }}
                           className="w-full pl-7 pr-3 py-2.5 bg-orange-500/10 border border-orange-500/30 rounded-lg text-sm font-bold text-orange-700 dark:text-orange-300 focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500 transition-all"
                           placeholder="0.00"

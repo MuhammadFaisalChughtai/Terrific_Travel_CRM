@@ -154,11 +154,11 @@ export class PaymentsService {
             return sum + (t.amount || 0);
           }, 0);
 
-          const newPaidAmount = existingClientPaid + amount;
-          const netTotalPrice = booking.totalPrice - (booking.refundAmount || 0);
+          const newPaidAmount = Math.round((existingClientPaid + amount) * 100) / 100;
+          const netTotalPrice = Math.round(((booking.totalPrice || 0) - (booking.refundAmount || 0)) * 100) / 100;
           const newRemainingAmount = Math.max(
             0,
-            netTotalPrice - newPaidAmount,
+            Math.round((netTotalPrice - newPaidAmount) * 100) / 100,
           );
           let paymentStatus = "UNPAID";
           let fullyPaidAt = null;
@@ -333,11 +333,12 @@ export class PaymentsService {
             },
           });
 
-          const newPaidAmount = Math.max(0, booking.paidAmount - amount);
-          const netTotalPrice = booking.totalPrice - ((booking.refundAmount || 0) + amount);
+          const newPaidAmount = Math.max(0, Math.round(((booking.paidAmount || 0) - amount) * 100) / 100);
+          const currentRefund = booking.refundAmount ? Math.round(booking.refundAmount * 100) / 100 : 0;
+          const netTotalPrice = Math.round(((booking.totalPrice || 0) - (currentRefund + amount)) * 100) / 100;
           const newRemainingAmount = Math.max(
             0,
-            netTotalPrice - newPaidAmount,
+            Math.round((netTotalPrice - newPaidAmount) * 100) / 100,
           );
           let paymentStatus = "UNPAID";
           let fullyPaidAt = null;
