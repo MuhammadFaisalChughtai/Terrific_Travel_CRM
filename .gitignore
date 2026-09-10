@@ -1,46 +1,133 @@
-# OS and editor
+# =============================================================================
+# Terrific Travel TMS - Comprehensive .gitignore
+# =============================================================================
+
+# ── 1. Operating System & System Files ──
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+ehthumbs_vista.db
 Thumbs.db
-.vscode/
+Thumbs.db:encryptable
+[Dd]esktop.ini
+$RECYCLE.BIN/
+
+# ── 2. IDEs, Editors & Tooling ──
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/launch.json
 .idea/
+*.sublime-project
+*.sublime-workspace
 *.swp
 *.swo
+*~
+.history/
+.ionide/
 
-# Logs
-logs/
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-
-# Environment and secrets
-.env
-.env.*
-!.env.example
-*.pem
-*.key
-
-# Dependencies and package manager artifacts
+# ── 3. Dependencies & Package Managers ──
 node_modules/
+*/node_modules/
+web_modules/
 .pnpm-store/
 .npm/
 .yarn/
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+package-lock.json.bak
+yarn-error.log*
+npm-debug.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# Build output and caches
+# ── 4. Build Outputs & Compilers ──
 dist/
+*/dist/
 build/
-coverage/
-.cache/
+*/build/
+out/
+*/out/
+bin/
+obj/
 .turbo/
-.next/
+.cache/
+.parcel-cache/
+.rollup.cache/
 *.tsbuildinfo
+.eslintcache
+.stylelintcache
+.prettiercache
+.next/
+.nuxt/
+.vuepress/dist
 
-# Temp and runtime
-tmp/
-temp/
+# ── 5. Environment Variables & Secrets ──
+.env
+.env.*
+*.env
+!.env.example
+!.env.template
+*.pem
+*.key
+*.cert
+*.crt
+*.pfx
+*.p12
+credentials.json
+serviceAccountKey*.json
+client_secret*.json
+
+# ── 6. Logs & Debugging ──
+logs/
+*/logs/
+*.log
+*.log.*
 *.pid
 *.pid.lock
+*.seed
 
-# Local docker overrides
+# ── 7. Testing & Code Coverage ──
+coverage/
+*/coverage/
+.nyc_output/
+junit.xml
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+cypress/videos/
+cypress/screenshots/
+
+# ── 8. Uploads, Local Storage & User Content ──
+uploads/
+*/uploads/
+storage/
+*/storage/
+public/uploads/
+apps/backend/uploads/
+
+# ── 9. Databases, SQLite & Container Data ──
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+postgres_data/
+redis_data/
+minio_data/
+docker/data/
+
+# ── 10. Local Overrides & Scratch Files ──
 docker-compose.override.yml
+docker-compose.*.local.yml
+scratch/
+tmp/
+temp/
