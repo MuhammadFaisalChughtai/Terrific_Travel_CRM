@@ -31,7 +31,10 @@ $RECYCLE.BIN/
 
 # ── 3. Dependencies & Package Managers ──
 node_modules/
+node_modules
 */node_modules/
+**/node_modules/
+*/*/node_modules/
 web_modules/
 .pnpm-store/
 .npm/
