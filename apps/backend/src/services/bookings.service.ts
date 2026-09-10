@@ -708,8 +708,7 @@ export class BookingsService {
         }, 0);
 
         if (clientPaidSum > 0 && Math.abs(clientPaidSum - (item.paidAmount || 0)) > 0.01) {
-          const netTotal = (item.totalPrice || 0) - (item.refundAmount || 0);
-          const newRemaining = Math.max(0, netTotal - clientPaidSum);
+          const newRemaining = Math.max(0, Math.round(((item.totalPrice || 0) - clientPaidSum) * 100) / 100);
           let newStatus = item.paymentStatus;
           if (newRemaining <= 0) {
             newStatus = 'PAID';
@@ -781,8 +780,7 @@ export class BookingsService {
       }, 0);
 
       if (clientPaidSum > 0 && Math.abs(clientPaidSum - (booking.paidAmount || 0)) > 0.01) {
-        const netTotal = (booking.totalPrice || 0) - (booking.refundAmount || 0);
-        const newRemaining = Math.max(0, netTotal - clientPaidSum);
+        const newRemaining = Math.max(0, Math.round(((booking.totalPrice || 0) - clientPaidSum) * 100) / 100);
         let newStatus = booking.paymentStatus;
         if (newRemaining <= 0) {
           newStatus = 'PAID';
@@ -848,7 +846,6 @@ export class BookingsService {
     }
 
     const activeTotal = updateData.totalPrice !== undefined ? Math.round(updateData.totalPrice * 100) / 100 : (booking.totalPrice || 0);
-    const refundAmount = booking.refundAmount ? Math.round(booking.refundAmount * 100) / 100 : 0;
 
     let finalPaidAmount = booking.paidAmount ? Math.round(booking.paidAmount * 100) / 100 : 0;
     let finalRemainingAmount = booking.remainingAmount ? Math.round(booking.remainingAmount * 100) / 100 : 0;
@@ -860,16 +857,16 @@ export class BookingsService {
         finalRemainingAmount = Math.max(0, Math.round(Number(data.remainingAmount) * 100) / 100);
         updateData.remainingAmount = finalRemainingAmount;
       } else {
-        finalRemainingAmount = Math.max(0, Math.round(((activeTotal - refundAmount) - finalPaidAmount) * 100) / 100);
+        finalRemainingAmount = Math.max(0, Math.round((activeTotal - finalPaidAmount) * 100) / 100);
         updateData.remainingAmount = finalRemainingAmount;
       }
     } else if (data.remainingAmount !== undefined && data.remainingAmount !== null) {
       finalRemainingAmount = Math.max(0, Math.round(Number(data.remainingAmount) * 100) / 100);
       updateData.remainingAmount = finalRemainingAmount;
-      finalPaidAmount = Math.max(0, Math.round(((activeTotal - refundAmount) - finalRemainingAmount) * 100) / 100);
+      finalPaidAmount = Math.max(0, Math.round((activeTotal - finalRemainingAmount) * 100) / 100);
       updateData.paidAmount = finalPaidAmount;
     } else {
-      finalRemainingAmount = Math.max(0, Math.round(((activeTotal - refundAmount) - finalPaidAmount) * 100) / 100);
+      finalRemainingAmount = Math.max(0, Math.round((activeTotal - finalPaidAmount) * 100) / 100);
       updateData.remainingAmount = finalRemainingAmount;
     }
 
@@ -2251,23 +2248,48 @@ export class BookingsService {
       where: { id: transactionId }
     });
 
-    // Recalculate remaining transactions sum
+    // Recalculate remaining client transactions sum and refunds
     const remainingTxs = await prisma.bookingTransaction.findMany({
       where: { bookingId }
     });
-    const newPaidAmount = remainingTxs.reduce((sum, tx) => sum + (tx.amount || 0), 0);
+    const isCustomerTx = (t: any) => {
+      const methodLower = (t.paymentMethod || '').toLowerCase();
+      if (methodLower.includes('vendor') || methodLower.includes('discount') || methodLower.includes('agent') || methodLower.includes('payout')) return false;
+      const notesLower = (t.notes || '').toLowerCase();
+      if (notesLower.includes('vendor payment') || notesLower.includes('agent payout') || notesLower.includes('refund from vendor')) return false;
+      return true;
+    };
+    const clientTxs = remainingTxs.filter(isCustomerTx);
+    const newPaidAmount = Math.round(clientTxs.reduce((sum, tx) => sum + (tx.amount || 0), 0) * 100) / 100;
+    
+    // Calculate total customer refund if transaction had negative amount or was refund
+    const refundTxs = remainingTxs.filter(tx => (tx.amount || 0) < 0 && isCustomerTx(tx));
+    const newRefundAmount = Math.round(Math.abs(refundTxs.reduce((sum, tx) => sum + (tx.amount || 0), 0)) * 100) / 100;
 
-    // Update booking paidAmount
+    const newRemainingAmount = Math.max(0, Math.round(((booking.totalPrice || 0) - newPaidAmount) * 100) / 100);
+    let newPaymentStatus = 'UNPAID';
+    if (newRemainingAmount <= 0 && newPaidAmount > 0) {
+      newPaymentStatus = 'PAID';
+    } else if (newPaidAmount > 0) {
+      newPaymentStatus = 'PARTIALLY_PAID';
+    }
+
+    // Update booking
     await prisma.booking.update({
       where: { id: bookingId },
-      data: { paidAmount: newPaidAmount }
+      data: {
+        paidAmount: newPaidAmount,
+        refundAmount: newRefundAmount,
+        remainingAmount: newRemainingAmount,
+        paymentStatus: newPaymentStatus,
+      }
     });
 
     await rabbitMQService.publish('booking.updated', {
       bookingId: booking.id,
     });
 
-    return { success: true, newPaidAmount };
+    return { success: true, newPaidAmount, newRemainingAmount };
   }
 
   async getUniqueHotels(search: string) {

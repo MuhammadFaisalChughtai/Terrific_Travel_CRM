@@ -520,7 +520,7 @@ export default function BookingManager({
     const total = Number(b.totalPrice) || 0;
     const refund = Number(b.refundAmount) || 0;
     const paid = clientTxSum > 0 ? clientTxSum : (Number(b.paidAmount) || 0);
-    const remaining = Math.max(0, (total - refund) - paid);
+    const remaining = Math.max(0, total - paid);
     return {
       total: Math.round(total * 100) / 100,
       paid: Math.round(paid * 100) / 100,
@@ -607,30 +607,27 @@ export default function BookingManager({
     .filter(Boolean)
     .join(" ");
   const isOwner =
-    // Admin roles always have full access
-    ["Admin", "SUPER_ADMIN", "SUPERADMIN"].some((r) =>
-      user?.roles?.includes(r),
-    ) ||
-    // Created or owns this booking by user-id
+    isAdmin ||
+    user?.roles?.some((r: string) => {
+      const normalized = String(r).toUpperCase().replace(/[\s_-]+/g, "");
+      return ["ADMIN", "SUPERADMIN", "MANAGER", "BRANCHMANAGER", "ADMINISTRATOR", "AGENT", "TRAVELAGENT"].includes(normalized);
+    }) ||
     booking?.createdById === user?.id ||
     booking?.userId === user?.id ||
-    // Agent matched by linked agentId (preferred path)
     (!!user?.agentId && booking?.agentId === user?.agentId) ||
-    // Fallback: agent name matches user's full name (covers un-linked accounts)
     (!user?.agentId &&
       !!userFullName &&
       !!booking?.agent?.name &&
       booking.agent.name.trim().toLowerCase() ===
-        userFullName.trim().toLowerCase())
-      ? true
-      : false;
+        userFullName.trim().toLowerCase());
 
   // True when the logged-in user is an agent/manager (not admin) — used to hide financial internals
   const isAgent =
     !!user?.roles?.length &&
-    !["Admin", "SUPER_ADMIN", "SUPERADMIN"].some((r) =>
-      user?.roles?.includes(r),
-    );
+    !user?.roles?.some((r: string) => {
+      const normalized = String(r).toUpperCase().replace(/[\s_-]+/g, "");
+      return ["ADMIN", "SUPERADMIN", "SUPER_ADMIN", "ADMINISTRATOR"].includes(normalized);
+    });
 
   const disableAgentField =
     isAgent ||
@@ -780,7 +777,7 @@ export default function BookingManager({
 
   const totalPrice = booking.totalPrice || 0;
   const paidAmount = clientTxSum > 0 ? clientTxSum : (booking.paidAmount || 0);
-  const remainingAmount = Math.max(0, (totalPrice - (booking.refundAmount || 0)) - paidAmount);
+  const remainingAmount = Math.max(0, totalPrice - paidAmount);
 
   // Vendor Cost Calculations
   const accommodationsCost =
@@ -1163,8 +1160,7 @@ export default function BookingManager({
                             setEditTotalPrice(val);
                             const tot = parseFloat(val) || 0;
                             const paid = parseFloat(editPaidAmount) || 0;
-                            const ref = Number(booking?.refundAmount) || 0;
-                            const newRem = Math.max(0, (tot - ref) - paid);
+                            const newRem = Math.max(0, tot - paid);
                             setEditRemainingAmount(newRem.toFixed(2));
                           }}
                           className="w-full pl-7 pr-3 py-2.5 bg-secondary/20 border border-border/60 rounded-lg text-sm font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 focus:bg-background transition-all"
@@ -1195,8 +1191,7 @@ export default function BookingManager({
                             setEditPaidAmount(paid);
                             const tot = parseFloat(editTotalPrice) || 0;
                             const p = parseFloat(paid) || 0;
-                            const ref = Number(booking?.refundAmount) || 0;
-                            const newRem = Math.max(0, (tot - ref) - p);
+                            const newRem = Math.max(0, tot - p);
                             setEditRemainingAmount(newRem.toFixed(2));
                           }}
                           className="w-full pl-7 pr-3 py-2.5 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-sm font-bold text-emerald-700 dark:text-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all"
@@ -1227,8 +1222,7 @@ export default function BookingManager({
                             setEditRemainingAmount(rem);
                             const tot = parseFloat(editTotalPrice) || 0;
                             const r = parseFloat(rem) || 0;
-                            const ref = Number(booking?.refundAmount) || 0;
-                            const newPaid = Math.max(0, (tot - ref) - r);
+                            const newPaid = Math.max(0, tot - r);
                             setEditPaidAmount(newPaid.toFixed(2));
                           }}
                           className="w-full pl-7 pr-3 py-2.5 bg-orange-500/10 border border-orange-500/30 rounded-lg text-sm font-bold text-orange-700 dark:text-orange-300 focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500 transition-all"
