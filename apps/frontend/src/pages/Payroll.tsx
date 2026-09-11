@@ -171,6 +171,8 @@ export default function PayrollPage() {
     passportNumber: "AP5906793",
     employeeEmail: "",
     payrollEmail: "",
+    companyName: "Terrific Travel (Private) Limited",
+    companyAddress: "Plot # 78, 3 Street 6, I-10/3 Islamabad, 44000, Pakistan",
     monthYear: "June 2026",
     payDate: "2026-07-01",
     paymentMethod: "Bank Transfer",
@@ -185,7 +187,7 @@ export default function PayrollPage() {
     fineDeduction: 0,
     otherDeductions: 0,
     deductionsJson: [] as CustomLineItem[],
-    notes: "Standard monthly salary disbursement.",
+    notes: "Standard monthly salary disbursement. This is a computer-generated payslip and requires no physical signature.",
     sendImmediately: false,
   });
 
@@ -457,6 +459,8 @@ export default function PayrollPage() {
                 passportNumber: "AP5906793",
                 employeeEmail: "",
                 payrollEmail: "",
+                companyName: "Terrific Travel (Private) Limited",
+                companyAddress: "Plot # 78, 3 Street 6, I-10/3 Islamabad, 44000, Pakistan",
                 monthYear: "June 2026",
                 payDate: "2026-07-01",
                 paymentMethod: "Bank Transfer",
@@ -471,7 +475,7 @@ export default function PayrollPage() {
                 fineDeduction: 0,
                 otherDeductions: 0,
                 deductionsJson: [],
-                notes: "Standard monthly salary disbursement.",
+                notes: "Standard monthly salary disbursement. This is a computer-generated payslip and requires no physical signature.",
                 sendImmediately: false,
               });
               setIsCreateModalOpen(true);
@@ -725,6 +729,18 @@ export default function PayrollPage() {
                           <Edit3 size={14} />
                         </button>
                         <button
+                          onClick={() => {
+                            handleOpenViewer(slip);
+                            setTimeout(() => {
+                              handleDownloadPdf();
+                            }, 300);
+                          }}
+                          className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
+                          title="Quick Export PDF"
+                        >
+                          <Download size={14} />
+                        </button>
+                        <button
                           onClick={() => handleOpenEmailModal(slip)}
                           className="p-1.5 rounded-md text-muted-foreground hover:text-blue-600 hover:bg-blue-500/10 transition-colors"
                           title="Send via SMTP Email (with PDF)"
@@ -781,7 +797,43 @@ export default function PayrollPage() {
               </select>
             </div>
 
-            {/* Employee Basic Details */}
+            {/* Company & Office Location Details (Fully Editable) */}
+            <div className="bg-secondary/15 p-3.5 rounded-xl border border-border/50 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
+                  Employer / Office Information (Editable)
+                </label>
+                <span className="text-[10px] text-muted-foreground italic">Customizable per payslip</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+                    Company / Employer Name
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.companyName}
+                    onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
+                    className="w-full px-3 py-2 bg-background border border-border/60 rounded-lg text-xs font-semibold"
+                    placeholder="Terrific Travel (Private) Limited"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+                    Office / Branch Address
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.companyAddress}
+                    onChange={(e) => setFormData({ ...formData, companyAddress: e.target.value })}
+                    className="w-full px-3 py-2 bg-background border border-border/60 rounded-lg text-xs"
+                    placeholder="Plot # 78, 3 Street 6, I-10/3 Islamabad, 44000, Pakistan"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Employee Basic Details & Payday */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
               <div>
                 <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
@@ -791,7 +843,7 @@ export default function PayrollPage() {
                   type="text"
                   value={formData.employeeName}
                   onChange={(e) => setFormData({ ...formData, employeeName: e.target.value })}
-                  className="w-full px-3 py-2 bg-secondary/20 border border-border/60 rounded-lg text-xs"
+                  className="w-full px-3 py-2 bg-secondary/20 border border-border/60 rounded-lg text-xs font-semibold"
                 />
               </div>
 
@@ -804,6 +856,19 @@ export default function PayrollPage() {
                   value={formData.designation}
                   onChange={(e) => setFormData({ ...formData, designation: e.target.value })}
                   className="w-full px-3 py-2 bg-secondary/20 border border-border/60 rounded-lg text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+                  Department
+                </label>
+                <input
+                  type="text"
+                  value={formData.department}
+                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                  className="w-full px-3 py-2 bg-secondary/20 border border-border/60 rounded-lg text-xs"
+                  placeholder="e.g. Operations / Sales"
                 />
               </div>
 
@@ -834,7 +899,7 @@ export default function PayrollPage() {
 
               <div>
                 <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
-                  Month & Year *
+                  Month & Year (Pay Period) *
                 </label>
                 <input
                   type="text"
@@ -847,13 +912,13 @@ export default function PayrollPage() {
 
               <div>
                 <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
-                  Payment Date
+                  Pay Day / Payment Date *
                 </label>
                 <input
                   type="date"
                   value={formData.payDate}
                   onChange={(e) => setFormData({ ...formData, payDate: e.target.value })}
-                  className="w-full px-3 py-2 bg-secondary/20 border border-border/60 rounded-lg text-xs"
+                  className="w-full px-3 py-2 bg-secondary/20 border border-border/60 rounded-lg text-xs font-semibold"
                 />
               </div>
 
@@ -1232,21 +1297,33 @@ export default function PayrollPage() {
               id="printable-payslip"
               className="bg-white text-slate-900 border border-slate-200 rounded-xl overflow-hidden shadow-md p-6 md:p-8 font-sans"
             >
-              {/* Header with prominent Company Logo */}
+              {/* Header with prominent Company Logo and Editable Company & Address */}
               <div className="border-b-2 border-slate-900 pb-5 mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div>
+                <div className="flex-1 max-w-lg">
                   <img
                     src="/Logo.svg"
                     alt="Terrific Travel Logo"
                     className="h-12 w-auto max-w-[200px] object-contain block mb-2"
                   />
-                  <h2 className="text-xl font-black tracking-tight text-slate-900">
-                    TERRIFIC TRAVEL (PVT) LTD
-                  </h2>
-                  <p className="text-xs text-slate-600 font-medium">
-                    Plot # 78, 3 Street 6, I-10/3 Islamabad, 44000, Pakistan
-                  </p>
-                  <p className="text-[11px] text-slate-500">
+                  <input
+                    type="text"
+                    value={activePayslip.companyName || "Terrific Travel (Private) Limited"}
+                    onChange={(e) =>
+                      setActivePayslip({ ...activePayslip, companyName: e.target.value })
+                    }
+                    className="text-xl font-black tracking-tight text-slate-900 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-slate-800 focus:outline-none w-full"
+                    placeholder="Company Name"
+                  />
+                  <input
+                    type="text"
+                    value={activePayslip.companyAddress || "Plot # 78, 3 Street 6, I-10/3 Islamabad, 44000, Pakistan"}
+                    onChange={(e) =>
+                      setActivePayslip({ ...activePayslip, companyAddress: e.target.value })
+                    }
+                    className="text-xs text-slate-600 font-medium bg-transparent border-b border-transparent hover:border-slate-300 focus:border-slate-800 focus:outline-none w-full mt-0.5"
+                    placeholder="Office Address"
+                  />
+                  <p className="text-[11px] text-slate-500 mt-0.5">
                     Phone: +92 51 1234567 | Email: info@terrifictravel.co.uk
                   </p>
                 </div>
@@ -1257,8 +1334,16 @@ export default function PayrollPage() {
                   <div className="text-base font-black font-mono text-slate-900">
                     {activePayslip.payslipNumber}
                   </div>
-                  <div className="text-xs font-bold text-slate-700 mt-1">
-                    Pay Period: {activePayslip.monthYear}
+                  <div className="text-xs font-bold text-slate-700 mt-1 flex items-center md:justify-end gap-1">
+                    <span>Pay Period:</span>
+                    <input
+                      type="text"
+                      value={activePayslip.monthYear}
+                      onChange={(e) =>
+                        setActivePayslip({ ...activePayslip, monthYear: e.target.value })
+                      }
+                      className="font-bold text-slate-800 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-slate-800 focus:outline-none text-xs w-24 text-left md:text-right"
+                    />
                   </div>
                 </div>
               </div>
@@ -1323,42 +1408,64 @@ export default function PayrollPage() {
 
                 <div>
                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-                    Payment Date
+                    Pay Day / Payment Date
                   </span>
-                  <span className="font-semibold text-slate-800">
-                    {new Date(activePayslip.payDate).toLocaleDateString("en-GB", {
-                      day: "2-digit",
-                      month: "short",
-                      year: "numeric",
-                    })}
-                  </span>
+                  <input
+                    type="date"
+                    value={activePayslip.payDate ? activePayslip.payDate.split("T")[0] : ""}
+                    onChange={(e) =>
+                      setActivePayslip({ ...activePayslip, payDate: e.target.value })
+                    }
+                    className="font-semibold text-slate-800 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-slate-800 focus:outline-none w-full text-xs"
+                  />
                 </div>
 
                 <div>
                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                     Payment Method
                   </span>
-                  <span className="font-semibold text-slate-800">
-                    {activePayslip.paymentMethod}
-                  </span>
+                  <select
+                    value={activePayslip.paymentMethod}
+                    onChange={(e) =>
+                      setActivePayslip({ ...activePayslip, paymentMethod: e.target.value })
+                    }
+                    className="font-semibold text-slate-800 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-slate-800 focus:outline-none text-xs w-full"
+                  >
+                    <option value="Bank Transfer">Bank Transfer</option>
+                    <option value="Cash">Cash</option>
+                    <option value="Cheque">Cheque</option>
+                  </select>
                 </div>
 
                 <div>
                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                     Payroll Email
                   </span>
-                  <span className="font-mono text-[11px] text-slate-700">
-                    {activePayslip.payrollEmail || activePayslip.employeeEmail || "N/A"}
-                  </span>
+                  <input
+                    type="email"
+                    value={activePayslip.payrollEmail || activePayslip.employeeEmail || ""}
+                    onChange={(e) =>
+                      setActivePayslip({ ...activePayslip, payrollEmail: e.target.value })
+                    }
+                    className="font-mono text-[11px] text-slate-700 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-slate-800 focus:outline-none w-full"
+                  />
                 </div>
 
                 <div>
                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-                    Currency
+                    Currency Symbol
                   </span>
-                  <span className="font-bold text-slate-800">
-                    {activePayslip.currency} ({activePayslip.currencySymbol})
-                  </span>
+                  <div className="flex items-center gap-1 font-bold text-slate-800">
+                    <span>{activePayslip.currency}</span>
+                    <input
+                      type="text"
+                      value={activePayslip.currencySymbol}
+                      onChange={(e) =>
+                        setActivePayslip({ ...activePayslip, currencySymbol: e.target.value })
+                      }
+                      className="font-bold text-slate-800 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-slate-800 focus:outline-none w-14 text-xs font-mono"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -1686,13 +1793,19 @@ export default function PayrollPage() {
 
               {/* Remarks & Sign-off */}
               <div className="border-t border-slate-200 pt-4 flex flex-col md:flex-row justify-between items-end gap-6 text-xs">
-                <div className="max-w-md">
+                <div className="max-w-md w-full">
                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
                     Remarks / Instructions
                   </span>
-                  <p className="text-slate-600">
-                    {activePayslip.notes || "Standard monthly salary disbursement. This is a computer-generated payslip and requires no physical signature."}
-                  </p>
+                  <textarea
+                    rows={2}
+                    value={activePayslip.notes || ""}
+                    onChange={(e) =>
+                      setActivePayslip({ ...activePayslip, notes: e.target.value })
+                    }
+                    className="w-full text-xs text-slate-600 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-slate-800 focus:outline-none resize-none leading-relaxed"
+                    placeholder="Standard monthly salary disbursement. This is a computer-generated payslip and requires no physical signature."
+                  />
                 </div>
                 <div className="text-right">
                   <div className="w-44 border-b border-slate-400 mb-1 pb-4 text-center font-serif text-slate-400 italic">

@@ -887,6 +887,8 @@ export class EmailService {
     passportNumber?: string | null;
     department?: string | null;
     currency: string;
+    companyName?: string;
+    companyAddress?: string;
     currencySymbol: string;
     basicSalary: number;
     houseRentAllowance: number;
@@ -913,6 +915,8 @@ export class EmailService {
       designation,
       passportNumber,
       department,
+      companyName,
+      companyAddress,
       currencySymbol,
       basicSalary,
       houseRentAllowance,
@@ -929,6 +933,9 @@ export class EmailService {
       notes,
       pdfBase64,
     } = params;
+
+    const finalCompanyName = companyName || 'Terrific Travel (Private) Limited';
+    const finalCompanyAddress = companyAddress || 'Plot # 78, 3 Street 6, I-10/3 Islamabad, 44000, Pakistan';
 
     const formattedPayDate = payDate
       ? new Date(payDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -995,8 +1002,8 @@ export class EmailService {
             <tr>
               <td style="vertical-align: top;">
                 <img src="${config.frontendUrl}/Logo.svg" alt="Terrific Travel" style="height: 48px; max-height: 48px; width: auto; max-width: 200px; display: block;" />
-                <div class="company-name">Terrific Travel (Private) Limited</div>
-                <div class="company-sub">Plot # 78, 3 Street 6, I-10/3 Islamabad, 44000, Pakistan</div>
+                <div class="company-name">${finalCompanyName}</div>
+                <div class="company-sub">${finalCompanyAddress}</div>
                 <div class="doc-badge">Official Salary Slip &bull; ${monthYear}</div>
               </td>
               <td style="text-align: right; vertical-align: top;">
@@ -1135,7 +1142,7 @@ export class EmailService {
 
         <div class="footer">
           <p style="margin: 0 0 4px 0;">This is an electronically generated salary slip from Terrific Travel TMS. No signature is required.</p>
-          <p style="margin: 0; font-weight: 600; color: #475569;">Terrific Travel (Private) Limited &bull; Confidential Payroll Document</p>
+          <p style="margin: 0; font-weight: 600; color: #475569;">${finalCompanyName} &bull; Confidential Payroll Document</p>
         </div>
       </div>
     </body>

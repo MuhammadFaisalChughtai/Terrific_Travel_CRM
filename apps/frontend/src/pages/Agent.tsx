@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../api/client";
 import { useAuthStore } from "../store/auth.store";
@@ -24,6 +25,7 @@ import {
   Receipt,
   Send,
   CheckCircle2,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -1100,9 +1102,13 @@ export default function AgentPage() {
                     Quick Generate & Send Slip
                   </h5>
                 </div>
-                <span className="text-[10px] text-muted-foreground">
-                  Calculates & sends via SMTP to payroll email
-                </span>
+                <Link
+                  to="/payroll"
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline"
+                >
+                  <span>Full Payroll Portal</span>
+                  <ExternalLink size={11} />
+                </Link>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
