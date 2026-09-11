@@ -889,6 +889,8 @@ export class EmailService {
     currency: string;
     companyName?: string;
     companyAddress?: string;
+    companyPhone?: string;
+    companyEmail?: string;
     currencySymbol: string;
     basicSalary: number;
     houseRentAllowance: number;
@@ -917,6 +919,8 @@ export class EmailService {
       department,
       companyName,
       companyAddress,
+      companyPhone,
+      companyEmail,
       currencySymbol,
       basicSalary,
       houseRentAllowance,
@@ -936,6 +940,8 @@ export class EmailService {
 
     const finalCompanyName = companyName || 'Terrific Travel (Private) Limited';
     const finalCompanyAddress = companyAddress || 'Plot # 78, 3 Street 6, I-10/3 Islamabad, 44000, Pakistan';
+    const finalCompanyPhone = companyPhone || '+92 51 1234567';
+    const finalCompanyEmail = companyEmail || 'info@terrifictravel.co.uk';
 
     const formattedPayDate = payDate
       ? new Date(payDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -1004,6 +1010,7 @@ export class EmailService {
                 <img src="${config.frontendUrl}/Logo.svg" alt="Terrific Travel" style="height: 48px; max-height: 48px; width: auto; max-width: 200px; display: block;" />
                 <div class="company-name">${finalCompanyName}</div>
                 <div class="company-sub">${finalCompanyAddress}</div>
+                <div class="company-sub" style="font-size: 10.5px; color: #94a3b8; margin-top: 2px;">Phone: ${finalCompanyPhone} | Email: ${finalCompanyEmail}</div>
                 <div class="doc-badge">Official Salary Slip &bull; ${monthYear}</div>
               </td>
               <td style="text-align: right; vertical-align: top;">
@@ -1138,6 +1145,22 @@ export class EmailService {
             <div style="font-size: 12px; color: #334155;">${notes}</div>
           </div>
           ` : ''}
+
+          <!-- Authorized Signature -->
+          <div style="margin-top: 24px; padding-top: 14px; border-top: 1px solid #e2e8f0; display: table; width: 100%;">
+            <div style="display: table-cell; vertical-align: bottom; font-size: 11px; color: #64748b;">
+              Electronically verified payroll document
+            </div>
+            <div style="display: table-cell; text-align: right; vertical-align: bottom;">
+              <div style="display: inline-block; min-width: 180px; border-bottom: 2px solid #0f172a; padding-bottom: 2px; margin-bottom: 4px; text-align: center;">
+                <span style="font-family: 'Brush Script MT', 'Segoe Script', 'Great Vibes', cursive, serif; font-size: 22px; font-weight: bold; color: #0f172a; letter-spacing: 0.5px;">
+                  Terrific Travel Ltd
+                </span>
+              </div>
+              <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #334155;">Authorized Signatory</div>
+              <div style="font-size: 9px; font-weight: 600; text-transform: uppercase; color: #64748b;">Terrific Travel HR Dept.</div>
+            </div>
+          </div>
         </div>
 
         <div class="footer">

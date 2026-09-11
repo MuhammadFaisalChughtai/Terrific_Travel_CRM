@@ -23,6 +23,8 @@ import {
   RefreshCw,
   PlusCircle,
   MinusCircle,
+  Eye,
+  Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 import Modal from "../components/Modal";
@@ -112,6 +114,8 @@ export interface PayslipItem {
   payrollEmail?: string | null;
   companyName: string;
   companyAddress: string;
+  companyPhone?: string | null;
+  companyEmail?: string | null;
   monthYear: string;
   payDate: string;
   paymentMethod: string;
@@ -160,6 +164,7 @@ export default function PayrollPage() {
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
   const [activePayslip, setActivePayslip] = useState<PayslipItem | null>(null);
 
   // Create / Edit Form States
@@ -173,6 +178,8 @@ export default function PayrollPage() {
     payrollEmail: "",
     companyName: "Terrific Travel (Private) Limited",
     companyAddress: "Plot # 78, 3 Street 6, I-10/3 Islamabad, 44000, Pakistan",
+    companyPhone: "+92 51 1234567",
+    companyEmail: "info@terrifictravel.co.uk",
     monthYear: "June 2026",
     payDate: "2026-07-01",
     paymentMethod: "Bank Transfer",
@@ -345,6 +352,7 @@ export default function PayrollPage() {
       earningsJson: Array.isArray(slip.earningsJson) ? slip.earningsJson : [],
       deductionsJson: Array.isArray(slip.deductionsJson) ? slip.deductionsJson : [],
     });
+    setIsEditMode(false);
     setIsViewerModalOpen(true);
   };
 
@@ -370,15 +378,20 @@ export default function PayrollPage() {
     if (!printRef.current || !activePayslip) return;
     try {
       setIsExportingPdf(true);
+      const wasEditing = isEditMode;
+      if (wasEditing) setIsEditMode(false);
+      await new Promise((resolve) => setTimeout(resolve, 80));
+
       const opt = {
-        margin: 8,
+        margin: [6, 8, 6, 8] as [number, number, number, number],
         filename: `Salary-Slip-${activePayslip.payslipNumber}.pdf`,
         image: { type: "jpeg" as const, quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+        html2canvas: { scale: 2, useCORS: true, letterRendering: true, logging: false },
         jsPDF: { unit: "mm" as const, format: "a4" as const, orientation: "portrait" as const },
       };
       await html2pdf().set(opt).from(printRef.current).save();
       toast.success(`Downloaded Salary-Slip-${activePayslip.payslipNumber}.pdf`);
+      if (wasEditing) setIsEditMode(true);
     } catch (err) {
       toast.error("Failed to generate PDF download");
     } finally {
@@ -390,13 +403,18 @@ export default function PayrollPage() {
   const generatePdfBase64 = async (): Promise<string | null> => {
     if (!printRef.current) return null;
     try {
+      const wasEditing = isEditMode;
+      if (wasEditing) setIsEditMode(false);
+      await new Promise((resolve) => setTimeout(resolve, 80));
+
       const opt = {
-        margin: 8,
-        image: { type: "jpeg" as const, quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+        margin: [6, 8, 6, 8] as [number, number, number, number],
+        image: { type: "jpeg" as const, quality: 0.95 },
+        html2canvas: { scale: 2, useCORS: true, letterRendering: true, logging: false },
         jsPDF: { unit: "mm" as const, format: "a4" as const, orientation: "portrait" as const },
       };
       const pdfDataUri = await html2pdf().set(opt).from(printRef.current).outputPdf("datauristring");
+      if (wasEditing) setIsEditMode(true);
       return pdfDataUri;
     } catch (e) {
       console.error("Failed to generate PDF base64:", e);
@@ -461,6 +479,8 @@ export default function PayrollPage() {
                 payrollEmail: "",
                 companyName: "Terrific Travel (Private) Limited",
                 companyAddress: "Plot # 78, 3 Street 6, I-10/3 Islamabad, 44000, Pakistan",
+                companyPhone: "+92 51 1234567",
+                companyEmail: "info@terrifictravel.co.uk",
                 monthYear: "June 2026",
                 payDate: "2026-07-01",
                 paymentMethod: "Bank Transfer",
@@ -828,6 +848,30 @@ export default function PayrollPage() {
                     onChange={(e) => setFormData({ ...formData, companyAddress: e.target.value })}
                     className="w-full px-3 py-2 bg-background border border-border/60 rounded-lg text-xs"
                     placeholder="Plot # 78, 3 Street 6, I-10/3 Islamabad, 44000, Pakistan"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+                    Company Phone Number
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.companyPhone}
+                    onChange={(e) => setFormData({ ...formData, companyPhone: e.target.value })}
+                    className="w-full px-3 py-2 bg-background border border-border/60 rounded-lg text-xs"
+                    placeholder="+92 51 1234567"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+                    Company Email Address
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.companyEmail}
+                    onChange={(e) => setFormData({ ...formData, companyEmail: e.target.value })}
+                    className="w-full px-3 py-2 bg-background border border-border/60 rounded-lg text-xs"
+                    placeholder="info@terrifictravel.co.uk"
                   />
                 </div>
               </div>
@@ -1246,6 +1290,20 @@ export default function PayrollPage() {
               </div>
 
               <div className="flex items-center gap-2">
+                {/* Toggle Edit Mode */}
+                <button
+                  type="button"
+                  onClick={() => setIsEditMode(!isEditMode)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
+                    isEditMode
+                      ? "bg-amber-500 text-white border-amber-600 shadow-sm"
+                      : "bg-background hover:bg-secondary/60 text-foreground border-border/60"
+                  }`}
+                >
+                  {isEditMode ? <Eye size={13} /> : <Pencil size={13} />}
+                  <span>{isEditMode ? "Document View" : "Edit Values"}</span>
+                </button>
+
                 <button
                   onClick={handleDownloadPdf}
                   disabled={isExportingPdf}
@@ -1257,7 +1315,7 @@ export default function PayrollPage() {
 
                 <button
                   onClick={() => window.print()}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary hover:bg-secondary/80 text-foreground text-xs font-semibold rounded-lg border border-border/60 transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary hover:bg-secondary/80 text-foreground text-xs font-semibold rounded-lg border border-border/60 transition-colors cursor-pointer"
                 >
                   <Printer size={13} />
                   <span>Print</span>
@@ -1265,21 +1323,22 @@ export default function PayrollPage() {
 
                 <button
                   onClick={() => handleOpenEmailModal(activePayslip)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors cursor-pointer"
                 >
                   <Send size={13} />
                   <span>Send via SMTP</span>
                 </button>
 
                 <button
-                  onClick={() =>
+                  onClick={() => {
                     updateMutation.mutate({
                       id: activePayslip.id,
                       data: activePayslip,
-                    })
-                  }
+                    });
+                    setIsEditMode(false);
+                  }}
                   disabled={updateMutation.isPending}
-                  className="flex items-center gap-1.5 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-sm transition-all disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-sm transition-all disabled:opacity-50 cursor-pointer"
                 >
                   {updateMutation.isPending ? (
                     <Loader2 size={13} className="animate-spin" />
@@ -1297,35 +1356,74 @@ export default function PayrollPage() {
               id="printable-payslip"
               className="bg-white text-slate-900 border border-slate-200 rounded-xl overflow-hidden shadow-md p-6 md:p-8 font-sans"
             >
-              {/* Header with prominent Company Logo and Editable Company & Address */}
-              <div className="border-b-2 border-slate-900 pb-5 mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              {/* Header with prominent Company Logo and Company & Address */}
+              <div className="border-b-2 border-slate-900 pb-5 mb-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div className="flex-1 max-w-lg">
                   <img
                     src="/Logo.svg"
                     alt="Terrific Travel Logo"
                     className="h-12 w-auto max-w-[200px] object-contain block mb-2"
                   />
-                  <input
-                    type="text"
-                    value={activePayslip.companyName || "Terrific Travel (Private) Limited"}
-                    onChange={(e) =>
-                      setActivePayslip({ ...activePayslip, companyName: e.target.value })
-                    }
-                    className="text-xl font-black tracking-tight text-slate-900 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-slate-800 focus:outline-none w-full"
-                    placeholder="Company Name"
-                  />
-                  <input
-                    type="text"
-                    value={activePayslip.companyAddress || "Plot # 78, 3 Street 6, I-10/3 Islamabad, 44000, Pakistan"}
-                    onChange={(e) =>
-                      setActivePayslip({ ...activePayslip, companyAddress: e.target.value })
-                    }
-                    className="text-xs text-slate-600 font-medium bg-transparent border-b border-transparent hover:border-slate-300 focus:border-slate-800 focus:outline-none w-full mt-0.5"
-                    placeholder="Office Address"
-                  />
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Phone: +92 51 1234567 | Email: info@terrifictravel.co.uk
-                  </p>
+                  {isEditMode ? (
+                    <div className="space-y-1.5 mt-1">
+                      <input
+                        type="text"
+                        value={activePayslip.companyName || "Terrific Travel (Private) Limited"}
+                        onChange={(e) =>
+                          setActivePayslip({ ...activePayslip, companyName: e.target.value })
+                        }
+                        className="text-base font-black tracking-tight text-slate-900 bg-secondary/30 px-2 py-1 border border-border/70 rounded w-full"
+                        placeholder="Company / Employer Name"
+                      />
+                      <input
+                        type="text"
+                        value={activePayslip.companyAddress || "Plot # 78, 3 Street 6, I-10/3 Islamabad, 44000, Pakistan"}
+                        onChange={(e) =>
+                          setActivePayslip({ ...activePayslip, companyAddress: e.target.value })
+                        }
+                        className="text-xs text-slate-700 bg-secondary/30 px-2 py-1 border border-border/70 rounded w-full"
+                        placeholder="Office / Branch Address"
+                      />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                        <div className="flex items-center gap-1 bg-secondary/20 px-2 py-0.5 rounded border border-border/60">
+                          <span className="text-[10px] font-bold text-slate-500 whitespace-nowrap">Phone:</span>
+                          <input
+                            type="text"
+                            value={activePayslip.companyPhone || "+92 51 1234567"}
+                            onChange={(e) =>
+                              setActivePayslip({ ...activePayslip, companyPhone: e.target.value })
+                            }
+                            className="text-xs text-slate-700 bg-transparent w-full focus:outline-none"
+                            placeholder="+92 51 1234567"
+                          />
+                        </div>
+                        <div className="flex items-center gap-1 bg-secondary/20 px-2 py-0.5 rounded border border-border/60">
+                          <span className="text-[10px] font-bold text-slate-500 whitespace-nowrap">Email:</span>
+                          <input
+                            type="text"
+                            value={activePayslip.companyEmail || "info@terrifictravel.co.uk"}
+                            onChange={(e) =>
+                              setActivePayslip({ ...activePayslip, companyEmail: e.target.value })
+                            }
+                            className="text-xs text-slate-700 bg-transparent w-full focus:outline-none"
+                            placeholder="info@terrifictravel.co.uk"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <h2 className="text-xl font-black tracking-tight text-slate-900 leading-snug">
+                        {activePayslip.companyName || "Terrific Travel (Private) Limited"}
+                      </h2>
+                      <p className="text-xs text-slate-600 font-medium leading-normal mt-0.5">
+                        {activePayslip.companyAddress || "Plot # 78, 3 Street 6, I-10/3 Islamabad, 44000, Pakistan"}
+                      </p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Phone: {activePayslip.companyPhone || "+92 51 1234567"} | Email: {activePayslip.companyEmail || "info@terrifictravel.co.uk"}
+                      </p>
+                    </>
+                  )}
                 </div>
                 <div className="text-left md:text-right bg-slate-50 border border-slate-200 p-3 rounded-lg min-w-[200px]">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
@@ -1336,141 +1434,187 @@ export default function PayrollPage() {
                   </div>
                   <div className="text-xs font-bold text-slate-700 mt-1 flex items-center md:justify-end gap-1">
                     <span>Pay Period:</span>
-                    <input
-                      type="text"
-                      value={activePayslip.monthYear}
-                      onChange={(e) =>
-                        setActivePayslip({ ...activePayslip, monthYear: e.target.value })
-                      }
-                      className="font-bold text-slate-800 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-slate-800 focus:outline-none text-xs w-24 text-left md:text-right"
-                    />
+                    {isEditMode ? (
+                      <input
+                        type="text"
+                        value={activePayslip.monthYear}
+                        onChange={(e) =>
+                          setActivePayslip({ ...activePayslip, monthYear: e.target.value })
+                        }
+                        className="font-bold text-slate-800 bg-secondary/30 px-1.5 py-0.5 border border-border/70 rounded text-xs w-24 text-right"
+                      />
+                    ) : (
+                      <span>{activePayslip.monthYear}</span>
+                    )}
                   </div>
                 </div>
               </div>
 
-              {/* Employee Meta Grid (Live Editable) */}
-              <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-6 grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+              {/* Employee Meta Grid */}
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3.5 mb-5 grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
                 <div>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-0.5">
                     Employee Name
                   </span>
-                  <input
-                    type="text"
-                    value={activePayslip.employeeName}
-                    onChange={(e) =>
-                      setActivePayslip({ ...activePayslip, employeeName: e.target.value })
-                    }
-                    className="font-bold text-slate-900 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-slate-800 focus:outline-none w-full"
-                  />
-                </div>
-
-                <div>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-                    Designation
-                  </span>
-                  <input
-                    type="text"
-                    value={activePayslip.designation || ""}
-                    onChange={(e) =>
-                      setActivePayslip({ ...activePayslip, designation: e.target.value })
-                    }
-                    className="font-semibold text-slate-800 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-slate-800 focus:outline-none w-full"
-                  />
-                </div>
-
-                <div>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-                    Passport / CNIC No
-                  </span>
-                  <input
-                    type="text"
-                    value={activePayslip.passportNumber || ""}
-                    onChange={(e) =>
-                      setActivePayslip({ ...activePayslip, passportNumber: e.target.value })
-                    }
-                    className="font-mono text-slate-800 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-slate-800 focus:outline-none w-full"
-                  />
-                </div>
-
-                <div>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-                    Department
-                  </span>
-                  <input
-                    type="text"
-                    value={activePayslip.department || "Operations"}
-                    onChange={(e) =>
-                      setActivePayslip({ ...activePayslip, department: e.target.value })
-                    }
-                    className="font-semibold text-slate-800 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-slate-800 focus:outline-none w-full"
-                  />
-                </div>
-
-                <div>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-                    Pay Day / Payment Date
-                  </span>
-                  <input
-                    type="date"
-                    value={activePayslip.payDate ? activePayslip.payDate.split("T")[0] : ""}
-                    onChange={(e) =>
-                      setActivePayslip({ ...activePayslip, payDate: e.target.value })
-                    }
-                    className="font-semibold text-slate-800 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-slate-800 focus:outline-none w-full text-xs"
-                  />
-                </div>
-
-                <div>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-                    Payment Method
-                  </span>
-                  <select
-                    value={activePayslip.paymentMethod}
-                    onChange={(e) =>
-                      setActivePayslip({ ...activePayslip, paymentMethod: e.target.value })
-                    }
-                    className="font-semibold text-slate-800 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-slate-800 focus:outline-none text-xs w-full"
-                  >
-                    <option value="Bank Transfer">Bank Transfer</option>
-                    <option value="Cash">Cash</option>
-                    <option value="Cheque">Cheque</option>
-                  </select>
-                </div>
-
-                <div>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-                    Payroll Email
-                  </span>
-                  <input
-                    type="email"
-                    value={activePayslip.payrollEmail || activePayslip.employeeEmail || ""}
-                    onChange={(e) =>
-                      setActivePayslip({ ...activePayslip, payrollEmail: e.target.value })
-                    }
-                    className="font-mono text-[11px] text-slate-700 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-slate-800 focus:outline-none w-full"
-                  />
-                </div>
-
-                <div>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-                    Currency Symbol
-                  </span>
-                  <div className="flex items-center gap-1 font-bold text-slate-800">
-                    <span>{activePayslip.currency}</span>
+                  {isEditMode ? (
                     <input
                       type="text"
-                      value={activePayslip.currencySymbol}
+                      value={activePayslip.employeeName}
                       onChange={(e) =>
-                        setActivePayslip({ ...activePayslip, currencySymbol: e.target.value })
+                        setActivePayslip({ ...activePayslip, employeeName: e.target.value })
                       }
-                      className="font-bold text-slate-800 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-slate-800 focus:outline-none w-14 text-xs font-mono"
+                      className="font-bold text-slate-900 bg-white px-2 py-1 border border-border/70 rounded w-full text-xs"
                     />
-                  </div>
+                  ) : (
+                    <span className="font-bold text-slate-900 block truncate">{activePayslip.employeeName}</span>
+                  )}
+                </div>
+
+                <div>
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-0.5">
+                    Designation
+                  </span>
+                  {isEditMode ? (
+                    <input
+                      type="text"
+                      value={activePayslip.designation || ""}
+                      onChange={(e) =>
+                        setActivePayslip({ ...activePayslip, designation: e.target.value })
+                      }
+                      className="font-semibold text-slate-800 bg-white px-2 py-1 border border-border/70 rounded w-full text-xs"
+                    />
+                  ) : (
+                    <span className="font-semibold text-slate-800 block truncate">{activePayslip.designation || "Operations Manager"}</span>
+                  )}
+                </div>
+
+                <div>
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-0.5">
+                    Passport / CNIC No
+                  </span>
+                  {isEditMode ? (
+                    <input
+                      type="text"
+                      value={activePayslip.passportNumber || ""}
+                      onChange={(e) =>
+                        setActivePayslip({ ...activePayslip, passportNumber: e.target.value })
+                      }
+                      className="font-mono text-slate-800 bg-white px-2 py-1 border border-border/70 rounded w-full text-xs"
+                    />
+                  ) : (
+                    <span className="font-mono text-slate-800 block">{activePayslip.passportNumber || "N/A"}</span>
+                  )}
+                </div>
+
+                <div>
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-0.5">
+                    Department
+                  </span>
+                  {isEditMode ? (
+                    <input
+                      type="text"
+                      value={activePayslip.department || "Operations"}
+                      onChange={(e) =>
+                        setActivePayslip({ ...activePayslip, department: e.target.value })
+                      }
+                      className="font-semibold text-slate-800 bg-white px-2 py-1 border border-border/70 rounded w-full text-xs"
+                    />
+                  ) : (
+                    <span className="font-semibold text-slate-800 block">{activePayslip.department || "Operations"}</span>
+                  )}
+                </div>
+
+                <div>
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-0.5">
+                    Pay Day / Payment Date
+                  </span>
+                  {isEditMode ? (
+                    <input
+                      type="date"
+                      value={activePayslip.payDate ? activePayslip.payDate.split("T")[0] : ""}
+                      onChange={(e) =>
+                        setActivePayslip({ ...activePayslip, payDate: e.target.value })
+                      }
+                      className="font-semibold text-slate-800 bg-white px-2 py-1 border border-border/70 rounded w-full text-xs"
+                    />
+                  ) : (
+                    <span className="font-semibold text-slate-800 block">
+                      {new Date(activePayslip.payDate).toLocaleDateString("en-GB", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </span>
+                  )}
+                </div>
+
+                <div>
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-0.5">
+                    Payment Method
+                  </span>
+                  {isEditMode ? (
+                    <select
+                      value={activePayslip.paymentMethod}
+                      onChange={(e) =>
+                        setActivePayslip({ ...activePayslip, paymentMethod: e.target.value })
+                      }
+                      className="font-semibold text-slate-800 bg-white px-2 py-1 border border-border/70 rounded text-xs w-full"
+                    >
+                      <option value="Bank Transfer">Bank Transfer</option>
+                      <option value="Cash">Cash</option>
+                      <option value="Cheque">Cheque</option>
+                    </select>
+                  ) : (
+                    <span className="font-semibold text-slate-800 block">{activePayslip.paymentMethod}</span>
+                  )}
+                </div>
+
+                <div>
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-0.5">
+                    Payroll Email
+                  </span>
+                  {isEditMode ? (
+                    <input
+                      type="email"
+                      value={activePayslip.payrollEmail || activePayslip.employeeEmail || ""}
+                      onChange={(e) =>
+                        setActivePayslip({ ...activePayslip, payrollEmail: e.target.value })
+                      }
+                      className="font-mono text-[11px] text-slate-700 bg-white px-2 py-1 border border-border/70 rounded w-full"
+                    />
+                  ) : (
+                    <span className="font-mono text-[11px] text-slate-700 block truncate">
+                      {activePayslip.payrollEmail || activePayslip.employeeEmail || "N/A"}
+                    </span>
+                  )}
+                </div>
+
+                <div>
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-0.5">
+                    Currency Symbol
+                  </span>
+                  {isEditMode ? (
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="text"
+                        value={activePayslip.currencySymbol}
+                        onChange={(e) =>
+                          setActivePayslip({ ...activePayslip, currencySymbol: e.target.value })
+                        }
+                        className="font-bold text-slate-800 bg-white px-2 py-1 border border-border/70 rounded w-14 text-xs font-mono"
+                      />
+                      <span className="text-xs text-slate-500">({activePayslip.currency})</span>
+                    </div>
+                  ) : (
+                    <span className="font-bold text-slate-800 block">
+                      {activePayslip.currency} ({activePayslip.currencySymbol})
+                    </span>
+                  )}
                 </div>
               </div>
 
               {/* European Dual-Column Breakdown Table */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
                 {/* Column 1: Gross Earnings */}
                 <div className="border border-slate-200 rounded-lg overflow-hidden">
                   <div className="bg-emerald-800 text-white px-4 py-2 font-bold text-xs uppercase tracking-wider flex justify-between items-center">
@@ -1478,157 +1622,194 @@ export default function PayrollPage() {
                     <span>Amount</span>
                   </div>
                   <div className="divide-y divide-slate-100 text-xs">
-                    <div className="p-3 flex justify-between items-center">
+                    <div className="p-2.5 flex justify-between items-center">
                       <span className="text-slate-700 font-medium">Basic Salary</span>
-                      <input
-                        type="number"
-                        value={activePayslip.basicSalary}
-                        onChange={(e) => {
-                          const val = Number(e.target.value);
-                          const customSum = (activePayslip.earningsJson || []).reduce((s, i) => s + Number(i.amount || 0), 0);
-                          const total = val + activePayslip.houseRentAllowance + activePayslip.travelAllowance + activePayslip.otherAllowances + customSum;
-                          setActivePayslip({
-                            ...activePayslip,
-                            basicSalary: val,
-                            totalEarnings: total,
-                            netSalary: Math.max(0, total - activePayslip.totalDeductions),
-                          });
-                        }}
-                        className="w-28 text-right font-mono font-bold text-slate-900 border-b border-slate-200 focus:border-slate-800 focus:outline-none"
-                      />
-                    </div>
-
-                    <div className="p-3 flex justify-between items-center">
-                      <span className="text-slate-700 font-medium">House Rent Allowance (HRA)</span>
-                      <input
-                        type="number"
-                        value={activePayslip.houseRentAllowance}
-                        onChange={(e) => {
-                          const val = Number(e.target.value);
-                          const customSum = (activePayslip.earningsJson || []).reduce((s, i) => s + Number(i.amount || 0), 0);
-                          const total = activePayslip.basicSalary + val + activePayslip.travelAllowance + activePayslip.otherAllowances + customSum;
-                          setActivePayslip({
-                            ...activePayslip,
-                            houseRentAllowance: val,
-                            totalEarnings: total,
-                            netSalary: Math.max(0, total - activePayslip.totalDeductions),
-                          });
-                        }}
-                        className="w-28 text-right font-mono font-bold text-slate-900 border-b border-slate-200 focus:border-slate-800 focus:outline-none"
-                      />
-                    </div>
-
-                    <div className="p-3 flex justify-between items-center">
-                      <span className="text-slate-700 font-medium">Travel / Commute Allowance</span>
-                      <input
-                        type="number"
-                        value={activePayslip.travelAllowance}
-                        onChange={(e) => {
-                          const val = Number(e.target.value);
-                          const customSum = (activePayslip.earningsJson || []).reduce((s, i) => s + Number(i.amount || 0), 0);
-                          const total = activePayslip.basicSalary + activePayslip.houseRentAllowance + val + activePayslip.otherAllowances + customSum;
-                          setActivePayslip({
-                            ...activePayslip,
-                            travelAllowance: val,
-                            totalEarnings: total,
-                            netSalary: Math.max(0, total - activePayslip.totalDeductions),
-                          });
-                        }}
-                        className="w-28 text-right font-mono font-bold text-slate-900 border-b border-slate-200 focus:border-slate-800 focus:outline-none"
-                      />
-                    </div>
-
-                    {activePayslip.otherAllowances > 0 && (
-                      <div className="p-3 flex justify-between items-center">
-                        <span className="text-slate-700 font-medium">Other Allowances</span>
+                      {isEditMode ? (
                         <input
                           type="number"
-                          value={activePayslip.otherAllowances}
+                          value={activePayslip.basicSalary}
                           onChange={(e) => {
                             const val = Number(e.target.value);
                             const customSum = (activePayslip.earningsJson || []).reduce((s, i) => s + Number(i.amount || 0), 0);
-                            const total = activePayslip.basicSalary + activePayslip.houseRentAllowance + activePayslip.travelAllowance + val + customSum;
+                            const total = val + activePayslip.houseRentAllowance + activePayslip.travelAllowance + activePayslip.otherAllowances + customSum;
                             setActivePayslip({
                               ...activePayslip,
-                              otherAllowances: val,
+                              basicSalary: val,
                               totalEarnings: total,
                               netSalary: Math.max(0, total - activePayslip.totalDeductions),
                             });
                           }}
-                          className="w-28 text-right font-mono font-bold text-slate-900 border-b border-slate-200 focus:border-slate-800 focus:outline-none"
+                          className="w-28 text-right font-mono font-bold text-slate-900 bg-white px-2 py-0.5 border border-border/70 rounded"
                         />
+                      ) : (
+                        <span className="font-mono font-bold text-slate-900">
+                          {activePayslip.currencySymbol} {Number(activePayslip.basicSalary).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="p-2.5 flex justify-between items-center">
+                      <span className="text-slate-700 font-medium">House Rent Allowance (HRA)</span>
+                      {isEditMode ? (
+                        <input
+                          type="number"
+                          value={activePayslip.houseRentAllowance}
+                          onChange={(e) => {
+                            const val = Number(e.target.value);
+                            const customSum = (activePayslip.earningsJson || []).reduce((s, i) => s + Number(i.amount || 0), 0);
+                            const total = activePayslip.basicSalary + val + activePayslip.travelAllowance + activePayslip.otherAllowances + customSum;
+                            setActivePayslip({
+                              ...activePayslip,
+                              houseRentAllowance: val,
+                              totalEarnings: total,
+                              netSalary: Math.max(0, total - activePayslip.totalDeductions),
+                            });
+                          }}
+                          className="w-28 text-right font-mono font-bold text-slate-900 bg-white px-2 py-0.5 border border-border/70 rounded"
+                        />
+                      ) : (
+                        <span className="font-mono font-bold text-slate-900">
+                          {activePayslip.currencySymbol} {Number(activePayslip.houseRentAllowance).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="p-2.5 flex justify-between items-center">
+                      <span className="text-slate-700 font-medium">Travel / Commute Allowance</span>
+                      {isEditMode ? (
+                        <input
+                          type="number"
+                          value={activePayslip.travelAllowance}
+                          onChange={(e) => {
+                            const val = Number(e.target.value);
+                            const customSum = (activePayslip.earningsJson || []).reduce((s, i) => s + Number(i.amount || 0), 0);
+                            const total = activePayslip.basicSalary + activePayslip.houseRentAllowance + val + activePayslip.otherAllowances + customSum;
+                            setActivePayslip({
+                              ...activePayslip,
+                              travelAllowance: val,
+                              totalEarnings: total,
+                              netSalary: Math.max(0, total - activePayslip.totalDeductions),
+                            });
+                          }}
+                          className="w-28 text-right font-mono font-bold text-slate-900 bg-white px-2 py-0.5 border border-border/70 rounded"
+                        />
+                      ) : (
+                        <span className="font-mono font-bold text-slate-900">
+                          {activePayslip.currencySymbol} {Number(activePayslip.travelAllowance).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                        </span>
+                      )}
+                    </div>
+
+                    {(activePayslip.otherAllowances > 0 || isEditMode) && (
+                      <div className="p-2.5 flex justify-between items-center">
+                        <span className="text-slate-700 font-medium">Other Allowances</span>
+                        {isEditMode ? (
+                          <input
+                            type="number"
+                            value={activePayslip.otherAllowances}
+                            onChange={(e) => {
+                              const val = Number(e.target.value);
+                              const customSum = (activePayslip.earningsJson || []).reduce((s, i) => s + Number(i.amount || 0), 0);
+                              const total = activePayslip.basicSalary + activePayslip.houseRentAllowance + activePayslip.travelAllowance + val + customSum;
+                              setActivePayslip({
+                                ...activePayslip,
+                                otherAllowances: val,
+                                totalEarnings: total,
+                                netSalary: Math.max(0, total - activePayslip.totalDeductions),
+                              });
+                            }}
+                            className="w-28 text-right font-mono font-bold text-slate-900 bg-white px-2 py-0.5 border border-border/70 rounded"
+                          />
+                        ) : (
+                          <span className="font-mono font-bold text-slate-900">
+                            {activePayslip.currencySymbol} {Number(activePayslip.otherAllowances).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                          </span>
+                        )}
                       </div>
                     )}
 
                     {/* Custom Earnings List in Viewer */}
                     {activePayslip.earningsJson?.map((item, idx) => (
-                      <div key={idx} className="p-3 flex justify-between items-center bg-slate-50/50">
-                        <input
-                          type="text"
-                          value={item.label}
-                          onChange={(e) => {
-                            const next = [...(activePayslip.earningsJson || [])];
-                            next[idx].label = e.target.value;
-                            setActivePayslip({ ...activePayslip, earningsJson: next });
-                          }}
-                          className="text-slate-700 font-medium bg-transparent border-b border-slate-200 text-xs w-44"
-                        />
-                        <div className="flex items-center gap-1">
-                          <input
-                            type="number"
-                            value={item.amount}
-                            onChange={(e) => {
-                              const next = [...(activePayslip.earningsJson || [])];
-                              next[idx].amount = Number(e.target.value);
-                              const customSum = next.reduce((s, i) => s + Number(i.amount || 0), 0);
-                              const total = activePayslip.basicSalary + activePayslip.houseRentAllowance + activePayslip.travelAllowance + activePayslip.otherAllowances + customSum;
-                              setActivePayslip({
-                                ...activePayslip,
-                                earningsJson: next,
-                                totalEarnings: total,
-                                netSalary: Math.max(0, total - activePayslip.totalDeductions),
-                              });
-                            }}
-                            className="w-24 text-right font-mono font-bold text-slate-900 border-b border-slate-200 focus:border-slate-800 focus:outline-none"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const next = (activePayslip.earningsJson || []).filter((_, i) => i !== idx);
-                              const customSum = next.reduce((s, i) => s + Number(i.amount || 0), 0);
-                              const total = activePayslip.basicSalary + activePayslip.houseRentAllowance + activePayslip.travelAllowance + activePayslip.otherAllowances + customSum;
-                              setActivePayslip({
-                                ...activePayslip,
-                                earningsJson: next,
-                                totalEarnings: total,
-                                netSalary: Math.max(0, total - activePayslip.totalDeductions),
-                              });
-                            }}
-                            className="text-muted-foreground hover:text-red-500 p-0.5 print:hidden"
-                          >
-                            <MinusCircle size={12} />
-                          </button>
-                        </div>
+                      <div key={idx} className="p-2.5 flex justify-between items-center bg-slate-50/50">
+                        {isEditMode ? (
+                          <>
+                            <input
+                              type="text"
+                              value={item.label}
+                              onChange={(e) => {
+                                const next = [...(activePayslip.earningsJson || [])];
+                                next[idx].label = e.target.value;
+                                setActivePayslip({ ...activePayslip, earningsJson: next });
+                              }}
+                              className="text-slate-700 font-medium bg-white px-2 py-0.5 border border-border/70 rounded text-xs w-40"
+                            />
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                value={item.amount}
+                                onChange={(e) => {
+                                  const next = [...(activePayslip.earningsJson || [])];
+                                  next[idx].amount = Number(e.target.value);
+                                  const customSum = next.reduce((s, i) => s + Number(i.amount || 0), 0);
+                                  const total = activePayslip.basicSalary + activePayslip.houseRentAllowance + activePayslip.travelAllowance + activePayslip.otherAllowances + customSum;
+                                  setActivePayslip({
+                                    ...activePayslip,
+                                    earningsJson: next,
+                                    totalEarnings: total,
+                                    netSalary: Math.max(0, total - activePayslip.totalDeductions),
+                                  });
+                                }}
+                                className="w-24 text-right font-mono font-bold text-slate-900 bg-white px-2 py-0.5 border border-border/70 rounded"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const next = (activePayslip.earningsJson || []).filter((_, i) => i !== idx);
+                                  const customSum = next.reduce((s, i) => s + Number(i.amount || 0), 0);
+                                  const total = activePayslip.basicSalary + activePayslip.houseRentAllowance + activePayslip.travelAllowance + activePayslip.otherAllowances + customSum;
+                                  setActivePayslip({
+                                    ...activePayslip,
+                                    earningsJson: next,
+                                    totalEarnings: total,
+                                    netSalary: Math.max(0, total - activePayslip.totalDeductions),
+                                  });
+                                }}
+                                className="text-muted-foreground hover:text-red-500 p-0.5"
+                              >
+                                <MinusCircle size={12} />
+                              </button>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <span className="text-slate-700 font-medium">{item.label}</span>
+                            <span className="font-mono font-bold text-slate-900">
+                              {activePayslip.currencySymbol} {Number(item.amount).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                            </span>
+                          </>
+                        )}
                       </div>
                     ))}
                   </div>
 
-                  <div className="p-2 bg-slate-50 border-t border-slate-200 print:hidden">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const next = [...(activePayslip.earningsJson || []), { label: "Custom Allowance", amount: 0 }];
-                        setActivePayslip({ ...activePayslip, earningsJson: next });
-                      }}
-                      className="flex items-center gap-1 text-[10px] text-emerald-800 font-bold hover:underline"
-                    >
-                      <PlusCircle size={11} /> Add Custom Earning
-                    </button>
-                  </div>
+                  {isEditMode && (
+                    <div className="p-2 bg-slate-50 border-t border-slate-200">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = [...(activePayslip.earningsJson || []), { label: "Custom Allowance", amount: 0 }];
+                          setActivePayslip({ ...activePayslip, earningsJson: next });
+                        }}
+                        className="flex items-center gap-1 text-[10px] text-emerald-800 font-bold hover:underline"
+                      >
+                        <PlusCircle size={11} /> Add Custom Earning
+                      </button>
+                    </div>
+                  )}
 
-                  <div className="bg-slate-50 p-3 border-t-2 border-slate-200 flex justify-between items-center font-bold text-xs">
+                  <div className="bg-slate-50 p-2.5 border-t-2 border-slate-200 flex justify-between items-center font-bold text-xs">
                     <span className="text-slate-900 uppercase">Total Gross Earnings</span>
-                    <span className="font-mono text-emerald-800 text-sm">
+                    <span className="font-mono text-emerald-800 text-sm font-black">
                       {activePayslip.currencySymbol} {Number(activePayslip.totalEarnings).toLocaleString("en-US", { minimumFractionDigits: 2 })}
                     </span>
                   </div>
@@ -1641,135 +1822,170 @@ export default function PayrollPage() {
                     <span>Amount</span>
                   </div>
                   <div className="divide-y divide-slate-100 text-xs">
-                    <div className="p-3 flex justify-between items-center">
+                    <div className="p-2.5 flex justify-between items-center">
                       <span className="text-slate-700 font-medium">Income Tax (PAYE)</span>
-                      <input
-                        type="number"
-                        value={activePayslip.taxDeduction}
-                        onChange={(e) => {
-                          const val = Number(e.target.value);
-                          const customSum = (activePayslip.deductionsJson || []).reduce((s, i) => s + Number(i.amount || 0), 0);
-                          const total = val + activePayslip.fineDeduction + activePayslip.otherDeductions + customSum;
-                          setActivePayslip({
-                            ...activePayslip,
-                            taxDeduction: val,
-                            totalDeductions: total,
-                            netSalary: Math.max(0, activePayslip.totalEarnings - total),
-                          });
-                        }}
-                        className="w-28 text-right font-mono font-bold text-red-700 border-b border-slate-200 focus:border-red-700 focus:outline-none"
-                      />
+                      {isEditMode ? (
+                        <input
+                          type="number"
+                          value={activePayslip.taxDeduction}
+                          onChange={(e) => {
+                            const val = Number(e.target.value);
+                            const customSum = (activePayslip.deductionsJson || []).reduce((s, i) => s + Number(i.amount || 0), 0);
+                            const total = val + activePayslip.fineDeduction + activePayslip.otherDeductions + customSum;
+                            setActivePayslip({
+                              ...activePayslip,
+                              taxDeduction: val,
+                              totalDeductions: total,
+                              netSalary: Math.max(0, activePayslip.totalEarnings - total),
+                            });
+                          }}
+                          className="w-28 text-right font-mono font-bold text-red-700 bg-white px-2 py-0.5 border border-border/70 rounded"
+                        />
+                      ) : (
+                        <span className="font-mono font-bold text-red-700">
+                          {activePayslip.currencySymbol} {Number(activePayslip.taxDeduction).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                        </span>
+                      )}
                     </div>
 
-                    <div className="p-3 flex justify-between items-center">
-                      <span className="text-slate-700 font-medium">Fines & Penalties</span>
-                      <input
-                        type="number"
-                        value={activePayslip.fineDeduction}
-                        onChange={(e) => {
-                          const val = Number(e.target.value);
-                          const customSum = (activePayslip.deductionsJson || []).reduce((s, i) => s + Number(i.amount || 0), 0);
-                          const total = activePayslip.taxDeduction + val + activePayslip.otherDeductions + customSum;
-                          setActivePayslip({
-                            ...activePayslip,
-                            fineDeduction: val,
-                            totalDeductions: total,
-                            netSalary: Math.max(0, activePayslip.totalEarnings - total),
-                          });
-                        }}
-                        className="w-28 text-right font-mono font-bold text-red-700 border-b border-slate-200 focus:border-red-700 focus:outline-none"
-                      />
-                    </div>
+                    {(activePayslip.fineDeduction > 0 || isEditMode) && (
+                      <div className="p-2.5 flex justify-between items-center">
+                        <span className="text-slate-700 font-medium">Fines & Penalties</span>
+                        {isEditMode ? (
+                          <input
+                            type="number"
+                            value={activePayslip.fineDeduction}
+                            onChange={(e) => {
+                              const val = Number(e.target.value);
+                              const customSum = (activePayslip.deductionsJson || []).reduce((s, i) => s + Number(i.amount || 0), 0);
+                              const total = activePayslip.taxDeduction + val + activePayslip.otherDeductions + customSum;
+                              setActivePayslip({
+                                ...activePayslip,
+                                fineDeduction: val,
+                                totalDeductions: total,
+                                netSalary: Math.max(0, activePayslip.totalEarnings - total),
+                              });
+                            }}
+                            className="w-28 text-right font-mono font-bold text-red-700 bg-white px-2 py-0.5 border border-border/70 rounded"
+                          />
+                        ) : (
+                          <span className="font-mono font-bold text-red-700">
+                            {activePayslip.currencySymbol} {Number(activePayslip.fineDeduction).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                          </span>
+                        )}
+                      </div>
+                    )}
 
-                    <div className="p-3 flex justify-between items-center">
-                      <span className="text-slate-700 font-medium">Other Deductions</span>
-                      <input
-                        type="number"
-                        value={activePayslip.otherDeductions}
-                        onChange={(e) => {
-                          const val = Number(e.target.value);
-                          const customSum = (activePayslip.deductionsJson || []).reduce((s, i) => s + Number(i.amount || 0), 0);
-                          const total = activePayslip.taxDeduction + activePayslip.fineDeduction + val + customSum;
-                          setActivePayslip({
-                            ...activePayslip,
-                            otherDeductions: val,
-                            totalDeductions: total,
-                            netSalary: Math.max(0, activePayslip.totalEarnings - total),
-                          });
-                        }}
-                        className="w-28 text-right font-mono font-bold text-red-700 border-b border-slate-200 focus:border-red-700 focus:outline-none"
-                      />
-                    </div>
+                    {(activePayslip.otherDeductions > 0 || isEditMode) && (
+                      <div className="p-2.5 flex justify-between items-center">
+                        <span className="text-slate-700 font-medium">Other Deductions</span>
+                        {isEditMode ? (
+                          <input
+                            type="number"
+                            value={activePayslip.otherDeductions}
+                            onChange={(e) => {
+                              const val = Number(e.target.value);
+                              const customSum = (activePayslip.deductionsJson || []).reduce((s, i) => s + Number(i.amount || 0), 0);
+                              const total = activePayslip.taxDeduction + activePayslip.fineDeduction + val + customSum;
+                              setActivePayslip({
+                                ...activePayslip,
+                                otherDeductions: val,
+                                totalDeductions: total,
+                                netSalary: Math.max(0, activePayslip.totalEarnings - total),
+                              });
+                            }}
+                            className="w-28 text-right font-mono font-bold text-red-700 bg-white px-2 py-0.5 border border-border/70 rounded"
+                          />
+                        ) : (
+                          <span className="font-mono font-bold text-red-700">
+                            {activePayslip.currencySymbol} {Number(activePayslip.otherDeductions).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                          </span>
+                        )}
+                      </div>
+                    )}
 
                     {/* Custom Deductions List in Viewer */}
                     {activePayslip.deductionsJson?.map((item, idx) => (
-                      <div key={idx} className="p-3 flex justify-between items-center bg-slate-50/50">
-                        <input
-                          type="text"
-                          value={item.label}
-                          onChange={(e) => {
-                            const next = [...(activePayslip.deductionsJson || [])];
-                            next[idx].label = e.target.value;
-                            setActivePayslip({ ...activePayslip, deductionsJson: next });
-                          }}
-                          className="text-slate-700 font-medium bg-transparent border-b border-slate-200 text-xs w-44"
-                        />
-                        <div className="flex items-center gap-1">
-                          <input
-                            type="number"
-                            value={item.amount}
-                            onChange={(e) => {
-                              const next = [...(activePayslip.deductionsJson || [])];
-                              next[idx].amount = Number(e.target.value);
-                              const customSum = next.reduce((s, i) => s + Number(i.amount || 0), 0);
-                              const total = activePayslip.taxDeduction + activePayslip.fineDeduction + activePayslip.otherDeductions + customSum;
-                              setActivePayslip({
-                                ...activePayslip,
-                                deductionsJson: next,
-                                totalDeductions: total,
-                                netSalary: Math.max(0, activePayslip.totalEarnings - total),
-                              });
-                            }}
-                            className="w-24 text-right font-mono font-bold text-red-700 border-b border-slate-200 focus:border-red-700 focus:outline-none"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const next = (activePayslip.deductionsJson || []).filter((_, i) => i !== idx);
-                              const customSum = next.reduce((s, i) => s + Number(i.amount || 0), 0);
-                              const total = activePayslip.taxDeduction + activePayslip.fineDeduction + activePayslip.otherDeductions + customSum;
-                              setActivePayslip({
-                                ...activePayslip,
-                                deductionsJson: next,
-                                totalDeductions: total,
-                                netSalary: Math.max(0, activePayslip.totalEarnings - total),
-                              });
-                            }}
-                            className="text-muted-foreground hover:text-red-500 p-0.5 print:hidden"
-                          >
-                            <MinusCircle size={12} />
-                          </button>
-                        </div>
+                      <div key={idx} className="p-2.5 flex justify-between items-center bg-slate-50/50">
+                        {isEditMode ? (
+                          <>
+                            <input
+                              type="text"
+                              value={item.label}
+                              onChange={(e) => {
+                                const next = [...(activePayslip.deductionsJson || [])];
+                                next[idx].label = e.target.value;
+                                setActivePayslip({ ...activePayslip, deductionsJson: next });
+                              }}
+                              className="text-slate-700 font-medium bg-white px-2 py-0.5 border border-border/70 rounded text-xs w-40"
+                            />
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                value={item.amount}
+                                onChange={(e) => {
+                                  const next = [...(activePayslip.deductionsJson || [])];
+                                  next[idx].amount = Number(e.target.value);
+                                  const customSum = next.reduce((s, i) => s + Number(i.amount || 0), 0);
+                                  const total = activePayslip.taxDeduction + activePayslip.fineDeduction + activePayslip.otherDeductions + customSum;
+                                  setActivePayslip({
+                                    ...activePayslip,
+                                    deductionsJson: next,
+                                    totalDeductions: total,
+                                    netSalary: Math.max(0, activePayslip.totalEarnings - total),
+                                  });
+                                }}
+                                className="w-24 text-right font-mono font-bold text-red-700 bg-white px-2 py-0.5 border border-border/70 rounded"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const next = (activePayslip.deductionsJson || []).filter((_, i) => i !== idx);
+                                  const customSum = next.reduce((s, i) => s + Number(i.amount || 0), 0);
+                                  const total = activePayslip.taxDeduction + activePayslip.fineDeduction + activePayslip.otherDeductions + customSum;
+                                  setActivePayslip({
+                                    ...activePayslip,
+                                    deductionsJson: next,
+                                    totalDeductions: total,
+                                    netSalary: Math.max(0, activePayslip.totalEarnings - total),
+                                  });
+                                }}
+                                className="text-muted-foreground hover:text-red-500 p-0.5"
+                              >
+                                <MinusCircle size={12} />
+                              </button>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <span className="text-slate-700 font-medium">{item.label}</span>
+                            <span className="font-mono font-bold text-red-700">
+                              {activePayslip.currencySymbol} {Number(item.amount).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                            </span>
+                          </>
+                        )}
                       </div>
                     ))}
                   </div>
 
-                  <div className="p-2 bg-slate-50 border-t border-slate-200 print:hidden">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const next = [...(activePayslip.deductionsJson || []), { label: "Custom Deduction", amount: 0 }];
-                        setActivePayslip({ ...activePayslip, deductionsJson: next });
-                      }}
-                      className="flex items-center gap-1 text-[10px] text-red-800 font-bold hover:underline"
-                    >
-                      <PlusCircle size={11} /> Add Custom Deduction
-                    </button>
-                  </div>
+                  {isEditMode && (
+                    <div className="p-2 bg-slate-50 border-t border-slate-200">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = [...(activePayslip.deductionsJson || []), { label: "Custom Deduction", amount: 0 }];
+                          setActivePayslip({ ...activePayslip, deductionsJson: next });
+                        }}
+                        className="flex items-center gap-1 text-[10px] text-red-800 font-bold hover:underline"
+                      >
+                        <PlusCircle size={11} /> Add Custom Deduction
+                      </button>
+                    </div>
+                  )}
 
-                  <div className="bg-slate-50 p-3 border-t-2 border-slate-200 flex justify-between items-center font-bold text-xs">
+                  <div className="bg-slate-50 p-2.5 border-t-2 border-slate-200 flex justify-between items-center font-bold text-xs">
                     <span className="text-slate-900 uppercase">Total Deductions</span>
-                    <span className="font-mono text-red-700 text-sm">
+                    <span className="font-mono text-red-700 text-sm font-black">
                       {activePayslip.currencySymbol} {Number(activePayslip.totalDeductions).toLocaleString("en-US", { minimumFractionDigits: 2 })}
                     </span>
                   </div>
@@ -1777,12 +1993,12 @@ export default function PayrollPage() {
               </div>
 
               {/* European Standard Net Pay Banner */}
-              <div className="bg-slate-900 text-white rounded-lg p-5 mb-6 flex flex-col md:flex-row justify-between items-center gap-4 border-l-4 border-orange-500">
+              <div className="bg-slate-900 text-white rounded-lg p-5 mb-5 flex flex-col md:flex-row justify-between items-center gap-4 border-l-4 border-orange-500">
                 <div>
                   <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block">
                     NET TAKE-HOME PAYABLE AMOUNT ({activePayslip.monthYear})
                   </span>
-                  <div className="text-xs text-orange-400 italic mt-0.5">
+                  <div className="text-xs text-orange-400 italic mt-0.5 font-medium">
                     {numberToWords(activePayslip.netSalary)}
                   </div>
                 </div>
@@ -1791,27 +2007,50 @@ export default function PayrollPage() {
                 </div>
               </div>
 
-              {/* Remarks & Sign-off */}
+              {/* Remarks & Authorized Signatory */}
               <div className="border-t border-slate-200 pt-4 flex flex-col md:flex-row justify-between items-end gap-6 text-xs">
                 <div className="max-w-md w-full">
                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
                     Remarks / Instructions
                   </span>
-                  <textarea
-                    rows={2}
-                    value={activePayslip.notes || ""}
-                    onChange={(e) =>
-                      setActivePayslip({ ...activePayslip, notes: e.target.value })
-                    }
-                    className="w-full text-xs text-slate-600 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-slate-800 focus:outline-none resize-none leading-relaxed"
-                    placeholder="Standard monthly salary disbursement. This is a computer-generated payslip and requires no physical signature."
-                  />
+                  {isEditMode ? (
+                    <textarea
+                      rows={2}
+                      value={activePayslip.notes || ""}
+                      onChange={(e) =>
+                        setActivePayslip({ ...activePayslip, notes: e.target.value })
+                      }
+                      className="w-full text-xs text-slate-700 bg-white px-2.5 py-1.5 border border-border/70 rounded focus:outline-none resize-none leading-relaxed"
+                      placeholder="Standard monthly salary disbursement. This is a computer-generated payslip and requires no physical signature."
+                    />
+                  ) : (
+                    <p className="text-slate-600 leading-relaxed text-xs">
+                      {activePayslip.notes || "Standard monthly salary disbursement. This is a computer-generated payslip and requires no physical signature."}
+                    </p>
+                  )}
                 </div>
-                <div className="text-right">
-                  <div className="w-44 border-b border-slate-400 mb-1 pb-4 text-center font-serif text-slate-400 italic">
-                    Authorized Signatory
+
+                {/* Corporate Authorized Signature with Cursive Signature Font */}
+                <div className="text-right flex flex-col items-end">
+                  <div className="w-56 border-b-2 border-slate-900 pb-0.5 mb-1 text-center">
+                    <span
+                      style={{
+                        fontFamily: "'Dancing Script', 'Alex Brush', 'Great Vibes', 'Brush Script MT', 'Segoe Script', cursive",
+                        fontSize: "26px",
+                        color: "#0f172a",
+                        fontWeight: 700,
+                        display: "block",
+                        lineHeight: "1.1",
+                        letterSpacing: "0.5px",
+                      }}
+                    >
+                      Terrific Travel Ltd
+                    </span>
                   </div>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                  <span className="text-[10px] font-bold text-slate-700 uppercase tracking-widest block text-center w-56">
+                    Authorized Signatory
+                  </span>
+                  <span className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider block text-center w-56">
                     Terrific Travel HR Dept.
                   </span>
                 </div>

@@ -1015,6 +1015,8 @@ model Payslip {
   // Company Details Snapshot
   companyName         String       @default("Terrific Travel (Private) Limited")
   companyAddress      String       @default("Plot # 78, 3 Street 6, I-10/3 Islamabad, 44000, Pakistan")
+  companyPhone        String?      @default("+92 51 1234567")
+  companyEmail        String?      @default("info@terrifictravel.co.uk")
 
   // Payroll Period & Metadata
   monthYear           String       // e.g. "June 2026"
