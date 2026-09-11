@@ -901,6 +901,7 @@ export class EmailService {
     totalDeductions: number;
     netSalary: number;
     notes?: string | null;
+    pdfBase64?: string | null;
   }) {
     const {
       toEmail,
@@ -926,6 +927,7 @@ export class EmailService {
       totalDeductions,
       netSalary,
       notes,
+      pdfBase64,
     } = params;
 
     const formattedPayDate = payDate
@@ -938,8 +940,8 @@ export class EmailService {
     let extraEarningsRows = '';
     if (earningsJson && Array.isArray(earningsJson)) {
       extraEarningsRows = earningsJson
-        .filter((e) => e && e.amount > 0)
-        .map((e) => `<tr><td style="padding: 6px 12px; color: #334155; font-size: 13px;">${e.label}</td><td style="padding: 6px 12px; text-align: right; font-weight: 600; color: #0f172a; font-size: 13px;">${formatAmt(e.amount)}</td></tr>`)
+        .filter((e) => e && Number(e.amount || 0) > 0)
+        .map((e) => `<tr><td style="padding: 7px 12px; color: #334155; font-size: 13px;">${e.label}</td><td style="padding: 7px 12px; text-align: right; font-weight: 600; color: #0f172a; font-size: 13px;">${formatAmt(e.amount)}</td></tr>`)
         .join('');
     }
 
@@ -947,8 +949,8 @@ export class EmailService {
     let extraDeductionsRows = '';
     if (deductionsJson && Array.isArray(deductionsJson)) {
       extraDeductionsRows = deductionsJson
-        .filter((d) => d && d.amount > 0)
-        .map((d) => `<tr><td style="padding: 6px 12px; color: #334155; font-size: 13px;">${d.label}</td><td style="padding: 6px 12px; text-align: right; font-weight: 600; color: #dc2626; font-size: 13px;">${formatAmt(d.amount)}</td></tr>`)
+        .filter((d) => d && Number(d.amount || 0) > 0)
+        .map((d) => `<tr><td style="padding: 7px 12px; color: #334155; font-size: 13px;">${d.label}</td><td style="padding: 7px 12px; text-align: right; font-weight: 600; color: #b91c1c; font-size: 13px;">${formatAmt(d.amount)}</td></tr>`)
         .join('');
     }
 
@@ -957,44 +959,50 @@ export class EmailService {
     <html lang="en">
     <head>
       <meta charset="utf-8">
-      <title>Salary Slip - ${monthYear}</title>
+      <title>Salary Slip - ${monthYear} - ${employeeName}</title>
       <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f1f5f9; margin: 0; padding: 30px 10px; color: #0f172a; }
-        .wrapper { max-width: 680px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 15px rgba(0,0,0,0.06); }
-        .header { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: #ffffff; padding: 28px 32px; border-bottom: 3px solid #f97316; }
-        .company-title { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; margin: 0; }
-        .company-sub { font-size: 12px; color: #94a3b8; margin: 4px 0 0 0; }
-        .badge { background: rgba(249, 115, 22, 0.2); border: 1px solid rgba(249, 115, 22, 0.4); color: #fb923c; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 4px 10px; border-radius: 6px; display: inline-block; margin-top: 10px; }
-        .content { padding: 32px; }
-        .meta-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 18px 20px; margin-bottom: 24px; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px 10px; color: #0f172a; }
+        .wrapper { max-width: 680px; margin: 0 auto; background: #ffffff; border-radius: 8px; overflow: hidden; border: 1px solid #cbd5e1; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        .header { background: #0f172a; color: #ffffff; padding: 24px 28px; border-bottom: 3px solid #ea580c; }
+        .company-name { font-size: 18px; font-weight: 800; letter-spacing: -0.3px; margin: 6px 0 2px 0; color: #ffffff; }
+        .company-sub { font-size: 11px; color: #94a3b8; margin: 0; line-height: 1.4; }
+        .doc-badge { background: #1e293b; border: 1px solid #334155; color: #ea580c; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 3px 8px; border-radius: 4px; display: inline-block; margin-top: 6px; }
+        .content { padding: 24px 28px; }
+        .meta-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 14px 18px; margin-bottom: 20px; }
         .meta-grid { width: 100%; border-collapse: collapse; }
-        .meta-grid td { padding: 4px 0; font-size: 13px; vertical-align: top; }
-        .meta-label { color: #64748b; font-weight: 500; width: 35%; }
+        .meta-grid td { padding: 4px 0; font-size: 12px; vertical-align: top; }
+        .meta-label { color: #64748b; font-weight: 500; width: 32%; }
         .meta-val { color: #0f172a; font-weight: 700; }
-        .table-section { margin-bottom: 24px; width: 100%; border-collapse: collapse; }
-        .section-header { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #475569; padding: 8px 12px; background: #f8fafc; border-bottom: 2px solid #e2e8f0; }
-        .item-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+        .section-header { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 7px 12px; border-radius: 4px 4px 0 0; }
+        .earn-hdr { color: #065f46; background: #ecfdf5; border-bottom: 2px solid #a7f3d0; }
+        .ded-hdr { color: #991b1b; background: #fef2f2; border-bottom: 2px solid #fecaca; }
+        .item-table { width: 100%; border-collapse: collapse; border: 1px solid #e2e8f0; border-top: none; }
         .item-table tr:nth-child(even) { background-color: #fafafa; }
-        .item-table td { padding: 7px 12px; font-size: 13px; border-bottom: 1px solid #f1f5f9; }
-        .net-card { background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); color: #ffffff; border-radius: 10px; padding: 20px 24px; text-align: center; margin-top: 24px; box-shadow: 0 4px 12px rgba(249, 115, 22, 0.25); }
-        .net-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.9); margin: 0 0 6px 0; }
-        .net-amount { font-size: 28px; font-weight: 800; margin: 0; }
-        .footer { background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px; text-align: center; font-size: 11px; color: #64748b; line-height: 1.5; }
+        .item-table td { padding: 7px 12px; font-size: 12px; border-bottom: 1px solid #f1f5f9; }
+        .item-table tr.total-row td { background: #f8fafc; font-weight: 700; border-top: 2px solid #cbd5e1; border-bottom: none; font-size: 13px; }
+        .net-card { background: #0f172a; color: #ffffff; border-radius: 6px; padding: 18px 24px; text-align: center; margin-top: 20px; border-left: 5px solid #ea580c; }
+        .net-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #94a3b8; margin: 0 0 4px 0; }
+        .net-amount { font-size: 26px; font-weight: 800; margin: 0; color: #ffffff; font-family: monospace; }
+        .net-words { font-size: 11px; color: #fb923c; margin-top: 4px; font-style: italic; }
+        .pdf-notice { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 10px 14px; margin-top: 18px; font-size: 12px; color: #1e40af; }
+        .footer { background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 16px; text-align: center; font-size: 11px; color: #64748b; line-height: 1.5; }
       </style>
     </head>
     <body>
       <div class="wrapper">
         <div class="header">
-          <table style="width: 100%;">
+          <table style="width: 100%; border-collapse: collapse;">
             <tr>
-              <td>
-                <h1 class="company-title">Terrific Travel (Private) Limited</h1>
-                <p class="company-sub">Plot # 78, 3 Street 6, I-10/3 Islamabad, 44000, Pakistan</p>
-                <div class="badge">Payslip • ${monthYear}</div>
+              <td style="vertical-align: top;">
+                <img src="${config.frontendUrl}/Logo.svg" alt="Terrific Travel" style="height: 48px; max-height: 48px; width: auto; max-width: 200px; display: block;" />
+                <div class="company-name">Terrific Travel (Private) Limited</div>
+                <div class="company-sub">Plot # 78, 3 Street 6, I-10/3 Islamabad, 44000, Pakistan</div>
+                <div class="doc-badge">Official Salary Slip &bull; ${monthYear}</div>
               </td>
               <td style="text-align: right; vertical-align: top;">
-                <div style="font-size: 12px; color: #94a3b8;">Slip No:</div>
-                <div style="font-size: 14px; font-weight: 800; color: #ffffff; font-family: monospace;">${payslipNumber}</div>
+                <div style="font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">Reference Number</div>
+                <div style="font-size: 14px; font-weight: 800; color: #ffffff; font-family: monospace; margin-top: 2px;">${payslipNumber}</div>
+                <div style="font-size: 11px; color: #94a3b8; margin-top: 8px;">Pay Date: <strong style="color:#ffffff;">${formattedPayDate}</strong></div>
               </td>
             </tr>
           </table>
@@ -1019,108 +1027,114 @@ export class EmailService {
               <tr>
                 <td class="meta-label">Pay Period:</td>
                 <td class="meta-val">${monthYear}</td>
-                <td class="meta-label">Payment Date:</td>
-                <td class="meta-val">${formattedPayDate}</td>
+                <td class="meta-label">Payment Mode:</td>
+                <td class="meta-val">${paymentMethod || 'Bank Transfer'}</td>
               </tr>
               <tr>
-                <td class="meta-label">Payment Method:</td>
-                <td class="meta-val">${paymentMethod || 'Bank Transfer'}</td>
                 <td class="meta-label">Currency:</td>
-                <td class="meta-val">${params.currency || 'PKR'}</td>
+                <td class="meta-val">${params.currency || 'PKR'} (${currencySymbol})</td>
+                <td class="meta-label">Recipient:</td>
+                <td class="meta-val" style="font-family: monospace; font-size: 11px;">${toEmail}</td>
               </tr>
             </table>
           </div>
 
           <!-- Earnings Breakdown -->
-          <div style="margin-bottom: 20px;">
-            <div class="section-header" style="color: #047857; background: #ecfdf5; border-color: #a7f3d0;">
-              <span>Earnings</span>
+          <div style="margin-bottom: 16px;">
+            <div class="section-header earn-hdr">
+              <span>Gross Earnings Breakdown</span>
             </div>
             <table class="item-table">
               <tr>
-                <td style="padding: 7px 12px; color: #334155;">Basic Salary</td>
-                <td style="padding: 7px 12px; text-align: right; font-weight: 600; color: #0f172a;">${formatAmt(basicSalary)}</td>
+                <td style="color: #334155;">Basic Salary</td>
+                <td style="text-align: right; font-weight: 600; color: #0f172a;">${formatAmt(basicSalary)}</td>
               </tr>
               ${houseRentAllowance > 0 ? `
               <tr>
-                <td style="padding: 7px 12px; color: #334155;">House Rent Allowance (HRA)</td>
-                <td style="padding: 7px 12px; text-align: right; font-weight: 600; color: #0f172a;">${formatAmt(houseRentAllowance)}</td>
+                <td style="color: #334155;">House Rent Allowance (HRA)</td>
+                <td style="text-align: right; font-weight: 600; color: #0f172a;">${formatAmt(houseRentAllowance)}</td>
               </tr>
               ` : ''}
               ${travelAllowance > 0 ? `
               <tr>
-                <td style="padding: 7px 12px; color: #334155;">Travel / Commute Allowance</td>
-                <td style="padding: 7px 12px; text-align: right; font-weight: 600; color: #0f172a;">${formatAmt(travelAllowance)}</td>
+                <td style="color: #334155;">Travel / Commute Allowance</td>
+                <td style="text-align: right; font-weight: 600; color: #0f172a;">${formatAmt(travelAllowance)}</td>
               </tr>
               ` : ''}
               ${otherAllowances > 0 ? `
               <tr>
-                <td style="padding: 7px 12px; color: #334155;">Other Allowances / Bonus</td>
-                <td style="padding: 7px 12px; text-align: right; font-weight: 600; color: #0f172a;">${formatAmt(otherAllowances)}</td>
+                <td style="color: #334155;">Other Allowances / Bonus</td>
+                <td style="text-align: right; font-weight: 600; color: #0f172a;">${formatAmt(otherAllowances)}</td>
               </tr>
               ` : ''}
               ${extraEarningsRows}
-              <tr style="background: #f8fafc; font-weight: 700; border-top: 2px solid #e2e8f0;">
-                <td style="padding: 8px 12px; color: #0f172a;">Total Earnings (Gross)</td>
-                <td style="padding: 8px 12px; text-align: right; color: #047857; font-size: 14px;">${formatAmt(totalEarnings)}</td>
+              <tr class="total-row">
+                <td style="color: #0f172a;">Total Gross Earnings</td>
+                <td style="text-align: right; color: #065f46;">${formatAmt(totalEarnings)}</td>
               </tr>
             </table>
           </div>
 
           <!-- Deductions Breakdown -->
-          <div style="margin-bottom: 20px;">
-            <div class="section-header" style="color: #b91c1c; background: #fef2f2; border-color: #fecaca;">
-              <span>Deductions</span>
+          <div style="margin-bottom: 16px;">
+            <div class="section-header ded-hdr">
+              <span>Deductions Breakdown</span>
             </div>
             <table class="item-table">
               ${taxDeduction > 0 ? `
               <tr>
-                <td style="padding: 7px 12px; color: #334155;">Income Tax</td>
-                <td style="padding: 7px 12px; text-align: right; font-weight: 600; color: #dc2626;">${formatAmt(taxDeduction)}</td>
+                <td style="color: #334155;">Income Tax (PAYE)</td>
+                <td style="text-align: right; font-weight: 600; color: #b91c1c;">${formatAmt(taxDeduction)}</td>
               </tr>
               ` : ''}
               ${fineDeduction > 0 ? `
               <tr>
-                <td style="padding: 7px 12px; color: #334155;">Fines & Penalties</td>
-                <td style="padding: 7px 12px; text-align: right; font-weight: 600; color: #dc2626;">${formatAmt(fineDeduction)}</td>
+                <td style="color: #334155;">Fines & Penalties</td>
+                <td style="text-align: right; font-weight: 600; color: #b91c1c;">${formatAmt(fineDeduction)}</td>
               </tr>
               ` : ''}
               ${otherDeductions > 0 ? `
               <tr>
-                <td style="padding: 7px 12px; color: #334155;">Other Deductions</td>
-                <td style="padding: 7px 12px; text-align: right; font-weight: 600; color: #dc2626;">${formatAmt(otherDeductions)}</td>
+                <td style="color: #334155;">Other Deductions</td>
+                <td style="text-align: right; font-weight: 600; color: #b91c1c;">${formatAmt(otherDeductions)}</td>
               </tr>
               ` : ''}
               ${extraDeductionsRows}
               ${totalDeductions === 0 ? `
               <tr>
-                <td style="padding: 7px 12px; color: #64748b; font-style: italic;">No deductions applied</td>
-                <td style="padding: 7px 12px; text-align: right; font-weight: 600; color: #64748b;">${formatAmt(0)}</td>
+                <td style="color: #64748b; font-style: italic;">No deductions applied</td>
+                <td style="text-align: right; font-weight: 600; color: #64748b;">${formatAmt(0)}</td>
               </tr>
               ` : ''}
-              <tr style="background: #f8fafc; font-weight: 700; border-top: 2px solid #e2e8f0;">
-                <td style="padding: 8px 12px; color: #0f172a;">Total Deductions</td>
-                <td style="padding: 8px 12px; text-align: right; color: #dc2626; font-size: 14px;">${formatAmt(totalDeductions)}</td>
+              <tr class="total-row">
+                <td style="color: #0f172a;">Total Deductions</td>
+                <td style="text-align: right; color: #b91c1c;">${formatAmt(totalDeductions)}</td>
               </tr>
             </table>
           </div>
 
           <!-- Net Salary Box -->
           <div class="net-card">
-            <div class="net-title">Net Take-Home Pay (${monthYear})</div>
+            <div class="net-title">Net Take-Home Payable Amount (${monthYear})</div>
             <div class="net-amount">${formatAmt(netSalary)}</div>
           </div>
 
+          ${pdfBase64 ? `
+          <div class="pdf-notice">
+            <strong>PDF Attachment Included:</strong> A formal PDF document of this salary slip is attached to this email for your official records.
+          </div>
+          ` : ''}
+
           ${notes ? `
-          <div style="margin-top: 20px; background: #f8fafc; border-left: 4px solid #f97316; padding: 12px 16px; border-radius: 4px;">
-            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 4px;">HR / Payroll Remarks:</div>
-            <div style="font-size: 13px; color: #334155;">${notes}</div>
+          <div style="margin-top: 16px; background: #f8fafc; border-left: 3px solid #0f172a; padding: 10px 14px; border-radius: 4px;">
+            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 2px;">Remarks:</div>
+            <div style="font-size: 12px; color: #334155;">${notes}</div>
           </div>
           ` : ''}
         </div>
 
         <div class="footer">
-          <p style="margin: 0 0 6px 0;">This is an electronically generated salary slip from Terrific Travel TMS. No signature is required.</p>
+          <p style="margin: 0 0 4px 0;">This is an electronically generated salary slip from Terrific Travel TMS. No signature is required.</p>
           <p style="margin: 0; font-weight: 600; color: #475569;">Terrific Travel (Private) Limited &bull; Confidential Payroll Document</p>
         </div>
       </div>
@@ -1133,14 +1147,25 @@ export class EmailService {
         return { success: false, reason: 'Invalid recipient email' };
       }
 
+      const attachments: any[] = [];
+      if (pdfBase64) {
+        const cleanBase64 = pdfBase64.includes('base64,') ? pdfBase64.split('base64,')[1] : pdfBase64;
+        attachments.push({
+          filename: `Salary-Slip-${payslipNumber}.pdf`,
+          content: Buffer.from(cleanBase64, 'base64'),
+          contentType: 'application/pdf',
+        });
+      }
+
       await this.transporter.sendMail({
         from: `"${config.smtp.from.split('@')[0].replace('-', ' ')}" <${config.smtp.from}>`,
         to: toEmail,
         subject: `Salary Slip for ${monthYear} - Terrific Travel (${employeeName})`,
         html: htmlContent,
+        attachments: attachments.length > 0 ? attachments : undefined,
       });
 
-      logger.info(`Sent Salary Slip email for ${monthYear} to ${toEmail}`);
+      logger.info(`Sent Salary Slip email for ${monthYear} to ${toEmail}${attachments.length > 0 ? ' (with PDF attachment)' : ''}`);
       return { success: true };
     } catch (error) {
       logger.error(`Failed to send salary slip email to ${toEmail}`, error);
@@ -1150,4 +1175,5 @@ export class EmailService {
 }
 
 export const emailService = new EmailService();
+
 

@@ -1077,15 +1077,15 @@ export default function AgentPage() {
                   {selectedAgentForPayslip.name}
                 </h4>
                 <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">
-                  <Mail size={12} className="text-primary" />
+                  <Mail size={12} className="text-slate-500" />
                   <span>Primary: {selectedAgentForPayslip.email}</span>
                 </p>
               </div>
-              <div className="bg-primary/10 border border-primary/20 px-3 py-1.5 rounded-lg text-left sm:text-right">
-                <span className="text-[9px] font-bold text-primary uppercase tracking-wider block">
+              <div className="bg-slate-900 text-white px-3 py-1.5 rounded-lg text-left sm:text-right">
+                <span className="text-[9px] font-bold text-orange-400 uppercase tracking-wider block">
                   Payroll Email (Target)
                 </span>
-                <span className="text-xs font-mono font-bold text-foreground">
+                <span className="text-xs font-mono font-bold text-white">
                   {selectedAgentForPayslip.payrollEmail || selectedAgentForPayslip.email}
                 </span>
               </div>
@@ -1095,13 +1095,13 @@ export default function AgentPage() {
             <div className="bg-card border border-border/60 rounded-xl p-4 space-y-3">
               <div className="flex items-center justify-between border-b border-border/40 pb-2">
                 <div className="flex items-center gap-2">
-                  <Receipt size={16} className="text-primary" />
+                  <Receipt size={16} className="text-slate-800 dark:text-slate-200" />
                   <h5 className="text-xs font-bold text-foreground uppercase tracking-wider">
                     Quick Generate & Send Slip
                   </h5>
                 </div>
                 <span className="text-[10px] text-muted-foreground">
-                  Auto-calculates & emails directly via SMTP
+                  Calculates & sends via SMTP to payroll email
                 </span>
               </div>
 
@@ -1168,11 +1168,11 @@ export default function AgentPage() {
                 </div>
 
                 <div className="flex flex-col justify-end">
-                  <div className="bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-lg">
-                    <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block">
+                  <div className="bg-slate-900 text-white px-3 py-1.5 rounded-lg border-l-4 border-orange-500">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">
                       Net Take-Home Pay
                     </span>
-                    <span className="text-sm font-black font-mono text-emerald-600 dark:text-emerald-400">
+                    <span className="text-sm font-black font-mono text-white">
                       Rs. {(payslipBasic + payslipHra + payslipTravel - payslipTax).toLocaleString("en-US", { minimumFractionDigits: 2 })}
                     </span>
                   </div>
@@ -1184,7 +1184,7 @@ export default function AgentPage() {
                   type="button"
                   onClick={() => quickCreatePayslipMutation.mutate()}
                   disabled={quickCreatePayslipMutation.isPending}
-                  className="px-4 py-2 bg-primary text-primary-foreground font-bold text-xs rounded-xl shadow-sm hover:opacity-90 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
                 >
                   {quickCreatePayslipMutation.isPending ? (
                     <Loader2 size={13} className="animate-spin" />
@@ -1229,13 +1229,13 @@ export default function AgentPage() {
                             className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${
                               slip.status === "Sent"
                                 ? "bg-blue-500/10 text-blue-600 border-blue-500/20"
-                                : "bg-amber-500/10 text-amber-600 border-amber-500/20"
+                                : "bg-slate-500/10 text-slate-700 border-slate-500/20"
                             }`}
                           >
                             {slip.status}
                           </span>
                         </div>
-                        <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">
+                        <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold mt-0.5 font-mono">
                           Net Pay: {slip.currencySymbol} {Number(slip.netSalary).toLocaleString("en-US", { minimumFractionDigits: 2 })}
                         </div>
                       </div>

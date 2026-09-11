@@ -1,5 +1,6 @@
 import React, { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import html2pdf from "html2pdf.js";
 import { apiClient } from "../api/client";
 import { useAuthStore } from "../store/auth.store";
 import {
@@ -17,14 +18,11 @@ import {
   TrendingUp,
   AlertCircle,
   FileText,
-  User,
-  Building,
-  Calendar,
-  CreditCard,
   Download,
   Filter,
   RefreshCw,
-  Sparkles,
+  PlusCircle,
+  MinusCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import Modal from "../components/Modal";
@@ -96,6 +94,11 @@ function numberToWords(num: number): string {
   return inWords(n) + " Only";
 }
 
+export interface CustomLineItem {
+  label: string;
+  amount: number;
+}
+
 export interface PayslipItem {
   id: string;
   payslipNumber: string;
@@ -118,11 +121,11 @@ export interface PayslipItem {
   houseRentAllowance: number;
   travelAllowance: number;
   otherAllowances: number;
-  earningsJson?: Array<{ label: string; amount: number }>;
+  earningsJson?: CustomLineItem[];
   taxDeduction: number;
   fineDeduction: number;
   otherDeductions: number;
-  deductionsJson?: Array<{ label: string; amount: number }>;
+  deductionsJson?: CustomLineItem[];
   totalEarnings: number;
   totalDeductions: number;
   netSalary: number;
@@ -156,6 +159,7 @@ export default function PayrollPage() {
   const [isViewerModalOpen, setIsViewerModalOpen] = useState(false);
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [activePayslip, setActivePayslip] = useState<PayslipItem | null>(null);
 
   // Create / Edit Form States
@@ -176,12 +180,12 @@ export default function PayrollPage() {
     houseRentAllowance: 65000,
     travelAllowance: 35000,
     otherAllowances: 0,
-    earningsJson: [] as Array<{ label: string; amount: number }>,
+    earningsJson: [] as CustomLineItem[],
     taxDeduction: 12500,
     fineDeduction: 0,
     otherDeductions: 0,
-    deductionsJson: [] as Array<{ label: string; amount: number }>,
-    notes: "",
+    deductionsJson: [] as CustomLineItem[],
+    notes: "Standard monthly salary disbursement.",
     sendImmediately: false,
   });
 
@@ -272,12 +276,20 @@ export default function PayrollPage() {
   });
 
   const sendEmailMutation = useMutation({
-    mutationFn: async ({ id, overrideEmail }: { id: string; overrideEmail?: string }) => {
-      return apiClient.post(`/payroll/${id}/send-email`, { overrideEmail });
+    mutationFn: async ({
+      id,
+      overrideEmail,
+      pdfBase64,
+    }: {
+      id: string;
+      overrideEmail?: string;
+      pdfBase64?: string;
+    }) => {
+      return apiClient.post(`/payroll/${id}/send-email`, { overrideEmail, pdfBase64 });
     },
     onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ["payroll"] });
-      toast.success(res.data?.message || "Salary slip email sent via SMTP successfully!");
+      toast.success(res.data?.message || "Salary slip email with PDF sent via SMTP successfully!");
       setIsEmailModalOpen(false);
       if (activePayslip) {
         setActivePayslip({ ...activePayslip, status: "Sent", sentAt: new Date().toISOString() });
@@ -326,13 +338,21 @@ export default function PayrollPage() {
 
   // Open Viewer Modal
   const handleOpenViewer = (slip: PayslipItem) => {
-    setActivePayslip(slip);
+    setActivePayslip({
+      ...slip,
+      earningsJson: Array.isArray(slip.earningsJson) ? slip.earningsJson : [],
+      deductionsJson: Array.isArray(slip.deductionsJson) ? slip.deductionsJson : [],
+    });
     setIsViewerModalOpen(true);
   };
 
   // Open Email Dispatch Modal
   const handleOpenEmailModal = (slip: PayslipItem) => {
-    setActivePayslip(slip);
+    setActivePayslip({
+      ...slip,
+      earningsJson: Array.isArray(slip.earningsJson) ? slip.earningsJson : [],
+      deductionsJson: Array.isArray(slip.deductionsJson) ? slip.deductionsJson : [],
+    });
     const defaultEmail =
       slip.payrollEmail ||
       slip.agent?.payrollEmail ||
@@ -343,9 +363,57 @@ export default function PayrollPage() {
     setIsEmailModalOpen(true);
   };
 
-  // Print Payslip
-  const handlePrint = () => {
-    window.print();
+  // Export / Download PDF using html2pdf.js
+  const handleDownloadPdf = async () => {
+    if (!printRef.current || !activePayslip) return;
+    try {
+      setIsExportingPdf(true);
+      const opt = {
+        margin: 8,
+        filename: `Salary-Slip-${activePayslip.payslipNumber}.pdf`,
+        image: { type: "jpeg" as const, quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+        jsPDF: { unit: "mm" as const, format: "a4" as const, orientation: "portrait" as const },
+      };
+      await html2pdf().set(opt).from(printRef.current).save();
+      toast.success(`Downloaded Salary-Slip-${activePayslip.payslipNumber}.pdf`);
+    } catch (err) {
+      toast.error("Failed to generate PDF download");
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
+  // Generate PDF Base64 string for email attachment
+  const generatePdfBase64 = async (): Promise<string | null> => {
+    if (!printRef.current) return null;
+    try {
+      const opt = {
+        margin: 8,
+        image: { type: "jpeg" as const, quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+        jsPDF: { unit: "mm" as const, format: "a4" as const, orientation: "portrait" as const },
+      };
+      const pdfDataUri = await html2pdf().set(opt).from(printRef.current).outputPdf("datauristring");
+      return pdfDataUri;
+    } catch (e) {
+      console.error("Failed to generate PDF base64:", e);
+      return null;
+    }
+  };
+
+  // Send via SMTP handler
+  const handleSendViaSmtp = async () => {
+    if (!activePayslip || !emailTarget) return;
+    let pdfBase64: string | null = null;
+    if (printRef.current) {
+      pdfBase64 = await generatePdfBase64();
+    }
+    sendEmailMutation.mutate({
+      id: activePayslip.id,
+      overrideEmail: emailTarget,
+      pdfBase64: pdfBase64 || undefined,
+    });
   };
 
   const payslipsList: PayslipItem[] = payrollData?.items || [];
@@ -364,7 +432,7 @@ export default function PayrollPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2.5">
-            <div className="p-2.5 bg-primary/10 text-primary rounded-xl">
+            <div className="p-2.5 bg-slate-900 text-white rounded-xl shadow-sm">
               <Receipt size={24} />
             </div>
             <div>
@@ -372,7 +440,7 @@ export default function PayrollPage() {
                 Payroll & Salary Slips
               </h1>
               <p className="text-xs text-muted-foreground">
-                Generate, edit in real-time, print, and dispatch European-standard payslips via SMTP
+                Corporate European-standard payroll management, live PDF export, and direct SMTP delivery
               </p>
             </div>
           </div>
@@ -408,7 +476,7 @@ export default function PayrollPage() {
               });
               setIsCreateModalOpen(true);
             }}
-            className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground font-bold text-xs rounded-xl shadow-sm hover:opacity-90 transition-all cursor-pointer"
+            className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-sm transition-all cursor-pointer"
           >
             <Plus size={16} />
             <span>Generate Salary Slip</span>
@@ -426,8 +494,8 @@ export default function PayrollPage() {
             <h3 className="text-xl font-extrabold text-foreground mt-1">
               Rs. {Number(summary.totalNetDisbursed || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}
             </h3>
-            <p className="text-[10px] text-emerald-500 font-medium mt-0.5 flex items-center gap-1">
-              <TrendingUp size={10} /> Active Payroll Cycle
+            <p className="text-[10px] text-emerald-600 font-medium mt-0.5 flex items-center gap-1">
+              <TrendingUp size={10} /> Processed Disbursements
             </p>
           </div>
           <div className="p-3 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl">
@@ -481,7 +549,7 @@ export default function PayrollPage() {
               {summary.draftCount} Drafts remaining
             </p>
           </div>
-          <div className="p-3 bg-primary/10 text-primary rounded-xl">
+          <div className="p-3 bg-slate-900 text-white rounded-xl">
             <Send size={20} />
           </div>
         </div>
@@ -495,7 +563,7 @@ export default function PayrollPage() {
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Search by name, slip #, email..."
+              placeholder="Search by employee name, slip #, email..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-9 pr-3 py-2 bg-secondary/30 border border-border/60 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/40 text-foreground placeholder:text-muted-foreground/50"
@@ -504,7 +572,6 @@ export default function PayrollPage() {
 
           {/* Filters */}
           <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-            {/* Month Filter */}
             <select
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
@@ -517,7 +584,6 @@ export default function PayrollPage() {
               <option value="March 2026">March 2026</option>
             </select>
 
-            {/* Agent Filter */}
             <select
               value={selectedAgentFilter}
               onChange={(e) => setSelectedAgentFilter(e.target.value)}
@@ -531,7 +597,6 @@ export default function PayrollPage() {
               ))}
             </select>
 
-            {/* Status Filter */}
             <select
               value={selectedStatusFilter}
               onChange={(e) => setSelectedStatusFilter(e.target.value)}
@@ -592,7 +657,7 @@ export default function PayrollPage() {
                       <Receipt size={32} className="text-muted-foreground/40" />
                       <p className="font-semibold text-sm">No salary slips found</p>
                       <p className="text-xs text-muted-foreground/80">
-                        Click "Generate Salary Slip" to create your first European-standard payslip.
+                        Click "Generate Salary Slip" to create a new salary slip.
                       </p>
                     </div>
                   </td>
@@ -612,7 +677,7 @@ export default function PayrollPage() {
                           {slip.designation || "Operations Manager"}
                         </span>
                         {(slip.payrollEmail || slip.agent?.payrollEmail) && (
-                          <span className="inline-flex items-center gap-1 text-[10px] text-primary/80 font-medium mt-0.5 block">
+                          <span className="inline-flex items-center gap-1 text-[10px] text-slate-600 dark:text-slate-400 font-medium mt-0.5 block font-mono">
                             <Mail size={10} /> {slip.payrollEmail || slip.agent?.payrollEmail}
                           </span>
                         )}
@@ -621,10 +686,10 @@ export default function PayrollPage() {
                     <td className="py-3 px-4 font-medium text-foreground">
                       {slip.monthYear}
                     </td>
-                    <td className="py-3 px-4 font-semibold text-foreground/90">
+                    <td className="py-3 px-4 font-semibold text-foreground/90 font-mono">
                       {slip.currencySymbol} {Number(slip.totalEarnings || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}
                     </td>
-                    <td className="py-3 px-4 font-semibold text-red-600 dark:text-red-400">
+                    <td className="py-3 px-4 font-semibold text-red-600 dark:text-red-400 font-mono">
                       {slip.totalDeductions > 0 ? (
                         <>
                           -{slip.currencySymbol} {Number(slip.totalDeductions || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}
@@ -643,7 +708,7 @@ export default function PayrollPage() {
                             ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20"
                             : slip.status === "Paid"
                             ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
-                            : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
+                            : "bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20"
                         }`}
                       >
                         {slip.status === "Sent" ? <CheckCircle2 size={10} /> : <FileText size={10} />}
@@ -654,15 +719,15 @@ export default function PayrollPage() {
                       <div className="flex items-center justify-end gap-1">
                         <button
                           onClick={() => handleOpenViewer(slip)}
-                          className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-secondary/50 transition-colors"
+                          className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
                           title="View & Edit Live Payslip"
                         >
                           <Edit3 size={14} />
                         </button>
                         <button
                           onClick={() => handleOpenEmailModal(slip)}
-                          className="p-1.5 rounded-md text-muted-foreground hover:text-blue-500 hover:bg-blue-500/10 transition-colors"
-                          title="Send Salary Slip via SMTP"
+                          className="p-1.5 rounded-md text-muted-foreground hover:text-blue-600 hover:bg-blue-500/10 transition-colors"
+                          title="Send via SMTP Email (with PDF)"
                         >
                           <Send size={14} />
                         </button>
@@ -750,7 +815,7 @@ export default function PayrollPage() {
                   type="text"
                   value={formData.passportNumber}
                   onChange={(e) => setFormData({ ...formData, passportNumber: e.target.value })}
-                  className="w-full px-3 py-2 bg-secondary/20 border border-border/60 rounded-lg text-xs"
+                  className="w-full px-3 py-2 bg-secondary/20 border border-border/60 rounded-lg text-xs font-mono"
                 />
               </div>
 
@@ -815,7 +880,7 @@ export default function PayrollPage() {
                   type="text"
                   value={formData.currencySymbol}
                   onChange={(e) => setFormData({ ...formData, currencySymbol: e.target.value })}
-                  className="w-full px-3 py-2 bg-secondary/20 border border-border/60 rounded-lg text-xs"
+                  className="w-full px-3 py-2 bg-secondary/20 border border-border/60 rounded-lg text-xs font-mono"
                   placeholder="Rs. or £"
                 />
               </div>
@@ -826,10 +891,10 @@ export default function PayrollPage() {
               {/* Earnings Panel */}
               <div className="p-3.5 bg-emerald-500/5 border border-emerald-500/20 rounded-xl space-y-2.5">
                 <div className="flex items-center justify-between border-b border-emerald-500/20 pb-1.5">
-                  <h4 className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
-                    Earnings (Gross)
+                  <h4 className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">
+                    Gross Earnings
                   </h4>
-                  <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                  <span className="text-xs font-mono font-bold text-emerald-700 dark:text-emerald-400">
                     {formData.currencySymbol} {calcFormEarnings.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                   </span>
                 </div>
@@ -865,7 +930,7 @@ export default function PayrollPage() {
                 </div>
 
                 <div>
-                  <label className="text-[10px] text-muted-foreground block mb-0.5">Other Allowances / Bonus</label>
+                  <label className="text-[10px] text-muted-foreground block mb-0.5">Other Allowances</label>
                   <input
                     type="number"
                     value={formData.otherAllowances}
@@ -873,21 +938,74 @@ export default function PayrollPage() {
                     className="w-full px-2.5 py-1.5 bg-background border border-border/60 rounded-md text-xs font-mono"
                   />
                 </div>
+
+                {/* Custom Earnings List */}
+                {formData.earningsJson.map((item, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      placeholder="e.g. Performance Bonus"
+                      value={item.label}
+                      onChange={(e) => {
+                        const next = [...formData.earningsJson];
+                        next[idx].label = e.target.value;
+                        setFormData({ ...formData, earningsJson: next });
+                      }}
+                      className="w-1/2 px-2 py-1 bg-background border border-border/60 rounded text-xs"
+                    />
+                    <input
+                      type="number"
+                      placeholder="Amount"
+                      value={item.amount}
+                      onChange={(e) => {
+                        const next = [...formData.earningsJson];
+                        next[idx].amount = Number(e.target.value);
+                        setFormData({ ...formData, earningsJson: next });
+                      }}
+                      className="w-1/2 px-2 py-1 bg-background border border-border/60 rounded text-xs font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormData({
+                          ...formData,
+                          earningsJson: formData.earningsJson.filter((_, i) => i !== idx),
+                        });
+                      }}
+                      className="text-muted-foreground hover:text-red-500"
+                    >
+                      <MinusCircle size={14} />
+                    </button>
+                  </div>
+                ))}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFormData({
+                      ...formData,
+                      earningsJson: [...formData.earningsJson, { label: "Custom Allowance", amount: 0 }],
+                    });
+                  }}
+                  className="flex items-center gap-1 text-[11px] text-emerald-700 dark:text-emerald-400 font-semibold hover:underline pt-1"
+                >
+                  <PlusCircle size={12} /> Add Custom Earning
+                </button>
               </div>
 
               {/* Deductions Panel */}
               <div className="p-3.5 bg-red-500/5 border border-red-500/20 rounded-xl space-y-2.5">
                 <div className="flex items-center justify-between border-b border-red-500/20 pb-1.5">
-                  <h4 className="text-xs font-bold text-red-600 dark:text-red-400 uppercase tracking-wider">
+                  <h4 className="text-xs font-bold text-red-700 dark:text-red-400 uppercase tracking-wider">
                     Deductions
                   </h4>
-                  <span className="text-xs font-mono font-bold text-red-600 dark:text-red-400">
+                  <span className="text-xs font-mono font-bold text-red-700 dark:text-red-400">
                     {formData.currencySymbol} {calcFormDeductions.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                   </span>
                 </div>
 
                 <div>
-                  <label className="text-[10px] text-muted-foreground block mb-0.5">Income Tax</label>
+                  <label className="text-[10px] text-muted-foreground block mb-0.5">Income Tax (PAYE)</label>
                   <input
                     type="number"
                     value={formData.taxDeduction}
@@ -915,23 +1033,75 @@ export default function PayrollPage() {
                     className="w-full px-2.5 py-1.5 bg-background border border-border/60 rounded-md text-xs font-mono"
                   />
                 </div>
+
+                {/* Custom Deductions List */}
+                {formData.deductionsJson.map((item, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      placeholder="e.g. Health Insurance"
+                      value={item.label}
+                      onChange={(e) => {
+                        const next = [...formData.deductionsJson];
+                        next[idx].label = e.target.value;
+                        setFormData({ ...formData, deductionsJson: next });
+                      }}
+                      className="w-1/2 px-2 py-1 bg-background border border-border/60 rounded text-xs"
+                    />
+                    <input
+                      type="number"
+                      placeholder="Amount"
+                      value={item.amount}
+                      onChange={(e) => {
+                        const next = [...formData.deductionsJson];
+                        next[idx].amount = Number(e.target.value);
+                        setFormData({ ...formData, deductionsJson: next });
+                      }}
+                      className="w-1/2 px-2 py-1 bg-background border border-border/60 rounded text-xs font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormData({
+                          ...formData,
+                          deductionsJson: formData.deductionsJson.filter((_, i) => i !== idx),
+                        });
+                      }}
+                      className="text-muted-foreground hover:text-red-500"
+                    >
+                      <MinusCircle size={14} />
+                    </button>
+                  </div>
+                ))}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFormData({
+                      ...formData,
+                      deductionsJson: [...formData.deductionsJson, { label: "Custom Deduction", amount: 0 }],
+                    });
+                  }}
+                  className="flex items-center gap-1 text-[11px] text-red-700 dark:text-red-400 font-semibold hover:underline pt-1"
+                >
+                  <PlusCircle size={12} /> Add Custom Deduction
+                </button>
               </div>
             </div>
 
             {/* Net Salary Preview Banner */}
-            <div className="p-4 bg-gradient-to-r from-orange-500 to-amber-500 rounded-xl text-white flex items-center justify-between shadow-md">
+            <div className="p-4 bg-slate-900 rounded-xl text-white flex items-center justify-between shadow-md border-l-4 border-orange-500">
               <div>
-                <p className="text-[10px] uppercase font-bold tracking-widest text-white/80">
+                <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400">
                   Calculated Net Take-Home Pay
                 </p>
-                <h3 className="text-2xl font-black font-mono">
+                <h3 className="text-2xl font-black font-mono mt-0.5">
                   {formData.currencySymbol} {calcFormNet.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                 </h3>
-                <p className="text-[11px] text-white/90 italic mt-0.5">
+                <p className="text-[11px] text-orange-400 italic mt-0.5">
                   {numberToWords(calcFormNet)}
                 </p>
               </div>
-              <Sparkles size={32} className="text-white/30" />
             </div>
 
             {/* Send immediately checkbox */}
@@ -961,7 +1131,7 @@ export default function PayrollPage() {
                 type="button"
                 onClick={() => createMutation.mutate(formData)}
                 disabled={createMutation.isPending}
-                className="px-5 py-2 bg-primary text-primary-foreground font-bold text-xs rounded-xl shadow-sm hover:opacity-90 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 {createMutation.isPending ? (
                   <>
@@ -998,7 +1168,7 @@ export default function PayrollPage() {
                   className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${
                     activePayslip.status === "Sent"
                       ? "bg-blue-500/10 text-blue-600 border-blue-500/20"
-                      : "bg-amber-500/10 text-amber-600 border-amber-500/20"
+                      : "bg-slate-500/10 text-slate-700 border-slate-500/20"
                   }`}
                 >
                   {activePayslip.status}
@@ -1012,11 +1182,20 @@ export default function PayrollPage() {
 
               <div className="flex items-center gap-2">
                 <button
-                  onClick={handlePrint}
+                  onClick={handleDownloadPdf}
+                  disabled={isExportingPdf}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg shadow-sm transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  {isExportingPdf ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
+                  <span>Export PDF</span>
+                </button>
+
+                <button
+                  onClick={() => window.print()}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary hover:bg-secondary/80 text-foreground text-xs font-semibold rounded-lg border border-border/60 transition-colors"
                 >
                   <Printer size={13} />
-                  <span>Print / Save PDF</span>
+                  <span>Print</span>
                 </button>
 
                 <button
@@ -1035,7 +1214,7 @@ export default function PayrollPage() {
                     })
                   }
                   disabled={updateMutation.isPending}
-                  className="flex items-center gap-1.5 px-4 py-1.5 bg-primary text-primary-foreground text-xs font-bold rounded-lg shadow-sm hover:opacity-90 transition-all disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-sm transition-all disabled:opacity-50"
                 >
                   {updateMutation.isPending ? (
                     <Loader2 size={13} className="animate-spin" />
@@ -1053,36 +1232,41 @@ export default function PayrollPage() {
               id="printable-payslip"
               className="bg-white text-slate-900 border border-slate-200 rounded-xl overflow-hidden shadow-md p-6 md:p-8 font-sans"
             >
-              {/* Header */}
+              {/* Header with prominent Company Logo */}
               <div className="border-b-2 border-slate-900 pb-5 mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                  <h2 className="text-2xl font-black tracking-tight text-slate-900">
+                  <img
+                    src="/Logo.svg"
+                    alt="Terrific Travel Logo"
+                    className="h-12 w-auto max-w-[200px] object-contain block mb-2"
+                  />
+                  <h2 className="text-xl font-black tracking-tight text-slate-900">
                     TERRIFIC TRAVEL (PVT) LTD
                   </h2>
-                  <p className="text-xs text-slate-500 font-medium">
+                  <p className="text-xs text-slate-600 font-medium">
                     Plot # 78, 3 Street 6, I-10/3 Islamabad, 44000, Pakistan
                   </p>
-                  <p className="text-[11px] text-slate-400">
+                  <p className="text-[11px] text-slate-500">
                     Phone: +92 51 1234567 | Email: info@terrifictravel.co.uk
                   </p>
                 </div>
                 <div className="text-left md:text-right bg-slate-50 border border-slate-200 p-3 rounded-lg min-w-[200px]">
-                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                    PAYSLIP / SALARY SLIP
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                    SALARY SLIP / PAYSLIP
                   </div>
                   <div className="text-base font-black font-mono text-slate-900">
                     {activePayslip.payslipNumber}
                   </div>
-                  <div className="text-xs font-bold text-orange-600">
-                    Period: {activePayslip.monthYear}
+                  <div className="text-xs font-bold text-slate-700 mt-1">
+                    Pay Period: {activePayslip.monthYear}
                   </div>
                 </div>
               </div>
 
               {/* Employee Meta Grid (Live Editable) */}
-              <div className="bg-slate-50/80 border border-slate-200 rounded-lg p-4 mb-6 grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-6 grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
                 <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                     Employee Name
                   </span>
                   <input
@@ -1091,12 +1275,12 @@ export default function PayrollPage() {
                     onChange={(e) =>
                       setActivePayslip({ ...activePayslip, employeeName: e.target.value })
                     }
-                    className="font-bold text-slate-900 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-orange-500 focus:outline-none w-full"
+                    className="font-bold text-slate-900 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-slate-800 focus:outline-none w-full"
                   />
                 </div>
 
                 <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                     Designation
                   </span>
                   <input
@@ -1105,12 +1289,12 @@ export default function PayrollPage() {
                     onChange={(e) =>
                       setActivePayslip({ ...activePayslip, designation: e.target.value })
                     }
-                    className="font-semibold text-slate-800 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-orange-500 focus:outline-none w-full"
+                    className="font-semibold text-slate-800 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-slate-800 focus:outline-none w-full"
                   />
                 </div>
 
                 <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                     Passport / CNIC No
                   </span>
                   <input
@@ -1119,12 +1303,12 @@ export default function PayrollPage() {
                     onChange={(e) =>
                       setActivePayslip({ ...activePayslip, passportNumber: e.target.value })
                     }
-                    className="font-mono text-slate-800 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-orange-500 focus:outline-none w-full"
+                    className="font-mono text-slate-800 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-slate-800 focus:outline-none w-full"
                   />
                 </div>
 
                 <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                     Department
                   </span>
                   <input
@@ -1133,12 +1317,12 @@ export default function PayrollPage() {
                     onChange={(e) =>
                       setActivePayslip({ ...activePayslip, department: e.target.value })
                     }
-                    className="font-semibold text-slate-800 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-orange-500 focus:outline-none w-full"
+                    className="font-semibold text-slate-800 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-slate-800 focus:outline-none w-full"
                   />
                 </div>
 
                 <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                     Payment Date
                   </span>
                   <span className="font-semibold text-slate-800">
@@ -1151,7 +1335,7 @@ export default function PayrollPage() {
                 </div>
 
                 <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                     Payment Method
                   </span>
                   <span className="font-semibold text-slate-800">
@@ -1160,7 +1344,7 @@ export default function PayrollPage() {
                 </div>
 
                 <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                     Payroll Email
                   </span>
                   <span className="font-mono text-[11px] text-slate-700">
@@ -1169,7 +1353,7 @@ export default function PayrollPage() {
                 </div>
 
                 <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                     Currency
                   </span>
                   <span className="font-bold text-slate-800">
@@ -1180,25 +1364,22 @@ export default function PayrollPage() {
 
               {/* European Dual-Column Breakdown Table */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                {/* Column 1: Earnings */}
+                {/* Column 1: Gross Earnings */}
                 <div className="border border-slate-200 rounded-lg overflow-hidden">
-                  <div className="bg-emerald-700 text-white px-4 py-2 font-bold text-xs uppercase tracking-wider flex justify-between items-center">
-                    <span>EARNINGS</span>
-                    <span>AMOUNT</span>
+                  <div className="bg-emerald-800 text-white px-4 py-2 font-bold text-xs uppercase tracking-wider flex justify-between items-center">
+                    <span>Gross Earnings</span>
+                    <span>Amount</span>
                   </div>
                   <div className="divide-y divide-slate-100 text-xs">
                     <div className="p-3 flex justify-between items-center">
-                      <span className="text-slate-600 font-medium">Basic Salary</span>
+                      <span className="text-slate-700 font-medium">Basic Salary</span>
                       <input
                         type="number"
                         value={activePayslip.basicSalary}
                         onChange={(e) => {
                           const val = Number(e.target.value);
-                          const total =
-                            val +
-                            activePayslip.houseRentAllowance +
-                            activePayslip.travelAllowance +
-                            activePayslip.otherAllowances;
+                          const customSum = (activePayslip.earningsJson || []).reduce((s, i) => s + Number(i.amount || 0), 0);
+                          const total = val + activePayslip.houseRentAllowance + activePayslip.travelAllowance + activePayslip.otherAllowances + customSum;
                           setActivePayslip({
                             ...activePayslip,
                             basicSalary: val,
@@ -1206,22 +1387,19 @@ export default function PayrollPage() {
                             netSalary: Math.max(0, total - activePayslip.totalDeductions),
                           });
                         }}
-                        className="w-28 text-right font-mono font-bold text-slate-900 border-b border-slate-200 focus:border-emerald-500 focus:outline-none"
+                        className="w-28 text-right font-mono font-bold text-slate-900 border-b border-slate-200 focus:border-slate-800 focus:outline-none"
                       />
                     </div>
 
                     <div className="p-3 flex justify-between items-center">
-                      <span className="text-slate-600 font-medium">House Rent Allowance (HRA)</span>
+                      <span className="text-slate-700 font-medium">House Rent Allowance (HRA)</span>
                       <input
                         type="number"
                         value={activePayslip.houseRentAllowance}
                         onChange={(e) => {
                           const val = Number(e.target.value);
-                          const total =
-                            activePayslip.basicSalary +
-                            val +
-                            activePayslip.travelAllowance +
-                            activePayslip.otherAllowances;
+                          const customSum = (activePayslip.earningsJson || []).reduce((s, i) => s + Number(i.amount || 0), 0);
+                          const total = activePayslip.basicSalary + val + activePayslip.travelAllowance + activePayslip.otherAllowances + customSum;
                           setActivePayslip({
                             ...activePayslip,
                             houseRentAllowance: val,
@@ -1229,22 +1407,19 @@ export default function PayrollPage() {
                             netSalary: Math.max(0, total - activePayslip.totalDeductions),
                           });
                         }}
-                        className="w-28 text-right font-mono font-bold text-slate-900 border-b border-slate-200 focus:border-emerald-500 focus:outline-none"
+                        className="w-28 text-right font-mono font-bold text-slate-900 border-b border-slate-200 focus:border-slate-800 focus:outline-none"
                       />
                     </div>
 
                     <div className="p-3 flex justify-between items-center">
-                      <span className="text-slate-600 font-medium">Travel / Commute Allowance</span>
+                      <span className="text-slate-700 font-medium">Travel / Commute Allowance</span>
                       <input
                         type="number"
                         value={activePayslip.travelAllowance}
                         onChange={(e) => {
                           const val = Number(e.target.value);
-                          const total =
-                            activePayslip.basicSalary +
-                            activePayslip.houseRentAllowance +
-                            val +
-                            activePayslip.otherAllowances;
+                          const customSum = (activePayslip.earningsJson || []).reduce((s, i) => s + Number(i.amount || 0), 0);
+                          const total = activePayslip.basicSalary + activePayslip.houseRentAllowance + val + activePayslip.otherAllowances + customSum;
                           setActivePayslip({
                             ...activePayslip,
                             travelAllowance: val,
@@ -1252,23 +1427,20 @@ export default function PayrollPage() {
                             netSalary: Math.max(0, total - activePayslip.totalDeductions),
                           });
                         }}
-                        className="w-28 text-right font-mono font-bold text-slate-900 border-b border-slate-200 focus:border-emerald-500 focus:outline-none"
+                        className="w-28 text-right font-mono font-bold text-slate-900 border-b border-slate-200 focus:border-slate-800 focus:outline-none"
                       />
                     </div>
 
                     {activePayslip.otherAllowances > 0 && (
                       <div className="p-3 flex justify-between items-center">
-                        <span className="text-slate-600 font-medium">Other Allowances</span>
+                        <span className="text-slate-700 font-medium">Other Allowances</span>
                         <input
                           type="number"
                           value={activePayslip.otherAllowances}
                           onChange={(e) => {
                             const val = Number(e.target.value);
-                            const total =
-                              activePayslip.basicSalary +
-                              activePayslip.houseRentAllowance +
-                              activePayslip.travelAllowance +
-                              val;
+                            const customSum = (activePayslip.earningsJson || []).reduce((s, i) => s + Number(i.amount || 0), 0);
+                            const total = activePayslip.basicSalary + activePayslip.houseRentAllowance + activePayslip.travelAllowance + val + customSum;
                             setActivePayslip({
                               ...activePayslip,
                               otherAllowances: val,
@@ -1276,14 +1448,80 @@ export default function PayrollPage() {
                               netSalary: Math.max(0, total - activePayslip.totalDeductions),
                             });
                           }}
-                          className="w-28 text-right font-mono font-bold text-slate-900 border-b border-slate-200 focus:border-emerald-500 focus:outline-none"
+                          className="w-28 text-right font-mono font-bold text-slate-900 border-b border-slate-200 focus:border-slate-800 focus:outline-none"
                         />
                       </div>
                     )}
+
+                    {/* Custom Earnings List in Viewer */}
+                    {activePayslip.earningsJson?.map((item, idx) => (
+                      <div key={idx} className="p-3 flex justify-between items-center bg-slate-50/50">
+                        <input
+                          type="text"
+                          value={item.label}
+                          onChange={(e) => {
+                            const next = [...(activePayslip.earningsJson || [])];
+                            next[idx].label = e.target.value;
+                            setActivePayslip({ ...activePayslip, earningsJson: next });
+                          }}
+                          className="text-slate-700 font-medium bg-transparent border-b border-slate-200 text-xs w-44"
+                        />
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number"
+                            value={item.amount}
+                            onChange={(e) => {
+                              const next = [...(activePayslip.earningsJson || [])];
+                              next[idx].amount = Number(e.target.value);
+                              const customSum = next.reduce((s, i) => s + Number(i.amount || 0), 0);
+                              const total = activePayslip.basicSalary + activePayslip.houseRentAllowance + activePayslip.travelAllowance + activePayslip.otherAllowances + customSum;
+                              setActivePayslip({
+                                ...activePayslip,
+                                earningsJson: next,
+                                totalEarnings: total,
+                                netSalary: Math.max(0, total - activePayslip.totalDeductions),
+                              });
+                            }}
+                            className="w-24 text-right font-mono font-bold text-slate-900 border-b border-slate-200 focus:border-slate-800 focus:outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const next = (activePayslip.earningsJson || []).filter((_, i) => i !== idx);
+                              const customSum = next.reduce((s, i) => s + Number(i.amount || 0), 0);
+                              const total = activePayslip.basicSalary + activePayslip.houseRentAllowance + activePayslip.travelAllowance + activePayslip.otherAllowances + customSum;
+                              setActivePayslip({
+                                ...activePayslip,
+                                earningsJson: next,
+                                totalEarnings: total,
+                                netSalary: Math.max(0, total - activePayslip.totalDeductions),
+                              });
+                            }}
+                            className="text-muted-foreground hover:text-red-500 p-0.5 print:hidden"
+                          >
+                            <MinusCircle size={12} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <div className="bg-slate-50 p-3 border-t border-slate-200 flex justify-between items-center font-bold text-xs">
-                    <span className="text-slate-900">TOTAL GROSS EARNINGS</span>
-                    <span className="font-mono text-emerald-700 text-sm">
+
+                  <div className="p-2 bg-slate-50 border-t border-slate-200 print:hidden">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = [...(activePayslip.earningsJson || []), { label: "Custom Allowance", amount: 0 }];
+                        setActivePayslip({ ...activePayslip, earningsJson: next });
+                      }}
+                      className="flex items-center gap-1 text-[10px] text-emerald-800 font-bold hover:underline"
+                    >
+                      <PlusCircle size={11} /> Add Custom Earning
+                    </button>
+                  </div>
+
+                  <div className="bg-slate-50 p-3 border-t-2 border-slate-200 flex justify-between items-center font-bold text-xs">
+                    <span className="text-slate-900 uppercase">Total Gross Earnings</span>
+                    <span className="font-mono text-emerald-800 text-sm">
                       {activePayslip.currencySymbol} {Number(activePayslip.totalEarnings).toLocaleString("en-US", { minimumFractionDigits: 2 })}
                     </span>
                   </div>
@@ -1291,22 +1529,20 @@ export default function PayrollPage() {
 
                 {/* Column 2: Deductions */}
                 <div className="border border-slate-200 rounded-lg overflow-hidden">
-                  <div className="bg-red-700 text-white px-4 py-2 font-bold text-xs uppercase tracking-wider flex justify-between items-center">
-                    <span>DEDUCTIONS</span>
-                    <span>AMOUNT</span>
+                  <div className="bg-red-800 text-white px-4 py-2 font-bold text-xs uppercase tracking-wider flex justify-between items-center">
+                    <span>Deductions</span>
+                    <span>Amount</span>
                   </div>
                   <div className="divide-y divide-slate-100 text-xs">
                     <div className="p-3 flex justify-between items-center">
-                      <span className="text-slate-600 font-medium">Income Tax (PAYE)</span>
+                      <span className="text-slate-700 font-medium">Income Tax (PAYE)</span>
                       <input
                         type="number"
                         value={activePayslip.taxDeduction}
                         onChange={(e) => {
                           const val = Number(e.target.value);
-                          const total =
-                            val +
-                            activePayslip.fineDeduction +
-                            activePayslip.otherDeductions;
+                          const customSum = (activePayslip.deductionsJson || []).reduce((s, i) => s + Number(i.amount || 0), 0);
+                          const total = val + activePayslip.fineDeduction + activePayslip.otherDeductions + customSum;
                           setActivePayslip({
                             ...activePayslip,
                             taxDeduction: val,
@@ -1314,21 +1550,19 @@ export default function PayrollPage() {
                             netSalary: Math.max(0, activePayslip.totalEarnings - total),
                           });
                         }}
-                        className="w-28 text-right font-mono font-bold text-red-600 border-b border-slate-200 focus:border-red-500 focus:outline-none"
+                        className="w-28 text-right font-mono font-bold text-red-700 border-b border-slate-200 focus:border-red-700 focus:outline-none"
                       />
                     </div>
 
                     <div className="p-3 flex justify-between items-center">
-                      <span className="text-slate-600 font-medium">Fines & Penalties</span>
+                      <span className="text-slate-700 font-medium">Fines & Penalties</span>
                       <input
                         type="number"
                         value={activePayslip.fineDeduction}
                         onChange={(e) => {
                           const val = Number(e.target.value);
-                          const total =
-                            activePayslip.taxDeduction +
-                            val +
-                            activePayslip.otherDeductions;
+                          const customSum = (activePayslip.deductionsJson || []).reduce((s, i) => s + Number(i.amount || 0), 0);
+                          const total = activePayslip.taxDeduction + val + activePayslip.otherDeductions + customSum;
                           setActivePayslip({
                             ...activePayslip,
                             fineDeduction: val,
@@ -1336,21 +1570,19 @@ export default function PayrollPage() {
                             netSalary: Math.max(0, activePayslip.totalEarnings - total),
                           });
                         }}
-                        className="w-28 text-right font-mono font-bold text-red-600 border-b border-slate-200 focus:border-red-500 focus:outline-none"
+                        className="w-28 text-right font-mono font-bold text-red-700 border-b border-slate-200 focus:border-red-700 focus:outline-none"
                       />
                     </div>
 
                     <div className="p-3 flex justify-between items-center">
-                      <span className="text-slate-600 font-medium">Other Deductions</span>
+                      <span className="text-slate-700 font-medium">Other Deductions</span>
                       <input
                         type="number"
                         value={activePayslip.otherDeductions}
                         onChange={(e) => {
                           const val = Number(e.target.value);
-                          const total =
-                            activePayslip.taxDeduction +
-                            activePayslip.fineDeduction +
-                            val;
+                          const customSum = (activePayslip.deductionsJson || []).reduce((s, i) => s + Number(i.amount || 0), 0);
+                          const total = activePayslip.taxDeduction + activePayslip.fineDeduction + val + customSum;
                           setActivePayslip({
                             ...activePayslip,
                             otherDeductions: val,
@@ -1358,12 +1590,78 @@ export default function PayrollPage() {
                             netSalary: Math.max(0, activePayslip.totalEarnings - total),
                           });
                         }}
-                        className="w-28 text-right font-mono font-bold text-red-600 border-b border-slate-200 focus:border-red-500 focus:outline-none"
+                        className="w-28 text-right font-mono font-bold text-red-700 border-b border-slate-200 focus:border-red-700 focus:outline-none"
                       />
                     </div>
+
+                    {/* Custom Deductions List in Viewer */}
+                    {activePayslip.deductionsJson?.map((item, idx) => (
+                      <div key={idx} className="p-3 flex justify-between items-center bg-slate-50/50">
+                        <input
+                          type="text"
+                          value={item.label}
+                          onChange={(e) => {
+                            const next = [...(activePayslip.deductionsJson || [])];
+                            next[idx].label = e.target.value;
+                            setActivePayslip({ ...activePayslip, deductionsJson: next });
+                          }}
+                          className="text-slate-700 font-medium bg-transparent border-b border-slate-200 text-xs w-44"
+                        />
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number"
+                            value={item.amount}
+                            onChange={(e) => {
+                              const next = [...(activePayslip.deductionsJson || [])];
+                              next[idx].amount = Number(e.target.value);
+                              const customSum = next.reduce((s, i) => s + Number(i.amount || 0), 0);
+                              const total = activePayslip.taxDeduction + activePayslip.fineDeduction + activePayslip.otherDeductions + customSum;
+                              setActivePayslip({
+                                ...activePayslip,
+                                deductionsJson: next,
+                                totalDeductions: total,
+                                netSalary: Math.max(0, activePayslip.totalEarnings - total),
+                              });
+                            }}
+                            className="w-24 text-right font-mono font-bold text-red-700 border-b border-slate-200 focus:border-red-700 focus:outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const next = (activePayslip.deductionsJson || []).filter((_, i) => i !== idx);
+                              const customSum = next.reduce((s, i) => s + Number(i.amount || 0), 0);
+                              const total = activePayslip.taxDeduction + activePayslip.fineDeduction + activePayslip.otherDeductions + customSum;
+                              setActivePayslip({
+                                ...activePayslip,
+                                deductionsJson: next,
+                                totalDeductions: total,
+                                netSalary: Math.max(0, activePayslip.totalEarnings - total),
+                              });
+                            }}
+                            className="text-muted-foreground hover:text-red-500 p-0.5 print:hidden"
+                          >
+                            <MinusCircle size={12} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <div className="bg-slate-50 p-3 border-t border-slate-200 flex justify-between items-center font-bold text-xs">
-                    <span className="text-slate-900">TOTAL DEDUCTIONS</span>
+
+                  <div className="p-2 bg-slate-50 border-t border-slate-200 print:hidden">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = [...(activePayslip.deductionsJson || []), { label: "Custom Deduction", amount: 0 }];
+                        setActivePayslip({ ...activePayslip, deductionsJson: next });
+                      }}
+                      className="flex items-center gap-1 text-[10px] text-red-800 font-bold hover:underline"
+                    >
+                      <PlusCircle size={11} /> Add Custom Deduction
+                    </button>
+                  </div>
+
+                  <div className="bg-slate-50 p-3 border-t-2 border-slate-200 flex justify-between items-center font-bold text-xs">
+                    <span className="text-slate-900 uppercase">Total Deductions</span>
                     <span className="font-mono text-red-700 text-sm">
                       {activePayslip.currencySymbol} {Number(activePayslip.totalDeductions).toLocaleString("en-US", { minimumFractionDigits: 2 })}
                     </span>
@@ -1372,12 +1670,12 @@ export default function PayrollPage() {
               </div>
 
               {/* European Standard Net Pay Banner */}
-              <div className="bg-slate-900 text-white rounded-lg p-5 mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
+              <div className="bg-slate-900 text-white rounded-lg p-5 mb-6 flex flex-col md:flex-row justify-between items-center gap-4 border-l-4 border-orange-500">
                 <div>
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-orange-400 block">
-                    NET TAKE-HOME PAYABLE AMOUNT
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block">
+                    NET TAKE-HOME PAYABLE AMOUNT ({activePayslip.monthYear})
                   </span>
-                  <div className="text-xs text-slate-300 italic mt-0.5">
+                  <div className="text-xs text-orange-400 italic mt-0.5">
                     {numberToWords(activePayslip.netSalary)}
                   </div>
                 </div>
@@ -1389,7 +1687,7 @@ export default function PayrollPage() {
               {/* Remarks & Sign-off */}
               <div className="border-t border-slate-200 pt-4 flex flex-col md:flex-row justify-between items-end gap-6 text-xs">
                 <div className="max-w-md">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
                     Remarks / Instructions
                   </span>
                   <p className="text-slate-600">
@@ -1421,14 +1719,14 @@ export default function PayrollPage() {
           maxWidth="md"
         >
           <div className="space-y-4">
-            <div className="bg-blue-500/10 border border-blue-500/20 p-3.5 rounded-xl flex items-start gap-3">
-              <Mail size={20} className="text-blue-500 shrink-0 mt-0.5" />
+            <div className="bg-slate-900 text-white p-3.5 rounded-xl flex items-start gap-3">
+              <Mail size={20} className="text-orange-400 shrink-0 mt-0.5" />
               <div className="text-xs">
-                <p className="font-bold text-foreground">
-                  Dispatch Salary Slip directly to Employee
+                <p className="font-bold text-white">
+                  Dispatch Salary Slip & Attached PDF
                 </p>
-                <p className="text-muted-foreground mt-0.5">
-                  Sends an European formatted salary slip email using your configured SMTP server.
+                <p className="text-slate-300 mt-0.5">
+                  Sends the corporate HTML salary slip along with an official PDF attachment via SMTP.
                 </p>
               </div>
             </div>
@@ -1476,19 +1774,14 @@ export default function PayrollPage() {
               </button>
               <button
                 type="button"
-                onClick={() =>
-                  sendEmailMutation.mutate({
-                    id: activePayslip.id,
-                    overrideEmail: emailTarget,
-                  })
-                }
+                onClick={handleSendViaSmtp}
                 disabled={sendEmailMutation.isPending || !emailTarget}
-                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 {sendEmailMutation.isPending ? (
                   <>
                     <Loader2 size={14} className="animate-spin" />
-                    <span>Dispatching Email...</span>
+                    <span>Dispatching Email & PDF...</span>
                   </>
                 ) : (
                   <>

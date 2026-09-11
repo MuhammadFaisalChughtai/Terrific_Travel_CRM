@@ -34,8 +34,8 @@ export const deletePayslip = asyncHandler(async (req: AuthenticatedRequest, res:
 
 export const sendPayslipEmail = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
-  const { overrideEmail } = req.body;
-  const result = await payrollService.sendPayslipEmail(id, overrideEmail);
+  const { overrideEmail, pdfBase64 } = req.body;
+  const result = await payrollService.sendPayslipEmail(id, overrideEmail, pdfBase64);
   res.status(200).json(result);
 });
 

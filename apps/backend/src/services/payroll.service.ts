@@ -313,7 +313,7 @@ export class PayrollService {
   /**
    * Send salary slip directly to agent/employee via SMTP
    */
-  async sendPayslipEmail(id: string, overrideEmail?: string) {
+  async sendPayslipEmail(id: string, overrideEmail?: string, pdfBase64?: string) {
     const payslip = await prisma.payslip.findUnique({
       where: { id },
       include: { agent: true },
@@ -359,6 +359,7 @@ export class PayrollService {
       totalDeductions: payslip.totalDeductions,
       netSalary: payslip.netSalary,
       notes: payslip.notes,
+      pdfBase64: pdfBase64 || null,
     });
 
     if (!emailResult.success) {
