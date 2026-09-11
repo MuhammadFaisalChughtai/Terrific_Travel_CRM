@@ -20,6 +20,7 @@ import reportsRoutes from './reports.routes';
 import leadsRoutes from './leads.routes';
 import fineRoutes from './fine.routes';
 import bonusRoutes from './bonus.routes';
+import payrollRoutes from './payroll.routes';
 
 const router = Router();
 
@@ -44,5 +45,6 @@ router.use('/notifications', notificationsRoutes);
 router.use('/agent-margins', agentMarginRoutes);
 router.use('/reports', reportsRoutes);
 router.use('/leads', leadsRoutes);
+router.use('/payroll', payrollRoutes);
 
 export default router;

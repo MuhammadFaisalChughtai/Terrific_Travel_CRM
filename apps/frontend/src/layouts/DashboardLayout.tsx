@@ -34,6 +34,7 @@ import {
   ArrowRightLeft,
   UserCheck,
   ShieldAlert,
+  Receipt,
 } from "lucide-react";
 export default function DashboardLayout() {
   const location = useLocation();
@@ -227,6 +228,12 @@ export default function DashboardLayout() {
       path: "/booked-services",
       icon: ArrowRightLeft,
       roles: ["Admin", "Manager", "Agent"],
+    },
+    {
+      name: "Payroll",
+      path: "/payroll",
+      icon: Receipt,
+      roles: ["Admin", "Manager"],
     },
     // {
     //   name: "Financials",

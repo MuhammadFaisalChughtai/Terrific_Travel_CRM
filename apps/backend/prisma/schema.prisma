@@ -102,6 +102,8 @@ model User {
   issuedFines             AgentFine[]      @relation("IssuedFines")
   waivedFines             AgentFine[]      @relation("WaivedFines")
   issuedBonuses           AgentBonus[]     @relation("IssuedBonuses")
+  payslips                Payslip[]
+  createdPayslips         Payslip[]        @relation("CreatedPayslips")
 }
 
 enum LeadStatus {
@@ -470,6 +472,7 @@ model Agent {
   journalEntryLines JournalEntryLine[]
   fines             AgentFine[]
   bonuses           AgentBonus[]
+  payslips          Payslip[]
 }
 
 model AgentSlab {
@@ -988,7 +991,63 @@ model JournalEntryLine {
   vendor         Vendor?      @relation(fields: [vendorId], references: [id], onDelete: SetNull)
   agentId        String?
   agent          Agent?       @relation(fields: [agentId], references: [id], onDelete: SetNull)
-  
   createdAt      DateTime     @default(now())
+}
+
+model Payslip {
+  id                  String       @id @default(uuid())
+  payslipNumber       String       @unique
+  agentId             String?
+  agent               Agent?       @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  userId              String?
+  user                User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdById         String?
+  createdBy           User?        @relation("CreatedPayslips", fields: [createdById], references: [id], onDelete: SetNull)
+
+  // Employee Details Snapshot
+  employeeName        String
+  designation         String?
+  department          String?      @default("Operations")
+  passportNumber      String?
+  employeeEmail       String?
+  payrollEmail        String?
+
+  // Company Details Snapshot
+  companyName         String       @default("Terrific Travel (Private) Limited")
+  companyAddress      String       @default("Plot # 78, 3 Street 6, I-10/3 Islamabad, 44000, Pakistan")
+
+  // Payroll Period & Metadata
+  monthYear           String       // e.g. "June 2026"
+  payDate             DateTime     @default(now())
+  paymentMethod       String       @default("Bank Transfer") // Bank Transfer, Cash, Cheque
+  currency            String       @default("PKR")
+  currencySymbol      String       @default("Rs.")
+
+  // Earnings
+  basicSalary         Float        @default(0.0)
+  houseRentAllowance  Float        @default(0.0)
+  travelAllowance     Float        @default(0.0)
+  otherAllowances     Float        @default(0.0)
+  earningsJson        Json?        // Additional custom earnings breakdown: [{ label: string, amount: number }]
+
+  // Deductions
+  taxDeduction        Float        @default(0.0)
+  fineDeduction       Float        @default(0.0)
+  otherDeductions     Float        @default(0.0)
+  deductionsJson      Json?        // Additional custom deductions breakdown: [{ label: string, amount: number }]
+
+  // Computed Totals
+  totalEarnings       Float        @default(0.0)
+  totalDeductions     Float        @default(0.0)
+  netSalary           Float        @default(0.0)
+
+  // Status & Email Dispatch
+  status              String       @default("Draft") // Draft, Sent, Paid
+  sentToEmail         String?
+  sentAt              DateTime?
+  notes               String?
+
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
 }
 

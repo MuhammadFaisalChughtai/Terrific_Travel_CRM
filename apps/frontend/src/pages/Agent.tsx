@@ -21,6 +21,9 @@ import {
   BarChart3,
   BadgeDollarSign,
   Clock,
+  Receipt,
+  Send,
+  CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -130,6 +133,69 @@ export default function AgentPage() {
     }>
   >([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Agent Payslip Modal States
+  const [isPayslipModalOpen, setIsPayslipModalOpen] = useState(false);
+  const [selectedAgentForPayslip, setSelectedAgentForPayslip] = useState<Agent | null>(null);
+  const [payslipMonth, setPayslipMonth] = useState("June 2026");
+  const [payslipBasic, setPayslipBasic] = useState(150000);
+  const [payslipHra, setPayslipHra] = useState(65000);
+  const [payslipTravel, setPayslipTravel] = useState(35000);
+  const [payslipTax, setPayslipTax] = useState(12500);
+
+  // Fetch payslips for selected agent
+  const { data: agentPayslipsData, isLoading: isAgentPayslipsLoading } = useQuery({
+    queryKey: ["agent-payslips", selectedAgentForPayslip?.id],
+    queryFn: async () => {
+      if (!selectedAgentForPayslip?.id) return [];
+      const res = await apiClient.get(`/payroll/agent/${selectedAgentForPayslip.id}`);
+      return res.data.data;
+    },
+    enabled: !!selectedAgentForPayslip?.id && isPayslipModalOpen,
+  });
+
+  const sendAgentPayslipEmailMutation = useMutation({
+    mutationFn: async (payslipId: string) => {
+      return apiClient.post(`/payroll/${payslipId}/send-email`, {});
+    },
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ["agent-payslips"] });
+      queryClient.invalidateQueries({ queryKey: ["payroll"] });
+      toast.success(res.data?.message || "Salary slip email dispatched via SMTP!");
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || "Failed to send email");
+    },
+  });
+
+  const quickCreatePayslipMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedAgentForPayslip) return;
+      return apiClient.post("/payroll", {
+        agentId: selectedAgentForPayslip.id,
+        employeeName: selectedAgentForPayslip.name,
+        employeeEmail: selectedAgentForPayslip.email,
+        payrollEmail: selectedAgentForPayslip.payrollEmail || selectedAgentForPayslip.email,
+        designation: "Operations Manager",
+        monthYear: payslipMonth,
+        basicSalary: payslipBasic,
+        houseRentAllowance: payslipHra,
+        travelAllowance: payslipTravel,
+        taxDeduction: payslipTax,
+        currency: "PKR",
+        currencySymbol: "Rs.",
+        sendImmediately: true,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["agent-payslips"] });
+      queryClient.invalidateQueries({ queryKey: ["payroll"] });
+      toast.success("Salary slip generated and emailed via SMTP successfully!");
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || "Failed to create and dispatch payslip");
+    },
+  });
 
   // ----------------------------------------------------
   // Queries
@@ -467,6 +533,16 @@ export default function AgentPage() {
                       </td>
                       <td className="py-2.5 px-5 text-right">
                         <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => {
+                              setSelectedAgentForPayslip(agent);
+                              setIsPayslipModalOpen(true);
+                            }}
+                            className="p-1 rounded-md text-muted-foreground hover:text-emerald-500 hover:bg-emerald-500/10 transition-colors"
+                            title="Salary Slips & SMTP Dispatch"
+                          >
+                            <Receipt size={12} />
+                          </button>
                           <button
                             onClick={() => handleEditClick(agent)}
                             className="p-1 rounded-md text-muted-foreground hover:text-primary hover:bg-secondary/50 transition-colors"
@@ -979,6 +1055,210 @@ export default function AgentPage() {
         title="Archive Agent Record"
         message={`Are you sure you want to permanently delete travel agent "${selectedAgent?.name}"? All associated system configurations and access keys will be terminated immediately.`}
       />
+
+      {/* ======================================================== */}
+      {/* AGENT PAYSLIPS & QUICK SMTP DISPATCH MODAL               */}
+      {/* ======================================================== */}
+      {isPayslipModalOpen && selectedAgentForPayslip && (
+        <Modal
+          isOpen={isPayslipModalOpen}
+          onClose={() => {
+            setIsPayslipModalOpen(false);
+            setSelectedAgentForPayslip(null);
+          }}
+          title={`Salary Slips & SMTP: ${selectedAgentForPayslip.name}`}
+          maxWidth="2xl"
+        >
+          <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
+            {/* Agent Info Banner */}
+            <div className="bg-secondary/20 border border-border/60 rounded-xl p-3.5 flex flex-col sm:flex-row justify-between sm:items-center gap-2">
+              <div>
+                <h4 className="text-sm font-bold text-foreground">
+                  {selectedAgentForPayslip.name}
+                </h4>
+                <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">
+                  <Mail size={12} className="text-primary" />
+                  <span>Primary: {selectedAgentForPayslip.email}</span>
+                </p>
+              </div>
+              <div className="bg-primary/10 border border-primary/20 px-3 py-1.5 rounded-lg text-left sm:text-right">
+                <span className="text-[9px] font-bold text-primary uppercase tracking-wider block">
+                  Payroll Email (Target)
+                </span>
+                <span className="text-xs font-mono font-bold text-foreground">
+                  {selectedAgentForPayslip.payrollEmail || selectedAgentForPayslip.email}
+                </span>
+              </div>
+            </div>
+
+            {/* Quick Generate New Payslip Section */}
+            <div className="bg-card border border-border/60 rounded-xl p-4 space-y-3">
+              <div className="flex items-center justify-between border-b border-border/40 pb-2">
+                <div className="flex items-center gap-2">
+                  <Receipt size={16} className="text-primary" />
+                  <h5 className="text-xs font-bold text-foreground uppercase tracking-wider">
+                    Quick Generate & Send Slip
+                  </h5>
+                </div>
+                <span className="text-[10px] text-muted-foreground">
+                  Auto-calculates & emails directly via SMTP
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div>
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                    Month & Year
+                  </label>
+                  <input
+                    type="text"
+                    value={payslipMonth}
+                    onChange={(e) => setPayslipMonth(e.target.value)}
+                    className="w-full px-3 py-1.5 bg-secondary/20 border border-border/60 rounded-lg text-xs"
+                    placeholder="e.g. June 2026"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                    Basic Salary (Rs.)
+                  </label>
+                  <input
+                    type="number"
+                    value={payslipBasic}
+                    onChange={(e) => setPayslipBasic(Number(e.target.value))}
+                    className="w-full px-3 py-1.5 bg-secondary/20 border border-border/60 rounded-lg text-xs font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                    House Rent Allowance (Rs.)
+                  </label>
+                  <input
+                    type="number"
+                    value={payslipHra}
+                    onChange={(e) => setPayslipHra(Number(e.target.value))}
+                    className="w-full px-3 py-1.5 bg-secondary/20 border border-border/60 rounded-lg text-xs font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                    Travel Allowance (Rs.)
+                  </label>
+                  <input
+                    type="number"
+                    value={payslipTravel}
+                    onChange={(e) => setPayslipTravel(Number(e.target.value))}
+                    className="w-full px-3 py-1.5 bg-secondary/20 border border-border/60 rounded-lg text-xs font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                    Income Tax (Rs.)
+                  </label>
+                  <input
+                    type="number"
+                    value={payslipTax}
+                    onChange={(e) => setPayslipTax(Number(e.target.value))}
+                    className="w-full px-3 py-1.5 bg-secondary/20 border border-border/60 rounded-lg text-xs font-mono"
+                  />
+                </div>
+
+                <div className="flex flex-col justify-end">
+                  <div className="bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-lg">
+                    <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block">
+                      Net Take-Home Pay
+                    </span>
+                    <span className="text-sm font-black font-mono text-emerald-600 dark:text-emerald-400">
+                      Rs. {(payslipBasic + payslipHra + payslipTravel - payslipTax).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => quickCreatePayslipMutation.mutate()}
+                  disabled={quickCreatePayslipMutation.isPending}
+                  className="px-4 py-2 bg-primary text-primary-foreground font-bold text-xs rounded-xl shadow-sm hover:opacity-90 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {quickCreatePayslipMutation.isPending ? (
+                    <Loader2 size={13} className="animate-spin" />
+                  ) : (
+                    <Send size={13} />
+                  )}
+                  <span>Generate & Send via SMTP</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Existing Payslips for this Agent */}
+            <div className="space-y-2">
+              <h5 className="text-xs font-bold text-foreground uppercase tracking-wider">
+                Salary Slip History
+              </h5>
+              {isAgentPayslipsLoading ? (
+                <div className="py-6 text-center text-muted-foreground text-xs flex items-center justify-center gap-2">
+                  <Loader2 size={13} className="animate-spin text-primary" />
+                  <span>Loading agent slips...</span>
+                </div>
+              ) : !agentPayslipsData || agentPayslipsData.length === 0 ? (
+                <div className="py-6 text-center text-muted-foreground text-xs bg-secondary/10 rounded-xl border border-border/40">
+                  No salary slips generated yet for this agent.
+                </div>
+              ) : (
+                <div className="divide-y divide-border/40 border border-border/60 rounded-xl overflow-hidden text-xs bg-card">
+                  {agentPayslipsData.map((slip: any) => (
+                    <div
+                      key={slip.id}
+                      className="p-3 flex items-center justify-between gap-3 hover:bg-secondary/10 transition-colors"
+                    >
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-foreground">
+                            {slip.payslipNumber}
+                          </span>
+                          <span className="text-muted-foreground font-medium">
+                            • {slip.monthYear}
+                          </span>
+                          <span
+                            className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${
+                              slip.status === "Sent"
+                                ? "bg-blue-500/10 text-blue-600 border-blue-500/20"
+                                : "bg-amber-500/10 text-amber-600 border-amber-500/20"
+                            }`}
+                          >
+                            {slip.status}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">
+                          Net Pay: {slip.currencySymbol} {Number(slip.netSalary).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => sendAgentPayslipEmailMutation.mutate(slip.id)}
+                          disabled={sendAgentPayslipEmailMutation.isPending}
+                          className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors disabled:opacity-50"
+                          title="Resend via SMTP"
+                        >
+                          <Send size={11} />
+                          <span>Send</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
