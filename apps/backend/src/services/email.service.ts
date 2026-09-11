@@ -940,8 +940,8 @@ export class EmailService {
 
     const finalCompanyName = companyName || 'Terrific Travel (Private) Limited';
     const finalCompanyAddress = companyAddress || 'Plot # 78, 3 Street 6, I-10/3 Islamabad, 44000, Pakistan';
-    const finalCompanyPhone = companyPhone || '+92 51 1234567';
-    const finalCompanyEmail = companyEmail || 'info@terrifictravel.co.uk';
+    const finalCompanyPhone = companyPhone || '+441215291630';
+    const finalCompanyEmail = companyEmail || 'office@terrifictravel.co.uk';
 
     const formattedPayDate = payDate
       ? new Date(payDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })

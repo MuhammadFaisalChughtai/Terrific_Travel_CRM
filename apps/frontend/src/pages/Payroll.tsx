@@ -147,6 +147,47 @@ export interface PayslipItem {
   };
 }
 
+// Company information persistence helpers
+const getSavedCompanyDefaults = () => {
+  try {
+    const saved = localStorage.getItem("tt_crm_payroll_company_defaults");
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return {
+        companyName: parsed.companyName || "Terrific Travel (Private) Limited",
+        companyAddress:
+          parsed.companyAddress || "Plot # 78, 3 Street 6, I-10/3 Islamabad, 44000, Pakistan",
+        companyPhone: parsed.companyPhone || "+441215291630",
+        companyEmail: parsed.companyEmail || "office@terrifictravel.co.uk",
+      };
+    }
+  } catch (e) {}
+  return {
+    companyName: "Terrific Travel (Private) Limited",
+    companyAddress: "Plot # 78, 3 Street 6, I-10/3 Islamabad, 44000, Pakistan",
+    companyPhone: "+441215291630",
+    companyEmail: "office@terrifictravel.co.uk",
+  };
+};
+
+const saveCompanyDefaults = (info: {
+  companyName?: string;
+  companyAddress?: string;
+  companyPhone?: string;
+  companyEmail?: string;
+}) => {
+  try {
+    const current = getSavedCompanyDefaults();
+    const updated = {
+      companyName: info.companyName || current.companyName,
+      companyAddress: info.companyAddress || current.companyAddress,
+      companyPhone: info.companyPhone || current.companyPhone,
+      companyEmail: info.companyEmail || current.companyEmail,
+    };
+    localStorage.setItem("tt_crm_payroll_company_defaults", JSON.stringify(updated));
+  } catch (e) {}
+};
+
 export default function PayrollPage() {
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
@@ -168,34 +209,38 @@ export default function PayrollPage() {
   const [activePayslip, setActivePayslip] = useState<PayslipItem | null>(null);
 
   // Create / Edit Form States
-  const [formData, setFormData] = useState({
-    agentId: "",
-    employeeName: "Ali Zain",
-    designation: "Operations Manager",
-    department: "Operations",
-    passportNumber: "AP5906793",
-    employeeEmail: "",
-    payrollEmail: "",
-    companyName: "Terrific Travel (Private) Limited",
-    companyAddress: "Plot # 78, 3 Street 6, I-10/3 Islamabad, 44000, Pakistan",
-    companyPhone: "+92 51 1234567",
-    companyEmail: "info@terrifictravel.co.uk",
-    monthYear: "June 2026",
-    payDate: "2026-07-01",
-    paymentMethod: "Bank Transfer",
-    currency: "PKR",
-    currencySymbol: "Rs.",
-    basicSalary: 150000,
-    houseRentAllowance: 65000,
-    travelAllowance: 35000,
-    otherAllowances: 0,
-    earningsJson: [] as CustomLineItem[],
-    taxDeduction: 12500,
-    fineDeduction: 0,
-    otherDeductions: 0,
-    deductionsJson: [] as CustomLineItem[],
-    notes: "Standard monthly salary disbursement. This is a computer-generated payslip and requires no physical signature.",
-    sendImmediately: false,
+  const [formData, setFormData] = useState(() => {
+    const defaults = getSavedCompanyDefaults();
+    return {
+      agentId: "",
+      employeeName: "Ali Zain",
+      designation: "Operations Manager",
+      department: "Operations",
+      passportNumber: "AP5906793",
+      employeeEmail: "",
+      payrollEmail: "",
+      companyName: defaults.companyName,
+      companyAddress: defaults.companyAddress,
+      companyPhone: defaults.companyPhone,
+      companyEmail: defaults.companyEmail,
+      monthYear: "June 2026",
+      payDate: "2026-07-01",
+      paymentMethod: "Bank Transfer",
+      currency: "PKR",
+      currencySymbol: "Rs.",
+      basicSalary: 150000,
+      houseRentAllowance: 65000,
+      travelAllowance: 35000,
+      otherAllowances: 0,
+      earningsJson: [] as CustomLineItem[],
+      taxDeduction: 12500,
+      fineDeduction: 0,
+      otherDeductions: 0,
+      deductionsJson: [] as CustomLineItem[],
+      notes:
+        "Standard monthly salary disbursement. This is a computer-generated payslip and requires no physical signature.",
+      sendImmediately: false,
+    };
   });
 
   // Target email override for email dispatch modal
@@ -244,7 +289,14 @@ export default function PayrollPage() {
       return apiClient.post("/payroll", payload);
     },
     onSuccess: () => {
+      saveCompanyDefaults({
+        companyName: formData.companyName,
+        companyAddress: formData.companyAddress,
+        companyPhone: formData.companyPhone,
+        companyEmail: formData.companyEmail,
+      });
       queryClient.invalidateQueries({ queryKey: ["payroll"] });
+      queryClient.invalidateQueries({ queryKey: ["agents"] });
       toast.success("Salary slip generated successfully!");
       setIsCreateModalOpen(false);
     },
@@ -258,11 +310,18 @@ export default function PayrollPage() {
       return apiClient.put(`/payroll/${id}`, data);
     },
     onSuccess: (res) => {
-      queryClient.invalidateQueries({ queryKey: ["payroll"] });
-      toast.success("Salary slip updated successfully!");
       if (res.data?.data) {
+        saveCompanyDefaults({
+          companyName: res.data.data.companyName,
+          companyAddress: res.data.data.companyAddress,
+          companyPhone: res.data.data.companyPhone,
+          companyEmail: res.data.data.companyEmail,
+        });
         setActivePayslip(res.data.data);
       }
+      queryClient.invalidateQueries({ queryKey: ["payroll"] });
+      queryClient.invalidateQueries({ queryKey: ["agents"] });
+      toast.success("Salary slip updated successfully!");
     },
     onError: (err: any) => {
       toast.error(err.response?.data?.message || "Failed to update salary slip");
@@ -325,17 +384,42 @@ export default function PayrollPage() {
 
   const calcFormNet = Math.max(0, calcFormEarnings - calcFormDeductions);
 
-  // Handle agent selection in form
+  // Handle agent selection in form with smart autofill
   const handleAgentSelect = (agentId: string) => {
     const ag = agentsData?.find((a) => a.id === agentId);
+    const companyDefaults = getSavedCompanyDefaults();
     if (ag) {
+      // Find the most recent payslip for this agent to populate their defaults
+      const pastPayslips = ((payrollData?.payslips as PayslipItem[]) || []).filter(
+        (p) => p.agentId === agentId || p.employeeName?.toLowerCase().trim() === ag.name.toLowerCase().trim()
+      );
+      const lastSlip: PayslipItem | null = pastPayslips.length > 0 ? pastPayslips[0] : null;
+
       setFormData((prev) => ({
         ...prev,
         agentId: ag.id,
         employeeName: ag.name,
         employeeEmail: ag.email,
-        payrollEmail: ag.payrollEmail || ag.email,
-        designation: "Operations Manager",
+        payrollEmail: ag.payrollEmail || lastSlip?.payrollEmail || ag.email,
+        designation: lastSlip?.designation || prev.designation || "Operations Manager",
+        department: lastSlip?.department || prev.department || "Operations",
+        passportNumber: lastSlip?.passportNumber || prev.passportNumber || "",
+        companyName: lastSlip?.companyName || companyDefaults.companyName,
+        companyAddress: lastSlip?.companyAddress || companyDefaults.companyAddress,
+        companyPhone: lastSlip?.companyPhone || companyDefaults.companyPhone,
+        companyEmail: lastSlip?.companyEmail || companyDefaults.companyEmail,
+        paymentMethod: lastSlip?.paymentMethod || prev.paymentMethod || "Bank Transfer",
+        currency: lastSlip?.currency || prev.currency || "PKR",
+        currencySymbol: lastSlip?.currencySymbol || prev.currencySymbol || "Rs.",
+        basicSalary: lastSlip ? lastSlip.basicSalary : prev.basicSalary,
+        houseRentAllowance: lastSlip ? lastSlip.houseRentAllowance : prev.houseRentAllowance,
+        travelAllowance: lastSlip ? lastSlip.travelAllowance : prev.travelAllowance,
+        otherAllowances: lastSlip ? lastSlip.otherAllowances : prev.otherAllowances,
+        taxDeduction: lastSlip ? lastSlip.taxDeduction : prev.taxDeduction,
+        fineDeduction: lastSlip ? lastSlip.fineDeduction : prev.fineDeduction,
+        otherDeductions: lastSlip ? lastSlip.otherDeductions : prev.otherDeductions,
+        earningsJson: lastSlip?.earningsJson ? (lastSlip.earningsJson as CustomLineItem[]) : prev.earningsJson,
+        deductionsJson: lastSlip?.deductionsJson ? (lastSlip.deductionsJson as CustomLineItem[]) : prev.deductionsJson,
       }));
     } else {
       setFormData((prev) => ({
@@ -469,6 +553,7 @@ export default function PayrollPage() {
         <div className="flex items-center gap-2.5">
           <button
             onClick={() => {
+              const compDefaults = getSavedCompanyDefaults();
               setFormData({
                 agentId: "",
                 employeeName: "Ali Zain",
@@ -477,10 +562,10 @@ export default function PayrollPage() {
                 passportNumber: "AP5906793",
                 employeeEmail: "",
                 payrollEmail: "",
-                companyName: "Terrific Travel (Private) Limited",
-                companyAddress: "Plot # 78, 3 Street 6, I-10/3 Islamabad, 44000, Pakistan",
-                companyPhone: "+92 51 1234567",
-                companyEmail: "info@terrifictravel.co.uk",
+                companyName: compDefaults.companyName,
+                companyAddress: compDefaults.companyAddress,
+                companyPhone: compDefaults.companyPhone,
+                companyEmail: compDefaults.companyEmail,
                 monthYear: "June 2026",
                 payDate: "2026-07-01",
                 paymentMethod: "Bank Transfer",
@@ -495,7 +580,8 @@ export default function PayrollPage() {
                 fineDeduction: 0,
                 otherDeductions: 0,
                 deductionsJson: [],
-                notes: "Standard monthly salary disbursement. This is a computer-generated payslip and requires no physical signature.",
+                notes:
+                  "Standard monthly salary disbursement. This is a computer-generated payslip and requires no physical signature.",
                 sendImmediately: false,
               });
               setIsCreateModalOpen(true);
@@ -859,7 +945,7 @@ export default function PayrollPage() {
                     value={formData.companyPhone}
                     onChange={(e) => setFormData({ ...formData, companyPhone: e.target.value })}
                     className="w-full px-3 py-2 bg-background border border-border/60 rounded-lg text-xs"
-                    placeholder="+92 51 1234567"
+                    placeholder="+441215291630"
                   />
                 </div>
                 <div>
@@ -1389,12 +1475,12 @@ export default function PayrollPage() {
                           <span className="text-[10px] font-bold text-slate-500 whitespace-nowrap">Phone:</span>
                           <input
                             type="text"
-                            value={activePayslip.companyPhone || "+92 51 1234567"}
+                            value={activePayslip.companyPhone || "+441215291630"}
                             onChange={(e) =>
                               setActivePayslip({ ...activePayslip, companyPhone: e.target.value })
                             }
                             className="text-xs text-slate-700 bg-transparent w-full focus:outline-none"
-                            placeholder="+92 51 1234567"
+                            placeholder="+441215291630"
                           />
                         </div>
                         <div className="flex items-center gap-1 bg-secondary/20 px-2 py-0.5 rounded border border-border/60">
@@ -1420,7 +1506,7 @@ export default function PayrollPage() {
                         {activePayslip.companyAddress || "Plot # 78, 3 Street 6, I-10/3 Islamabad, 44000, Pakistan"}
                       </p>
                       <p className="text-[11px] text-slate-500 mt-0.5">
-                        Phone: {activePayslip.companyPhone || "+92 51 1234567"} | Email: {activePayslip.companyEmail || "info@terrifictravel.co.uk"}
+                        Phone: {activePayslip.companyPhone || "+441215291630"} | Email: {activePayslip.companyEmail || "info@terrifictravel.co.uk"}
                       </p>
                     </>
                   )}
@@ -1451,9 +1537,9 @@ export default function PayrollPage() {
               </div>
 
               {/* Employee Meta Grid */}
-              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3.5 mb-5 grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-5 grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-3.5 text-xs">
                 <div>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-0.5">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
                     Employee Name
                   </span>
                   {isEditMode ? (
@@ -1466,12 +1552,14 @@ export default function PayrollPage() {
                       className="font-bold text-slate-900 bg-white px-2 py-1 border border-border/70 rounded w-full text-xs"
                     />
                   ) : (
-                    <span className="font-bold text-slate-900 block truncate">{activePayslip.employeeName}</span>
+                    <span className="font-bold text-slate-900 text-xs leading-normal break-words block">
+                      {activePayslip.employeeName}
+                    </span>
                   )}
                 </div>
 
                 <div>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-0.5">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
                     Designation
                   </span>
                   {isEditMode ? (
@@ -1484,12 +1572,14 @@ export default function PayrollPage() {
                       className="font-semibold text-slate-800 bg-white px-2 py-1 border border-border/70 rounded w-full text-xs"
                     />
                   ) : (
-                    <span className="font-semibold text-slate-800 block truncate">{activePayslip.designation || "Operations Manager"}</span>
+                    <span className="font-semibold text-slate-800 text-xs leading-normal break-words block">
+                      {activePayslip.designation || "Operations Manager"}
+                    </span>
                   )}
                 </div>
 
                 <div>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-0.5">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
                     Passport / CNIC No
                   </span>
                   {isEditMode ? (
@@ -1502,12 +1592,14 @@ export default function PayrollPage() {
                       className="font-mono text-slate-800 bg-white px-2 py-1 border border-border/70 rounded w-full text-xs"
                     />
                   ) : (
-                    <span className="font-mono text-slate-800 block">{activePayslip.passportNumber || "N/A"}</span>
+                    <span className="font-mono font-medium text-slate-800 text-xs leading-normal break-words block">
+                      {activePayslip.passportNumber || "N/A"}
+                    </span>
                   )}
                 </div>
 
                 <div>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-0.5">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
                     Department
                   </span>
                   {isEditMode ? (
@@ -1520,12 +1612,14 @@ export default function PayrollPage() {
                       className="font-semibold text-slate-800 bg-white px-2 py-1 border border-border/70 rounded w-full text-xs"
                     />
                   ) : (
-                    <span className="font-semibold text-slate-800 block">{activePayslip.department || "Operations"}</span>
+                    <span className="font-semibold text-slate-800 text-xs leading-normal break-words block">
+                      {activePayslip.department || "Operations"}
+                    </span>
                   )}
                 </div>
 
                 <div>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-0.5">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
                     Pay Day / Payment Date
                   </span>
                   {isEditMode ? (
@@ -1538,7 +1632,7 @@ export default function PayrollPage() {
                       className="font-semibold text-slate-800 bg-white px-2 py-1 border border-border/70 rounded w-full text-xs"
                     />
                   ) : (
-                    <span className="font-semibold text-slate-800 block">
+                    <span className="font-semibold text-slate-800 text-xs leading-normal block">
                       {new Date(activePayslip.payDate).toLocaleDateString("en-GB", {
                         day: "2-digit",
                         month: "short",
@@ -1549,7 +1643,7 @@ export default function PayrollPage() {
                 </div>
 
                 <div>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-0.5">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
                     Payment Method
                   </span>
                   {isEditMode ? (
@@ -1565,12 +1659,14 @@ export default function PayrollPage() {
                       <option value="Cheque">Cheque</option>
                     </select>
                   ) : (
-                    <span className="font-semibold text-slate-800 block">{activePayslip.paymentMethod}</span>
+                    <span className="font-semibold text-slate-800 text-xs leading-normal block">
+                      {activePayslip.paymentMethod}
+                    </span>
                   )}
                 </div>
 
                 <div>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-0.5">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
                     Payroll Email
                   </span>
                   {isEditMode ? (
@@ -1583,14 +1679,14 @@ export default function PayrollPage() {
                       className="font-mono text-[11px] text-slate-700 bg-white px-2 py-1 border border-border/70 rounded w-full"
                     />
                   ) : (
-                    <span className="font-mono text-[11px] text-slate-700 block truncate">
+                    <span className="font-mono text-[11px] text-slate-700 leading-normal break-all block">
                       {activePayslip.payrollEmail || activePayslip.employeeEmail || "N/A"}
                     </span>
                   )}
                 </div>
 
                 <div>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-0.5">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
                     Currency Symbol
                   </span>
                   {isEditMode ? (
@@ -1606,7 +1702,7 @@ export default function PayrollPage() {
                       <span className="text-xs text-slate-500">({activePayslip.currency})</span>
                     </div>
                   ) : (
-                    <span className="font-bold text-slate-800 block">
+                    <span className="font-bold text-slate-800 text-xs leading-normal block">
                       {activePayslip.currency} ({activePayslip.currencySymbol})
                     </span>
                   )}

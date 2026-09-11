@@ -203,8 +203,8 @@ export class PayrollService {
         payrollEmail: data.payrollEmail || agent?.payrollEmail || agent?.email || '',
         companyName: data.companyName || 'Terrific Travel (Private) Limited',
         companyAddress: data.companyAddress || 'Plot # 78, 3 Street 6, I-10/3 Islamabad, 44000, Pakistan',
-        companyPhone: data.companyPhone || '+92 51 1234567',
-        companyEmail: data.companyEmail || 'info@terrifictravel.co.uk',
+        companyPhone: data.companyPhone || '+441215291630',
+        companyEmail: data.companyEmail || 'office@terrifictravel.co.uk',
         monthYear: data.monthYear,
         payDate: data.payDate ? new Date(data.payDate) : new Date(),
         paymentMethod: data.paymentMethod || 'Bank Transfer',
@@ -229,6 +229,16 @@ export class PayrollService {
         agent: true,
       },
     });
+
+    // Automatically update agent record with latest payrollEmail for future payslips
+    if (data.agentId && data.payrollEmail) {
+      await prisma.agent.update({
+        where: { id: data.agentId },
+        data: { payrollEmail: data.payrollEmail },
+      }).catch((err) => {
+        logger.warn(`Could not update agent payrollEmail: ${err.message}`);
+      });
+    }
 
     // If autoSend is requested at creation time
     if (data.sendImmediately) {
@@ -299,6 +309,17 @@ export class PayrollService {
         agent: true,
       },
     });
+
+    // Update agent's payrollEmail if linked
+    const targetAgentId = data.agentId || existing.agentId;
+    if (targetAgentId && data.payrollEmail) {
+      await prisma.agent.update({
+        where: { id: targetAgentId },
+        data: { payrollEmail: data.payrollEmail },
+      }).catch((err) => {
+        logger.warn(`Could not update agent payrollEmail: ${err.message}`);
+      });
+    }
 
     return updated;
   }
