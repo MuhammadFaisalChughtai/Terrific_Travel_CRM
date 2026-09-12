@@ -369,7 +369,6 @@ export class PayrollService {
       payDate: payslip.payDate,
       paymentMethod: payslip.paymentMethod,
       designation: payslip.designation,
-      passportNumber: payslip.passportNumber,
       department: payslip.department,
       companyName: payslip.companyName,
       companyAddress: payslip.companyAddress,

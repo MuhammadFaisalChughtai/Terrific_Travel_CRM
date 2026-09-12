@@ -440,6 +440,10 @@ model Agent {
   email         String      @unique
   phoneNumber   String
   payrollEmail  String?
+  designation   String?     @default("Operations Manager")
+  department    String?     @default("Operations")
+  basicSalary   Float?      @default(0.0)
+  passportNumber String?
   gdsSystem     String
   client        String
   pcc           String

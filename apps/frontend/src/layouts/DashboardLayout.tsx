@@ -233,7 +233,7 @@ export default function DashboardLayout() {
       name: "Payroll",
       path: "/payroll",
       icon: Receipt,
-      roles: ["Admin", "Manager"],
+      roles: ["Admin"],
     },
     // {
     //   name: "Financials",

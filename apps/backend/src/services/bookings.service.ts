@@ -507,12 +507,23 @@ export class BookingsService {
       }
     }
 
-    // 4. Booking Reference Filter
+    const andFilters: any[] = [];
+
+    // 4. Booking Reference Filter (supports single or multi-reference bulk search)
     if (query.bookingReference) {
-      if (query.bookingReferenceOp === 'equals') {
-        where.bookingReference = { equals: query.bookingReference, mode: 'insensitive' };
-      } else {
-        where.bookingReference = { contains: query.bookingReference, mode: 'insensitive' };
+      const refTokens = query.bookingReference.split(/[\s,\n\r\t]+/).map((t: string) => t.trim()).filter(Boolean);
+      if (refTokens.length > 1) {
+        andFilters.push({
+          OR: refTokens.map((t: string) => ({
+            bookingReference: { contains: t, mode: 'insensitive' as const }
+          }))
+        });
+      } else if (refTokens.length === 1) {
+        if (query.bookingReferenceOp === 'equals') {
+          where.bookingReference = { equals: refTokens[0], mode: 'insensitive' };
+        } else {
+          where.bookingReference = { contains: refTokens[0], mode: 'insensitive' };
+        }
       }
     }
 
@@ -533,8 +544,6 @@ export class BookingsService {
     }
 
     // 7. Customer Name, Email, and Phone Filters
-    const andFilters: any[] = [];
-
     if (query.customerName) {
       const nameTerm = query.customerName.trim();
       const parts = nameTerm.split(/\s+/).filter(Boolean);
@@ -610,13 +619,18 @@ export class BookingsService {
       });
     }
 
+    // 7. General Search Term (supports bulk booking references as well as name/email search)
     if (query.search) {
       const searchTerm = query.search.trim();
-      const parts = searchTerm.split(/\s+/).filter(Boolean);
+      const parts = searchTerm.split(/[\s,\n\r\t]+/).map((t: string) => t.trim()).filter(Boolean);
       if (parts.length > 1) {
         andFilters.push({
           OR: [
             { bookingReference: { contains: searchTerm, mode: 'insensitive' } },
+            // Match any individual booking reference token for bulk pastes
+            ...parts.map((part: string) => ({
+              bookingReference: { contains: part, mode: 'insensitive' as const }
+            })),
             {
               passengers: {
                 some: {
@@ -641,15 +655,15 @@ export class BookingsService {
             }
           ]
         });
-      } else {
+      } else if (parts.length === 1) {
         andFilters.push({
           OR: [
-            { bookingReference: { contains: searchTerm, mode: 'insensitive' } },
-            { user: { firstName: { contains: searchTerm, mode: 'insensitive' } } },
-            { user: { lastName: { contains: searchTerm, mode: 'insensitive' } } },
-            { user: { email: { contains: searchTerm, mode: 'insensitive' } } },
-            { passengers: { some: { firstName: { contains: searchTerm, mode: 'insensitive' } } } },
-            { passengers: { some: { lastName: { contains: searchTerm, mode: 'insensitive' } } } },
+            { bookingReference: { contains: parts[0], mode: 'insensitive' } },
+            { user: { firstName: { contains: parts[0], mode: 'insensitive' } } },
+            { user: { lastName: { contains: parts[0], mode: 'insensitive' } } },
+            { user: { email: { contains: parts[0], mode: 'insensitive' } } },
+            { passengers: { some: { firstName: { contains: parts[0], mode: 'insensitive' } } } },
+            { passengers: { some: { lastName: { contains: parts[0], mode: 'insensitive' } } } },
           ]
         });
       }

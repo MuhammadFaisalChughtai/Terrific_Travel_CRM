@@ -884,7 +884,6 @@ export class EmailService {
     payDate: string | Date;
     paymentMethod: string;
     designation?: string | null;
-    passportNumber?: string | null;
     department?: string | null;
     currency: string;
     companyName?: string;
@@ -915,7 +914,6 @@ export class EmailService {
       payDate,
       paymentMethod,
       designation,
-      passportNumber,
       department,
       companyName,
       companyAddress,
@@ -1033,22 +1031,20 @@ export class EmailService {
                 <td class="meta-val">${designation || 'Operations Manager'}</td>
               </tr>
               <tr>
-                <td class="meta-label">Passport / ID:</td>
-                <td class="meta-val">${passportNumber || 'N/A'}</td>
                 <td class="meta-label">Department:</td>
                 <td class="meta-val">${department || 'Operations'}</td>
-              </tr>
-              <tr>
                 <td class="meta-label">Pay Period:</td>
                 <td class="meta-val">${monthYear}</td>
-                <td class="meta-label">Payment Mode:</td>
-                <td class="meta-val">${paymentMethod || 'Bank Transfer'}</td>
               </tr>
               <tr>
+                <td class="meta-label">Payment Mode:</td>
+                <td class="meta-val">${paymentMethod || 'Bank Transfer'}</td>
                 <td class="meta-label">Currency:</td>
                 <td class="meta-val">${params.currency || 'PKR'} (${currencySymbol})</td>
-                <td class="meta-label">Recipient:</td>
-                <td class="meta-val" style="font-family: monospace; font-size: 11px;">${toEmail}</td>
+              </tr>
+              <tr>
+                <td class="meta-label">Payroll Email:</td>
+                <td class="meta-val" colspan="3" style="font-family: monospace; font-size: 11px;">${toEmail}</td>
               </tr>
             </table>
           </div>

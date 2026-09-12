@@ -26,11 +26,13 @@ import {
   Send,
   CheckCircle2,
   ExternalLink,
+  FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import Modal from "../components/Modal";
 import DeleteConfirmModal from "../components/DeleteConfirmModal";
+import { PAYROLL_MONTH_OPTIONS } from "./Payroll";
 
 // Validation Schema for Agent basic fields (excluding slabs, which are validated manually)
 const agentSchema = z.object({
@@ -60,6 +62,9 @@ interface Agent {
   name: string;
   email: string;
   payrollEmail?: string | null;
+  designation?: string | null;
+  department?: string | null;
+  basicSalary?: number | null;
   phoneNumber: string;
   gdsSystem: string;
   client: string;
@@ -108,6 +113,10 @@ export default function AgentPage() {
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
 
+  const isAdmin = user?.roles?.some((r: string) =>
+    ["ADMIN", "SUPER_ADMIN", "Admin", "Super Admin", "SUPERADMIN"].includes(r)
+  );
+
   // Search & Modals
   const [searchTerm, setSearchTerm] = useState("");
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
@@ -118,6 +127,9 @@ export default function AgentPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [payrollEmail, setPayrollEmail] = useState("");
+  const [designation, setDesignation] = useState("Operations Manager");
+  const [department, setDepartment] = useState("Operations");
+  const [basicSalary, setBasicSalary] = useState<number | "">(150000);
   const [phoneNumber, setPhoneNumber] = useState("");
   const [gdsSystem, setGdsSystem] = useState("");
   const [client, setClient] = useState("");
@@ -144,6 +156,7 @@ export default function AgentPage() {
   const [payslipHra, setPayslipHra] = useState(65000);
   const [payslipTravel, setPayslipTravel] = useState(35000);
   const [payslipTax, setPayslipTax] = useState(12500);
+  const [payslipDesignation, setPayslipDesignation] = useState("Operations Manager");
 
   // Fetch payslips for selected agent
   const { data: agentPayslipsData, isLoading: isAgentPayslipsLoading } = useQuery({
@@ -178,7 +191,8 @@ export default function AgentPage() {
         employeeName: selectedAgentForPayslip.name,
         employeeEmail: selectedAgentForPayslip.email,
         payrollEmail: selectedAgentForPayslip.payrollEmail || selectedAgentForPayslip.email,
-        designation: "Operations Manager",
+        designation: payslipDesignation || selectedAgentForPayslip.designation || "Operations Manager",
+        department: selectedAgentForPayslip.department || "Operations",
         monthYear: payslipMonth,
         basicSalary: payslipBasic,
         houseRentAllowance: payslipHra,
@@ -264,6 +278,9 @@ export default function AgentPage() {
     setName("");
     setEmail("");
     setPayrollEmail("");
+    setDesignation("Operations Manager");
+    setDepartment("Operations");
+    setBasicSalary(150000);
     setPhoneNumber("");
     setGdsSystem("");
     setClient("");
@@ -283,6 +300,9 @@ export default function AgentPage() {
     setName(agent.name);
     setEmail(agent.email);
     setPayrollEmail(agent.payrollEmail || "");
+    setDesignation(agent.designation || "Operations Manager");
+    setDepartment(agent.department || "Operations");
+    setBasicSalary(agent.basicSalary !== undefined && agent.basicSalary !== null ? agent.basicSalary : 150000);
     setPhoneNumber(agent.phoneNumber);
     setGdsSystem(agent.gdsSystem);
     setClient(agent.client);
@@ -303,6 +323,14 @@ export default function AgentPage() {
     );
     setErrors({});
     setIsFormModalOpen(true);
+  };
+
+  const handleOpenAgentPayslip = (agent: Agent) => {
+    setSelectedAgentForPayslip(agent);
+    setPayslipMonth("June 2026");
+    setPayslipBasic(agent.basicSalary !== undefined && agent.basicSalary !== null ? Number(agent.basicSalary) : 150000);
+    setPayslipDesignation(agent.designation || "Operations Manager");
+    setIsPayslipModalOpen(true);
   };
 
   const closeFormModal = () => {
@@ -381,6 +409,9 @@ export default function AgentPage() {
 
     const payload = {
       ...basicData,
+      designation: designation || "Operations Manager",
+      department: department || "Operations",
+      basicSalary: basicSalary === "" ? 0 : Number(basicSalary),
       shiftStartTime,
       shiftEndTime,
       gracePeriodMinutes: Number(gracePeriodMinutes) || 15,
@@ -487,8 +518,17 @@ export default function AgentPage() {
                       key={agent.id}
                       className="hover:bg-secondary/15 transition-colors"
                     >
-                      <td className="py-2.5 px-5 font-semibold text-foreground">
-                        {agent.name}
+                      <td className="py-2.5 px-5">
+                        <div className="font-semibold text-foreground">{agent.name}</div>
+                        <div className="text-[10px] text-muted-foreground font-normal flex items-center gap-1.5 mt-0.5">
+                          <span className="font-medium text-foreground/80">{agent.designation || "Agent"}</span>
+                          {agent.basicSalary ? (
+                            <>
+                              <span>•</span>
+                              <span className="font-mono font-medium text-emerald-600 dark:text-emerald-400">Rs. {Number(agent.basicSalary).toLocaleString()}</span>
+                            </>
+                          ) : null}
+                        </div>
                       </td>
                       <td className="py-2.5 px-5">
                         <div className="space-y-0.5">
@@ -535,16 +575,15 @@ export default function AgentPage() {
                       </td>
                       <td className="py-2.5 px-5 text-right">
                         <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => {
-                              setSelectedAgentForPayslip(agent);
-                              setIsPayslipModalOpen(true);
-                            }}
-                            className="p-1 rounded-md text-muted-foreground hover:text-emerald-500 hover:bg-emerald-500/10 transition-colors"
-                            title="Salary Slips & SMTP Dispatch"
-                          >
-                            <Receipt size={12} />
-                          </button>
+                          {isAdmin && (
+                            <button
+                              onClick={() => handleOpenAgentPayslip(agent)}
+                              className="p-1 rounded-md text-muted-foreground hover:text-emerald-500 hover:bg-emerald-500/10 transition-colors"
+                              title="Salary Slips & SMTP Dispatch"
+                            >
+                              <Receipt size={12} />
+                            </button>
+                          )}
                           <button
                             onClick={() => handleEditClick(agent)}
                             className="p-1 rounded-md text-muted-foreground hover:text-primary hover:bg-secondary/50 transition-colors"
@@ -703,6 +742,57 @@ export default function AgentPage() {
                 </div>
               </div>
 
+              {/* Designation + Department */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <FieldLabel icon={Briefcase} label="Designation" />
+                  <input
+                    type="text"
+                    placeholder="Operations Manager"
+                    value={designation}
+                    onChange={(e) => setDesignation(e.target.value)}
+                    className={fieldCls}
+                  />
+                </div>
+                <div>
+                  <FieldLabel icon={Building2} label="Department" />
+                  <input
+                    type="text"
+                    placeholder="Operations"
+                    value={department}
+                    onChange={(e) => setDepartment(e.target.value)}
+                    className={fieldCls}
+                  />
+                </div>
+              </div>
+
+              {/* Basic Salary + Job Status */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <FieldLabel icon={BadgeDollarSign} label="Basic Salary (Rs.)" />
+                  <input
+                    type="number"
+                    placeholder="150000"
+                    value={basicSalary}
+                    onChange={(e) => setBasicSalary(e.target.value === "" ? "" : Number(e.target.value))}
+                    className={fieldCls}
+                  />
+                </div>
+                <div>
+                  <FieldLabel icon={Briefcase} label="Job Status" />
+                  <select
+                    value={jobStatus}
+                    onChange={(e) =>
+                      setJobStatus(e.target.value as "Active" | "Inactive")
+                    }
+                    className={fieldCls}
+                  >
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                  </select>
+                </div>
+              </div>
+
               {/* GDS + Client */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -739,37 +829,22 @@ export default function AgentPage() {
                 </div>
               </div>
 
-              {/* PCC + Job Status */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <FieldLabel icon={Hash} label="PCC Code" />
-                  <input
-                    type="text"
-                    placeholder="e.g. 1A2B"
-                    value={pcc}
-                    onChange={(e) => setPcc(e.target.value)}
-                    className={fieldCls}
-                  />
-                  {errors.pcc && (
-                    <p className="mt-0.5 text-[9px] text-destructive flex items-center gap-1">
-                      <span className="w-1 h-1 rounded-full bg-destructive shrink-0" />
-                      {errors.pcc}
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <FieldLabel icon={Briefcase} label="Job Status" />
-                  <select
-                    value={jobStatus}
-                    onChange={(e) =>
-                      setJobStatus(e.target.value as "Active" | "Inactive")
-                    }
-                    className={fieldCls}
-                  >
-                    <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
-                  </select>
-                </div>
+              {/* PCC Code */}
+              <div>
+                <FieldLabel icon={Hash} label="PCC Code" />
+                <input
+                  type="text"
+                  placeholder="e.g. 1A2B"
+                  value={pcc}
+                  onChange={(e) => setPcc(e.target.value)}
+                  className={fieldCls}
+                />
+                {errors.pcc && (
+                  <p className="mt-0.5 text-[9px] text-destructive flex items-center gap-1">
+                    <span className="w-1 h-1 rounded-full bg-destructive shrink-0" />
+                    {errors.pcc}
+                  </p>
+                )}
               </div>
 
               {/* ── Shift Schedule & Grace Period ── */}
@@ -1061,7 +1136,7 @@ export default function AgentPage() {
       {/* ======================================================== */}
       {/* AGENT PAYSLIPS & QUICK SMTP DISPATCH MODAL               */}
       {/* ======================================================== */}
-      {isPayslipModalOpen && selectedAgentForPayslip && (
+      {isPayslipModalOpen && selectedAgentForPayslip && isAdmin && (
         <Modal
           isOpen={isPayslipModalOpen}
           onClose={() => {
@@ -1116,12 +1191,29 @@ export default function AgentPage() {
                   <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
                     Month & Year
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={payslipMonth}
                     onChange={(e) => setPayslipMonth(e.target.value)}
+                    className="w-full px-3 py-1.5 bg-secondary/20 border border-border/60 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                  >
+                    {PAYROLL_MONTH_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt}>
+                        {opt}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
+                    Designation
+                  </label>
+                  <input
+                    type="text"
+                    value={payslipDesignation}
+                    onChange={(e) => setPayslipDesignation(e.target.value)}
                     className="w-full px-3 py-1.5 bg-secondary/20 border border-border/60 rounded-lg text-xs"
-                    placeholder="e.g. June 2026"
+                    placeholder="Operations Manager"
                   />
                 </div>
 
@@ -1173,12 +1265,12 @@ export default function AgentPage() {
                   />
                 </div>
 
-                <div className="flex flex-col justify-end">
-                  <div className="bg-slate-900 text-white px-3 py-1.5 rounded-lg border-l-4 border-orange-500">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">
+                <div className="col-span-1 sm:col-span-2 flex flex-col justify-end">
+                  <div className="bg-slate-900 text-white px-3 py-2 rounded-lg border-l-4 border-orange-500 flex justify-between items-center">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                       Net Take-Home Pay
                     </span>
-                    <span className="text-sm font-black font-mono text-white">
+                    <span className="text-base font-black font-mono text-white">
                       Rs. {(payslipBasic + payslipHra + payslipTravel - payslipTax).toLocaleString("en-US", { minimumFractionDigits: 2 })}
                     </span>
                   </div>

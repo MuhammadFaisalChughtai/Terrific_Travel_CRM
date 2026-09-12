@@ -863,9 +863,48 @@ export default function Bookings() {
                           </td>
                           {!isAgent && (
                             <td className="px-4 py-3.5 whitespace-nowrap text-right font-semibold text-blue-600 dark:text-blue-400 align-middle">
-                              {isOwner && agentMargin !== null
-                                ? formatCurrency(agentMargin)
-                                : "—"}
+                              <div className="flex flex-col items-end gap-0.5">
+                                <span>
+                                  {isOwner && agentMargin !== null
+                                    ? formatCurrency(agentMargin)
+                                    : "—"}
+                                </span>
+                                {booking.agentMarginVoided && (
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                                      Voided
+                                    </span>
+                                    {isOwner && (
+                                      <button
+                                        type="button"
+                                        onClick={async (e) => {
+                                          e.stopPropagation();
+                                          try {
+                                            await apiClient.patch(
+                                              `/agent-margins/bookings/${booking.id}/toggle-void`,
+                                            );
+                                            queryClient.invalidateQueries({
+                                              queryKey: ["bookings"],
+                                            });
+                                            toast.success(
+                                              "Agent margin unvoided successfully!",
+                                            );
+                                          } catch (err: any) {
+                                            toast.error(
+                                              err.response?.data?.message ||
+                                                "Failed to unvoid agent margin",
+                                            );
+                                          }
+                                        }}
+                                        className="text-[9px] font-bold text-emerald-600 hover:text-emerald-700 underline"
+                                        title="Restore / Unvoid this margin calculation"
+                                      >
+                                        Unvoid
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
                             </td>
                           )}
                           {!isAgent && (
@@ -1324,17 +1363,24 @@ export default function Bookings() {
           className="space-y-5 text-xs text-muted-foreground p-1"
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* BOOKING REFERENCE */}
-            <div className="space-y-1">
-              <label className="font-bold text-muted-foreground uppercase tracking-wider block">
-                BOOKING REFERENCE
-              </label>
-              <input
-                type="text"
-                placeholder="Reference"
+            {/* BOOKING REFERENCE / BULK SEARCH */}
+            <div className="space-y-1 md:col-span-2">
+              <div className="flex items-center justify-between">
+                <label className="font-bold text-muted-foreground uppercase tracking-wider block text-[10px]">
+                  BOOKING REFERENCE(S) — BULK SEARCH
+                </label>
+                {filterRefVal.trim() && (
+                  <span className="text-[10px] text-primary font-bold">
+                    {filterRefVal.trim().split(/[\s,\n\r\t]+/).filter(Boolean).length} reference(s) detected
+                  </span>
+                )}
+              </div>
+              <textarea
+                rows={2}
+                placeholder="Paste one or multiple booking references (e.g. TT01044, TT01031 or newline-separated)..."
                 value={filterRefVal}
                 onChange={(e) => setFilterRefVal(e.target.value)}
-                className="w-full bg-secondary/20 border border-border/80 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary text-foreground transition-all focus:bg-background"
+                className="w-full bg-secondary/20 border border-border/80 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary text-foreground transition-all focus:bg-background resize-none font-mono"
               />
             </div>
 

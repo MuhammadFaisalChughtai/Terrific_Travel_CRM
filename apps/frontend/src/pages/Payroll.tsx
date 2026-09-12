@@ -1,4 +1,5 @@
 import React, { useState, useRef } from "react";
+import { Navigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import html2pdf from "html2pdf.js";
 import { apiClient } from "../api/client";
@@ -101,6 +102,45 @@ export interface CustomLineItem {
   amount: number;
 }
 
+export const PAYROLL_MONTH_OPTIONS = [
+  "January 2026",
+  "February 2026",
+  "March 2026",
+  "April 2026",
+  "May 2026",
+  "June 2026",
+  "July 2026",
+  "August 2026",
+  "September 2026",
+  "October 2026",
+  "November 2026",
+  "December 2026",
+  "January 2025",
+  "February 2025",
+  "March 2025",
+  "April 2025",
+  "May 2025",
+  "June 2025",
+  "July 2025",
+  "August 2025",
+  "September 2025",
+  "October 2025",
+  "November 2025",
+  "December 2025",
+  "January 2027",
+  "February 2027",
+  "March 2027",
+  "April 2027",
+  "May 2027",
+  "June 2027",
+  "July 2027",
+  "August 2027",
+  "September 2027",
+  "October 2027",
+  "November 2027",
+  "December 2027",
+];
+
 export interface PayslipItem {
   id: string;
   payslipNumber: string;
@@ -109,7 +149,6 @@ export interface PayslipItem {
   employeeName: string;
   designation?: string | null;
   department?: string | null;
-  passportNumber?: string | null;
   employeeEmail?: string | null;
   payrollEmail?: string | null;
   companyName: string;
@@ -193,6 +232,15 @@ export default function PayrollPage() {
   const user = useAuthStore((state) => state.user);
   const printRef = useRef<HTMLDivElement>(null);
 
+  const isAdmin = user?.roles?.some((r: string) =>
+    ["ADMIN", "SUPER_ADMIN", "Admin", "Super Admin", "SUPERADMIN"].includes(r)
+  );
+
+  // If user is loaded and not admin, restrict access completely
+  if (user && !isAdmin) {
+    return <Navigate to="/" replace />;
+  }
+
   // Filter & Search states
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedMonth, setSelectedMonth] = useState("all");
@@ -216,7 +264,6 @@ export default function PayrollPage() {
       employeeName: "Ali Zain",
       designation: "Operations Manager",
       department: "Operations",
-      passportNumber: "AP5906793",
       employeeEmail: "",
       payrollEmail: "",
       companyName: defaults.companyName,
@@ -403,7 +450,6 @@ export default function PayrollPage() {
         payrollEmail: ag.payrollEmail || lastSlip?.payrollEmail || ag.email,
         designation: lastSlip?.designation || prev.designation || "Operations Manager",
         department: lastSlip?.department || prev.department || "Operations",
-        passportNumber: lastSlip?.passportNumber || prev.passportNumber || "",
         companyName: lastSlip?.companyName || companyDefaults.companyName,
         companyAddress: lastSlip?.companyAddress || companyDefaults.companyAddress,
         companyPhone: lastSlip?.companyPhone || companyDefaults.companyPhone,
@@ -559,7 +605,6 @@ export default function PayrollPage() {
                 employeeName: "Ali Zain",
                 designation: "Operations Manager",
                 department: "Operations",
-                passportNumber: "AP5906793",
                 employeeEmail: "",
                 payrollEmail: "",
                 companyName: compDefaults.companyName,
@@ -1004,18 +1049,6 @@ export default function PayrollPage() {
 
               <div>
                 <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
-                  Passport / CNIC No
-                </label>
-                <input
-                  type="text"
-                  value={formData.passportNumber}
-                  onChange={(e) => setFormData({ ...formData, passportNumber: e.target.value })}
-                  className="w-full px-3 py-2 bg-secondary/20 border border-border/60 rounded-lg text-xs font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
                   Payroll / Target Email
                 </label>
                 <input
@@ -1031,13 +1064,17 @@ export default function PayrollPage() {
                 <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
                   Month & Year (Pay Period) *
                 </label>
-                <input
-                  type="text"
+                <select
                   value={formData.monthYear}
                   onChange={(e) => setFormData({ ...formData, monthYear: e.target.value })}
-                  className="w-full px-3 py-2 bg-secondary/20 border border-border/60 rounded-lg text-xs"
-                  placeholder="e.g. June 2026"
-                />
+                  className="w-full px-3 py-2 bg-secondary/20 border border-border/60 rounded-lg text-xs font-semibold focus:ring-2 focus:ring-primary/40"
+                >
+                  {PAYROLL_MONTH_OPTIONS.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
@@ -1521,14 +1558,19 @@ export default function PayrollPage() {
                   <div className="text-xs font-bold text-slate-700 mt-1 flex items-center md:justify-end gap-1">
                     <span>Pay Period:</span>
                     {isEditMode ? (
-                      <input
-                        type="text"
+                      <select
                         value={activePayslip.monthYear}
                         onChange={(e) =>
                           setActivePayslip({ ...activePayslip, monthYear: e.target.value })
                         }
-                        className="font-bold text-slate-800 bg-secondary/30 px-1.5 py-0.5 border border-border/70 rounded text-xs w-24 text-right"
-                      />
+                        className="font-bold text-slate-800 bg-secondary/30 px-1.5 py-0.5 border border-border/70 rounded text-xs text-right focus:outline-none"
+                      >
+                        {PAYROLL_MONTH_OPTIONS.map((m) => (
+                          <option key={m} value={m}>
+                            {m}
+                          </option>
+                        ))}
+                      </select>
                     ) : (
                       <span>{activePayslip.monthYear}</span>
                     )}
@@ -1578,25 +1620,7 @@ export default function PayrollPage() {
                   )}
                 </div>
 
-                <div>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
-                    Passport / CNIC No
-                  </span>
-                  {isEditMode ? (
-                    <input
-                      type="text"
-                      value={activePayslip.passportNumber || ""}
-                      onChange={(e) =>
-                        setActivePayslip({ ...activePayslip, passportNumber: e.target.value })
-                      }
-                      className="font-mono text-slate-800 bg-white px-2 py-1 border border-border/70 rounded w-full text-xs"
-                    />
-                  ) : (
-                    <span className="font-mono font-medium text-slate-800 text-xs leading-normal break-words block">
-                      {activePayslip.passportNumber || "N/A"}
-                    </span>
-                  )}
-                </div>
+
 
                 <div>
                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">

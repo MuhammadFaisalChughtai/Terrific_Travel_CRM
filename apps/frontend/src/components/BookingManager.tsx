@@ -37,6 +37,9 @@ import {
   Printer,
   RotateCcw,
   Download,
+  CheckCircle,
+  XCircle,
+  Undo,
 } from "lucide-react";
 import Modal from "./Modal";
 import HtmlEditorModal from "./HtmlEditorModal";
@@ -666,6 +669,31 @@ export default function BookingManager({
     onError: (err: any) => {
       toast.error(
         err.response?.data?.message || "Failed to update booking details.",
+      );
+    },
+  });
+
+  // Mutation: toggle margin void / unvoid
+  const toggleVoidMutation = useMutation({
+    mutationFn: async () => {
+      const bId = booking?.id || bookingId;
+      return apiClient.patch(`/agent-margins/bookings/${bId}/toggle-void`);
+    },
+    onSuccess: (res) => {
+      const isNowVoided = res.data?.data?.agentMarginVoided;
+      toast.success(
+        isNowVoided
+          ? "Booking margin voided (excluded from commission)."
+          : "Booking margin unvoided & restored!"
+      );
+      queryClient.invalidateQueries({ queryKey: ["booking", bookingId] });
+      queryClient.invalidateQueries({ queryKey: ["bookings"] });
+      queryClient.invalidateQueries({ queryKey: ["agent-margins"] });
+      queryClient.invalidateQueries({ queryKey: ["agent-margin-bookings"] });
+    },
+    onError: (err: any) => {
+      toast.error(
+        err.response?.data?.message || "Failed to update booking void status."
       );
     },
   });
@@ -1365,6 +1393,44 @@ export default function BookingManager({
                           <span className="text-[10px] font-extrabold text-red-600 dark:text-red-400 uppercase tracking-wide mt-0.5">
                             Voided / Not Qualify
                           </span>
+                        )}
+                        {isOwner && !isAgent && !hasAgentPayout && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const msg = booking.agentMarginVoided
+                                ? `Are you sure you want to unvoid booking #${booking.bookingReference} and restore its agent margin qualification?`
+                                : `Are you sure you want to void the agent margin for booking #${booking.bookingReference}?`;
+                              if (window.confirm(msg)) {
+                                toggleVoidMutation.mutate();
+                              }
+                            }}
+                            disabled={toggleVoidMutation.isPending}
+                            className={`mt-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border transition-all cursor-pointer ${
+                              booking.agentMarginVoided
+                                ? "bg-emerald-500/10 text-emerald-700 hover:bg-emerald-600 hover:text-white border-emerald-500/30 dark:text-emerald-300"
+                                : "bg-rose-500/10 text-rose-700 hover:bg-rose-600 hover:text-white border-rose-500/30 dark:text-rose-300"
+                            }`}
+                            title={
+                              booking.agentMarginVoided
+                                ? "Click to Unvoid & Restore Agent Margin"
+                                : "Click to Void Agent Margin"
+                            }
+                          >
+                            {toggleVoidMutation.isPending ? (
+                              <Loader2 size={10} className="animate-spin" />
+                            ) : booking.agentMarginVoided ? (
+                              <>
+                                <CheckCircle size={10} />
+                                <span>Unvoid Margin</span>
+                              </>
+                            ) : (
+                              <>
+                                <XCircle size={10} />
+                                <span>Void Margin</span>
+                              </>
+                            )}
+                          </button>
                         )}
                       </div>
                     </div>

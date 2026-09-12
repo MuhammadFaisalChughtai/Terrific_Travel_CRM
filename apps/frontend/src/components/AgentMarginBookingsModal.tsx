@@ -46,14 +46,24 @@ export default function AgentMarginBookingsModal({ margin, onClose }: Props) {
       .reduce((sum: number, b: any) => sum + b.profit, 0);
   }, [bookings]);
 
+  const tokens = React.useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    return searchQuery
+      .toLowerCase()
+      .split(/[\s,\n\r\t]+/)
+      .map((t) => t.trim())
+      .filter(Boolean);
+  }, [searchQuery]);
+
   const filteredBookings = React.useMemo(() => {
     if (!bookings) return [];
-    if (!searchQuery) return bookings;
-    const q = searchQuery.toLowerCase();
-    return bookings.filter((b: any) =>
-      b.bookingReference.toLowerCase().includes(q)
-    );
-  }, [bookings, searchQuery]);
+    if (tokens.length === 0) return bookings;
+    return bookings.filter((b: any) => {
+      const ref = (b.bookingReference || "").toLowerCase();
+      const customer = (b.customerName || "").toLowerCase();
+      return tokens.some((token) => ref.includes(token) || customer.includes(token));
+    });
+  }, [bookings, tokens]);
 
   return (
     <div className="margin__custom fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
@@ -65,7 +75,7 @@ export default function AgentMarginBookingsModal({ margin, onClose }: Props) {
               Margin Bookings
             </h2>
             <p className="text-sm text-muted-foreground mt-1">
-              Details of eligible bookings included in this calculation. Deductions are calculated in real time.
+              Details of eligible bookings included in this calculation. You can unvoid or exclude bookings if needed.
             </p>
           </div>
           <button
@@ -88,20 +98,35 @@ export default function AgentMarginBookingsModal({ margin, onClose }: Props) {
             </div>
           ) : (
             <>
-              <div className="mb-4 relative max-w-xs">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <input
-                  type="text"
-                  placeholder="Search by reference..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-background border border-input rounded-full pl-9 pr-4 py-2 text-sm focus:ring-2 focus:ring-ring"
-                />
+              <div className="mb-4 flex items-center gap-3">
+                <div className="relative flex-1 max-w-md">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder="Search ref or paste multiple refs..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full bg-background border border-input rounded-xl pl-9 pr-8 py-2 text-xs focus:ring-2 focus:ring-ring"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+                {tokens.length > 0 && (
+                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">
+                    {filteredBookings.length} matched
+                  </span>
+                )}
               </div>
 
               {filteredBookings.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground bg-muted/20 rounded-lg border border-border">
-                  No bookings matching "{searchQuery}" found.
+                  No bookings matching your search query were found.
                 </div>
               ) : (
                 <div className="overflow-auto max-h-[55vh] rounded-lg border border-border relative">
@@ -118,7 +143,7 @@ export default function AgentMarginBookingsModal({ margin, onClose }: Props) {
                         <th className="sticky top-0 bg-muted/95 px-4 py-3 z-10 font-semibold text-red-500 text-right">Refund</th>
                         <th className="sticky top-0 bg-muted/95 px-4 py-3 z-10 font-semibold text-amber-500 text-right">Card Charges</th>
                         <th className="sticky top-0 bg-muted/95 px-4 py-3 z-10 font-semibold text-muted-foreground text-right">Net Profit</th>
-                        <th className="sticky top-0 bg-muted/95 px-4 py-3 z-10 font-semibold text-muted-foreground text-center">Included</th>
+                        <th className="sticky top-0 bg-muted/95 px-4 py-3 z-10 font-semibold text-muted-foreground text-center">Status / Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
@@ -127,7 +152,7 @@ export default function AgentMarginBookingsModal({ margin, onClose }: Props) {
                         return (
                           <tr
                             key={b.id}
-                            className={`hover:bg-muted/30 transition-colors ${b.agentMarginVoided ? 'opacity-60 bg-red-500/5' : ''}`}
+                            className={`hover:bg-muted/30 transition-colors ${b.agentMarginVoided ? 'opacity-70 bg-red-500/5' : ''}`}
                           >
                             <td className="px-4 py-3 font-medium text-primary">
                               {b.bookingReference}
@@ -165,29 +190,33 @@ export default function AgentMarginBookingsModal({ margin, onClose }: Props) {
                                   onClick={() => {
                                     if (!canToggle) return;
                                     const confirmMsg = b.agentMarginVoided
-                                      ? "Are you sure you want to qualify this booking for margin calculation?"
-                                      : "Are you sure you want to withdraw/exclude this booking from margin calculation?";
+                                      ? `Are you sure you want to unvoid booking ${b.bookingReference} and restore its margin qualification?`
+                                      : `Are you sure you want to void booking ${b.bookingReference} from margin calculation?`;
                                     if (window.confirm(confirmMsg)) {
                                       toggleVoidMutation.mutate(b.id);
                                     }
                                   }}
                                   disabled={!canToggle || toggleVoidMutation.isPending}
-                                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold transition-all ${
+                                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-bold transition-all shadow-sm ${
                                     b.agentMarginVoided 
-                                      ? 'bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400' 
-                                      : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400'
+                                      ? 'bg-amber-100 text-amber-800 hover:bg-emerald-600 hover:text-white dark:bg-amber-950/40 dark:text-amber-300' 
+                                      : 'bg-emerald-100 text-emerald-700 hover:bg-rose-100 hover:text-rose-700 dark:bg-emerald-900/30 dark:text-emerald-400'
                                   } ${!canToggle ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'}`}
-                                  title={canToggle ? "Click to toggle qualification" : "Admin access only"}
+                                  title={
+                                    canToggle 
+                                      ? (b.agentMarginVoided ? "Click to Unvoid Booking Margin" : "Click to Void Booking Margin")
+                                      : "Admin access only"
+                                  }
                                 >
                                   {b.agentMarginVoided ? (
                                     <>
-                                      <XCircle className="h-3.5 w-3.5" />
-                                      Not Qualify
+                                      <XCircle className="h-3.5 w-3.5 text-red-500" />
+                                      <span>Voided (Click to Unvoid)</span>
                                     </>
                                   ) : (
                                     <>
                                       <CheckCircle className="h-3.5 w-3.5" />
-                                      Qualifies
+                                      <span>Qualifies</span>
                                     </>
                                   )}
                                 </button>

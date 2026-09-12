@@ -29,14 +29,28 @@ export default function RecalculateMarginModal({ startDate, endDate, agentId, da
     enabled: !!startDate && !!endDate
   });
 
+  const tokens = React.useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    return searchQuery
+      .toLowerCase()
+      .split(/[\s,\n\r\t]+/)
+      .map((t) => t.trim())
+      .filter(Boolean);
+  }, [searchQuery]);
+
   const filteredBookings = React.useMemo(() => {
     if (!bookings) return [];
-    if (!searchQuery) return bookings;
-    const q = searchQuery.toLowerCase();
-    return bookings.filter((b: any) =>
-      b.bookingReference.toLowerCase().includes(q)
-    );
-  }, [bookings, searchQuery]);
+    if (tokens.length === 0) return bookings;
+    return bookings.filter((b: any) => {
+      const ref = (b.bookingReference || "").toLowerCase();
+      const agent = (b.agentName || "").toLowerCase();
+      const customer = (b.leadPassenger || b.customerName || "").toLowerCase();
+      return tokens.some(
+        (token) =>
+          ref.includes(token) || agent.includes(token) || customer.includes(token)
+      );
+    });
+  }, [bookings, tokens]);
 
   // Automatically check all selectable bookings when they are fetched
   useEffect(() => {
@@ -69,6 +83,22 @@ export default function RecalculateMarginModal({ startDate, endDate, agentId, da
     setIncludedBookingIds(newSet);
   };
 
+  const selectOnlyFiltered = () => {
+    const selectable = filteredBookings.filter((b: any) => b.marginStatus !== 'PAID');
+    const newSet = new Set(includedBookingIds);
+    selectable.forEach((b: any) => newSet.add(b.id));
+    setIncludedBookingIds(newSet);
+    toast.success(`Selected ${selectable.length} filtered bookings`);
+  };
+
+  const deselectFiltered = () => {
+    const selectable = filteredBookings.filter((b: any) => b.marginStatus !== 'PAID');
+    const newSet = new Set(includedBookingIds);
+    selectable.forEach((b: any) => newSet.delete(b.id));
+    setIncludedBookingIds(newSet);
+    toast.info(`Deselected ${selectable.length} filtered bookings`);
+  };
+
   const calculateMutation = useMutation({
     mutationFn: async () => {
       return apiClient.post("/agent-margins/calculate", {
@@ -99,7 +129,7 @@ export default function RecalculateMarginModal({ startDate, endDate, agentId, da
               Recalculate Margin ({new Date(startDate).toLocaleDateString(undefined, { timeZone: "UTC" })} - {new Date(endDate).toLocaleDateString(undefined, { timeZone: "UTC" })})
             </h2>
             <p className="text-sm text-muted-foreground mt-1">
-              Choose which bookings to include in this round.
+              Choose which bookings to include in this round. Paste multiple references to bulk filter at once.
             </p>
           </div>
           <button
@@ -122,20 +152,55 @@ export default function RecalculateMarginModal({ startDate, endDate, agentId, da
             </div>
           ) : (
             <>
-              <div className="mb-4 relative max-w-xs">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <input
-                  type="text"
-                  placeholder="Search by reference..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-background border border-input rounded-full pl-9 pr-4 py-2 text-sm focus:ring-2 focus:ring-ring"
-                />
+              {/* Bulk Search & Filter Controls */}
+              <div className="mb-4 space-y-2">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                  <div className="relative flex-1 max-w-xl">
+                    <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <textarea
+                      rows={tokens.length > 2 ? 3 : 1}
+                      placeholder="Search single ref, or paste multiple refs (e.g. TT01044 TT01031 TT00943)..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full bg-background border border-input rounded-xl pl-9 pr-8 py-2 text-xs focus:ring-2 focus:ring-ring resize-none font-mono"
+                    />
+                    {searchQuery && (
+                      <button
+                        onClick={() => setSearchQuery("")}
+                        className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+
+                  {tokens.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">
+                        {filteredBookings.length} matched ({tokens.length} token{tokens.length !== 1 ? 's' : ''})
+                      </span>
+                      <button
+                        type="button"
+                        onClick={selectOnlyFiltered}
+                        className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-sm"
+                      >
+                        Select All Filtered
+                      </button>
+                      <button
+                        type="button"
+                        onClick={deselectFiltered}
+                        className="px-3 py-1.5 rounded-lg bg-secondary hover:bg-secondary/80 text-secondary-foreground text-xs font-semibold transition-all border border-border"
+                      >
+                        Deselect Filtered
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {filteredBookings.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground bg-muted/20 rounded-lg border border-border">
-                  No bookings matching "{searchQuery}" found.
+                  No bookings matching your search query were found.
                 </div>
               ) : (
                 <div className="overflow-x-auto rounded-lg border border-border">
