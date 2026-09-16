@@ -62,10 +62,10 @@ export const getMyMargins = asyncHandler(async (req: AuthenticatedRequest, res: 
 
 export const markMarginAsPaid = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
-  const { notes } = req.body;
+  const { notes, amount } = req.body;
   const adminId = req.user!.id;
 
-  const margin = await agentMarginService.markAsPaid(id, adminId, notes);
+  const margin = await agentMarginService.markAsPaid(id, adminId, notes, amount);
   
   res.status(200).json({
     success: true,
@@ -103,5 +103,35 @@ export const toggleMarginVoid = asyncHandler(async (req: AuthenticatedRequest, r
     success: true,
     data: booking,
     message: 'Booking margin status successfully updated'
+  });
+});
+
+export const togglePeriodMarginVoid = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id } = req.params;
+  const margin = await agentMarginService.toggleMarginPeriodVoid(id);
+  res.status(200).json({
+    success: true,
+    data: margin,
+    message: 'Margin void status successfully updated'
+  });
+});
+
+export const unvoidAllMarginBookings = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id } = req.params;
+  const margin = await agentMarginService.unvoidMargin(id);
+  res.status(200).json({
+    success: true,
+    data: margin,
+    message: 'All bookings in margin successfully unvoided and recalculated'
+  });
+});
+
+export const voidAllMarginBookings = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id } = req.params;
+  const margin = await agentMarginService.voidMargin(id);
+  res.status(200).json({
+    success: true,
+    data: margin,
+    message: 'Margin successfully voided'
   });
 });

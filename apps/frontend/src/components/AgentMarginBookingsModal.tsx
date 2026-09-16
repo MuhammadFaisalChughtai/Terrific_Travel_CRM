@@ -39,6 +39,34 @@ export default function AgentMarginBookingsModal({ margin, onClose }: Props) {
     }
   });
 
+  const unvoidAllMutation = useMutation({
+    mutationFn: async () => {
+      return apiClient.post(`/agent-margins/${margin.id}/unvoid-all`);
+    },
+    onSuccess: () => {
+      toast.success("All bookings unvoided and margin recalculated successfully");
+      queryClient.invalidateQueries({ queryKey: ["agent-margin-bookings"] });
+      queryClient.invalidateQueries({ queryKey: ["agent-margins"] });
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || "Failed to unvoid all bookings");
+    }
+  });
+
+  const voidAllMutation = useMutation({
+    mutationFn: async () => {
+      return apiClient.post(`/agent-margins/${margin.id}/void-all`);
+    },
+    onSuccess: () => {
+      toast.success("All bookings in this period voided successfully");
+      queryClient.invalidateQueries({ queryKey: ["agent-margin-bookings"] });
+      queryClient.invalidateQueries({ queryKey: ["agent-margins"] });
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || "Failed to void all bookings");
+    }
+  });
+
   const qualifyingProfit = React.useMemo(() => {
     if (!bookings) return 0;
     return bookings
@@ -64,6 +92,11 @@ export default function AgentMarginBookingsModal({ margin, onClose }: Props) {
       return tokens.some((token) => ref.includes(token) || customer.includes(token));
     });
   }, [bookings, tokens]);
+
+  const voidedCount = React.useMemo(() => {
+    if (!bookings) return 0;
+    return bookings.filter((b: any) => b.agentMarginVoided).length;
+  }, [bookings]);
 
   return (
     <div className="margin__custom fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
@@ -98,29 +131,73 @@ export default function AgentMarginBookingsModal({ margin, onClose }: Props) {
             </div>
           ) : (
             <>
-              <div className="mb-4 flex items-center gap-3">
-                <div className="relative flex-1 max-w-md">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <input
-                    type="text"
-                    placeholder="Search ref or paste multiple refs..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full bg-background border border-input rounded-xl pl-9 pr-8 py-2 text-xs focus:ring-2 focus:ring-ring"
-                  />
-                  {searchQuery && (
-                    <button
-                      onClick={() => setSearchQuery("")}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
+              <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2 flex-1 max-w-md">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <input
+                      type="text"
+                      placeholder="Search ref or paste multiple refs..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full bg-background border border-input rounded-xl pl-9 pr-8 py-2 text-xs focus:ring-2 focus:ring-ring"
+                    />
+                    {searchQuery && (
+                      <button
+                        onClick={() => setSearchQuery("")}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                  {tokens.length > 0 && (
+                    <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20 shrink-0">
+                      {filteredBookings.length} matched
+                    </span>
                   )}
                 </div>
-                {tokens.length > 0 && (
-                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">
-                    {filteredBookings.length} matched
-                  </span>
+
+                {isAdmin && margin?.status !== 'PAID' && (
+                  <div className="flex items-center gap-2 shrink-0">
+                    {voidedCount > 0 ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm("Are you sure you want to unvoid all bookings for this margin? All bookings will qualify and margin will be recalculated.")) {
+                            unvoidAllMutation.mutate();
+                          }
+                        }}
+                        disabled={unvoidAllMutation.isPending}
+                        className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
+                      >
+                        {unvoidAllMutation.isPending ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <CheckCircle className="h-3.5 w-3.5" />
+                        )}
+                        <span>Unvoid All Bookings ({voidedCount})</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm("Are you sure you want to void all bookings for this margin?")) {
+                            voidAllMutation.mutate();
+                          }
+                        }}
+                        disabled={voidAllMutation.isPending}
+                        className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
+                      >
+                        {voidAllMutation.isPending ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <XCircle className="h-3.5 w-3.5" />
+                        )}
+                        <span>Void All Bookings</span>
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
 

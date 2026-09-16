@@ -438,7 +438,7 @@ export const agentMarginService = {
     });
   },
 
-  async markAsPaid(id: string, adminId: string, notes?: string) {
+  async markAsPaid(id: string, adminId: string, notes?: string, customAmount?: number) {
     const margin = await prisma.agentMargin.findUnique({
       where: { id },
       include: { 
@@ -471,6 +471,10 @@ export const agentMarginService = {
       throw createError(400, 'Margin is already paid');
     }
 
+    const finalMarginAmount = (customAmount !== undefined && customAmount !== null && !isNaN(Number(customAmount)))
+      ? Number(customAmount)
+      : margin.marginAmount;
+
     const transactionsData = margin.bookings.map(b => {
       const vendorCost = b.bookingVendorPayments.reduce((sum, vp) => sum + vp.originalCost, 0);
       const vendorRefund = (b.accommodations?.reduce((sum: number, acc: any) => sum + (acc.refundAmount || 0), 0) || 0) +
@@ -478,7 +482,9 @@ export const agentMarginService = {
                            (b.transportServices?.reduce((sum: number, ts: any) => sum + (ts.refundAmount || 0), 0) || 0) +
                            (b.visaServices?.reduce((sum: number, vs: any) => sum + (vs.refundAmount || 0), 0) || 0);
       const profit = b.totalPrice - vendorCost + vendorRefund - (b.refundAmount || 0) - (b.cardPaymentCharges || 0);
-      const bookingMargin = profit * (margin.marginPercentage / 100);
+      const bookingMargin = (margin.totalProfit > 0 && finalMarginAmount > 0)
+        ? (profit / margin.totalProfit) * finalMarginAmount
+        : profit * (margin.marginPercentage / 100);
 
       const periodStr = `${margin.startDate.toISOString().split('T')[0]} to ${margin.endDate.toISOString().split('T')[0]}`;
       
@@ -500,6 +506,7 @@ export const agentMarginService = {
         where: { id },
         data: {
           status: 'PAID',
+          marginAmount: finalMarginAmount,
           paidDate: new Date(),
           paidById: adminId,
           notes: notes || margin.notes
@@ -510,7 +517,7 @@ export const agentMarginService = {
         data: {
           agentId: margin.agentId,
           eventType: 'AGENT_PAYOUT',
-          debit: margin.marginAmount,
+          debit: finalMarginAmount,
           credit: 0,
           runningBalance: 0,
           notes: ledgerNotes,
@@ -645,6 +652,86 @@ export const agentMarginService = {
     return updated;
   },
 
+  async unvoidMargin(marginId: string) {
+    const margin = await prisma.agentMargin.findUnique({
+      where: { id: marginId }
+    });
+    if (!margin) throw createError(404, 'Margin record not found');
+
+    const start = new Date(margin.startDate);
+    const end = new Date(margin.endDate);
+    end.setHours(23, 59, 59, 999);
+
+    // Unvoid all bookings linked to this margin, and link any unlinked eligible bookings
+    await prisma.booking.updateMany({
+      where: {
+        OR: [
+          { agentMarginId: marginId },
+          {
+            agentId: margin.agentId,
+            status: { not: 'CANCELLED' },
+            OR: [
+              { bookingDate: { gte: start, lte: end } },
+              { bookingDate: null, createdAt: { gte: start, lte: end } }
+            ]
+          }
+        ]
+      },
+      data: {
+        agentMarginId: marginId,
+        agentMarginVoided: false
+      }
+    });
+
+    const updated = await this.recalculateMarginRecord(marginId);
+    if (margin.status === 'VOIDED') {
+      return prisma.agentMargin.update({
+        where: { id: marginId },
+        data: { status: 'UNPAID' }
+      });
+    }
+    return updated;
+  },
+
+  async voidMargin(marginId: string) {
+    const margin = await prisma.agentMargin.findUnique({
+      where: { id: marginId }
+    });
+    if (!margin) throw createError(404, 'Margin record not found');
+
+    // Mark all bookings linked to this margin as voided
+    await prisma.booking.updateMany({
+      where: { agentMarginId: marginId },
+      data: {
+        agentMarginVoided: true
+      }
+    });
+
+    return prisma.agentMargin.update({
+      where: { id: marginId },
+      data: {
+        status: 'VOIDED',
+        bookingCount: 0,
+        totalProfit: 0,
+        marginPercentage: 0,
+        marginAmount: 0
+      }
+    });
+  },
+
+  async toggleMarginPeriodVoid(marginId: string) {
+    const margin = await prisma.agentMargin.findUnique({
+      where: { id: marginId }
+    });
+    if (!margin) throw createError(404, 'Margin record not found');
+
+    if (margin.status === 'VOIDED' || margin.marginPercentage === 0) {
+      return this.unvoidMargin(marginId);
+    } else {
+      return this.voidMargin(marginId);
+    }
+  },
+
   async recalculateMarginRecord(marginId: string) {
     const margin = await prisma.agentMargin.findUnique({
       where: { id: marginId },
@@ -687,7 +774,7 @@ export const agentMarginService = {
     });
 
     let marginPercentage = 0;
-    if (agent) {
+    if (agent && agent.slabs.length > 0) {
       for (const slab of agent.slabs) {
         if (nonVoidedProfit >= slab.minSales && (slab.maxSales === null || nonVoidedProfit <= slab.maxSales)) {
           marginPercentage = slab.commissionRate;
@@ -698,13 +785,14 @@ export const agentMarginService = {
 
     const marginAmount = nonVoidedProfit * (marginPercentage / 100);
 
-    await prisma.agentMargin.update({
+    return prisma.agentMargin.update({
       where: { id: marginId },
       data: {
         bookingCount: nonVoidedCount,
         totalProfit: nonVoidedProfit,
         marginPercentage,
-        marginAmount
+        marginAmount,
+        status: margin.status === 'PAID' ? 'PAID' : (nonVoidedCount === 0 ? 'VOIDED' : 'UNPAID')
       }
     });
   }
