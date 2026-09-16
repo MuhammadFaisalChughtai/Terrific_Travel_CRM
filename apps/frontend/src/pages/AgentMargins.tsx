@@ -327,14 +327,18 @@ export default function AgentMargins() {
                       {formatCurrency(m.marginAmount)}
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
                         m.status === 'PAID' 
-                          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' 
-                          : m.marginPercentage === 0
-                            ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                            : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800' 
+                          : m.status === 'VOIDED'
+                            ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border border-red-200 dark:border-red-800'
+                            : (m.marginPercentage === 0 && m.marginAmount === 0)
+                              ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border border-red-200 dark:border-red-800'
+                              : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800'
                       }`}>
-                        {m.marginPercentage === 0 ? 'VOIDED' : m.status}
+                        {m.status === 'PAID' 
+                          ? 'PAID' 
+                          : (m.status === 'VOIDED' ? 'VOIDED' : ((m.marginPercentage === 0 && m.marginAmount === 0) ? 'VOIDED' : m.status))}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-center">
@@ -353,7 +357,7 @@ export default function AgentMargins() {
                         {/* Unvoid / Void Margin Action for Admin */}
                         {isAdmin && m.status !== 'PAID' && (
                           <>
-                            {(m.status === 'VOIDED' || m.marginPercentage === 0) ? (
+                            {(m.status === 'VOIDED' || (m.marginPercentage === 0 && m.marginAmount === 0)) ? (
                               <button
                                 title="Unvoid Margin (Restore eligible bookings & commission)"
                                 onClick={() => {

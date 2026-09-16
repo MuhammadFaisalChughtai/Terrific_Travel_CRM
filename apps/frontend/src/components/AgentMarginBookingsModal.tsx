@@ -318,19 +318,31 @@ export default function AgentMarginBookingsModal({ margin, onClose }: Props) {
                 </div>
               )}
               
-              {margin.marginPercentage === 0 && (
-                <div className="mt-4 p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-lg flex items-start gap-3 text-amber-800 dark:text-amber-300 text-sm">
-                  <XCircle className="h-5 w-5 shrink-0 mt-0.5" />
+              {margin.status === 'PAID' && (
+                <div className="mt-4 p-4 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900 rounded-lg flex items-start gap-3 text-emerald-800 dark:text-emerald-300 text-sm">
+                  <CheckCircle className="h-5 w-5 shrink-0 mt-0.5 text-emerald-600" />
                   <div>
-                    <p className="font-semibold mb-1">Margin Voided</p>
+                    <p className="font-semibold mb-1">Commission Paid ({formatCurrency(margin.marginAmount)})</p>
                     <p>
-                      Your total profit ({formatCurrency(qualifyingProfit)}) for this period is less than the minimum required threshold configured in the margin slabs. Therefore, no commission has been awarded for these bookings.
+                      This margin record has been marked as <strong>PAID</strong>. The payout is recorded in the agent ledger.
                     </p>
                   </div>
                 </div>
               )}
               
-              {margin.marginPercentage > 0 && (
+              {margin.status !== 'PAID' && (margin.marginPercentage === 0 || margin.status === 'VOIDED') && (
+                <div className="mt-4 p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-lg flex items-start gap-3 text-amber-800 dark:text-amber-300 text-sm">
+                  <XCircle className="h-5 w-5 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-semibold mb-1">Margin Voided / No Commission Awarded</p>
+                    <p>
+                      Your total profit ({formatCurrency(qualifyingProfit)}) for this period is less than the minimum required threshold configured in the margin slabs or all bookings have been voided.
+                    </p>
+                  </div>
+                </div>
+              )}
+              
+              {margin.status !== 'PAID' && margin.marginPercentage > 0 && (
                 <div className="mt-4 p-4 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900 rounded-lg flex items-start gap-3 text-emerald-800 dark:text-emerald-300 text-sm">
                   <CheckCircle className="h-5 w-5 shrink-0 mt-0.5" />
                   <div>
