@@ -474,21 +474,22 @@ export default function Bookings() {
               queryClient.invalidateQueries({ queryKey: ["templates"] });
               toast.success("Booking list refreshed!");
             }}
-            className="bg-card text-foreground border border-border p-2.5 rounded-lg text-sm font-bold shadow-sm transition-all flex items-center justify-center hover:bg-secondary/40"
+            className="bg-card text-foreground border border-border p-2.5 rounded-lg text-sm font-bold shadow-sm transition-all flex items-center justify-center hover:bg-secondary/40 shrink-0"
             title="Refresh Bookings"
           >
             <RotateCw size={15} />
           </button>
           <button
             onClick={() => setIsFilterModalOpen(true)}
-            className="bg-card text-foreground border border-border px-4 py-2.5 rounded-lg text-sm font-bold shadow-sm transition-all flex items-center gap-1.5 hover:bg-secondary/40"
+            className="bg-card text-foreground border border-border px-3.5 py-2.5 rounded-lg text-xs sm:text-sm font-bold shadow-sm transition-all flex items-center gap-1.5 hover:bg-secondary/40 whitespace-nowrap shrink-0"
+            title="Filter Bookings"
           >
             <Filter size={15} />
-            Filter Bookings
+            <span>Filter</span>
             {Object.keys(appliedFilters).filter(
               (k) => appliedFilters[k] && appliedFilters[k] !== "Any",
             ).length > 0 && (
-              <span className="bg-primary text-primary-foreground text-[10px] px-1.5 py-0.5 rounded-full font-black ml-1">
+              <span className="bg-primary text-primary-foreground text-[10px] px-1.5 py-0.5 rounded-full font-black ml-0.5">
                 {
                   Object.keys(appliedFilters).filter(
                     (k) => appliedFilters[k] && appliedFilters[k] !== "Any",
@@ -499,10 +500,11 @@ export default function Bookings() {
           </button>
           <button
             onClick={() => setIsInitModalOpen(true)}
-            className="bg-primary hover:bg-primary/90 text-primary-foreground px-5 py-2.5 rounded-lg text-sm font-bold shadow-md shadow-primary/20 transition-all flex items-center gap-1.5"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2.5 rounded-lg text-xs sm:text-sm font-bold shadow-md shadow-primary/20 transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0"
+            title="Create New Booking"
           >
             <CalendarRange size={15} />
-            Create New Booking
+            <span>New Booking</span>
           </button>
         </div>
       </div>

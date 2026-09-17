@@ -22,6 +22,7 @@ import {
   Moon,
   LogOut,
   Menu,
+  X,
   User,
   Users,
   Store,
@@ -36,12 +37,14 @@ import {
   ShieldAlert,
   Receipt,
 } from "lucide-react";
+
 export default function DashboardLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const clearAuth = useAuthStore((state) => state.clearAuth);
   const [headerClocks, setHeaderClocks] = useState({ uk: "", pkt: "" });
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   useEffect(() => {
     const updateNavbarClocks = () => {
@@ -160,11 +163,27 @@ export default function DashboardLayout() {
   };
 
   useEffect(() => {
-    // Auto-close sidebar on responsive screen when route/location changes
-    if (window.innerWidth < 1024) {
-      useDashboardStore.setState({ sidebarOpen: false });
-    }
+    // Auto-close mobile drawer when route/location changes
+    setIsMobileOpen(false);
   }, [location.pathname]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsMobileOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  const handleToggle = () => {
+    if (window.innerWidth < 768) {
+      setIsMobileOpen((prev) => !prev);
+    } else {
+      toggleSidebar();
+    }
+  };
 
   const userHasRole = (allowed: string[]) => {
     if (!user?.roles) return false;
@@ -255,29 +274,53 @@ export default function DashboardLayout() {
 
   return (
     <div className="flex min-h-screen bg-background text-foreground">
+      {/* Mobile Backdrop Overlay */}
+      {isMobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-xs transition-opacity duration-300 md:hidden"
+          onClick={() => setIsMobileOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
       {/* Sidebar */}
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-40 flex flex-col bg-card border-r border-border transition-all duration-300 ${sidebarOpen ? "w-64" : "w-20"}`}
+        className={`fixed top-0 bottom-0 left-0 z-50 flex flex-col bg-card border-r border-border transition-all duration-300 ease-in-out
+          ${isMobileOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full"}
+          md:translate-x-0 md:shadow-none
+          ${sidebarOpen ? "md:w-64" : "md:w-20"}
+          w-64
+        `}
       >
         <div className="flex items-center justify-between h-16 px-6 border-b border-border">
           <div className="flex items-center gap-3 overflow-hidden">
             <span className="text-2xl">✈️</span>
-            {sidebarOpen && (
+            {(isMobileOpen || sidebarOpen) && (
               <span className="text-lg font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent whitespace-nowrap">
                 Terrific Travel
               </span>
             )}
           </div>
+          {/* Close button on mobile */}
+          <button
+            onClick={() => setIsMobileOpen(false)}
+            className="p-1.5 rounded-lg text-muted-foreground hover:bg-secondary md:hidden"
+            title="Close Menu"
+          >
+            <X size={18} />
+          </button>
         </div>
 
         <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
           {filteredMenuItems.map((item) => {
             const isActive = location.pathname === item.path;
             const Icon = item.icon;
+            const showFull = isMobileOpen || sidebarOpen;
             return (
               <Link
                 key={item.name}
                 to={item.path}
+                onClick={() => setIsMobileOpen(false)}
                 className={`relative flex items-center gap-4 px-4 py-3 rounded-xl transition-all ${
                   isActive
                     ? "bg-primary text-primary-foreground font-medium shadow-lg shadow-primary/20"
@@ -285,26 +328,28 @@ export default function DashboardLayout() {
                 }`}
               >
                 <Icon size={20} className="shrink-0" />
-                {sidebarOpen && (
+                {showFull ? (
                   <span className="text-sm whitespace-nowrap flex-1 flex items-center justify-between w-full">
                     <span>{item.name}</span>
                     {item.name === "Payment Approvals" &&
                       pendingApprovals &&
                       pendingApprovals.length > 0 && (
                         <span
-                          className={`ml-2 px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none flex items-center justify-center ${isActive ? "bg-white text-primary" : "bg-primary text-primary-foreground"}`}
+                          className={`ml-2 px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none flex items-center justify-center ${
+                            isActive ? "bg-white text-primary" : "bg-primary text-primary-foreground"
+                          }`}
                         >
                           {pendingApprovals.length}
                         </span>
                       )}
                   </span>
-                )}
-                {!sidebarOpen &&
+                ) : (
                   item.name === "Payment Approvals" &&
                   pendingApprovals &&
                   pendingApprovals.length > 0 && (
                     <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-card shadow-sm" />
-                  )}
+                  )
+                )}
               </Link>
             );
           })}
@@ -316,7 +361,7 @@ export default function DashboardLayout() {
             <div className="flex items-center justify-center w-10 h-10 rounded-full shrink-0 bg-primary/10 text-primary">
               <User size={20} />
             </div>
-            {sidebarOpen && (
+            {(isMobileOpen || sidebarOpen) && (
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold truncate">
                   {user?.firstName} {user?.lastName}
@@ -326,7 +371,7 @@ export default function DashboardLayout() {
                 </p>
               </div>
             )}
-            {sidebarOpen && (
+            {(isMobileOpen || sidebarOpen) && (
               <button
                 onClick={handleLogout}
                 className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10"
@@ -340,24 +385,27 @@ export default function DashboardLayout() {
 
       {/* Main Content Area */}
       <div
-        className={`flex flex-col flex-1 min-w-0 transition-all duration-300 ${sidebarOpen ? "pl-64" : "pl-20"}`}
+        className={`flex flex-col flex-1 min-w-0 transition-all duration-300 pl-0 ${
+          sidebarOpen ? "md:pl-64" : "md:pl-20"
+        }`}
       >
         {/* Header */}
-        <header className="sticky top-0 z-30 flex items-center justify-between h-16 px-8 bg-background/80 backdrop-blur border-b border-border">
-          <div className="flex items-center gap-4">
+        <header className="sticky top-0 z-30 flex items-center justify-between h-16 px-4 sm:px-8 bg-background/80 backdrop-blur border-b border-border">
+          <div className="flex items-center gap-3 sm:gap-4">
             <button
-              onClick={toggleSidebar}
+              onClick={handleToggle}
               className="p-2 rounded-xl hover:bg-secondary text-muted-foreground"
+              title="Toggle Menu"
             >
               <Menu size={20} />
             </button>
-            <h1 className="text-lg font-bold">
+            <h1 className="text-base sm:text-lg font-bold truncate max-w-[150px] sm:max-w-none">
               {filteredMenuItems.find((m) => m.path === location.pathname)
                 ?.name || "Terrific Travel"}
             </h1>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2.5 sm:gap-4">
             {/* Live Dual Timezone Clocks (UK & Pakistan) */}
             <div className="hidden sm:flex items-center gap-2 bg-secondary/80 dark:bg-secondary/40 border border-border/80 rounded-xl px-3 py-1.5 text-xs font-semibold shadow-inner">
               <div className="flex items-center gap-1.5 pr-2.5 border-r border-border/60">
@@ -386,17 +434,17 @@ export default function DashboardLayout() {
             {/* Theme Toggle */}
             <button
               onClick={toggleTheme}
-              className="p-2.5 rounded-xl hover:bg-secondary text-muted-foreground"
+              className="p-2 sm:p-2.5 rounded-xl hover:bg-secondary text-muted-foreground"
             >
-              {theme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
+              {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
             </button>
 
             {/* Notifications Alert */}
             <Link
               to="/notifications"
-              className="relative p-2.5 rounded-xl hover:bg-secondary text-muted-foreground"
+              className="relative p-2 sm:p-2.5 rounded-xl hover:bg-secondary text-muted-foreground"
             >
-              <Bell size={20} />
+              <Bell size={18} />
               {unreadCount > 0 && (
                 <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground">
                   {unreadCount}
@@ -408,17 +456,17 @@ export default function DashboardLayout() {
             {!sidebarOpen && (
               <button
                 onClick={handleLogout}
-                className="p-2.5 rounded-xl hover:bg-secondary text-muted-foreground"
+                className="p-2 sm:p-2.5 rounded-xl hover:bg-secondary text-muted-foreground"
                 title="Logout"
               >
-                <LogOut size={20} />
+                <LogOut size={18} />
               </button>
             )}
           </div>
         </header>
 
         {/* Content Outlet */}
-        <main className="flex-1 p-8 overflow-y-auto">
+        <main className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto">
           <Outlet />
         </main>
       </div>
