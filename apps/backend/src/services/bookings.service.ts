@@ -1833,6 +1833,51 @@ export class BookingsService {
       throw new BadRequestException('No flight segments registered in this booking to send a ticket order.');
     }
 
+    // Enforce that all passengers have passport scans uploaded
+    const passengers = booking.passengers || [];
+    if (passengers.length === 0) {
+      throw new BadRequestException('No passengers registered in this booking to issue ticket order.');
+    }
+
+    const missingPassports = passengers.filter((p: any) => !p.passportScanKey || !p.passportScanKey.trim());
+    if (missingPassports.length > 0) {
+      const missingNames = missingPassports
+        .map((p: any) => `${p.title ? p.title + ' ' : ''}${p.firstName || ''} ${p.lastName || ''}`.trim() || `Passenger #${p.id}`)
+        .join(', ');
+      throw new BadRequestException(
+        `Upload passport to send the ticket order. Missing passport scan for: ${missingNames}`
+      );
+    }
+
+    // Retrieve passenger passport scans from MinIO documents bucket
+    const passportAttachments: Array<{ filename: string; content: Buffer; contentType: string }> = [];
+    for (let i = 0; i < passengers.length; i++) {
+      const p = passengers[i];
+      if (p.passportScanKey) {
+        try {
+          const buffer = await minioService.getObjectBuffer('documents', p.passportScanKey);
+          const match = p.passportScanKey.match(/\.([a-zA-Z0-9]+)$/);
+          const ext = match ? match[1].toLowerCase() : 'jpg';
+          let contentType = 'image/jpeg';
+          if (ext === 'png') contentType = 'image/png';
+          else if (ext === 'pdf') contentType = 'application/pdf';
+          else if (ext === 'webp') contentType = 'image/webp';
+
+          const paxName = `${p.firstName || 'Pax'}_${p.lastName || i + 1}`.replace(/[^a-zA-Z0-9_-]/g, '_');
+          passportAttachments.push({
+            filename: `Passport_${paxName}.${ext}`,
+            content: buffer,
+            contentType,
+          });
+        } catch (minioErr) {
+          logger.error(`Failed to retrieve passport scan for passenger ${p.id} (${p.passportScanKey}):`, minioErr);
+          throw new BadRequestException(
+            `Failed to retrieve uploaded passport file for passenger ${p.firstName || ''} ${p.lastName || ''}. Please re-upload the passport scan.`
+          );
+        }
+      }
+    }
+
     // Determine Agent details
     const agentName = booking.agent?.name ||
       (booking.createdBy ? `${booking.createdBy.firstName} ${booking.createdBy.lastName}`.trim() : null) ||
@@ -1886,6 +1931,7 @@ export class BookingsService {
       })),
       customNotes: options.customNotes,
       pdfBase64: options.pdfBase64,
+      passportAttachments,
     });
 
     // Write structured audit log

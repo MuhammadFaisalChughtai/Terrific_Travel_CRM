@@ -94,6 +94,16 @@ export class MinioService {
     return minioClient.statObject(bucketName, objectName);
   }
 
+  async getObjectBuffer(bucketName: string, objectName: string): Promise<Buffer> {
+    const stream = await this.getObjectStream(bucketName, objectName);
+    return new Promise<Buffer>((resolve, reject) => {
+      const chunks: Buffer[] = [];
+      stream.on('data', (chunk: any) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+      stream.on('end', () => resolve(Buffer.concat(chunks)));
+      stream.on('error', (err: any) => reject(err));
+    });
+  }
+
   async deleteFile(bucketName: string, objectName: string): Promise<void> {
     await minioClient.removeObject(bucketName, objectName);
   }

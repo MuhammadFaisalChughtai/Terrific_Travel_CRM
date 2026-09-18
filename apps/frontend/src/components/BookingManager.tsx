@@ -42,6 +42,7 @@ import {
   Undo,
   Send,
   Mail,
+  AlertTriangle,
 } from "lucide-react";
 // @ts-ignore
 import html2pdf from "html2pdf.js";
@@ -259,6 +260,7 @@ export default function BookingManager({
   const [editingAdditional, setEditingAdditional] = useState<any | null>(null);
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [isTicketOrderModalOpen, setIsTicketOrderModalOpen] = useState(false);
+  const [isMissingPassportModalOpen, setIsMissingPassportModalOpen] = useState(false);
   const [ticketOrderNotes, setTicketOrderNotes] = useState("");
   const [isSendingTicketOrder, setIsSendingTicketOrder] = useState(false);
   const ticketOrderPrintRef = useRef<HTMLDivElement>(null);
@@ -267,6 +269,16 @@ export default function BookingManager({
     if (!booking) return;
     if (!booking.flightServices || booking.flightServices.length === 0) {
       toast.error("No flight segments registered in this booking to send ticket order.");
+      return;
+    }
+
+    // Check if any passenger is missing passport scan
+    const missing = (booking.passengers || []).filter(
+      (p: any) => !p.passportScanKey || !p.passportScanKey.trim(),
+    );
+    if (missing.length > 0) {
+      setIsTicketOrderModalOpen(false);
+      setIsMissingPassportModalOpen(true);
       return;
     }
 
@@ -2026,8 +2038,23 @@ export default function BookingManager({
                             </td>
                             {/* Passport & E-Ticket */}
                             <td className="px-3 py-2">
-                              <div className="font-mono text-foreground">
-                                {p.passportNumber || "—"}
+                              <div className="flex items-center gap-1.5 font-mono text-foreground">
+                                <span>{p.passportNumber || "—"}</span>
+                                {p.passportScanKey ? (
+                                  <span
+                                    className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-500/15 text-emerald-600 border border-emerald-500/30"
+                                    title="Passport image uploaded"
+                                  >
+                                    Scan ✓
+                                  </span>
+                                ) : (
+                                  <span
+                                    className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-rose-500/15 text-rose-600 border border-rose-500/30"
+                                    title="Passport image missing"
+                                  >
+                                    No Scan
+                                  </span>
+                                )}
                               </div>
                               {(() => {
                                 const raw = (p.eticket || p.ticketNo || "").trim();
@@ -2222,6 +2249,16 @@ export default function BookingManager({
                       );
                       return;
                     }
+
+                    // Check if any passenger is missing passport scan image
+                    const missingPassports = (booking.passengers || []).filter(
+                      (p: any) => !p.passportScanKey || !p.passportScanKey.trim(),
+                    );
+                    if (missingPassports.length > 0) {
+                      setIsMissingPassportModalOpen(true);
+                      return;
+                    }
+
                     setTicketOrderNotes("");
                     setIsTicketOrderModalOpen(true);
                   }}
@@ -3933,7 +3970,7 @@ export default function BookingManager({
                             &bull; Nat: {p.nationality || "N/A"}
                           </div>
                         </div>
-                        <div className="text-right text-[11px]">
+                        <div className="text-right text-[11px] flex flex-col items-end gap-1">
                           <div className="font-mono font-bold text-foreground">
                             Passport: {p.passportNumber || "N/A"}
                           </div>
@@ -3943,10 +3980,39 @@ export default function BookingManager({
                               ? new Date(p.passportExpiryDate).toLocaleDateString("en-GB")
                               : "N/A"}
                           </div>
+                          {p.passportScanKey ? (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-600 text-[9px] font-bold border border-emerald-500/30">
+                              <CheckCircle2 size={10} /> Scan Attached
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-rose-500/15 text-rose-600 text-[9px] font-bold border border-rose-500/30">
+                              <AlertCircle size={10} /> Missing Scan
+                            </span>
+                          )}
                         </div>
                       </div>
                     ))}
                   </div>
+                </div>
+
+                {/* Passport Scans Verified & Attached Notice */}
+                <div className="p-3 bg-emerald-500/10 border border-emerald-500/25 rounded-xl flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="p-1 rounded-md bg-emerald-500 text-white shadow-2xs">
+                      <CheckCircle2 size={13} />
+                    </span>
+                    <div>
+                      <span className="font-bold text-foreground text-xs block">
+                        Passenger Passport Scans Attached ({booking.passengers?.length || 0})
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">
+                        All passenger passport scans are verified and will be attached directly to the email for the ticketing team.
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-bold text-emerald-600 bg-emerald-500/15 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                    Ready to Dispatch
+                  </span>
                 </div>
 
                 {/* Notes & Instructions Textarea */}
@@ -3989,6 +4055,149 @@ export default function BookingManager({
                       </>
                     )}
                   </button>
+                </div>
+              </div>
+            );
+          })()}
+        </Modal>
+      )}
+
+      {/* Missing Passport Scan Warning Modal */}
+      {isMissingPassportModalOpen && booking && (
+        <Modal
+          isOpen={isMissingPassportModalOpen}
+          onClose={() => setIsMissingPassportModalOpen(false)}
+          title="Upload Passport to Send Ticket Order"
+          maxWidth="xl"
+        >
+          {(() => {
+            const passengers = booking.passengers || [];
+            const missingPassports = passengers.filter(
+              (p: any) => !p.passportScanKey || !p.passportScanKey.trim(),
+            );
+            const uploadedCount = passengers.length - missingPassports.length;
+
+            return (
+              <div className="space-y-4 font-sans text-xs">
+                {/* Warning Alert Banner */}
+                <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-start gap-3">
+                  <div className="p-2 rounded-lg bg-amber-500 text-white shrink-0 mt-0.5 shadow-2xs">
+                    <AlertTriangle size={18} />
+                  </div>
+                  <div className="space-y-1">
+                    <h4 className="font-bold text-amber-800 dark:text-amber-400 text-sm">
+                      Passport Scans Required Before Ticket Order
+                    </h4>
+                    <p className="text-[11px] text-amber-900/80 dark:text-amber-300/80 leading-relaxed">
+                      All passenger passport images must be uploaded and attached to the ticket order email.
+                      The ticketing team cannot issue tickets without verified passport images.
+                    </p>
+                    <div className="pt-1 flex items-center gap-2 font-mono text-[11px]">
+                      <span className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-700 dark:text-rose-400 font-bold">
+                        {missingPassports.length} Missing Scan{missingPassports.length !== 1 ? "s" : ""}
+                      </span>
+                      <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 font-bold">
+                        {uploadedCount} Uploaded
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Passenger Verification List */}
+                <div className="border border-border rounded-xl overflow-hidden bg-card">
+                  <div className="px-3 py-2 bg-secondary/50 border-b border-border font-bold text-[11px] uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                    <span className="flex items-center gap-1.5 text-primary">
+                      <Users size={12} /> Passenger Passport Verification ({passengers.length})
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">Action Required</span>
+                  </div>
+                  <div className="divide-y divide-border/60 max-h-60 overflow-y-auto">
+                    {passengers.map((p: any, idx: number) => {
+                      const hasScan = !!(p.passportScanKey && p.passportScanKey.trim());
+                      return (
+                        <div
+                          key={p.id || idx}
+                          className={`p-3 flex items-center justify-between gap-3 ${
+                            !hasScan ? "bg-rose-500/5 hover:bg-rose-500/10" : "hover:bg-secondary/20"
+                          } transition-colors`}
+                        >
+                          <div className="space-y-0.5 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-foreground truncate">
+                                {idx + 1}. {(p.title || "").toUpperCase()} {(p.firstName || "").toUpperCase()} {(p.lastName || "").toUpperCase()}
+                              </span>
+                              {p.role === "Leader" && (
+                                <span className="px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-600 text-[9px] font-extrabold shrink-0">
+                                  LEAD
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[10px] text-muted-foreground flex items-center gap-2">
+                              <span>Passport: <strong className="font-mono text-foreground">{p.passportNumber || "Not Provided"}</strong></span>
+                              &bull;
+                              <span>DOB: {p.dateOfBirth ? new Date(p.dateOfBirth).toLocaleDateString("en-GB") : "N/A"}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            {hasScan ? (
+                              <span className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-emerald-500/15 text-emerald-600 border border-emerald-500/30 flex items-center gap-1">
+                                <CheckCircle2 size={12} /> Scan Uploaded
+                              </span>
+                            ) : (
+                              <>
+                                <span className="px-2 py-1 rounded-md text-[10px] font-bold bg-rose-500/15 text-rose-600 border border-rose-500/30 flex items-center gap-1">
+                                  <AlertCircle size={12} /> Missing Scan
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setIsMissingPassportModalOpen(false);
+                                    setEditingPassenger(p);
+                                    setIsPassengerModalOpen(true);
+                                    toast.info(
+                                      `Please upload passport scan for ${p.firstName || "passenger"} ${p.lastName || ""}`,
+                                    );
+                                  }}
+                                  className="px-2.5 py-1 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded text-[11px] transition-all shadow-xs flex items-center gap-1 cursor-pointer"
+                                >
+                                  <Upload size={11} /> Upload
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Footer Controls */}
+                <div className="flex items-center justify-between pt-2 border-t border-border/60">
+                  <span className="text-[11px] text-muted-foreground">
+                    Upload all passport scans in the Passengers section to dispatch the ticket order.
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsMissingPassportModalOpen(false)}
+                      className="px-4 py-1.5 bg-secondary text-foreground font-bold rounded-lg text-xs hover:bg-secondary/80 transition-all border border-border cursor-pointer"
+                    >
+                      Close
+                    </button>
+                    {missingPassports.length === 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsMissingPassportModalOpen(false);
+                          setIsTicketOrderModalOpen(true);
+                        }}
+                        className="px-4 py-1.5 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-lg text-xs transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
+                      >
+                        <Send size={12} /> Proceed to Send Ticket Order
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             );

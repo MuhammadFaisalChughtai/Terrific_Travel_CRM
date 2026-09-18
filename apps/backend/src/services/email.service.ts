@@ -1245,6 +1245,11 @@ export class EmailService {
     }>;
     customNotes?: string | null;
     pdfBase64?: string | null;
+    passportAttachments?: Array<{
+      filename: string;
+      content: Buffer;
+      contentType?: string;
+    }>;
   }) {
     const {
       bookingRef,
@@ -1263,6 +1268,7 @@ export class EmailService {
       flights,
       customNotes,
       pdfBase64,
+      passportAttachments = [],
     } = params;
 
     const fromAddress = `"Terrific Travel Ltd" <terrifictravelltd@gmail.com>`;
@@ -1501,6 +1507,21 @@ export class EmailService {
                 </table>
               </div>
 
+              <!-- Passport Scans Attachment Notice -->
+              ${passportAttachments && passportAttachments.length > 0 ? `
+              <div style="margin-bottom: 24px; padding: 14px 18px; background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px;">
+                <div style="font-size: 12px; font-weight: 800; color: #065f46; margin-bottom: 4px;">
+                  🛂 Attached Passenger Passport Scans (${passportAttachments.length})
+                </div>
+                <div style="font-size: 11px; color: #047857; margin-bottom: 6px;">
+                  Passport scans for all passengers have been verified and are attached directly to this email:
+                </div>
+                <ul style="margin: 0; padding-left: 18px; font-family: monospace; font-size: 11px; color: #065f46;">
+                  ${passportAttachments.map(pa => `<li style="margin-bottom: 2px;"><strong>${pa.filename}</strong></li>`).join('')}
+                </ul>
+              </div>
+              ` : ''}
+
               <!-- Action Link -->
               <div style="text-align: center; margin: 30px 0 10px 0;">
                 <a href="${config.frontendUrl}/bookings?ref=${encodeURIComponent(bookingRef)}" target="_blank" style="background-color: #ea580c; color: #ffffff; font-size: 13px; font-weight: 700; text-decoration: none; padding: 12px 28px; border-radius: 6px; display: inline-block;">
@@ -1532,6 +1553,17 @@ export class EmailService {
         content: Buffer.from(cleanBase64, 'base64'),
         contentType: 'application/pdf',
       });
+    }
+
+    // Attach all passenger passport scans
+    if (passportAttachments && passportAttachments.length > 0) {
+      for (const pa of passportAttachments) {
+        attachments.push({
+          filename: pa.filename,
+          content: pa.content,
+          contentType: pa.contentType || 'image/jpeg',
+        });
+      }
     }
 
     // Include standalone printable HTML document attachment
