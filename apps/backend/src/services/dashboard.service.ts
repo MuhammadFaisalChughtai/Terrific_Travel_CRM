@@ -47,6 +47,32 @@ function calculateBookingFinancials(b: any): { vendorCost: number; margin: numbe
   };
 }
 
+// Shared helper to calculate customer pending balance for a booking
+function calculateCustomerPending(b: any): { clientPaid: number; pendingAmount: number; effectivePrice: number } {
+  let clientPaid = 0;
+  if (b.transactions && b.transactions.length > 0) {
+    const clientTransactions = b.transactions.filter((tx: any) => {
+      const pm = (tx.paymentMethod || '').toUpperCase();
+      const notes = (tx.notes || '').toLowerCase();
+      return pm !== 'AGENT PAYOUT' && pm !== 'AGENT_PAYOUT' && !notes.includes('vendor payment');
+    });
+    clientPaid = clientTransactions.reduce((sum: number, tx: any) => sum + (tx.amount || 0), 0);
+  }
+
+  if (clientPaid <= 0 && b.paidAmount > 0) {
+    clientPaid = b.paidAmount;
+  }
+
+  const effectivePrice = Math.max(0, (b.totalPrice || 0) - (b.refundAmount || 0));
+  const pendingAmount = Math.max(0, Math.round((effectivePrice - clientPaid) * 100) / 100);
+
+  return {
+    clientPaid: Math.round(clientPaid * 100) / 100,
+    pendingAmount,
+    effectivePrice: Math.round(effectivePrice * 100) / 100,
+  };
+}
+
 // Helper to build the booking include payload
 const bookingInclude = {
   agent: {
@@ -62,6 +88,8 @@ const bookingInclude = {
   visaServices: true,
   additionalServices: true,
   bookingVendorPayments: true,
+  transactions: true,
+  passengers: true,
 };
 
 export class DashboardService {
@@ -116,11 +144,21 @@ export class DashboardService {
 
     const agentMap: Record<string, { id: string; name: string; profit: number; bookingsCount: number }> = {};
     let totalProfit = 0;
+    let totalCustomerPending = 0;
+    let customerPendingBookingsCount = 0;
 
     // Calculate profit for the filtered bookings (for the stat card)
     allBookings.forEach((b: any) => {
       const { netProfit } = calculateBookingFinancials(b);
       totalProfit += netProfit;
+
+      if (b.status !== 'CANCELLED') {
+        const { pendingAmount } = calculateCustomerPending(b);
+        if (pendingAmount > 0.01) {
+          totalCustomerPending += pendingAmount;
+          customerPendingBookingsCount += 1;
+        }
+      }
     });
 
     // Calculate agent leaderboard using ALL global bookings
@@ -159,6 +197,8 @@ export class DashboardService {
       totalBookings: bookings,
       totalRevenue: Math.round(totalRevenue * 100) / 100,
       totalProfit: Math.round(totalProfit * 100) / 100,
+      totalCustomerPending: Math.round(totalCustomerPending * 100) / 100,
+      customerPendingBookingsCount,
       flightBookings: flights,
       hotelBookings: hotels,
       tourBookings: tours,
@@ -268,6 +308,8 @@ export class DashboardService {
     let totalVendorCost = 0;
     let totalMargin = 0;
     let totalProfit = 0;
+    let totalCustomerPending = 0;
+    let customerPendingBookingsCount = 0;
 
     bookings.forEach((b: any) => {
       const financials = calculateBookingFinancials(b);
@@ -275,6 +317,14 @@ export class DashboardService {
       totalVendorCost += financials.vendorCost;
       totalMargin += financials.margin;
       totalProfit += financials.netProfit;
+
+      if (b.status !== 'CANCELLED') {
+        const { pendingAmount } = calculateCustomerPending(b);
+        if (pendingAmount > 0.01) {
+          totalCustomerPending += pendingAmount;
+          customerPendingBookingsCount += 1;
+        }
+      }
     });
 
     performanceBookings.forEach((b: any) => {
@@ -300,6 +350,8 @@ export class DashboardService {
       totalVendorCost: Math.round(totalVendorCost * 100) / 100,
       totalMargin: Math.round(totalMargin * 100) / 100,
       totalProfit: Math.round(totalProfit * 100) / 100,
+      totalCustomerPending: Math.round(totalCustomerPending * 100) / 100,
+      customerPendingBookingsCount,
       totalBookings: bookings.length,
       flightBookings,
       hotelBookings,
@@ -461,6 +513,106 @@ export class DashboardService {
       monthly,
       quarterly,
       yearly
+    };
+  }
+
+  async getCustomerPendingBookings(period?: string, search?: string) {
+    const now = new Date();
+    let startDate: Date | undefined;
+    let endDate: Date | undefined = new Date(now);
+
+    if (period === 'daily') {
+      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    } else if (period === 'weekly') {
+      const day = now.getDay();
+      const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+      startDate = new Date(now);
+      startDate.setDate(diff);
+      startDate.setHours(0, 0, 0, 0);
+      endDate = new Date();
+    } else if (period === 'monthly') {
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    } else if (period === 'quarterly') {
+      const quarter = Math.floor(now.getMonth() / 3);
+      startDate = new Date(now.getFullYear(), quarter * 3, 1);
+      endDate = new Date(now.getFullYear(), quarter * 3 + 3, 0, 23, 59, 59, 999);
+    } else if (period === 'yearly') {
+      startDate = new Date(now.getFullYear(), 0, 1);
+      endDate = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+    }
+
+    const whereClause: any = {
+      status: { not: 'CANCELLED' },
+      ...(startDate ? {
+        OR: [
+          { bookingDate: { gte: startDate, lte: endDate } },
+          { bookingDate: null, createdAt: { gte: startDate, lte: endDate } }
+        ]
+      } : {}),
+    };
+
+    const bookings = await prisma.booking.findMany({
+      where: whereClause,
+      include: {
+        agent: true,
+        passengers: true,
+        transactions: true,
+      },
+      orderBy: [
+        { bookingDate: 'desc' },
+        { createdAt: 'desc' }
+      ]
+    });
+
+    let pendingBookings = bookings.map((b: any) => {
+      const { clientPaid, pendingAmount, effectivePrice } = calculateCustomerPending(b);
+      const leader = b.passengers?.find((p: any) => p.role === 'Leader') || b.passengers?.[0];
+      const customerName = leader ? `${leader.firstName || ''} ${leader.lastName || ''}`.trim() : 'N/A';
+      const customerPhone = leader?.phoneNumber || 'N/A';
+      const customerEmail = leader?.email || 'N/A';
+
+      return {
+        id: b.id,
+        bookingReference: b.bookingReference,
+        bookingDate: b.bookingDate || b.createdAt,
+        departureDate: b.departureDate,
+        customerName: customerName || 'N/A',
+        customerPhone,
+        customerEmail,
+        agentName: b.agent?.name || 'Unassigned',
+        agentId: b.agentId,
+        totalPrice: b.totalPrice,
+        refundAmount: b.refundAmount || 0,
+        effectivePrice,
+        paidAmount: clientPaid,
+        pendingAmount,
+        paymentStatus: b.paymentStatus,
+        status: b.status,
+      };
+    }).filter((b: any) => b.pendingAmount > 0.01);
+
+    if (search && search.trim()) {
+      const s = search.trim().toLowerCase();
+      pendingBookings = pendingBookings.filter((b: any) =>
+        b.bookingReference?.toLowerCase().includes(s) ||
+        b.customerName?.toLowerCase().includes(s) ||
+        b.customerEmail?.toLowerCase().includes(s) ||
+        b.customerPhone?.toLowerCase().includes(s) ||
+        b.agentName?.toLowerCase().includes(s)
+      );
+    }
+
+    // Sort descending by pending amount so the largest pending balances are on top
+    pendingBookings.sort((a: any, b: any) => b.pendingAmount - a.pendingAmount);
+
+    const totalPendingAmount = Math.round(pendingBookings.reduce((sum: number, b: any) => sum + b.pendingAmount, 0) * 100) / 100;
+
+    return {
+      bookings: pendingBookings,
+      totalPendingAmount,
+      count: pendingBookings.length,
     };
   }
 }

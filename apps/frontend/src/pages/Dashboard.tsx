@@ -2,6 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "../api/client";
 import { formatCurrency } from "@tms/shared-utils";
 import { useAuthStore } from "../store/auth.store";
+import { useNavigate } from "react-router-dom";
+import Modal from "../components/Modal";
 import {
   TrendingUp,
   Users,
@@ -11,6 +13,9 @@ import {
   Hotel,
   Compass,
   Percent,
+  AlertCircle,
+  ExternalLink,
+  Search,
 } from "lucide-react";
 import {
   AreaChart,
@@ -43,6 +48,10 @@ export default function Dashboard() {
   const [kpiPeriod, setKpiPeriod] = useState<KpiPeriod>("all");
   const [agentPeriod, setAgentPeriod] = useState<AgentPeriod>("all");
   const [categoryPeriod, setCategoryPeriod] = useState<CategoryPeriod>("all");
+  const [isPendingModalOpen, setIsPendingModalOpen] = useState(false);
+  const [pendingPeriod, setPendingPeriod] = useState<string>("all");
+  const [pendingSearch, setPendingSearch] = useState("");
+  const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const isAgent =
     user?.roles.includes("Agent") || user?.roles.includes("TRAVEL_AGENT");
@@ -102,12 +111,30 @@ export default function Dashboard() {
     },
   });
 
+  // Fetch pending customer bookings (Admin only)
+  const { data: pendingData, isLoading: pendingLoading } = useQuery({
+    queryKey: [
+      "dashboard-customer-pending-bookings",
+      pendingPeriod,
+      pendingSearch,
+    ],
+    queryFn: async () => {
+      const res = await apiClient.get(
+        `/dashboard/customer-pending-bookings?period=${pendingPeriod}&search=${encodeURIComponent(pendingSearch)}`
+      );
+      return res.data.data;
+    },
+    enabled: !!isAdmin && isPendingModalOpen,
+  });
+
   // Fallback UI data if loading/empty
   const stats = statsData || {
     totalUsers: 148,
     totalBookings: 64,
     totalRevenue: 28400,
     totalProfit: 9800,
+    totalCustomerPending: 0,
+    customerPendingBookingsCount: 0,
     flightBookings: 32,
     hotelBookings: 20,
     tourBookings: 12,
@@ -118,6 +145,8 @@ export default function Dashboard() {
     totalVendorCost: 0,
     totalMargin: 0,
     totalProfit: 0,
+    totalCustomerPending: 0,
+    customerPendingBookingsCount: 0,
     totalBookings: 0,
   };
 
@@ -172,7 +201,15 @@ export default function Dashboard() {
   };
 
   const cards = useMemo(() => {
-    const list = [
+    const list: Array<{
+      name: string;
+      value: string | number;
+      subtitle?: string;
+      icon: any;
+      color: string;
+      onClick?: () => void;
+      isClickable?: boolean;
+    }> = [
       {
         name: isAgent && !isAdmin ? "My Revenue" : "Total Revenue",
         value: formatCurrency(periodStats.totalRevenue),
@@ -204,6 +241,17 @@ export default function Dashboard() {
     ];
 
     if (isAdmin) {
+      list.push({
+        name: "Customer Pending",
+        value: formatCurrency(periodStats.totalCustomerPending || 0),
+        subtitle: `${periodStats.customerPendingBookingsCount || 0} Bookings with Balance`,
+        icon: AlertCircle,
+        color:
+          "from-amber-500/20 to-orange-500/10 text-amber-600 dark:text-amber-400",
+        onClick: () => setIsPendingModalOpen(true),
+        isClickable: true,
+      });
+
       list.push({
         name: "Platform Users",
         value: stats.totalUsers,
@@ -279,21 +327,21 @@ export default function Dashboard() {
         <h2 className="text-base font-bold mb-0.5">
           Welcome to your Travel Operations Hub
         </h2>
-        <p className="text-xs text-muted-foreground">
-          Monitor real-time bookings, payment records, and global travel
-          capacity.
+        <p className="text-muted-foreground text-xs">
+          Comprehensive real-time analytics across bookings, revenues, and
+          operational volume.
         </p>
       </div>
 
-      {/* KPI Period Filter */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      {/* Main KPI Title & Filter Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-3">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-            KPI Period
-          </p>
-          <p className="text-[10px] text-muted-foreground/70 mt-0.5">
-            Showing stats for:{" "}
-            <span className="text-foreground font-semibold">
+          <h3 className="text-sm font-bold text-foreground">
+            Financial & Operational Metrics
+          </h3>
+          <p className="text-[11px] text-muted-foreground">
+            Displaying metrics for:{" "}
+            <span className="font-semibold text-foreground">
               {kpiPeriodLabel[kpiPeriod]}
             </span>
           </p>
@@ -317,22 +365,39 @@ export default function Dashboard() {
 
       {/* Primary KPI Grid */}
       <div
-        className={`grid grid-cols-1 gap-4 ${isAdmin ? "md:grid-cols-5" : "md:grid-cols-4"}`}
+        className={`grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 ${isAdmin ? "xl:grid-cols-6" : "xl:grid-cols-4"}`}
       >
-        {cards.map((card) => {
+        {cards.map((card: any) => {
           const Icon = card.icon;
           return (
             <div
               key={card.name}
-              className={`p-4 bg-card border border-border rounded-xl flex items-center justify-between shadow-sm transition-opacity ${
+              onClick={card.onClick}
+              role={card.onClick ? "button" : undefined}
+              tabIndex={card.onClick ? 0 : undefined}
+              className={`p-4 bg-card border border-border rounded-xl flex items-center justify-between shadow-sm transition-all ${
+                card.isClickable
+                  ? "cursor-pointer hover:border-amber-500/60 hover:shadow-md hover:scale-[1.01] active:scale-[0.99] group ring-1 ring-amber-500/20"
+                  : ""
+              } ${
                 periodStatsLoading ? "opacity-60 animate-pulse" : "opacity-100"
               }`}
             >
               <div>
-                <p className="text-xs font-semibold text-muted-foreground">
+                <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
                   {card.name}
+                  {card.isClickable && (
+                    <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium underline inline-flex items-center gap-0.5 group-hover:text-amber-500">
+                      View <ExternalLink size={10} />
+                    </span>
+                  )}
                 </p>
-                <h3 className="text-xl font-bold mt-1">{card.value}</h3>
+                <h3 className="text-xl font-bold mt-1 text-foreground">{card.value}</h3>
+                {card.subtitle && (
+                  <p className="text-[10px] text-muted-foreground font-medium mt-0.5">
+                    {card.subtitle}
+                  </p>
+                )}
               </div>
               <div
                 className={`p-2.5 rounded-lg bg-gradient-to-br ${card.color}`}
@@ -749,6 +814,186 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Customer Pending Bookings Modal (Admin only) */}
+      {isAdmin && (
+        <Modal
+          isOpen={isPendingModalOpen}
+          onClose={() => setIsPendingModalOpen(false)}
+          title="Customer Pending Bookings"
+          maxWidth="6xl"
+        >
+          <div className="space-y-4">
+            {/* Top Bar: Filters & Summary */}
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 bg-secondary/30 p-3 rounded-lg border border-border">
+              {/* Period tabs */}
+              <div className="flex flex-wrap items-center gap-1">
+                <span className="text-[11px] font-semibold text-muted-foreground mr-1">Period:</span>
+                {(["all", "daily", "weekly", "monthly", "quarterly", "yearly"] as const).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setPendingPeriod(p)}
+                    className={`px-2.5 py-1 rounded-md text-[10px] font-semibold capitalize transition-all ${
+                      pendingPeriod === p
+                        ? "bg-card text-foreground shadow-sm border border-border/60"
+                        : "text-muted-foreground hover:text-foreground border border-transparent"
+                    }`}
+                  >
+                    {p === "all" ? "All Time" : p}
+                  </button>
+                ))}
+              </div>
+
+              {/* Total summary badge */}
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold block">Total Pending</span>
+                  <span className="text-sm font-extrabold text-amber-600 dark:text-amber-400">
+                    {formatCurrency(pendingData?.totalPendingAmount ?? 0)}
+                  </span>
+                </div>
+                <div className="text-right pl-3 border-l border-border">
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold block">Bookings</span>
+                  <span className="text-sm font-extrabold text-foreground">
+                    {pendingData?.count ?? 0}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Search Box */}
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 text-muted-foreground" size={14} />
+              <input
+                type="text"
+                placeholder="Search by Reference, Customer Name, Email, Phone, or Agent..."
+                value={pendingSearch}
+                onChange={(e) => setPendingSearch(e.target.value)}
+                className="w-full bg-card border border-border rounded-lg pl-9 pr-14 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+              {pendingSearch && (
+                <button
+                  onClick={() => setPendingSearch("")}
+                  className="absolute right-3 top-2.5 text-muted-foreground hover:text-foreground text-[11px] font-medium"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+
+            {/* Bookings Table */}
+            <div className="border border-border rounded-lg overflow-hidden bg-card">
+              <div className="overflow-x-auto max-h-[55vh]">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead className="bg-secondary/60 text-[11px] font-bold text-muted-foreground uppercase tracking-wider sticky top-0 z-10 border-b border-border">
+                    <tr>
+                      <th className="py-2.5 px-3">Booking Ref</th>
+                      <th className="py-2.5 px-3">Date</th>
+                      <th className="py-2.5 px-3">Customer</th>
+                      <th className="py-2.5 px-3">Agent</th>
+                      <th className="py-2.5 px-3 text-right">Total Price</th>
+                      <th className="py-2.5 px-3 text-right">Paid</th>
+                      <th className="py-2.5 px-3 text-right">Pending Balance</th>
+                      <th className="py-2.5 px-3 text-center">Status</th>
+                      <th className="py-2.5 px-3 text-center">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/60">
+                    {pendingLoading ? (
+                      <tr>
+                        <td colSpan={9} className="py-8 text-center text-muted-foreground animate-pulse">
+                          Loading pending customer bookings...
+                        </td>
+                      </tr>
+                    ) : !pendingData?.bookings || pendingData.bookings.length === 0 ? (
+                      <tr>
+                        <td colSpan={9} className="py-8 text-center text-muted-foreground">
+                          No pending customer bookings found.
+                        </td>
+                      </tr>
+                    ) : (
+                      pendingData.bookings.map((booking: any) => (
+                        <tr
+                          key={booking.id}
+                          className="hover:bg-secondary/30 transition-colors"
+                        >
+                          <td className="py-2.5 px-3 font-semibold text-primary whitespace-nowrap">
+                            {booking.bookingReference}
+                          </td>
+                          <td className="py-2.5 px-3 text-muted-foreground whitespace-nowrap">
+                            {booking.bookingDate
+                              ? new Date(booking.bookingDate).toLocaleDateString("en-GB")
+                              : "N/A"}
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <div className="font-medium text-foreground">{booking.customerName}</div>
+                            {(booking.customerPhone !== "N/A" || booking.customerEmail !== "N/A") && (
+                              <div className="text-[10px] text-muted-foreground">
+                                {booking.customerPhone !== "N/A" ? booking.customerPhone : ""}
+                                {booking.customerPhone !== "N/A" && booking.customerEmail !== "N/A" ? " • " : ""}
+                                {booking.customerEmail !== "N/A" ? booking.customerEmail : ""}
+                              </div>
+                            )}
+                          </td>
+                          <td className="py-2.5 px-3 text-muted-foreground">
+                            {booking.agentName}
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-medium text-foreground whitespace-nowrap">
+                            {formatCurrency(booking.totalPrice)}
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-medium text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
+                            {formatCurrency(booking.paidAmount)}
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-bold text-amber-600 dark:text-amber-400 whitespace-nowrap">
+                            {formatCurrency(booking.pendingAmount)}
+                          </td>
+                          <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                booking.paymentStatus === "PARTIALLY_PAID"
+                                  ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                                  : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20"
+                              }`}
+                            >
+                              {booking.paymentStatus}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsPendingModalOpen(false);
+                                navigate(`/bookings?search=${encodeURIComponent(booking.bookingReference)}`);
+                              }}
+                              className="px-2.5 py-1 bg-primary/10 hover:bg-primary/20 text-primary rounded text-[11px] font-semibold transition-colors inline-flex items-center gap-1"
+                            >
+                              View <ExternalLink size={10} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex justify-between items-center pt-2">
+              <span className="text-[11px] text-muted-foreground">
+                Showing {pendingData?.bookings?.length ?? 0} bookings with outstanding customer balances
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsPendingModalOpen(false)}
+                className="px-4 py-1.5 bg-secondary hover:bg-secondary/80 text-foreground font-semibold rounded-lg text-xs transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );

@@ -61,3 +61,25 @@ export const getStatsByPeriod = asyncHandler(async (req: Request, res: Response)
     data: result,
   });
 });
+
+export const getCustomerPendingBookings = asyncHandler(async (req: Request, res: Response) => {
+  const user = (req as AuthenticatedRequest).user;
+  const isAdmin = user?.roles.includes('SUPER_ADMIN') || user?.roles.includes('ADMIN');
+
+  if (!isAdmin) {
+    return res.status(403).json({
+      success: false,
+      message: 'Access denied. Only administrators can view customer pending bookings.',
+    });
+  }
+
+  const period = req.query.period as string | undefined;
+  const search = req.query.search as string | undefined;
+
+  const result = await dashboardService.getCustomerPendingBookings(period, search);
+  res.status(200).json({
+    success: true,
+    data: result,
+  });
+});
+
