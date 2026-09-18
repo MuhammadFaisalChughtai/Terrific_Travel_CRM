@@ -1398,6 +1398,64 @@ export class EmailService {
 
     const subject = `Kindly issue the PNR: ${targetPnr} Folder: ${bookingRef}`;
 
+    const formatDateStr = (d?: Date | string | null) => {
+      if (!d) return 'N/A';
+      try {
+        const dt = new Date(d);
+        if (isNaN(dt.getTime())) return 'N/A';
+        const day = String(dt.getDate()).padStart(2, '0');
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const mon = months[dt.getMonth()];
+        const year = dt.getFullYear();
+        return `${day}-${mon}-${year}`;
+      } catch {
+        return 'N/A';
+      }
+    };
+
+    const passportTextLines: string[] = [];
+    if (passengers && passengers.length > 0) {
+      passportTextLines.push('Passenger Passport Details:');
+      passengers.forEach((p, idx) => {
+        const fullName = `${(p.title || '').trim()} ${(p.firstName || '').trim()} ${(p.lastName || '').trim()}`.trim();
+        const dob = formatDateStr(p.dateOfBirth);
+        const exp = formatDateStr(p.passportExpiryDate);
+        const passNo = p.passportNumber || 'N/A';
+        const nat = p.nationality || 'N/A';
+        const issue = p.passportIssuingCountry || nat || 'N/A';
+        const type = p.age || 'Adult';
+        passportTextLines.push(
+          `${idx + 1}. ${fullName} (${type}) | DOB: ${dob} | Nat: ${nat} | Passport No: ${passNo} | Expiry: ${exp} | Issue: ${issue}`
+        );
+      });
+      if (passportAttachments && passportAttachments.length > 0) {
+        passportTextLines.push(`* Passenger passport scan files (${passportAttachments.length}) are attached directly to this email.`);
+      }
+    }
+
+    const passportHtmlRows = (passengers || []).map((p, idx) => {
+      const fullName = `${(p.title || '').trim()} ${(p.firstName || '').trim()} ${(p.lastName || '').trim()}`.trim();
+      const dob = formatDateStr(p.dateOfBirth);
+      const exp = formatDateStr(p.passportExpiryDate);
+      const passNo = p.passportNumber || 'N/A';
+      const nat = p.nationality || 'N/A';
+      const issue = p.passportIssuingCountry || nat || 'N/A';
+      const type = p.age || 'Adult';
+
+      return `
+        <tr style="border-bottom: 1px solid #e5e7eb; background-color: ${idx % 2 === 0 ? '#ffffff' : '#f9fafb'};">
+          <td style="padding: 7px 9px; border: 1px solid #e5e7eb; text-align: center; font-weight: 600; color: #64748b;">${idx + 1}</td>
+          <td style="padding: 7px 9px; border: 1px solid #e5e7eb; font-weight: 700; color: #0f172a;">${fullName}</td>
+          <td style="padding: 7px 9px; border: 1px solid #e5e7eb; color: #475569;">${type}</td>
+          <td style="padding: 7px 9px; border: 1px solid #e5e7eb; color: #334155;">${dob}</td>
+          <td style="padding: 7px 9px; border: 1px solid #e5e7eb; color: #334155;">${nat}</td>
+          <td style="padding: 7px 9px; border: 1px solid #e5e7eb; font-family: monospace; font-weight: 700; color: #0369a1;">${passNo}</td>
+          <td style="padding: 7px 9px; border: 1px solid #e5e7eb; color: #334155;">${exp}</td>
+          <td style="padding: 7px 9px; border: 1px solid #e5e7eb; color: #334155;">${issue}</td>
+        </tr>
+      `;
+    }).join('');
+
     const actor = actorDetails || { name: 'Faisal Chughtai', role: 'Admin' };
     const owner = bookingAgentDetails;
     const isDifferentAgent = owner && owner.name && owner.name.trim().toLowerCase() !== actor.name.trim().toLowerCase();
@@ -1409,6 +1467,7 @@ export class EmailService {
       '',
       pnrBlock,
       '',
+      ...(passportTextLines.length > 0 ? [...passportTextLines, ''] : []),
       ...(customNotes ? ['Special Instructions / Notes:', customNotes, ''] : []),
       'Kind Regards,',
       `${actor.name} (${actor.role})`,
@@ -1437,6 +1496,36 @@ export class EmailService {
   <div style="font-family: 'Consolas', 'Courier New', Courier, monospace; font-size: 13.5px; line-height: 1.45; color: #000000; background-color: #fbfbfb; border: 1px solid #e5e7eb; border-left: 4px solid #0284c7; padding: 14px 18px; margin: 18px 0; white-space: pre-wrap; font-weight: 500; letter-spacing: 0.3px;">
 ${pnrBlock}
   </div>
+
+  ${(passengers && passengers.length > 0) ? `
+  <div style="margin: 22px 0 16px 0;">
+    <div style="font-size: 13px; font-weight: 700; color: #0f172a; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
+      Passenger Passport Details:
+    </div>
+    <table style="width: 100%; border-collapse: collapse; font-size: 12px; border: 1px solid #e2e8f0;">
+      <thead>
+        <tr style="background-color: #f1f5f9; border-bottom: 2px solid #cbd5e1; text-align: left; color: #475569; font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px;">
+          <th style="padding: 7px 9px; border: 1px solid #e2e8f0; width: 28px; text-align: center;">#</th>
+          <th style="padding: 7px 9px; border: 1px solid #e2e8f0;">Passenger Name</th>
+          <th style="padding: 7px 9px; border: 1px solid #e2e8f0;">Type</th>
+          <th style="padding: 7px 9px; border: 1px solid #e2e8f0;">Date of Birth</th>
+          <th style="padding: 7px 9px; border: 1px solid #e2e8f0;">Nationality</th>
+          <th style="padding: 7px 9px; border: 1px solid #e2e8f0;">Passport Number</th>
+          <th style="padding: 7px 9px; border: 1px solid #e2e8f0;">Expiry Date</th>
+          <th style="padding: 7px 9px; border: 1px solid #e2e8f0;">Country of Issue</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${passportHtmlRows}
+      </tbody>
+    </table>
+    ${passportAttachments && passportAttachments.length > 0 ? `
+    <div style="font-size: 11px; color: #059669; font-weight: 600; margin-top: 6px;">
+      &bull; Passenger passport scan copies (${passportAttachments.length}) are attached directly to this email.
+    </div>
+    ` : ''}
+  </div>
+  ` : ''}
 
   ${customNotes ? `
   <div style="margin: 18px 0; padding: 12px 16px; background-color: #fffbeb; border: 1px solid #fef3c7; border-left: 4px solid #f59e0b; font-size: 13.5px; color: #78350f;">

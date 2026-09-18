@@ -4143,6 +4143,59 @@ export default function BookingManager({
                       <div className="bg-muted/40 p-2.5 rounded border border-border/70 font-mono text-[11px] whitespace-pre-wrap leading-relaxed text-foreground">
                         {ticketOrderGdsText || "No PNR details"}
                       </div>
+
+                      {/* Passenger Passport Details in Email */}
+                      {(booking.passengers || []).length > 0 && (
+                        <div className="space-y-1 pt-1">
+                          <div className="text-[11px] font-bold text-foreground uppercase tracking-wider">
+                            Passenger Passport Details:
+                          </div>
+                          <div className="border border-border/80 rounded-lg overflow-x-auto">
+                            <table className="w-full text-left text-[11px] border-collapse">
+                              <thead>
+                                <tr className="bg-secondary/50 text-muted-foreground border-b border-border/70 text-[10px] uppercase font-bold">
+                                  <th className="p-1.5 text-center w-6">#</th>
+                                  <th className="p-1.5">Passenger Name</th>
+                                  <th className="p-1.5">Type</th>
+                                  <th className="p-1.5">Date of Birth</th>
+                                  <th className="p-1.5">Nationality</th>
+                                  <th className="p-1.5">Passport Number</th>
+                                  <th className="p-1.5">Expiry Date</th>
+                                  <th className="p-1.5">Country of Issue</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-border/50">
+                                {(booking.passengers || []).map((p: any, idx: number) => {
+                                  const fullName = `${p.title || ""} ${p.firstName || ""} ${p.lastName || ""}`.trim();
+                                  const dob = p.dateOfBirth ? new Date(p.dateOfBirth).toLocaleDateString("en-GB") : "N/A";
+                                  const exp = p.passportExpiryDate ? new Date(p.passportExpiryDate).toLocaleDateString("en-GB") : "N/A";
+                                  const passNo = p.passportNumber || "N/A";
+                                  const nat = p.nationality || "N/A";
+                                  const issue = p.passportIssuingCountry || nat || "N/A";
+                                  const type = p.age || "Adult";
+
+                                  return (
+                                    <tr key={p.id || idx} className="hover:bg-secondary/20">
+                                      <td className="p-1.5 text-center text-muted-foreground font-semibold">{idx + 1}</td>
+                                      <td className="p-1.5 font-bold text-foreground">{fullName}</td>
+                                      <td className="p-1.5 text-muted-foreground">{type}</td>
+                                      <td className="p-1.5 text-foreground">{dob}</td>
+                                      <td className="p-1.5 text-foreground">{nat}</td>
+                                      <td className="p-1.5 font-mono font-bold text-sky-600 dark:text-sky-400">{passNo}</td>
+                                      <td className="p-1.5 text-foreground">{exp}</td>
+                                      <td className="p-1.5 text-foreground">{issue}</td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                          <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1 pt-0.5">
+                            <CheckCircle2 size={11} /> Passenger passport scan copies ({(booking.passengers || []).length}) are attached directly to this email.
+                          </div>
+                        </div>
+                      )}
+
                       {ticketOrderNotes.trim() && (
                         <div className="p-2 bg-amber-500/10 border border-amber-500/20 rounded text-[11px]">
                           <strong className="text-amber-700 dark:text-amber-400 block">Special Instructions / Notes:</strong>
