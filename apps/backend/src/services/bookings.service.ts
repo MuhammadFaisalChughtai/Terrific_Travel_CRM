@@ -1809,6 +1809,108 @@ export class BookingsService {
     return { success: true };
   }
 
+  /** Send official flight ticket order email directly to office and ticketing team */
+  async sendTicketOrder(bookingId: string, options: { customNotes?: string; pdfBase64?: string }, actorUser?: any) {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: {
+        passengers: true,
+        flightServices: {
+          include: { vendor: true },
+          orderBy: { date: 'asc' },
+        },
+        agent: true,
+        createdBy: true,
+        transactions: true,
+      },
+    });
+
+    if (!booking) {
+      throw new NotFoundException('Booking not found');
+    }
+
+    if (!booking.flightServices || booking.flightServices.length === 0) {
+      throw new BadRequestException('No flight segments registered in this booking to send a ticket order.');
+    }
+
+    // Determine Agent details
+    const agentName = booking.agent?.name ||
+      (booking.createdBy ? `${booking.createdBy.firstName} ${booking.createdBy.lastName}`.trim() : null) ||
+      (actorUser ? `${actorUser.firstName || ''} ${actorUser.lastName || ''}`.trim() : null) ||
+      'Operations Agent';
+    const agentEmail = booking.agent?.payrollEmail || booking.agent?.email || booking.createdBy?.email || actorUser?.email || null;
+    const agentPhone = booking.agent?.phoneNumber || null;
+    const agentDesignation = booking.agent?.designation || 'Travel Consultant';
+
+    // Calculate amounts accurately (excluding vendor payments / agent payouts)
+    const clientTransactions = (booking.transactions || []).filter((tx: any) => {
+      const pm = (tx.paymentMethod || '').toUpperCase();
+      const notes = (tx.notes || '').toLowerCase();
+      return pm !== 'AGENT PAYOUT' && pm !== 'AGENT_PAYOUT' && !notes.includes('vendor payment');
+    });
+    const clientTxSum = clientTransactions.reduce((sum: number, tx: any) => sum + (tx.amount || 0), 0);
+    const paidAmount = clientTxSum > 0 ? clientTxSum : (booking.paidAmount || 0);
+    const totalAmount = booking.totalPrice || 0;
+    const refundAmount = booking.refundAmount || 0;
+    const amountLeft = Math.max(0, Math.round(((totalAmount - refundAmount) - paidAmount) * 100) / 100);
+
+    const emailResult = await emailService.sendTicketOrderEmail({
+      bookingRef: booking.bookingReference,
+      bookingDate: booking.bookingDate || booking.createdAt,
+      departureDate: booking.departureDate,
+      agentName,
+      agentEmail,
+      agentPhone,
+      agentDesignation,
+      totalAmount: Math.round(totalAmount * 100) / 100,
+      paidAmount: Math.round(paidAmount * 100) / 100,
+      amountLeft,
+      paymentStatus: booking.paymentStatus,
+      currencySymbol: '£',
+      passengers: booking.passengers,
+      flights: booking.flightServices.map((fs: any) => ({
+        pnr: fs.pnr,
+        flightNo: fs.flightNo,
+        departedFrom: fs.departedFrom,
+        arrivedAt: fs.arrivedAt,
+        departTime: fs.departTime,
+        arrivalTime: fs.arrivalTime,
+        date: fs.date,
+        flightClass: fs.flightClass,
+        baggage: fs.baggage,
+        checkedBaggage: fs.checkedBaggage,
+        carryOnBaggage: fs.carryOnBaggage,
+        personalItem: fs.personalItem,
+        vendorName: fs.vendor?.name || null,
+        status: fs.status,
+      })),
+      customNotes: options.customNotes,
+      pdfBase64: options.pdfBase64,
+    });
+
+    // Write structured audit log
+    if (actorUser?.id) {
+      await auditLogService.log({
+        userId: actorUser.id,
+        action: 'Update',
+        module: 'Bookings',
+        recordId: booking.id,
+        newValue: {
+          subAction: 'SendTicketOrder',
+          recipients: ['office@terrifictravel.co.uk', 'ticketing@terrifictravel.co.uk'],
+          sender: 'terrifictravelltd@gmail.com',
+          timestamp: new Date().toISOString(),
+        },
+      });
+    }
+
+    return {
+      success: true,
+      message: `Ticket order for booking ${booking.bookingReference} sent successfully to office@terrifictravel.co.uk and ticketing@terrifictravel.co.uk.`,
+      recipients: ['office@terrifictravel.co.uk', 'ticketing@terrifictravel.co.uk'],
+    };
+  }
+
   async uploadPassengerPassportScan(token: string, passengerId: string, file: any) {
     const tokenPassenger = await prisma.passenger.findUnique({ where: { formToken: token } });
     if (!tokenPassenger) throw new NotFoundException('Form link is invalid or has expired');

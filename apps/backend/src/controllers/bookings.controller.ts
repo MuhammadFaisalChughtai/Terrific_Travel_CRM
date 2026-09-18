@@ -225,6 +225,14 @@ export const sendPassengerLink = asyncHandler(async (req: AuthenticatedRequest, 
   res.status(200).json({ success: true, data: result });
 });
 
+export const sendTicketOrder = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id } = req.params;
+  const { customNotes, pdfBase64 } = req.body;
+  const result = await bookingsService.sendTicketOrder(id, { customNotes, pdfBase64 }, req.user);
+  res.status(200).json({ success: true, data: result });
+});
+
+
 
 /** Public — no auth required */
 export const uploadPassengerPassportScan = asyncHandler(async (req: any, res: Response) => {

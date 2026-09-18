@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../api/client";
 import { formatCurrency } from "@tms/shared-utils";
@@ -40,7 +40,11 @@ import {
   CheckCircle,
   XCircle,
   Undo,
+  Send,
+  Mail,
 } from "lucide-react";
+// @ts-ignore
+import html2pdf from "html2pdf.js";
 import Modal from "./Modal";
 import HtmlEditorModal from "./HtmlEditorModal";
 import PnrFlightModal from "./PnrFlightModal";
@@ -254,6 +258,56 @@ export default function BookingManager({
   const [isAdditionalModalOpen, setIsAdditionalModalOpen] = useState(false);
   const [editingAdditional, setEditingAdditional] = useState<any | null>(null);
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
+  const [isTicketOrderModalOpen, setIsTicketOrderModalOpen] = useState(false);
+  const [ticketOrderNotes, setTicketOrderNotes] = useState("");
+  const [isSendingTicketOrder, setIsSendingTicketOrder] = useState(false);
+  const ticketOrderPrintRef = useRef<HTMLDivElement>(null);
+
+  const handleSendTicketOrder = async () => {
+    if (!booking) return;
+    if (!booking.flightServices || booking.flightServices.length === 0) {
+      toast.error("No flight segments registered in this booking to send ticket order.");
+      return;
+    }
+
+    setIsSendingTicketOrder(true);
+    const toastId = toast.loading("Sending ticket order to office & ticketing team...");
+    try {
+      let pdfBase64: string | null = null;
+      if (ticketOrderPrintRef.current) {
+        try {
+          const opt = {
+            margin: [6, 8, 6, 8] as [number, number, number, number],
+            image: { type: "jpeg" as const, quality: 0.95 },
+            html2canvas: { scale: 2, useCORS: true, letterRendering: true, logging: false },
+            jsPDF: { unit: "mm" as const, format: "a4" as const, orientation: "portrait" as const },
+          };
+          pdfBase64 = await html2pdf().set(opt).from(ticketOrderPrintRef.current).outputPdf("datauristring");
+        } catch (pdfErr) {
+          console.warn("Could not generate client-side PDF, server HTML attachment will be used:", pdfErr);
+        }
+      }
+
+      await apiClient.post(`/bookings/${booking.id}/send-ticket-order`, {
+        customNotes: ticketOrderNotes.trim() || undefined,
+        pdfBase64: pdfBase64 || undefined,
+      });
+
+      toast.success(
+        `Ticket order for booking ${booking.bookingReference} successfully sent to office@terrifictravel.co.uk & ticketing@terrifictravel.co.uk!`,
+        { id: toastId, duration: 6000 },
+      );
+      setIsTicketOrderModalOpen(false);
+      setTicketOrderNotes("");
+    } catch (err: any) {
+      toast.error(
+        err?.response?.data?.message || "Failed to send ticket order email.",
+        { id: toastId },
+      );
+    } finally {
+      setIsSendingTicketOrder(false);
+    }
+  };
 
   const isAdmin =
     user?.roles?.some((r: string) => {
@@ -2150,9 +2204,31 @@ export default function BookingManager({
                       );
                     }
                   }}
-                  className="flex items-center gap-1 px-2 py-0.5 bg-sky-600/10 text-sky-600 hover:bg-sky-600/20 font-bold rounded text-[12px] transition-colors"
+                  className="flex items-center gap-1 px-2 py-0.5 bg-sky-600/10 text-sky-600 hover:bg-sky-600/20 font-bold rounded text-[12px] transition-colors cursor-pointer"
                 >
                   <Printer size={12} /> Print Tickets
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (
+                      !booking ||
+                      !booking.flightServices ||
+                      booking.flightServices.length === 0
+                    ) {
+                      toast.error(
+                        "No flight segments registered in this booking to send ticket order.",
+                      );
+                      return;
+                    }
+                    setTicketOrderNotes("");
+                    setIsTicketOrderModalOpen(true);
+                  }}
+                  className="flex items-center gap-1 px-2 py-0.5 bg-orange-500/10 text-orange-600 hover:bg-orange-500/20 font-bold rounded text-[12px] transition-colors cursor-pointer border border-orange-500/20 shadow-xs active:scale-95"
+                  title="Send Flight Ticket Order directly to office@terrifictravel.co.uk and ticketing@terrifictravel.co.uk"
+                >
+                  <Send size={12} /> Send Ticket Order
                 </button>
                 <button className="text-muted-foreground">
                   {openSections.flights ? (
@@ -3633,6 +3709,292 @@ export default function BookingManager({
           </div>
         </div>
       </Modal>
+
+      {/* Send Flight Ticket Order Modal */}
+      {isTicketOrderModalOpen && booking && (
+        <Modal
+          isOpen={isTicketOrderModalOpen}
+          onClose={() => !isSendingTicketOrder && setIsTicketOrderModalOpen(false)}
+          title="Send Flight Ticket Order"
+          maxWidth="4xl"
+        >
+          {(() => {
+            const amounts = calculateBookingAmounts(booking);
+            const leadPax =
+              booking.passengers?.find((p: any) => p.role === "Leader") ||
+              booking.passengers?.[0];
+            const leadPaxName = leadPax
+              ? `${leadPax.title || ""} ${leadPax.firstName || ""} ${leadPax.lastName || ""}`.trim()
+              : "N/A";
+            const pnrList =
+              Array.from(
+                new Set(
+                  (booking.flightServices || [])
+                    .map((f: any) => (f.pnr || "").trim())
+                    .filter(Boolean),
+                ),
+              ).join(", ") || "PENDING";
+
+            return (
+              <div className="space-y-4 font-sans text-xs">
+                {/* Dispatch & Routing Banner */}
+                <div className="p-3.5 bg-gradient-to-r from-orange-500/15 via-amber-500/10 to-transparent border border-orange-500/30 rounded-xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="p-1.5 rounded-lg bg-orange-500 text-white shadow-xs">
+                        <Mail size={14} />
+                      </span>
+                      <div>
+                        <h4 className="font-bold text-foreground text-sm">
+                          Official Ticket Order Dispatch
+                        </h4>
+                        <p className="text-[11px] text-muted-foreground">
+                          Directly notifies the Ticketing department to issue tickets for this booking.
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-[11px] font-mono font-bold bg-orange-500/20 text-orange-600 dark:text-orange-400 px-2.5 py-1 rounded-md border border-orange-500/30">
+                      Ref: {booking.bookingReference}
+                    </span>
+                  </div>
+
+                  {/* Sender & Recipients */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pt-1 border-t border-orange-500/20 text-[11px]">
+                    <div className="flex items-center gap-1.5 text-muted-foreground">
+                      <span className="font-bold uppercase tracking-wider text-[10px]">From:</span>
+                      <span className="font-mono font-semibold text-foreground bg-background/60 px-2 py-0.5 rounded border border-border">
+                        terrifictravelltd@gmail.com
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-muted-foreground">
+                      <span className="font-bold uppercase tracking-wider text-[10px]">To:</span>
+                      <span
+                        className="font-mono font-semibold text-foreground bg-background/60 px-2 py-0.5 rounded border border-border truncate"
+                        title="office@terrifictravel.co.uk, ticketing@terrifictravel.co.uk"
+                      >
+                        office@terrifictravel.co.uk, ticketing@terrifictravel.co.uk
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Agent & Financial Status Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {/* Agent Details */}
+                  <div className="p-3 bg-secondary/30 border border-border rounded-xl space-y-2">
+                    <div className="flex items-center gap-1.5 text-primary font-bold text-[11px] uppercase tracking-wider border-b border-border pb-1.5">
+                      <User size={12} /> Assigned Agent Information
+                    </div>
+                    <div className="space-y-1 text-[11px]">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Agent Name:</span>
+                        <span className="font-bold text-foreground">
+                          {booking.agent?.name || "Unassigned"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Email:</span>
+                        <span className="font-medium text-foreground">
+                          {booking.agent?.payrollEmail || booking.agent?.email || "N/A"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Phone:</span>
+                        <span className="font-medium text-foreground">
+                          {booking.agent?.phoneNumber || "N/A"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Lead Passenger:</span>
+                        <span className="font-bold text-foreground">{leadPaxName}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Financial Details */}
+                  <div className="p-3 bg-secondary/30 border border-border rounded-xl space-y-2">
+                    <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-bold text-[11px] uppercase tracking-wider border-b border-border pb-1.5">
+                      <Wallet size={12} /> Financial Status
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-center">
+                      <div className="p-1.5 bg-card border border-border rounded-lg">
+                        <span className="text-[10px] text-muted-foreground block">Total Price</span>
+                        <span className="text-xs font-bold text-foreground">
+                          {formatCurrency(amounts.total)}
+                        </span>
+                      </div>
+                      <div className="p-1.5 bg-card border border-border rounded-lg">
+                        <span className="text-[10px] text-muted-foreground block">Amount Paid</span>
+                        <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                          {formatCurrency(amounts.paid)}
+                        </span>
+                      </div>
+                      <div className="p-1.5 bg-card border border-border rounded-lg">
+                        <span className="text-[10px] text-muted-foreground block">Amount Left</span>
+                        <span
+                          className={`text-xs font-extrabold ${amounts.remaining > 0 ? "text-amber-600 dark:text-amber-400" : "text-emerald-600"}`}
+                        >
+                          {formatCurrency(amounts.remaining)}
+                        </span>
+                      </div>
+                      <div className="p-1.5 bg-card border border-border rounded-lg flex flex-col justify-center items-center">
+                        <span className="text-[10px] text-muted-foreground block">Status</span>
+                        <span
+                          className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                            booking.paymentStatus === "PAID"
+                              ? "bg-emerald-500/10 text-emerald-600"
+                              : booking.paymentStatus === "PARTIALLY_PAID"
+                              ? "bg-amber-500/10 text-amber-600"
+                              : "bg-rose-500/10 text-rose-600"
+                          }`}
+                        >
+                          {booking.paymentStatus}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Flight Segments Summary */}
+                <div className="border border-border rounded-xl overflow-hidden bg-card">
+                  <div className="px-3 py-2 bg-secondary/50 border-b border-border font-bold text-[11px] uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                    <span className="flex items-center gap-1.5 text-sky-600 dark:text-sky-400">
+                      <Plane size={12} /> Attached Flight Segments ({booking.flightServices?.length || 0})
+                    </span>
+                    <span className="font-mono text-[10px] text-foreground">PNR: {pnrList}</span>
+                  </div>
+                  <div className="max-h-40 overflow-y-auto divide-y divide-border/60">
+                    {(booking.flightServices || []).map((f: any, idx: number) => (
+                      <div key={f.id || idx} className="p-2.5 flex items-center justify-between text-xs hover:bg-secondary/20">
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-bold text-sky-600 dark:text-sky-400">
+                              {f.flightNo || "TBA"}
+                            </span>
+                            <span className="font-medium text-foreground">
+                              {f.departedFrom} &rarr; {f.arrivedAt}
+                            </span>
+                            {f.flightClass && (
+                              <span className="text-[10px] text-muted-foreground">({f.flightClass})</span>
+                            )}
+                          </div>
+                          <div className="text-[10px] text-muted-foreground">
+                            Date: {f.date ? new Date(f.date).toLocaleDateString("en-GB") : "N/A"} &bull; Time:{" "}
+                            {f.departTime || "TBA"} - {f.arrivalTime || "TBA"}
+                          </div>
+                        </div>
+                        <div className="text-right text-[10px] text-muted-foreground">
+                          <div>
+                            Checked:{" "}
+                            <strong className="text-foreground">
+                              {f.checkedBaggage || f.baggage || "Standard"}
+                            </strong>
+                          </div>
+                          <div>
+                            Hand:{" "}
+                            <strong className="text-foreground">
+                              {f.carryOnBaggage || "7kg"}
+                            </strong>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Passengers Summary */}
+                <div className="border border-border rounded-xl overflow-hidden bg-card">
+                  <div className="px-3 py-2 bg-secondary/50 border-b border-border font-bold text-[11px] uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                    <span className="flex items-center gap-1.5 text-primary">
+                      <Users size={12} /> Attached Passenger Details ({booking.passengers?.length || 0})
+                    </span>
+                  </div>
+                  <div className="max-h-36 overflow-y-auto divide-y divide-border/60">
+                    {(booking.passengers || []).map((p: any, idx: number) => (
+                      <div key={p.id || idx} className="p-2.5 flex items-center justify-between text-xs hover:bg-secondary/20">
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-foreground">
+                              {idx + 1}. {(p.title || "").toUpperCase()}{" "}
+                              {(p.firstName || "").toUpperCase()}{" "}
+                              {(p.lastName || "").toUpperCase()}
+                            </span>
+                            {p.role === "Leader" && (
+                              <span className="px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-600 text-[9px] font-extrabold">
+                                LEAD
+                              </span>
+                            )}
+                            <span className="text-[10px] text-muted-foreground">
+                              ({p.age || "Adult"})
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-muted-foreground">
+                            DOB: {p.dateOfBirth ? new Date(p.dateOfBirth).toLocaleDateString("en-GB") : "N/A"}{" "}
+                            &bull; Nat: {p.nationality || "N/A"}
+                          </div>
+                        </div>
+                        <div className="text-right text-[11px]">
+                          <div className="font-mono font-bold text-foreground">
+                            Passport: {p.passportNumber || "N/A"}
+                          </div>
+                          <div className="text-[10px] text-muted-foreground">
+                            Exp:{" "}
+                            {p.passportExpiryDate
+                              ? new Date(p.passportExpiryDate).toLocaleDateString("en-GB")
+                              : "N/A"}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Notes & Instructions Textarea */}
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-foreground uppercase tracking-wider flex items-center gap-1">
+                    <span>Special Ticketing Instructions / Notes (Optional)</span>
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={ticketOrderNotes}
+                    onChange={(e) => setTicketOrderNotes(e.target.value)}
+                    placeholder="e.g. Urgent ticketing required before 17:00 today. Please confirm seat assignment on flight EK22..."
+                    className="w-full bg-background border border-border rounded-lg p-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+
+                {/* Modal Actions */}
+                <div className="flex justify-end items-center gap-2 pt-3 border-t border-border/60">
+                  <button
+                    type="button"
+                    disabled={isSendingTicketOrder}
+                    onClick={() => setIsTicketOrderModalOpen(false)}
+                    className="px-4 py-1.5 bg-secondary text-foreground font-bold rounded-lg text-xs hover:bg-secondary/80 transition-all border border-border cursor-pointer disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isSendingTicketOrder}
+                    onClick={handleSendTicketOrder}
+                    className="px-5 py-1.5 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-lg text-xs transition-all shadow-sm cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    {isSendingTicketOrder ? (
+                      <>
+                        <Loader2 size={13} className="animate-spin" /> Sending Ticket Order...
+                      </>
+                    ) : (
+                      <>
+                        <Send size={13} /> Send Ticket Order Email
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
+        </Modal>
+      )}
     </Modal>
   );
 }
