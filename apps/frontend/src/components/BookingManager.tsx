@@ -260,6 +260,7 @@ export default function BookingManager({
   const [editingAdditional, setEditingAdditional] = useState<any | null>(null);
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [isTicketOrderModalOpen, setIsTicketOrderModalOpen] = useState(false);
+  const [ticketOrderPnr, setTicketOrderPnr] = useState<string>("ALL");
   const [isMissingPassportModalOpen, setIsMissingPassportModalOpen] = useState(false);
   const [ticketOrderNotes, setTicketOrderNotes] = useState("");
   const [isSendingTicketOrder, setIsSendingTicketOrder] = useState(false);
@@ -283,7 +284,8 @@ export default function BookingManager({
     }
 
     setIsSendingTicketOrder(true);
-    const toastId = toast.loading("Sending ticket order to office & ticketing team...");
+    const scopeMsg = ticketOrderPnr === "ALL" ? "Group ticket order (all PNRs)" : `Ticket order for PNR ${ticketOrderPnr}`;
+    const toastId = toast.loading(`Sending ${scopeMsg} to office & ticketing team...`);
     try {
       let pdfBase64: string | null = null;
       if (ticketOrderPrintRef.current) {
@@ -303,10 +305,11 @@ export default function BookingManager({
       await apiClient.post(`/bookings/${booking.id}/send-ticket-order`, {
         customNotes: ticketOrderNotes.trim() || undefined,
         pdfBase64: pdfBase64 || undefined,
+        pnr: ticketOrderPnr,
       });
 
       toast.success(
-        `Ticket order for booking ${booking.bookingReference} successfully sent to office@terrifictravel.co.uk & ticketing@terrifictravel.co.uk!`,
+        `${ticketOrderPnr === "ALL" ? "Group ticket order (All PNRs)" : `Ticket order for PNR ${ticketOrderPnr}`} for booking ${booking.bookingReference} successfully sent to office@terrifictravel.co.uk & ticketing@terrifictravel.co.uk!`,
         { id: toastId, duration: 6000 },
       );
       setIsTicketOrderModalOpen(false);
@@ -2390,9 +2393,31 @@ export default function BookingManager({
                                       </span>
                                     )}
                                   </span>
-                                  <span className="text-[9px] bg-primary/10 text-primary px-2 py-0.5 rounded-md font-extrabold uppercase">
-                                    {sortedFlights.length} {sortedFlights.length === 1 ? "segment" : "segments"}
-                                  </span>
+                                  <div className="flex items-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        const missingPassports = (booking.passengers || []).filter(
+                                          (p: any) => !p.passportScanKey || !p.passportScanKey.trim(),
+                                        );
+                                        if (missingPassports.length > 0) {
+                                          setIsMissingPassportModalOpen(true);
+                                          return;
+                                        }
+                                        setTicketOrderPnr(pnrKey);
+                                        setTicketOrderNotes("");
+                                        setIsTicketOrderModalOpen(true);
+                                      }}
+                                      className="flex items-center gap-1 px-2 py-0.5 bg-orange-500/10 text-orange-600 hover:bg-orange-500/20 font-bold rounded text-[11px] transition-colors cursor-pointer border border-orange-500/20 shadow-2xs active:scale-95"
+                                      title={`Send Ticket Order specifically for PNR ${pnrKey}`}
+                                    >
+                                      <Send size={10} /> Send PNR Order
+                                    </button>
+                                    <span className="text-[9px] bg-primary/10 text-primary px-2 py-0.5 rounded-md font-extrabold uppercase">
+                                      {sortedFlights.length} {sortedFlights.length === 1 ? "segment" : "segments"}
+                                    </span>
+                                  </div>
                                 </div>
                               );
                             })()}
@@ -3764,13 +3789,37 @@ export default function BookingManager({
               ? `${leadPax.title || ""} ${leadPax.firstName || ""} ${leadPax.lastName || ""}`.trim()
               : "N/A";
             const pnrList =
-              Array.from(
+              Array.from<string>(
                 new Set(
                   (booking.flightServices || [])
-                    .map((f: any) => (f.pnr || "").trim())
+                    .map((f: any) => String(f.pnr || "").trim())
                     .filter(Boolean),
                 ),
               ).join(", ") || "PENDING";
+
+            const allFlights = booking.flightServices || [];
+            const availablePnrs: string[] = Array.from<string>(
+              new Set(
+                allFlights
+                  .map((f: any) => String(f.pnr || "").trim())
+                  .filter(Boolean),
+              ),
+            );
+
+            // Filter flights based on selected ticketOrderPnr
+            const activeFlights =
+              ticketOrderPnr === "ALL" || !ticketOrderPnr
+                ? allFlights
+                : allFlights.filter((f: any) => {
+                    const raw = (f.pnr || "").trim().toUpperCase();
+                    const target = ticketOrderPnr.trim().toUpperCase();
+                    return raw === target || raw.split(/[,;\s]+/).map((s: string) => s.trim()).includes(target);
+                  });
+
+            const activePnrList =
+              ticketOrderPnr === "ALL" || !ticketOrderPnr
+                ? pnrList
+                : ticketOrderPnr;
 
             return (
               <div className="space-y-4 font-sans text-xs">
@@ -3790,9 +3839,14 @@ export default function BookingManager({
                         </p>
                       </div>
                     </div>
-                    <span className="text-[11px] font-mono font-bold bg-orange-500/20 text-orange-600 dark:text-orange-400 px-2.5 py-1 rounded-md border border-orange-500/30">
-                      Ref: {booking.bookingReference}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] font-mono font-bold bg-orange-500/20 text-orange-600 dark:text-orange-400 px-2.5 py-1 rounded-md border border-orange-500/30">
+                        PNR: {activePnrList}
+                      </span>
+                      <span className="text-[11px] font-mono font-bold bg-secondary text-foreground px-2 py-1 rounded-md border border-border">
+                        Ref: {booking.bookingReference}
+                      </span>
+                    </div>
                   </div>
 
                   {/* Sender & Recipients */}
@@ -3812,6 +3866,55 @@ export default function BookingManager({
                         office@terrifictravel.co.uk, ticketing@terrifictravel.co.uk
                       </span>
                     </div>
+                  </div>
+                </div>
+
+                {/* PNR Option Selector: Group Order vs Individual PNR */}
+                <div className="p-3 bg-secondary/40 border border-border rounded-xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
+                      <Plane size={13} className="text-primary" />
+                      <span>Ticket Order Scope (Send Separately by PNR or Group):</span>
+                    </label>
+                    <span className="text-[11px] font-mono font-bold text-orange-600 dark:text-orange-400">
+                      {ticketOrderPnr === "ALL" ? "Group Order (All PNRs)" : `Separate PNR: ${ticketOrderPnr}`}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setTicketOrderPnr("ALL")}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border ${
+                        ticketOrderPnr === "ALL"
+                          ? "bg-orange-600 text-white border-orange-600 shadow-xs"
+                          : "bg-card text-muted-foreground border-border hover:bg-secondary/60 hover:text-foreground"
+                      }`}
+                    >
+                      <Users size={12} /> All PNRs (Group Order &bull; {allFlights.length} Segments)
+                    </button>
+                    {availablePnrs.map((pnrItem: string) => {
+                      const count = allFlights.filter((f: any) => {
+                        const raw = (f.pnr || "").trim().toUpperCase();
+                        const target = pnrItem.trim().toUpperCase();
+                        return raw === target || raw.split(/[,;\s]+/).map((s: string) => s.trim()).includes(target);
+                      }).length;
+                      const isSelected = ticketOrderPnr.trim().toUpperCase() === pnrItem.trim().toUpperCase();
+
+                      return (
+                        <button
+                          key={pnrItem}
+                          type="button"
+                          onClick={() => setTicketOrderPnr(pnrItem)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-1.5 border ${
+                            isSelected
+                              ? "bg-orange-600 text-white border-orange-600 shadow-xs"
+                              : "bg-card text-muted-foreground border-border hover:bg-secondary/60 hover:text-foreground"
+                          }`}
+                        >
+                          <Send size={11} /> PNR: {pnrItem} ({count} seg{count !== 1 ? "s" : ""})
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -3896,12 +3999,12 @@ export default function BookingManager({
                 <div className="border border-border rounded-xl overflow-hidden bg-card">
                   <div className="px-3 py-2 bg-secondary/50 border-b border-border font-bold text-[11px] uppercase tracking-wider text-muted-foreground flex items-center justify-between">
                     <span className="flex items-center gap-1.5 text-sky-600 dark:text-sky-400">
-                      <Plane size={12} /> Attached Flight Segments ({booking.flightServices?.length || 0})
+                      <Plane size={12} /> Attached Flight Segments ({activeFlights.length})
                     </span>
-                    <span className="font-mono text-[10px] text-foreground">PNR: {pnrList}</span>
+                    <span className="font-mono text-[10px] text-foreground">PNR: {activePnrList}</span>
                   </div>
                   <div className="max-h-40 overflow-y-auto divide-y divide-border/60">
-                    {(booking.flightServices || []).map((f: any, idx: number) => (
+                    {activeFlights.map((f: any, idx: number) => (
                       <div key={f.id || idx} className="p-2.5 flex items-center justify-between text-xs hover:bg-secondary/20">
                         <div className="space-y-0.5">
                           <div className="flex items-center gap-2">
@@ -4051,7 +4154,7 @@ export default function BookingManager({
                       </>
                     ) : (
                       <>
-                        <Send size={13} /> Send Ticket Order Email
+                        <Send size={13} /> Send Ticket Order Email {ticketOrderPnr === "ALL" ? "(Group - All PNRs)" : `(PNR: ${ticketOrderPnr})`}
                       </>
                     )}
                   </button>

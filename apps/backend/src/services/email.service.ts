@@ -1250,6 +1250,7 @@ export class EmailService {
       content: Buffer;
       contentType?: string;
     }>;
+    pnrScope?: string;
   }) {
     const {
       bookingRef,
@@ -1269,6 +1270,7 @@ export class EmailService {
       customNotes,
       pdfBase64,
       passportAttachments = [],
+      pnrScope = 'GROUP',
     } = params;
 
     const fromAddress = `"Terrific Travel Ltd" <terrifictravelltd@gmail.com>`;
@@ -1360,7 +1362,7 @@ export class EmailService {
                   <td style="vertical-align: middle;">
                     <h1 style="margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.5px; color: #ffffff;">TERRIFIC TRAVEL &amp; TOURS</h1>
                     <p style="margin: 4px 0 0 0; font-size: 13px; font-weight: 600; opacity: 0.95; letter-spacing: 0.5px; text-transform: uppercase;">
-                      ✈️ OFFICIAL FLIGHT TICKET ORDER
+                      ✈️ OFFICIAL FLIGHT TICKET ORDER ${(!pnrScope || pnrScope.toUpperCase() === 'GROUP' || pnrScope.toUpperCase() === 'ALL') ? '(GROUP ORDER - ALL PNRS)' : `(PNR: ${pnrScope})`}
                     </p>
                   </td>
                   <td style="vertical-align: middle; text-align: right;">
@@ -1574,11 +1576,14 @@ export class EmailService {
     });
 
     try {
+      const isGroup = !pnrScope || pnrScope.toUpperCase() === 'GROUP' || pnrScope.toUpperCase() === 'ALL';
+      const scopeSubject = isGroup ? `[TICKET ORDER - ALL PNRS]` : `[TICKET ORDER - PNR: ${pnrScope}]`;
+
       await this.transporter.sendMail({
         from: fromAddress,
         to: recipients,
         replyTo: agentEmail ? `${agentEmail}, terrifictravelltd@gmail.com` : 'terrifictravelltd@gmail.com',
-        subject: `[TICKET ORDER] Booking ${bookingRef} - ${leadPaxName} - PNR: ${pnrList}`,
+        subject: `${scopeSubject} Booking ${bookingRef} - ${leadPaxName} - PNR: ${pnrList}`,
         html: htmlContent,
         attachments: attachments.length > 0 ? attachments : undefined,
       });

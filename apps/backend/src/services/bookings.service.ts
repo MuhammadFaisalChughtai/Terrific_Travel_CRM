@@ -1810,7 +1810,11 @@ export class BookingsService {
   }
 
   /** Send official flight ticket order email directly to office and ticketing team */
-  async sendTicketOrder(bookingId: string, options: { customNotes?: string; pdfBase64?: string }, actorUser?: any) {
+  async sendTicketOrder(
+    bookingId: string,
+    options: { customNotes?: string; pdfBase64?: string; pnr?: string; flightIds?: string[] },
+    actorUser?: any
+  ) {
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
       include: {
@@ -1831,6 +1835,28 @@ export class BookingsService {
 
     if (!booking.flightServices || booking.flightServices.length === 0) {
       throw new BadRequestException('No flight segments registered in this booking to send a ticket order.');
+    }
+
+    // Determine flights to send based on selected PNR scope
+    let flightsToSend = booking.flightServices;
+    const isGroup = !options.pnr || options.pnr.trim().toUpperCase() === 'ALL';
+    let targetPnrScope = 'GROUP';
+
+    if (!isGroup && options.pnr) {
+      const cleanPnr = options.pnr.trim().toUpperCase();
+      targetPnrScope = cleanPnr;
+      flightsToSend = flightsToSend.filter((fs: any) => {
+        const raw = (fs.pnr || '').trim().toUpperCase();
+        return raw === cleanPnr || raw.split(/[,;\s]+/).map((s: string) => s.trim()).includes(cleanPnr);
+      });
+      if (flightsToSend.length === 0) {
+        throw new BadRequestException(`No flight segments found for PNR "${options.pnr}".`);
+      }
+    } else if (options.flightIds && options.flightIds.length > 0) {
+      flightsToSend = flightsToSend.filter((fs: any) => options.flightIds!.includes(fs.id));
+      if (flightsToSend.length === 0) {
+        throw new BadRequestException('No matching flight segments found.');
+      }
     }
 
     // Enforce that all passengers have passport scans uploaded
@@ -1913,7 +1939,7 @@ export class BookingsService {
       paymentStatus: booking.paymentStatus,
       currencySymbol: '£',
       passengers: booking.passengers,
-      flights: booking.flightServices.map((fs: any) => ({
+      flights: flightsToSend.map((fs: any) => ({
         pnr: fs.pnr,
         flightNo: fs.flightNo,
         departedFrom: fs.departedFrom,
@@ -1932,6 +1958,7 @@ export class BookingsService {
       customNotes: options.customNotes,
       pdfBase64: options.pdfBase64,
       passportAttachments,
+      pnrScope: isGroup ? 'GROUP' : targetPnrScope,
     });
 
     // Write structured audit log
@@ -1942,7 +1969,9 @@ export class BookingsService {
         module: 'Bookings',
         recordId: booking.id,
         newValue: {
-          subAction: 'SendTicketOrder',
+          subAction: isGroup ? 'SendTicketOrder_Group' : `SendTicketOrder_PNR_${targetPnrScope}`,
+          pnrScope: isGroup ? 'GROUP' : targetPnrScope,
+          segmentsCount: flightsToSend.length,
           recipients: ['office@terrifictravel.co.uk', 'ticketing@terrifictravel.co.uk'],
           sender: 'terrifictravelltd@gmail.com',
           timestamp: new Date().toISOString(),
@@ -1950,10 +1979,16 @@ export class BookingsService {
       });
     }
 
+    const scopeMsg = isGroup
+      ? `Group Ticket Order (All PNRs - ${flightsToSend.length} segments)`
+      : `Ticket Order for PNR ${targetPnrScope} (${flightsToSend.length} segments)`;
+
     return {
       success: true,
-      message: `Ticket order for booking ${booking.bookingReference} sent successfully to office@terrifictravel.co.uk and ticketing@terrifictravel.co.uk.`,
+      message: `${scopeMsg} for booking ${booking.bookingReference} sent successfully to office@terrifictravel.co.uk and ticketing@terrifictravel.co.uk.`,
       recipients: ['office@terrifictravel.co.uk', 'ticketing@terrifictravel.co.uk'],
+      pnr: isGroup ? 'ALL' : targetPnrScope,
+      segmentsCount: flightsToSend.length,
     };
   }
 
