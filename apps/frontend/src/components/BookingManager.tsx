@@ -261,10 +261,140 @@ export default function BookingManager({
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [isTicketOrderModalOpen, setIsTicketOrderModalOpen] = useState(false);
   const [ticketOrderPnr, setTicketOrderPnr] = useState<string>("ALL");
+  const [ticketOrderGdsText, setTicketOrderGdsText] = useState("");
   const [isMissingPassportModalOpen, setIsMissingPassportModalOpen] = useState(false);
   const [ticketOrderNotes, setTicketOrderNotes] = useState("");
   const [isSendingTicketOrder, setIsSendingTicketOrder] = useState(false);
   const ticketOrderPrintRef = useRef<HTMLDivElement>(null);
+
+  const formatGdsFlightText = (pnr: string, flights: any[], passengers: any[]) => {
+    const lines: string[] = [];
+    lines.push(pnr.trim().toUpperCase());
+
+    const paxFormatted: string[] = [];
+    (passengers || []).forEach((p: any, idx: number) => {
+      const numPrefix = `${idx + 1}.1`;
+      const lastName = (p.lastName || "PAX").trim().toUpperCase().replace(/\s+/g, "");
+      const firstName = (p.firstName || "").trim().toUpperCase().replace(/\s+/g, "");
+      const title = (p.title || "").trim().toUpperCase().replace(/\./g, "");
+      const isInfant = (p.age || "").toLowerCase().includes("infant");
+      const isChild = (p.age || "").toLowerCase().includes("child");
+      if (isInfant) {
+        paxFormatted.push(`${numPrefix}I/${lastName}/${firstName} ${title || "INF"}`);
+      } else if (isChild) {
+        const match = (p.age || "").match(/\d+/);
+        const childAge = match ? match[0].padStart(2, "0") : "";
+        paxFormatted.push(`${numPrefix}${lastName}/${firstName} ${title || "MSTR"}${childAge ? `*P-C${childAge}` : "*CHD"}`);
+      } else {
+        paxFormatted.push(`${numPrefix}${lastName}/${firstName} ${title || "MR"}`);
+      }
+    });
+
+    for (let i = 0; i < paxFormatted.length; i += 2) {
+      if (i + 1 < paxFormatted.length) {
+        lines.push(`${paxFormatted[i]} ${paxFormatted[i + 1]}`);
+      } else {
+        lines.push(paxFormatted[i]);
+      }
+    }
+
+    const extractAirportCode = (str: string) => {
+      if (!str) return "XXX";
+      const match = str.match(/\(([^)]+)\)/);
+      if (match) return match[1].toUpperCase();
+      const clean = str.trim().toUpperCase();
+      return clean.length === 3 ? clean : clean.substring(0, 3);
+    };
+
+    const formatGdsDate = (d: any) => {
+      if (!d) return "01JAN";
+      try {
+        const dateObj = new Date(d);
+        const day = String(dateObj.getDate()).padStart(2, "0");
+        const months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+        const mon = months[dateObj.getMonth()] || "JAN";
+        return `${day}${mon}`;
+      } catch {
+        return "01JAN";
+      }
+    };
+
+    const formatDayOfWeek = (d: any) => {
+      if (!d) return "";
+      try {
+        const days = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
+        return days[new Date(d).getDay()] || "";
+      } catch {
+        return "";
+      }
+    };
+
+    const formatGdsTime = (timeStr?: string) => {
+      if (!timeStr) return "TBA";
+      const raw = timeStr.trim().toUpperCase();
+      const isPM = raw.includes("PM");
+      const isAM = raw.includes("AM");
+      const digits = raw.replace(/[^0-9]/g, "");
+      if (digits.length === 4) {
+        let hours = parseInt(digits.substring(0, 2), 10);
+        const mins = digits.substring(2, 4);
+        if (isPM && hours < 12) hours += 12;
+        if (isAM && hours === 12) hours = 0;
+        return `${String(hours).padStart(2, "0")}${mins}`;
+      }
+      if (digits.length === 3) {
+        let hours = parseInt(digits.substring(0, 1), 10);
+        const mins = digits.substring(1, 3);
+        if (isPM && hours < 12) hours += 12;
+        if (isAM && hours === 12) hours = 0;
+        return `${String(hours).padStart(2, "0")}${mins}`;
+      }
+      return timeStr.replace(":", "").trim();
+    };
+
+    const paxCount = (passengers || []).length || 1;
+    (flights || []).forEach((f: any, idx: number) => {
+      const segNum = String(idx + 1).padStart(2, " ");
+      const flightNo = (f.flightNo || "PC 1184").trim().toUpperCase();
+      const flightClass = (f.flightClass || "Y").trim().toUpperCase().charAt(0) || "Y";
+      const dateStr = formatGdsDate(f.date);
+      const depCode = extractAirportCode(f.departedFrom || "");
+      const arrCode = extractAirportCode(f.arrivedAt || "");
+      const depTime = formatGdsTime(f.departTime);
+      const arrTime = formatGdsTime(f.arrivalTime);
+      const dow = formatDayOfWeek(f.date);
+      lines.push(`${segNum} . ${flightNo.padEnd(8, " ")} ${flightClass}  ${dateStr.padEnd(5, " ")} ${depCode}${arrCode} HK${paxCount}  ${depTime.padEnd(5, " ")} ${arrTime.padEnd(5, " ")} O*      ${dow}`);
+    });
+
+    return lines.join("\n");
+  };
+
+  const openTicketOrderModal = (pnr: string = "ALL") => {
+    if (!booking) return;
+    const missingPassports = (booking.passengers || []).filter(
+      (p: any) => !p.passportScanKey || !p.passportScanKey.trim(),
+    );
+    if (missingPassports.length > 0) {
+      setIsMissingPassportModalOpen(true);
+      return;
+    }
+
+    setTicketOrderPnr(pnr);
+    setTicketOrderNotes("");
+
+    const allFlights = booking.flightServices || [];
+    const activeFlights =
+      pnr === "ALL" || !pnr
+        ? allFlights
+        : allFlights.filter((f: any) => {
+            const raw = (f.pnr || "").trim().toUpperCase();
+            const target = pnr.trim().toUpperCase();
+            return raw === target || raw.split(/[,;\s]+/).map((s: string) => s.trim()).includes(target);
+          });
+    const targetPnrVal = pnr === "ALL" ? (allFlights[0]?.pnr || "GROUP") : pnr;
+    setTicketOrderGdsText(formatGdsFlightText(targetPnrVal, activeFlights, booking.passengers || []));
+    setIsTicketOrderModalOpen(true);
+  };
 
   const handleSendTicketOrder = async () => {
     if (!booking) return;
@@ -306,6 +436,7 @@ export default function BookingManager({
         customNotes: ticketOrderNotes.trim() || undefined,
         pdfBase64: pdfBase64 || undefined,
         pnr: ticketOrderPnr,
+        gdsText: ticketOrderGdsText.trim() || undefined,
       });
 
       toast.success(
@@ -314,6 +445,7 @@ export default function BookingManager({
       );
       setIsTicketOrderModalOpen(false);
       setTicketOrderNotes("");
+      setTicketOrderGdsText("");
     } catch (err: any) {
       toast.error(
         err?.response?.data?.message || "Failed to send ticket order email.",
@@ -2253,17 +2385,7 @@ export default function BookingManager({
                       return;
                     }
 
-                    // Check if any passenger is missing passport scan image
-                    const missingPassports = (booking.passengers || []).filter(
-                      (p: any) => !p.passportScanKey || !p.passportScanKey.trim(),
-                    );
-                    if (missingPassports.length > 0) {
-                      setIsMissingPassportModalOpen(true);
-                      return;
-                    }
-
-                    setTicketOrderNotes("");
-                    setIsTicketOrderModalOpen(true);
+                    openTicketOrderModal("ALL");
                   }}
                   className="flex items-center gap-1 px-2 py-0.5 bg-orange-500/10 text-orange-600 hover:bg-orange-500/20 font-bold rounded text-[12px] transition-colors cursor-pointer border border-orange-500/20 shadow-xs active:scale-95"
                   title="Send Flight Ticket Order directly to office@terrifictravel.co.uk and ticketing@terrifictravel.co.uk"
@@ -2398,16 +2520,7 @@ export default function BookingManager({
                                       type="button"
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        const missingPassports = (booking.passengers || []).filter(
-                                          (p: any) => !p.passportScanKey || !p.passportScanKey.trim(),
-                                        );
-                                        if (missingPassports.length > 0) {
-                                          setIsMissingPassportModalOpen(true);
-                                          return;
-                                        }
-                                        setTicketOrderPnr(pnrKey);
-                                        setTicketOrderNotes("");
-                                        setIsTicketOrderModalOpen(true);
+                                        openTicketOrderModal(pnrKey);
                                       }}
                                       className="flex items-center gap-1 px-2 py-0.5 bg-orange-500/10 text-orange-600 hover:bg-orange-500/20 font-bold rounded text-[11px] transition-colors cursor-pointer border border-orange-500/20 shadow-2xs active:scale-95"
                                       title={`Send Ticket Order specifically for PNR ${pnrKey}`}
@@ -3821,6 +3934,63 @@ export default function BookingManager({
                 ? pnrList
                 : ticketOrderPnr;
 
+            const actorName =
+              [user?.firstName, user?.lastName].filter(Boolean).join(" ") ||
+              (user as any)?.name ||
+              "Operations Agent";
+            const actorRole =
+              user?.roles && user.roles.length > 0
+                ? user.roles[0]
+                : (user as any)?.role || (isAdmin ? "Admin" : "Agent");
+            const actorEmail = user?.email || null;
+            const actorPhone = (user as any)?.phoneNumber || null;
+
+            const bookingAgentName =
+              booking.agent?.name ||
+              (booking.createdBy
+                ? `${booking.createdBy.firstName} ${booking.createdBy.lastName}`.trim()
+                : null) ||
+              actorName;
+            const bookingAgentDesignation =
+              booking.agent?.designation || "Travel Consultant";
+            const bookingAgentEmail =
+              booking.agent?.payrollEmail ||
+              booking.agent?.email ||
+              booking.createdBy?.email ||
+              actorEmail;
+            const bookingAgentPhone =
+              booking.agent?.phoneNumber ||
+              booking.createdBy?.phoneNumber ||
+              actorPhone;
+            const isDifferentAgent =
+              bookingAgentName &&
+              bookingAgentName.trim().toLowerCase() !== actorName.trim().toLowerCase();
+
+            const emailTargetPnr =
+              ticketOrderPnr === "ALL" || !ticketOrderPnr
+                ? (activeFlights[0]?.pnr || "GROUP")
+                : ticketOrderPnr;
+
+            const selectPnrScope = (selectedPnr: string) => {
+              setTicketOrderPnr(selectedPnr);
+              const targetFlights =
+                selectedPnr === "ALL" || !selectedPnr
+                  ? allFlights
+                  : allFlights.filter((f: any) => {
+                      const raw = (f.pnr || "").trim().toUpperCase();
+                      const target = selectedPnr.trim().toUpperCase();
+                      return (
+                        raw === target ||
+                        raw.split(/[,;\s]+/).map((s: string) => s.trim()).includes(target)
+                      );
+                    });
+              const targetPnrVal =
+                selectedPnr === "ALL" ? (allFlights[0]?.pnr || "GROUP") : selectedPnr;
+              setTicketOrderGdsText(
+                formatGdsFlightText(targetPnrVal, targetFlights, booking.passengers || []),
+              );
+            };
+
             return (
               <div className="space-y-4 font-sans text-xs">
                 {/* Dispatch & Routing Banner */}
@@ -3841,10 +4011,10 @@ export default function BookingManager({
                     </div>
                     <div className="flex items-center gap-1.5">
                       <span className="text-[11px] font-mono font-bold bg-orange-500/20 text-orange-600 dark:text-orange-400 px-2.5 py-1 rounded-md border border-orange-500/30">
-                        PNR: {activePnrList}
+                        PNR: {emailTargetPnr}
                       </span>
                       <span className="text-[11px] font-mono font-bold bg-secondary text-foreground px-2 py-1 rounded-md border border-border">
-                        Ref: {booking.bookingReference}
+                        Folder: {booking.bookingReference}
                       </span>
                     </div>
                   </div>
@@ -3883,7 +4053,7 @@ export default function BookingManager({
                   <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => setTicketOrderPnr("ALL")}
+                      onClick={() => selectPnrScope("ALL")}
                       className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border ${
                         ticketOrderPnr === "ALL"
                           ? "bg-orange-600 text-white border-orange-600 shadow-xs"
@@ -3904,7 +4074,7 @@ export default function BookingManager({
                         <button
                           key={pnrItem}
                           type="button"
-                          onClick={() => setTicketOrderPnr(pnrItem)}
+                          onClick={() => selectPnrScope(pnrItem)}
                           className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-1.5 border ${
                             isSelected
                               ? "bg-orange-600 text-white border-orange-600 shadow-xs"
@@ -3915,6 +4085,101 @@ export default function BookingManager({
                         </button>
                       );
                     })}
+                  </div>
+                </div>
+
+                {/* Monospace GDS Flight & Passenger Block (Editable) */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
+                      <FileText size={12} className="text-primary" />
+                      <span>GDS PNR Flight & Passenger Details (Editable Monospace)</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const targetPnrVal =
+                          ticketOrderPnr === "ALL" ? (allFlights[0]?.pnr || "GROUP") : ticketOrderPnr;
+                        setTicketOrderGdsText(
+                          formatGdsFlightText(targetPnrVal, activeFlights, booking.passengers || []),
+                        );
+                      }}
+                      className="text-[10px] text-primary hover:underline cursor-pointer"
+                    >
+                      Reset to Auto-formatted GDS
+                    </button>
+                  </div>
+                  <textarea
+                    rows={8}
+                    value={ticketOrderGdsText}
+                    onChange={(e) => setTicketOrderGdsText(e.target.value)}
+                    className="w-full font-mono text-[11px] bg-neutral-900 text-neutral-100 p-3 rounded-lg border border-neutral-700 leading-relaxed tracking-wide focus:outline-none focus:ring-1 focus:ring-primary shadow-inner"
+                    placeholder="PNR, passengers, and flight segments..."
+                  />
+                  <p className="text-[10px] text-muted-foreground">
+                    This monospace block will be dispatched directly to the ticketing team. You can refine or paste raw terminal segments here.
+                  </p>
+                </div>
+
+                {/* Email Dispatch Preview (Outlook Format) */}
+                <div className="border border-border rounded-xl overflow-hidden bg-card shadow-xs">
+                  <div className="px-3 py-2 bg-secondary/60 border-b border-border font-bold text-[11px] uppercase tracking-wider text-foreground flex items-center justify-between">
+                    <span className="flex items-center gap-1.5 text-primary">
+                      <Mail size={12} /> Email Preview (Outlook Layout)
+                    </span>
+                    <span className="text-[10px] font-mono text-muted-foreground">
+                      Subject: Kindly issue the PNR: {emailTargetPnr} Folder: {booking.bookingReference}
+                    </span>
+                  </div>
+                  <div className="p-3.5 bg-background font-sans text-xs space-y-2.5 text-foreground leading-relaxed">
+                    <div className="text-[11px] font-semibold text-muted-foreground pb-2 border-b border-border/60 space-y-0.5">
+                      <div><strong>To:</strong> office@terrifictravel.co.uk, ticketing@terrifictravel.co.uk</div>
+                      <div><strong>From:</strong> terrifictravelltd@gmail.com</div>
+                      <div><strong>Subject:</strong> Kindly issue the PNR: {emailTargetPnr} Folder: {booking.bookingReference}</div>
+                    </div>
+                    <div className="pt-1 space-y-2">
+                      <div>Dear Team,</div>
+                      <div>Kindly issue the below PNR:</div>
+                      <div className="bg-muted/40 p-2.5 rounded border border-border/70 font-mono text-[11px] whitespace-pre-wrap leading-relaxed text-foreground">
+                        {ticketOrderGdsText || "No PNR details"}
+                      </div>
+                      {ticketOrderNotes.trim() && (
+                        <div className="p-2 bg-amber-500/10 border border-amber-500/20 rounded text-[11px]">
+                          <strong className="text-amber-700 dark:text-amber-400 block">Special Instructions / Notes:</strong>
+                          <span className="text-foreground whitespace-pre-wrap">{ticketOrderNotes}</span>
+                        </div>
+                      )}
+                      <div className="pt-2 text-xs space-y-0.5">
+                        <div className="font-semibold text-foreground">Kind Regards,</div>
+                        <div className="font-bold text-foreground">{actorName} ({actorRole})</div>
+                        {(actorEmail || actorPhone) && (
+                          <div className="text-[11px] text-muted-foreground">
+                            {actorEmail && `Email: ${actorEmail}`}
+                            {actorEmail && actorPhone && " | "}
+                            {actorPhone && `Phone: ${actorPhone}`}
+                          </div>
+                        )}
+                        {isDifferentAgent && (
+                          <div className="pt-1.5">
+                            <div className="text-[11px] font-bold text-foreground">
+                              Booking Owner Agent: {bookingAgentName}{bookingAgentDesignation ? ` (${bookingAgentDesignation})` : ""}
+                            </div>
+                            {(bookingAgentEmail || bookingAgentPhone) && (
+                              <div className="text-[11px] text-muted-foreground">
+                                {bookingAgentEmail && `Email: ${bookingAgentEmail}`}
+                                {bookingAgentEmail && bookingAgentPhone && " | "}
+                                {bookingAgentPhone && `Phone: ${bookingAgentPhone}`}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        <div className="pt-2 text-[11px] text-muted-foreground border-t border-border/40">
+                          <div className="font-bold text-foreground">Terrific Travel Ltd</div>
+                          <div>Phone: 01215 291 670</div>
+                          <div>Address: Office 1, 11 Walford Road, Birmingham, B11 1NP</div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -4001,7 +4266,7 @@ export default function BookingManager({
                     <span className="flex items-center gap-1.5 text-sky-600 dark:text-sky-400">
                       <Plane size={12} /> Attached Flight Segments ({activeFlights.length})
                     </span>
-                    <span className="font-mono text-[10px] text-foreground">PNR: {activePnrList}</span>
+                    <span className="font-mono text-[10px] text-foreground">PNR: {emailTargetPnr}</span>
                   </div>
                   <div className="max-h-40 overflow-y-auto divide-y divide-border/60">
                     {activeFlights.map((f: any, idx: number) => (
@@ -4154,7 +4419,7 @@ export default function BookingManager({
                       </>
                     ) : (
                       <>
-                        <Send size={13} /> Send Ticket Order Email {ticketOrderPnr === "ALL" ? "(Group - All PNRs)" : `(PNR: ${ticketOrderPnr})`}
+                        <Send size={13} /> Send Ticket Order Email ({emailTargetPnr})
                       </>
                     )}
                   </button>
@@ -4293,7 +4558,7 @@ export default function BookingManager({
                         type="button"
                         onClick={() => {
                           setIsMissingPassportModalOpen(false);
-                          setIsTicketOrderModalOpen(true);
+                          openTicketOrderModal(ticketOrderPnr || "ALL");
                         }}
                         className="px-4 py-1.5 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-lg text-xs transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
                       >

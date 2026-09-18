@@ -1812,7 +1812,7 @@ export class BookingsService {
   /** Send official flight ticket order email directly to office and ticketing team */
   async sendTicketOrder(
     bookingId: string,
-    options: { customNotes?: string; pdfBase64?: string; pnr?: string; flightIds?: string[] },
+    options: { customNotes?: string; pdfBase64?: string; pnr?: string; flightIds?: string[]; gdsText?: string },
     actorUser?: any
   ) {
     const booking = await prisma.booking.findUnique({
@@ -1904,14 +1904,49 @@ export class BookingsService {
       }
     }
 
-    // Determine Agent details
-    const agentName = booking.agent?.name ||
-      (booking.createdBy ? `${booking.createdBy.firstName} ${booking.createdBy.lastName}`.trim() : null) ||
-      (actorUser ? `${actorUser.firstName || ''} ${actorUser.lastName || ''}`.trim() : null) ||
-      'Operations Agent';
-    const agentEmail = booking.agent?.payrollEmail || booking.agent?.email || booking.createdBy?.email || actorUser?.email || null;
-    const agentPhone = booking.agent?.phoneNumber || null;
-    const agentDesignation = booking.agent?.designation || 'Travel Consultant';
+    // Fetch full actor user info to populate logged-in agent signature
+    let actorUserFull: any = actorUser;
+    if (actorUser?.id) {
+      try {
+        actorUserFull = await (prisma as any).user.findUnique({
+          where: { id: actorUser.id },
+          include: {
+            agent: true,
+            userRoles: { include: { role: true } },
+          },
+        }) || actorUser;
+      } catch (err) {
+        logger.warn('Failed to load full actorUser for sendTicketOrder:', err);
+      }
+    }
+
+    const actorRole = actorUserFull?.userRoles?.[0]?.role?.name || actorUserFull?.role || 'Agent';
+    const actorName = (actorUserFull?.firstName || actorUserFull?.lastName)
+      ? `${actorUserFull.firstName || ''} ${actorUserFull.lastName || ''}`.trim()
+      : (actorUserFull?.name || 'Agent');
+    const actorEmail = actorUserFull?.email || actorUserFull?.agent?.payrollEmail || actorUserFull?.agent?.email || null;
+    const actorPhone = (actorUserFull as any)?.phoneNumber || actorUserFull?.agent?.phoneNumber || null;
+
+    const actorDetails = {
+      name: actorName,
+      role: actorRole,
+      email: actorEmail,
+      phone: actorPhone,
+    };
+
+    // Determine booking owner agent details
+    const bookingAgentDetails = {
+      name: booking.agent?.name ||
+        (booking.createdBy ? `${booking.createdBy.firstName} ${booking.createdBy.lastName}`.trim() : null) ||
+        actorName,
+      designation: booking.agent?.designation || 'Travel Consultant',
+      email: booking.agent?.payrollEmail || booking.agent?.email || booking.createdBy?.email || actorEmail,
+      phone: booking.agent?.phoneNumber || (booking.createdBy as any)?.phoneNumber || actorPhone,
+    };
+
+    const targetPnr = (!isGroup && targetPnrScope !== 'GROUP')
+      ? targetPnrScope
+      : (flightsToSend[0]?.pnr || booking.flightServices[0]?.pnr || 'GROUP');
 
     // Calculate amounts accurately (excluding vendor payments / agent payouts)
     const clientTransactions = (booking.transactions || []).filter((tx: any) => {
@@ -1929,10 +1964,12 @@ export class BookingsService {
       bookingRef: booking.bookingReference,
       bookingDate: booking.bookingDate || booking.createdAt,
       departureDate: booking.departureDate,
-      agentName,
-      agentEmail,
-      agentPhone,
-      agentDesignation,
+      agentName: bookingAgentDetails.name,
+      agentEmail: bookingAgentDetails.email,
+      agentPhone: bookingAgentDetails.phone,
+      agentDesignation: bookingAgentDetails.designation,
+      actorDetails,
+      bookingAgentDetails,
       totalAmount: Math.round(totalAmount * 100) / 100,
       paidAmount: Math.round(paidAmount * 100) / 100,
       amountLeft,
@@ -1959,6 +1996,8 @@ export class BookingsService {
       pdfBase64: options.pdfBase64,
       passportAttachments,
       pnrScope: isGroup ? 'GROUP' : targetPnrScope,
+      targetPnr,
+      gdsText: options.gdsText,
     });
 
     // Write structured audit log

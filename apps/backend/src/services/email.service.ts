@@ -1251,300 +1251,220 @@ export class EmailService {
       contentType?: string;
     }>;
     pnrScope?: string;
+    targetPnr: string;
+    gdsText?: string;
+    actorDetails: {
+      name: string;
+      role: string;
+      email?: string | null;
+      phone?: string | null;
+    };
+    bookingAgentDetails: {
+      name: string;
+      designation?: string | null;
+      email?: string | null;
+      phone?: string | null;
+    };
   }) {
     const {
       bookingRef,
-      bookingDate,
-      departureDate,
-      agentName,
-      agentEmail,
-      agentPhone,
-      agentDesignation,
-      totalAmount,
-      paidAmount,
-      amountLeft,
-      paymentStatus,
-      currencySymbol = '£',
-      passengers,
-      flights,
+      targetPnr,
       customNotes,
       pdfBase64,
       passportAttachments = [],
-      pnrScope = 'GROUP',
+      actorDetails,
+      bookingAgentDetails,
+      passengers = [],
+      flights = [],
     } = params;
 
     const fromAddress = `"Terrific Travel Ltd" <terrifictravelltd@gmail.com>`;
     const recipients = ['office@terrifictravel.co.uk', 'ticketing@terrifictravel.co.uk'];
 
-    const formatAmt = (val: number) =>
-      `${currencySymbol}${Number(val || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    // Construct or format the GDS block
+    let pnrBlock = (params.gdsText || '').trim();
+    if (!pnrBlock) {
+      const lines: string[] = [];
+      lines.push(targetPnr.trim().toUpperCase());
 
-    const formatDateStr = (d?: Date | string | null) => {
-      if (!d) return 'N/A';
-      try {
-        return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-      } catch (e) {
-        return String(d);
+      // Passenger lines
+      const paxFormatted: string[] = [];
+      (passengers || []).forEach((p: any, idx: number) => {
+        const lastName = (p.lastName || '').trim().toUpperCase().replace(/\s+/g, '');
+        const firstName = (p.firstName || '').trim().toUpperCase().replace(/\s+/g, '');
+        const title = (p.title || '').trim().toUpperCase();
+        const age = (p.age || '').trim().toUpperCase();
+        const numPrefix = `${idx + 1}.1`;
+
+        if (age.includes('INFANT') || p.role === 'Infant') {
+          let dobStr = '';
+          if (p.dateOfBirth) {
+            try {
+              const d = new Date(p.dateOfBirth);
+              const day = String(d.getDate()).padStart(2, '0');
+              const month = d.toLocaleString('en-US', { month: 'short' }).toUpperCase();
+              const yr = String(d.getFullYear()).slice(-2);
+              dobStr = `*${day}${month}${yr}`;
+            } catch {}
+          }
+          paxFormatted.push(`${idx + 1}.I/1${lastName}/${firstName} ${title || 'MSTR'}${dobStr}`);
+        } else if (age.includes('CHILD') || p.role === 'Child') {
+          const match = age.match(/\d+/);
+          const childAge = match ? match[0].padStart(2, '0') : '';
+          paxFormatted.push(`${numPrefix}${lastName}/${firstName} ${title || 'MSTR'}${childAge ? `*P-C${childAge}` : '*CHD'}`);
+        } else {
+          paxFormatted.push(`${numPrefix}${lastName}/${firstName} ${title || 'MR'}`);
+        }
+      });
+
+      for (let i = 0; i < paxFormatted.length; i += 2) {
+        if (i + 1 < paxFormatted.length) {
+          lines.push(`${paxFormatted[i]} ${paxFormatted[i + 1]}`);
+        } else {
+          lines.push(paxFormatted[i]);
+        }
       }
-    };
 
-    const leadPassenger = passengers.find((p) => p.role === 'Leader') || passengers[0];
-    const leadPaxName = leadPassenger
-      ? `${leadPassenger.title || ''} ${leadPassenger.firstName || ''} ${leadPassenger.lastName || ''}`.trim()
-      : 'N/A';
+      // Flight lines
+      const extractAirportCode = (str: string) => {
+        if (!str) return 'XXX';
+        const match = str.match(/\(([^)]+)\)/);
+        if (match) return match[1].toUpperCase();
+        const clean = str.trim().toUpperCase();
+        return clean.length === 3 ? clean : clean.substring(0, 3);
+      };
 
-    const pnrList = Array.from(new Set(flights.map((f) => (f.pnr || '').trim()).filter(Boolean))).join(', ') || 'PENDING';
+      const formatGdsDate = (d: any) => {
+        if (!d) return 'TBA';
+        try {
+          const dateObj = new Date(d);
+          const day = String(dateObj.getDate()).padStart(2, '0');
+          const month = dateObj.toLocaleString('en-US', { month: 'short' }).toUpperCase();
+          return `${day}${month}`;
+        } catch {
+          return 'TBA';
+        }
+      };
 
-    // Build Passenger Rows
-    const passengerRows = passengers.map((p, idx) => `
-      <tr style="border-bottom: 1px solid #e2e8f0; ${idx % 2 === 1 ? 'background-color: #fafbfc;' : ''}">
-        <td style="padding: 10px 12px; font-weight: 700; color: #1e293b;">
-          ${idx + 1}. ${(p.title || '').toUpperCase()} ${(p.firstName || '').toUpperCase()} ${(p.lastName || '').toUpperCase()}
-          ${p.role === 'Leader' ? '<span style="background-color: #ffedd5; color: #c2410c; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; margin-left: 6px;">LEAD</span>' : ''}
-        </td>
-        <td style="padding: 10px 12px; color: #475569;">${p.age || 'Adult'}</td>
-        <td style="padding: 10px 12px; color: #475569;">${formatDateStr(p.dateOfBirth)}</td>
-        <td style="padding: 10px 12px; color: #475569;">${p.nationality || 'N/A'}</td>
-        <td style="padding: 10px 12px; font-family: monospace; font-weight: 700; color: #0f172a;">${p.passportNumber || 'N/A'}</td>
-        <td style="padding: 10px 12px; color: #475569;">${formatDateStr(p.passportExpiryDate)}</td>
-        <td style="padding: 10px 12px; font-size: 11px; color: #64748b;">
-          ${p.phoneNumber || ''}${p.phoneNumber && p.email ? ' &bull; ' : ''}${p.email || ''}
-          ${!p.phoneNumber && !p.email ? 'N/A' : ''}
-        </td>
-      </tr>
-    `).join('');
+      const formatDayOfWeek = (d: any) => {
+        if (!d) return '';
+        try {
+          const days = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
+          return days[new Date(d).getDay()] || '';
+        } catch {
+          return '';
+        }
+      };
 
-    // Build Flight Rows
-    const flightRows = flights.map((f, idx) => `
-      <tr style="border-bottom: 1px solid #e2e8f0; ${idx % 2 === 1 ? 'background-color: #fafbfc;' : ''}">
-        <td style="padding: 10px 12px; font-weight: 800; font-family: monospace; color: #0369a1;">
-          ${f.pnr || 'N/A'}
-        </td>
-        <td style="padding: 10px 12px; font-weight: 700; color: #0f172a;">
-          ${f.flightNo || 'TBA'}
-          ${f.flightClass ? `<div style="font-size: 10px; font-weight: 500; color: #64748b;">${f.flightClass}</div>` : ''}
-        </td>
-        <td style="padding: 10px 12px; color: #1e293b;">
-          <div style="font-weight: 600;">${f.departedFrom || 'N/A'}</div>
-          <div style="font-size: 11px; color: #64748b;">${formatDateStr(f.date)} &bull; <strong>${f.departTime || 'TBA'}</strong></div>
-        </td>
-        <td style="padding: 10px 12px; color: #1e293b;">
-          <div style="font-weight: 600;">${f.arrivedAt || 'N/A'}</div>
-          <div style="font-size: 11px; color: #64748b;">Time: <strong>${f.arrivalTime || 'TBA'}</strong></div>
-        </td>
-        <td style="padding: 10px 12px; font-size: 11px; color: #475569;">
-          <div>Checked: <strong>${f.checkedBaggage || f.baggage || 'Standard'}</strong></div>
-          <div>Hand: <strong>${f.carryOnBaggage || '7kg'}</strong></div>
-          ${f.personalItem ? `<div>Item: <strong>${f.personalItem}</strong></div>` : ''}
-        </td>
-        <td style="padding: 10px 12px; text-align: center;">
-          <span style="background-color: #e0f2fe; color: #0284c7; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 4px;">
-            ${f.status || 'CONFIRMED'}
-          </span>
-        </td>
-      </tr>
-    `).join('');
+      const formatGdsTime = (timeStr?: string) => {
+        if (!timeStr) return 'TBA';
+        const raw = timeStr.trim().toUpperCase();
+        const isPM = raw.includes('PM');
+        const isAM = raw.includes('AM');
+        const digits = raw.replace(/[^0-9]/g, '');
+        if (digits.length === 4) {
+          let hours = parseInt(digits.substring(0, 2), 10);
+          const mins = digits.substring(2, 4);
+          if (isPM && hours < 12) hours += 12;
+          if (isAM && hours === 12) hours = 0;
+          return `${String(hours).padStart(2, '0')}${mins}`;
+        }
+        if (digits.length === 3) {
+          let hours = parseInt(digits.substring(0, 1), 10);
+          const mins = digits.substring(1, 3);
+          if (isPM && hours < 12) hours += 12;
+          if (isAM && hours === 12) hours = 0;
+          return `${String(hours).padStart(2, '0')}${mins}`;
+        }
+        return timeStr.replace(':', '').trim();
+      };
+
+      const paxCount = passengers.length || 1;
+      flights.forEach((f: any, idx: number) => {
+        const segNum = String(idx + 1).padStart(2, ' ');
+        const flightNo = (f.flightNo || 'PC 1184').trim().toUpperCase();
+        const flightClass = (f.flightClass || 'Y').trim().toUpperCase().charAt(0) || 'Y';
+        const dateStr = formatGdsDate(f.date);
+        const depCode = extractAirportCode(f.departedFrom || '');
+        const arrCode = extractAirportCode(f.arrivedAt || '');
+        const depTime = formatGdsTime(f.departTime);
+        const arrTime = formatGdsTime(f.arrivalTime);
+        const dow = formatDayOfWeek(f.date);
+        lines.push(`${segNum} . ${flightNo.padEnd(8, ' ')} ${flightClass}  ${dateStr.padEnd(5, ' ')} ${depCode}${arrCode} HK${paxCount}  ${depTime.padEnd(5, ' ')} ${arrTime.padEnd(5, ' ')} O*      ${dow}`);
+      });
+
+      pnrBlock = lines.join('\n');
+    }
+
+    const subject = `Kindly issue the PNR: ${targetPnr} Folder: ${bookingRef}`;
+
+    const actor = actorDetails || { name: 'Faisal Chughtai', role: 'Admin' };
+    const owner = bookingAgentDetails;
+    const isDifferentAgent = owner && owner.name && owner.name.trim().toLowerCase() !== actor.name.trim().toLowerCase();
+
+    const plainText = [
+      'Dear Team,',
+      '',
+      'Kindly issue the below PNR:',
+      '',
+      pnrBlock,
+      '',
+      ...(customNotes ? ['Special Instructions / Notes:', customNotes, ''] : []),
+      'Kind Regards,',
+      `${actor.name} (${actor.role})`,
+      ...(actor.email ? [`Email: ${actor.email}${actor.phone ? ` | Phone: ${actor.phone}` : ''}`] : []),
+      ...(isDifferentAgent ? [
+        '',
+        `Booking Owner Agent: ${owner.name}${owner.designation ? ` (${owner.designation})` : ''}`,
+        ...(owner.email ? [`Email: ${owner.email}${owner.phone ? ` | Phone: ${owner.phone}` : ''}`] : []),
+      ] : []),
+      '',
+      'Terrific Travel Ltd',
+      'Phone: 01215 291 670',
+      'Address: Office 1, 11 Walford Road, Birmingham, B11 1NP',
+    ].join('\n');
 
     const htmlContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Flight Ticket Order - ${bookingRef}</title>
-      </head>
-      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f1f5f9; margin: 0; padding: 30px 10px; color: #0f172a;">
-        <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 850px; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); overflow: hidden; border: 1px solid #cbd5e1;">
-          <!-- Header Banner -->
-          <tr>
-            <td style="background: linear-gradient(135deg, #ea580c 0%, #f97316 100%); padding: 26px 32px; color: #ffffff;">
-              <table width="100%" border="0" cellpadding="0" cellspacing="0">
-                <tr>
-                  <td style="vertical-align: middle;">
-                    <h1 style="margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.5px; color: #ffffff;">TERRIFIC TRAVEL &amp; TOURS</h1>
-                    <p style="margin: 4px 0 0 0; font-size: 13px; font-weight: 600; opacity: 0.95; letter-spacing: 0.5px; text-transform: uppercase;">
-                      ✈️ OFFICIAL FLIGHT TICKET ORDER ${(!pnrScope || pnrScope.toUpperCase() === 'GROUP' || pnrScope.toUpperCase() === 'ALL') ? '(GROUP ORDER - ALL PNRS)' : `(PNR: ${pnrScope})`}
-                    </p>
-                  </td>
-                  <td style="vertical-align: middle; text-align: right;">
-                    <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.85;">Booking Reference</div>
-                    <div style="font-size: 22px; font-weight: 900; font-family: monospace; letter-spacing: 1px; color: #ffffff;">${bookingRef}</div>
-                    <div style="font-size: 11px; opacity: 0.9; margin-top: 3px;">PNR: <strong style="font-family: monospace;">${pnrList}</strong></div>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+</head>
+<body style="font-family: Calibri, 'Segoe UI', Aptos, Arial, sans-serif; font-size: 14.5px; color: #111827; line-height: 1.5; background-color: #ffffff; margin: 0; padding: 24px;">
+  <p style="margin: 0 0 16px 0; font-size: 15px;">Dear Team,</p>
+  <p style="margin: 0 0 16px 0; font-size: 15px;">Kindly issue the below PNR:</p>
 
-          <!-- Main Content Area -->
-          <tr>
-            <td style="padding: 28px 32px;">
-              <!-- Info Cards Grid: Agent & Financials -->
-              <table width="100%" border="0" cellpadding="0" cellspacing="0" style="margin-bottom: 24px;">
-                <tr>
-                  <!-- Agent Details Card -->
-                  <td width="48%" style="vertical-align: top; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px;">
-                    <div style="font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">
-                      👤 Assigned Agent Details
-                    </div>
-                    <table width="100%" border="0" cellpadding="2" cellspacing="0" style="font-size: 12px;">
-                      <tr>
-                        <td style="color: #64748b; width: 100px;">Agent Name:</td>
-                        <td style="font-weight: 700; color: #0f172a;">${agentName}</td>
-                      </tr>
-                      ${agentEmail ? `
-                      <tr>
-                        <td style="color: #64748b;">Email:</td>
-                        <td style="font-weight: 600; color: #0284c7;"><a href="mailto:${agentEmail}" style="color: #0284c7; text-decoration: none;">${agentEmail}</a></td>
-                      </tr>
-                      ` : ''}
-                      ${agentPhone ? `
-                      <tr>
-                        <td style="color: #64748b;">Phone:</td>
-                        <td style="font-weight: 600; color: #0f172a;">${agentPhone}</td>
-                      </tr>
-                      ` : ''}
-                      <tr>
-                        <td style="color: #64748b;">Designation:</td>
-                        <td style="color: #475569;">${agentDesignation || 'Travel Consultant'}</td>
-                      </tr>
-                      <tr>
-                        <td style="color: #64748b;">Booking Date:</td>
-                        <td style="color: #475569;">${formatDateStr(bookingDate)}</td>
-                      </tr>
-                    </table>
-                  </td>
+  <div style="font-family: 'Consolas', 'Courier New', Courier, monospace; font-size: 13.5px; line-height: 1.45; color: #000000; background-color: #fbfbfb; border: 1px solid #e5e7eb; border-left: 4px solid #0284c7; padding: 14px 18px; margin: 18px 0; white-space: pre-wrap; font-weight: 500; letter-spacing: 0.3px;">
+${pnrBlock}
+  </div>
 
-                  <td width="4%">&nbsp;</td>
+  ${customNotes ? `
+  <div style="margin: 18px 0; padding: 12px 16px; background-color: #fffbeb; border: 1px solid #fef3c7; border-left: 4px solid #f59e0b; font-size: 13.5px; color: #78350f;">
+    <strong style="color: #92400e; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; display: block; margin-bottom: 4px;">Special Instructions / Notes:</strong>
+    ${customNotes.replace(/\n/g, '<br/>')}
+  </div>
+  ` : ''}
 
-                  <!-- Financial Balance Card -->
-                  <td width="48%" style="vertical-align: top; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px;">
-                    <div style="font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">
-                      💳 Booking Financial Status
-                    </div>
-                    <table width="100%" border="0" cellpadding="2" cellspacing="0" style="font-size: 12px;">
-                      <tr>
-                        <td style="color: #64748b; width: 110px;">Total Price:</td>
-                        <td style="font-weight: 700; color: #0f172a; font-size: 13px;">${formatAmt(totalAmount)}</td>
-                      </tr>
-                      <tr>
-                        <td style="color: #64748b;">Amount Paid:</td>
-                        <td style="font-weight: 700; color: #059669; font-size: 13px;">${formatAmt(paidAmount)}</td>
-                      </tr>
-                      <tr>
-                        <td style="color: #64748b;">Amount Left:</td>
-                        <td style="font-weight: 800; color: ${amountLeft > 0 ? '#dc2626' : '#059669'}; font-size: 14px;">
-                          ${formatAmt(amountLeft)}
-                          ${amountLeft === 0 ? '<span style="font-size: 10px; color: #059669; font-weight: 700; margin-left: 4px;">(CLEARED)</span>' : ''}
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="color: #64748b;">Payment Status:</td>
-                        <td>
-                          <span style="background-color: ${paymentStatus === 'PAID' ? '#dcfce7' : paymentStatus === 'PARTIALLY_PAID' ? '#fef3c7' : '#fee2e2'}; color: ${paymentStatus === 'PAID' ? '#15803d' : paymentStatus === 'PARTIALLY_PAID' ? '#b45309' : '#b91c1c'}; font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 4px;">
-                            ${paymentStatus}
-                          </span>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="color: #64748b;">Lead Pax:</td>
-                        <td style="font-weight: 600; color: #0f172a;">${leadPaxName}</td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-              </table>
+  <div style="margin-top: 26px; line-height: 1.5; color: #111827;">
+    <p style="margin: 0 0 6px 0;">Kind Regards,</p>
+    <p style="margin: 0 0 2px 0; font-weight: 700; font-size: 15px; color: #0f172a;">${actor.name} <span style="font-weight: 500; font-size: 13.5px; color: #475569;">(${actor.role})</span></p>
+    ${actor.email ? `<p style="margin: 0 0 2px 0; font-size: 13px; color: #475569;">Email: <a href="mailto:${actor.email}" style="color: #0284c7; text-decoration: none;">${actor.email}</a>${actor.phone ? ` &bull; Phone: ${actor.phone}` : ''}</p>` : ''}
 
-              ${customNotes ? `
-              <!-- Urgent Notes Box -->
-              <div style="background-color: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 6px; padding: 12px 16px; margin-bottom: 24px; font-size: 13px;">
-                <div style="font-weight: 800; color: #b45309; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; margin-bottom: 4px;">
-                  ⚠️ Agent Notes &amp; Special Instructions
-                </div>
-                <div style="color: #78350f; line-height: 1.4;">${customNotes.replace(/\n/g, '<br/>')}</div>
-              </div>
-              ` : ''}
+    ${isDifferentAgent ? `
+    <div style="margin-top: 10px; margin-bottom: 10px; padding-top: 8px; border-top: 1px dashed #e2e8f0; font-size: 13px;">
+      <p style="margin: 0 0 2px 0; color: #1e293b;"><strong>Booking Owner Agent:</strong> ${owner.name}${owner.designation ? ` (${owner.designation})` : ''}</p>
+      ${owner.email ? `<p style="margin: 0 0 2px 0; color: #475569;">Email: <a href="mailto:${owner.email}" style="color: #0284c7; text-decoration: none;">${owner.email}</a>${owner.phone ? ` &bull; Phone: ${owner.phone}` : ''}</p>` : ''}
+    </div>
+    ` : ''}
 
-              <!-- Flight Details Table -->
-              <div style="margin-bottom: 28px;">
-                <div style="font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #0f172a; margin-bottom: 8px;">
-                  ✈️ Flight Details &amp; Itinerary (${flights.length} Segments)
-                </div>
-                <table width="100%" border="0" cellpadding="0" cellspacing="0" style="border-collapse: collapse; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; font-size: 12px;">
-                  <thead>
-                    <tr style="background-color: #0f172a; color: #ffffff; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">
-                      <th style="padding: 10px 12px;">PNR</th>
-                      <th style="padding: 10px 12px;">Flight</th>
-                      <th style="padding: 10px 12px;">Departure</th>
-                      <th style="padding: 10px 12px;">Arrival</th>
-                      <th style="padding: 10px 12px;">Baggage</th>
-                      <th style="padding: 10px 12px; text-align: center;">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${flightRows}
-                  </tbody>
-                </table>
-              </div>
-
-              <!-- Passenger Details Table -->
-              <div style="margin-bottom: 24px;">
-                <div style="font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #0f172a; margin-bottom: 8px;">
-                  👥 Passenger Details &amp; Passport Info (${passengers.length} Passengers)
-                </div>
-                <table width="100%" border="0" cellpadding="0" cellspacing="0" style="border-collapse: collapse; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; font-size: 12px;">
-                  <thead>
-                    <tr style="background-color: #0f172a; color: #ffffff; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">
-                      <th style="padding: 10px 12px;">Passenger Name</th>
-                      <th style="padding: 10px 12px;">Type</th>
-                      <th style="padding: 10px 12px;">DOB</th>
-                      <th style="padding: 10px 12px;">Nationality</th>
-                      <th style="padding: 10px 12px;">Passport #</th>
-                      <th style="padding: 10px 12px;">Expiry</th>
-                      <th style="padding: 10px 12px;">Contact</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${passengerRows}
-                  </tbody>
-                </table>
-              </div>
-
-              <!-- Passport Scans Attachment Notice -->
-              ${passportAttachments && passportAttachments.length > 0 ? `
-              <div style="margin-bottom: 24px; padding: 14px 18px; background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px;">
-                <div style="font-size: 12px; font-weight: 800; color: #065f46; margin-bottom: 4px;">
-                  🛂 Attached Passenger Passport Scans (${passportAttachments.length})
-                </div>
-                <div style="font-size: 11px; color: #047857; margin-bottom: 6px;">
-                  Passport scans for all passengers have been verified and are attached directly to this email:
-                </div>
-                <ul style="margin: 0; padding-left: 18px; font-family: monospace; font-size: 11px; color: #065f46;">
-                  ${passportAttachments.map(pa => `<li style="margin-bottom: 2px;"><strong>${pa.filename}</strong></li>`).join('')}
-                </ul>
-              </div>
-              ` : ''}
-
-              <!-- Action Link -->
-              <div style="text-align: center; margin: 30px 0 10px 0;">
-                <a href="${config.frontendUrl}/bookings?ref=${encodeURIComponent(bookingRef)}" target="_blank" style="background-color: #ea580c; color: #ffffff; font-size: 13px; font-weight: 700; text-decoration: none; padding: 12px 28px; border-radius: 6px; display: inline-block;">
-                  View Full Booking in CRM
-                </a>
-              </div>
-            </td>
-          </tr>
-
-          <!-- Footer -->
-          <tr>
-            <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px 32px; text-align: center; font-size: 11px; color: #64748b; line-height: 1.5;">
-              <p style="margin: 0 0 4px 0;">
-                This Ticket Order was automatically dispatched from <strong>terrifictravelltd@gmail.com</strong> to <strong>office@terrifictravel.co.uk</strong> and <strong>ticketing@terrifictravel.co.uk</strong>.
-              </p>
-              <p style="margin: 0; font-weight: 600; color: #475569;">&copy; ${new Date().getFullYear()} Terrific Travel (Private) Limited. All rights reserved.</p>
-            </td>
-          </tr>
-        </table>
-      </body>
-      </html>
+    <div style="margin-top: 14px; font-size: 13px; color: #334155; line-height: 1.45;">
+      <p style="margin: 0 0 2px 0; font-weight: 800; color: #0f172a;">Terrific Travel Ltd</p>
+      <p style="margin: 0 0 2px 0;">Phone: 01215 291 670</p>
+      <p style="margin: 0 0 2px 0;">Address: Office 1, 11 Walford Road, Birmingham, B11 1NP</p>
+    </div>
+  </div>
+</body>
+</html>
     `;
 
     const attachments: any[] = [];
@@ -1568,28 +1488,19 @@ export class EmailService {
       }
     }
 
-    // Include standalone printable HTML document attachment
-    attachments.push({
-      filename: `Ticket-Order-${bookingRef}.html`,
-      content: Buffer.from(htmlContent, 'utf-8'),
-      contentType: 'text/html',
-    });
-
     try {
-      const isGroup = !pnrScope || pnrScope.toUpperCase() === 'GROUP' || pnrScope.toUpperCase() === 'ALL';
-      const scopeSubject = isGroup ? `[TICKET ORDER - ALL PNRS]` : `[TICKET ORDER - PNR: ${pnrScope}]`;
-
       await this.transporter.sendMail({
         from: fromAddress,
         to: recipients,
-        replyTo: agentEmail ? `${agentEmail}, terrifictravelltd@gmail.com` : 'terrifictravelltd@gmail.com',
-        subject: `${scopeSubject} Booking ${bookingRef} - ${leadPaxName} - PNR: ${pnrList}`,
+        replyTo: actor.email ? `${actor.email}, terrifictravelltd@gmail.com` : 'terrifictravelltd@gmail.com',
+        subject,
+        text: plainText,
         html: htmlContent,
         attachments: attachments.length > 0 ? attachments : undefined,
       });
 
-      logger.info(`Successfully sent Ticket Order email for booking ${bookingRef} to ${recipients.join(', ')}`);
-      return { success: true, recipients };
+      logger.info(`Successfully sent Ticket Order email for booking ${bookingRef} (PNR: ${targetPnr}) to ${recipients.join(', ')}`);
+      return { success: true, recipients, subject };
     } catch (error) {
       logger.error(`Failed to send ticket order email for booking ${bookingRef}`, error);
       throw error;
