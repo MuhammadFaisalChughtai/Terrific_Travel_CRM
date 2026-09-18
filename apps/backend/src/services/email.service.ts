@@ -1,3 +1,5 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import * as nodemailer from 'nodemailer';
 import { config, logger } from '../config';
 
@@ -1281,11 +1283,35 @@ export class EmailService {
     const fromAddress = `"Terrific Travel Ltd" <terrifictravelltd@gmail.com>`;
     const recipients = ['office@terrifictravel.co.uk', 'ticketing@terrifictravel.co.uk'];
 
+    // Extract distinct PNRs
+    const pnrsFromFlights = Array.from(
+      new Set(
+        (flights || [])
+          .map((f: any) => String(f.pnr || '').trim().toUpperCase())
+          .filter(Boolean)
+      )
+    );
+    let activePnrs: string[] = [];
+    if (targetPnr && targetPnr !== 'ALL' && targetPnr !== 'GROUP') {
+      if (targetPnr.includes(',')) {
+        activePnrs = targetPnr.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean);
+      } else {
+        activePnrs = [targetPnr.trim().toUpperCase()];
+      }
+    } else if (pnrsFromFlights.length > 0) {
+      activePnrs = pnrsFromFlights;
+    } else {
+      activePnrs = [targetPnr ? targetPnr.trim().toUpperCase() : 'PENDING'];
+    }
+
+    const pnrHeaderLine = activePnrs.join('          '); // Multiple PNRs in the same line with 10 spaces
+    const subjectPnr = activePnrs.join(', ');
+
     // Construct or format the GDS block
     let pnrBlock = (params.gdsText || '').trim();
     if (!pnrBlock) {
       const lines: string[] = [];
-      lines.push(targetPnr.trim().toUpperCase());
+      lines.push(pnrHeaderLine);
 
       // Passenger lines
       const paxFormatted: string[] = [];
@@ -1396,7 +1422,7 @@ export class EmailService {
       pnrBlock = lines.join('\n');
     }
 
-    const subject = `Kindly issue the PNR: ${targetPnr} Folder: ${bookingRef}`;
+    const subject = `Kindly issue the PNR: ${subjectPnr} Folder: ${bookingRef}`;
 
     const formatDateStr = (d?: Date | string | null) => {
       if (!d) return 'N/A';
@@ -1460,6 +1486,10 @@ export class EmailService {
     const owner = bookingAgentDetails;
     const isDifferentAgent = owner && owner.name && owner.name.trim().toLowerCase() !== actor.name.trim().toLowerCase();
 
+    // Check if company logo file exists on disk
+    const logoPath = path.resolve(__dirname, '../assets/terrific_logo_full.png');
+    const hasLogo = fs.existsSync(logoPath);
+
     const plainText = [
       'Dear Team,',
       '',
@@ -1478,10 +1508,20 @@ export class EmailService {
         ...(owner.email ? [`Email: ${owner.email}${owner.phone ? ` | Phone: ${owner.phone}` : ''}`] : []),
       ] : []),
       '',
-      'Terrific Travel Ltd',
-      'Phone: 01215 291 670',
-      'Address: Office 1, 11 Walford Road, Birmingham, B11 1NP',
+      '----------------------------------------',
+      'Terrific Travel Ltd (ATOL Protected)',
+      'Direct: 01215 291 670 | Office: office@terrifictravel.co.uk',
+      'Web: https://terrifictravel.co.uk',
+      'Address: Office 1, 11 Walford Road, Birmingham, B11 1NP, United Kingdom',
+      '----------------------------------------',
+      'CONFIDENTIALITY NOTICE: This email and any attachments are confidential and intended solely for the use of the recipient.',
     ].join('\n');
+
+    // Split pnrBlock lines and wrap with explicit <br/> inside <pre> for bulletproof Outlook Desktop rendering
+    const formattedPnrHtml = pnrBlock
+      .split('\n')
+      .map((line) => (line ? line.replace(/ /g, '&nbsp;') : '&nbsp;'))
+      .join('<br/>');
 
     const htmlContent = `
 <!DOCTYPE html>
@@ -1493,8 +1533,8 @@ export class EmailService {
   <p style="margin: 0 0 16px 0; font-size: 15px;">Dear Team,</p>
   <p style="margin: 0 0 16px 0; font-size: 15px;">Kindly issue the below PNR:</p>
 
-  <div style="font-family: 'Consolas', 'Courier New', Courier, monospace; font-size: 13.5px; line-height: 1.45; color: #000000; background-color: #fbfbfb; border: 1px solid #e5e7eb; border-left: 4px solid #0284c7; padding: 14px 18px; margin: 18px 0; white-space: pre-wrap; font-weight: 500; letter-spacing: 0.3px;">
-${pnrBlock}
+  <div style="background-color: #fbfbfb; border: 1px solid #e5e7eb; border-left: 4px solid #0284c7; padding: 14px 18px; margin: 18px 0;">
+    <pre style="font-family: 'Consolas', 'Courier New', Courier, monospace; font-size: 13.5px; line-height: 1.5; color: #000000; font-weight: 500; letter-spacing: 0.3px; margin: 0; white-space: pre-wrap; word-break: break-word;">${formattedPnrHtml}</pre>
   </div>
 
   ${(passengers && passengers.length > 0) ? `
@@ -1534,24 +1574,52 @@ ${pnrBlock}
   </div>
   ` : ''}
 
-  <div style="margin-top: 26px; line-height: 1.5; color: #111827;">
-    <p style="margin: 0 0 6px 0;">Kind Regards,</p>
-    <p style="margin: 0 0 2px 0; font-weight: 700; font-size: 15px; color: #0f172a;">${actor.name} <span style="font-weight: 500; font-size: 13.5px; color: #475569;">(${actor.role})</span></p>
-    ${actor.email ? `<p style="margin: 0 0 2px 0; font-size: 13px; color: #475569;">Email: <a href="mailto:${actor.email}" style="color: #0284c7; text-decoration: none;">${actor.email}</a>${actor.phone ? ` &bull; Phone: ${actor.phone}` : ''}</p>` : ''}
+  <!-- Professional Corporate Signature with Company Logo -->
+  <table cellpadding="0" cellspacing="0" border="0" style="margin-top: 28px; border-top: 2px solid #ea580c; padding-top: 18px; font-family: Calibri, 'Segoe UI', Aptos, Arial, sans-serif; width: 100%; max-width: 680px;">
+    <tr>
+      <td style="vertical-align: top; width: 180px; padding-right: 22px; border-right: 2px solid #fed7aa; text-align: center;">
+        ${hasLogo ? `<img src="cid:company_logo" alt="Terrific Travel" width="165" style="display: block; width: 165px; height: auto; margin: 0 auto;" />` : `<div style="font-size: 18px; font-weight: 800; color: #ea580c;">TERRIFIC TRAVEL</div>`}
+        <div style="margin-top: 10px; font-size: 10px; font-weight: 800; color: #ea580c; letter-spacing: 0.8px; text-transform: uppercase;">
+          ATOL PROTECTED
+        </div>
+        <div style="font-size: 9.5px; color: #64748b; margin-top: 2px;">
+          Certified Agency
+        </div>
+      </td>
+      <td style="vertical-align: top; padding-left: 22px;">
+        <div style="font-size: 12.5px; color: #64748b; margin-bottom: 4px;">Kind Regards,</div>
+        <div style="font-size: 15px; font-weight: 800; color: #0f172a; margin-bottom: 2px;">
+          ${actor.name} <span style="font-size: 13px; font-weight: 600; color: #ea580c;">| ${actor.role}</span>
+        </div>
+        ${actor.email ? `
+        <div style="font-size: 12.5px; color: #334155; margin-bottom: 3px;">
+          <strong style="color: #475569;">Email:</strong> <a href="mailto:${actor.email}" style="color: #0284c7; text-decoration: none;">${actor.email}</a>
+          ${actor.phone ? ` &bull; <strong style="color: #475569;">Phone:</strong> ${actor.phone}` : ''}
+        </div>` : ''}
 
-    ${isDifferentAgent ? `
-    <div style="margin-top: 10px; margin-bottom: 10px; padding-top: 8px; border-top: 1px dashed #e2e8f0; font-size: 13px;">
-      <p style="margin: 0 0 2px 0; color: #1e293b;"><strong>Booking Owner Agent:</strong> ${owner.name}${owner.designation ? ` (${owner.designation})` : ''}</p>
-      ${owner.email ? `<p style="margin: 0 0 2px 0; color: #475569;">Email: <a href="mailto:${owner.email}" style="color: #0284c7; text-decoration: none;">${owner.email}</a>${owner.phone ? ` &bull; Phone: ${owner.phone}` : ''}</p>` : ''}
-    </div>
-    ` : ''}
+        ${isDifferentAgent ? `
+        <div style="margin: 8px 0; padding: 7px 11px; background-color: #f8fafc; border-left: 3px solid #cbd5e1; font-size: 12px; color: #475569;">
+          <strong style="color: #1e293b;">Booking Owner Agent:</strong> ${owner.name}${owner.designation ? ` (${owner.designation})` : ''}
+          ${owner.email ? `<br/><strong style="color: #475569;">Email:</strong> <a href="mailto:${owner.email}" style="color: #0284c7; text-decoration: none;">${owner.email}</a>` : ''}
+          ${owner.phone ? ` &bull; <strong style="color: #475569;">Phone:</strong> ${owner.phone}` : ''}
+        </div>` : ''}
 
-    <div style="margin-top: 14px; font-size: 13px; color: #334155; line-height: 1.45;">
-      <p style="margin: 0 0 2px 0; font-weight: 800; color: #0f172a;">Terrific Travel Ltd</p>
-      <p style="margin: 0 0 2px 0;">Phone: 01215 291 670</p>
-      <p style="margin: 0 0 2px 0;">Address: Office 1, 11 Walford Road, Birmingham, B11 1NP</p>
-    </div>
-  </div>
+        <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #f1f5f9; font-size: 12px; line-height: 1.55; color: #475569;">
+          <div style="font-weight: 800; color: #0f172a; font-size: 13px; margin-bottom: 2px;">
+            Terrific Travel Ltd
+          </div>
+          <div><strong style="color: #334155;">Direct:</strong> 01215 291 670 &bull; <strong style="color: #334155;">Office:</strong> <a href="mailto:office@terrifictravel.co.uk" style="color: #0284c7; text-decoration: none;">office@terrifictravel.co.uk</a></div>
+          <div><strong style="color: #334155;">Web:</strong> <a href="https://terrifictravel.co.uk" target="_blank" style="color: #ea580c; text-decoration: none; font-weight: 600;">www.terrifictravel.co.uk</a></div>
+          <div><strong style="color: #334155;">Office:</strong> Office 1, 11 Walford Road, Birmingham, B11 1NP, United Kingdom</div>
+        </div>
+      </td>
+    </tr>
+    <tr>
+      <td colspan="2" style="padding-top: 14px; font-size: 10px; color: #94a3b8; line-height: 1.4; border-top: 1px dashed #e2e8f0; margin-top: 12px;">
+        CONFIDENTIALITY NOTICE: This email and any attachments are confidential and intended solely for the use of the individual or entity to whom they are addressed. If you have received this communication in error, please notify the sender immediately and delete the original message. Terrific Travel Ltd is registered in England and Wales.
+      </td>
+    </tr>
+  </table>
 </body>
 </html>
     `;
@@ -1563,6 +1631,15 @@ ${pnrBlock}
         filename: `Ticket-Order-${bookingRef}.pdf`,
         content: Buffer.from(cleanBase64, 'base64'),
         contentType: 'application/pdf',
+      });
+    }
+
+    // Attach company logo for inline display in Outlook
+    if (hasLogo) {
+      attachments.push({
+        filename: 'terrific_logo_full.png',
+        path: logoPath,
+        cid: 'company_logo',
       });
     }
 
@@ -1588,7 +1665,7 @@ ${pnrBlock}
         attachments: attachments.length > 0 ? attachments : undefined,
       });
 
-      logger.info(`Successfully sent Ticket Order email for booking ${bookingRef} (PNR: ${targetPnr}) to ${recipients.join(', ')}`);
+      logger.info(`Successfully sent Ticket Order email for booking ${bookingRef} (PNR: ${subjectPnr}) to ${recipients.join(', ')}`);
       return { success: true, recipients, subject };
     } catch (error) {
       logger.error(`Failed to send ticket order email for booking ${bookingRef}`, error);

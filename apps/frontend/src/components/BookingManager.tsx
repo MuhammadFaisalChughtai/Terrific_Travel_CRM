@@ -269,7 +269,28 @@ export default function BookingManager({
 
   const formatGdsFlightText = (pnr: string, flights: any[], passengers: any[]) => {
     const lines: string[] = [];
-    lines.push(pnr.trim().toUpperCase());
+    const pnrsFromFlights = Array.from(
+      new Set(
+        (flights || [])
+          .map((f: any) => String(f.pnr || "").trim().toUpperCase())
+          .filter(Boolean)
+      )
+    );
+    let activePnrs: string[] = [];
+    if (pnr && pnr !== "ALL" && pnr !== "GROUP") {
+      if (pnr.includes(",")) {
+        activePnrs = pnr.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean);
+      } else {
+        activePnrs = [pnr.trim().toUpperCase()];
+      }
+    } else if (pnrsFromFlights.length > 0) {
+      activePnrs = pnrsFromFlights;
+    } else {
+      activePnrs = [pnr ? pnr.trim().toUpperCase() : "PENDING"];
+    }
+
+    // Place all active PNRs on the same line separated with 10 spaces
+    lines.push(activePnrs.join("          "));
 
     const paxFormatted: string[] = [];
     (passengers || []).forEach((p: any, idx: number) => {
@@ -391,7 +412,17 @@ export default function BookingManager({
             const target = pnr.trim().toUpperCase();
             return raw === target || raw.split(/[,;\s]+/).map((s: string) => s.trim()).includes(target);
           });
-    const targetPnrVal = pnr === "ALL" ? (allFlights[0]?.pnr || "GROUP") : pnr;
+    const uniquePnrs = Array.from(
+      new Set(
+        activeFlights
+          .map((f: any) => String(f.pnr || "").trim().toUpperCase())
+          .filter(Boolean)
+      )
+    );
+    const targetPnrVal =
+      pnr === "ALL"
+        ? (uniquePnrs.length > 0 ? uniquePnrs.join(", ") : "GROUP")
+        : pnr;
     setTicketOrderGdsText(formatGdsFlightText(targetPnrVal, activeFlights, booking.passengers || []));
     setIsTicketOrderModalOpen(true);
   };
@@ -3966,9 +3997,16 @@ export default function BookingManager({
               bookingAgentName &&
               bookingAgentName.trim().toLowerCase() !== actorName.trim().toLowerCase();
 
+            const activeUniquePnrs = Array.from(
+              new Set(
+                activeFlights
+                  .map((f: any) => String(f.pnr || "").trim().toUpperCase())
+                  .filter(Boolean)
+              )
+            );
             const emailTargetPnr =
               ticketOrderPnr === "ALL" || !ticketOrderPnr
-                ? (activeFlights[0]?.pnr || "GROUP")
+                ? (activeUniquePnrs.length > 0 ? activeUniquePnrs.join(", ") : "GROUP")
                 : ticketOrderPnr;
 
             const selectPnrScope = (selectedPnr: string) => {
@@ -3984,8 +4022,17 @@ export default function BookingManager({
                         raw.split(/[,;\s]+/).map((s: string) => s.trim()).includes(target)
                       );
                     });
+              const targetUniquePnrs = Array.from(
+                new Set(
+                  targetFlights
+                    .map((f: any) => String(f.pnr || "").trim().toUpperCase())
+                    .filter(Boolean)
+                )
+              );
               const targetPnrVal =
-                selectedPnr === "ALL" ? (allFlights[0]?.pnr || "GROUP") : selectedPnr;
+                selectedPnr === "ALL"
+                  ? (targetUniquePnrs.length > 0 ? targetUniquePnrs.join(", ") : "GROUP")
+                  : selectedPnr;
               setTicketOrderGdsText(
                 formatGdsFlightText(targetPnrVal, targetFlights, booking.passengers || []),
               );
@@ -4098,8 +4145,17 @@ export default function BookingManager({
                     <button
                       type="button"
                       onClick={() => {
+                        const targetUniquePnrs = Array.from(
+                          new Set(
+                            activeFlights
+                              .map((f: any) => String(f.pnr || "").trim().toUpperCase())
+                              .filter(Boolean)
+                          )
+                        );
                         const targetPnrVal =
-                          ticketOrderPnr === "ALL" ? (allFlights[0]?.pnr || "GROUP") : ticketOrderPnr;
+                          ticketOrderPnr === "ALL"
+                            ? (targetUniquePnrs.length > 0 ? targetUniquePnrs.join(", ") : "GROUP")
+                            : ticketOrderPnr;
                         setTicketOrderGdsText(
                           formatGdsFlightText(targetPnrVal, activeFlights, booking.passengers || []),
                         );
@@ -4202,34 +4258,54 @@ export default function BookingManager({
                           <span className="text-foreground whitespace-pre-wrap">{ticketOrderNotes}</span>
                         </div>
                       )}
-                      <div className="pt-2 text-xs space-y-0.5">
-                        <div className="font-semibold text-foreground">Kind Regards,</div>
-                        <div className="font-bold text-foreground">{actorName} ({actorRole})</div>
-                        {(actorEmail || actorPhone) && (
-                          <div className="text-[11px] text-muted-foreground">
-                            {actorEmail && `Email: ${actorEmail}`}
-                            {actorEmail && actorPhone && " | "}
-                            {actorPhone && `Phone: ${actorPhone}`}
+
+                      {/* Professional Corporate Signature Card (Outlook Preview Layout) */}
+                      <div className="mt-4 pt-3.5 border-t-2 border-orange-500 rounded-lg bg-card/60 p-3">
+                        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+                          <div className="md:col-span-4 flex flex-col items-center justify-center p-2 text-center md:border-r border-orange-500/20">
+                            <img
+                              src="/terrific_logo_full.png"
+                              alt="Terrific Travel"
+                              className="w-[145px] max-h-[50px] object-contain mx-auto"
+                              onError={(e: any) => {
+                                e.currentTarget.style.display = 'none';
+                              }}
+                            />
+                            <span className="mt-1.5 text-[9px] font-bold tracking-wider text-orange-600 dark:text-orange-400 uppercase">
+                              ATOL Protected &bull; Certified
+                            </span>
                           </div>
-                        )}
-                        {isDifferentAgent && (
-                          <div className="pt-1.5">
-                            <div className="text-[11px] font-bold text-foreground">
-                              Booking Owner Agent: {bookingAgentName}{bookingAgentDesignation ? ` (${bookingAgentDesignation})` : ""}
+                          <div className="md:col-span-8 space-y-1 text-[11px] pl-0 md:pl-2">
+                            <div className="text-muted-foreground text-[10px]">Kind Regards,</div>
+                            <div className="font-bold text-foreground text-xs">
+                              {actorName} <span className="font-semibold text-orange-600 dark:text-orange-400">| {actorRole}</span>
                             </div>
-                            {(bookingAgentEmail || bookingAgentPhone) && (
-                              <div className="text-[11px] text-muted-foreground">
-                                {bookingAgentEmail && `Email: ${bookingAgentEmail}`}
-                                {bookingAgentEmail && bookingAgentPhone && " | "}
-                                {bookingAgentPhone && `Phone: ${bookingAgentPhone}`}
+                            {(actorEmail || actorPhone) && (
+                              <div className="text-muted-foreground text-[11px]">
+                                {actorEmail && <span><strong>Email:</strong> {actorEmail}</span>}
+                                {actorEmail && actorPhone && <span> &bull; </span>}
+                                {actorPhone && <span><strong>Phone:</strong> {actorPhone}</span>}
                               </div>
                             )}
+                            {isDifferentAgent && (
+                              <div className="p-1.5 rounded bg-muted/50 border border-border/50 text-[10px] text-muted-foreground space-y-0.5">
+                                <div><strong className="text-foreground">Booking Owner Agent:</strong> {bookingAgentName}{bookingAgentDesignation ? ` (${bookingAgentDesignation})` : ""}</div>
+                                <div>
+                                  {bookingAgentEmail && <span>Email: {bookingAgentEmail}</span>}
+                                  {bookingAgentEmail && bookingAgentPhone && <span> &bull; </span>}
+                                  {bookingAgentPhone && <span>Phone: {bookingAgentPhone}</span>}
+                                </div>
+                              </div>
+                            )}
+                            <div className="pt-1.5 border-t border-border/40 text-[10px] text-muted-foreground space-y-0.5 leading-tight">
+                              <div className="font-extrabold text-foreground text-[11px]">Terrific Travel Ltd</div>
+                              <div><strong>Direct:</strong> 01215 291 670 &bull; <strong>Office:</strong> office@terrifictravel.co.uk</div>
+                              <div><strong>Web:</strong> www.terrifictravel.co.uk &bull; <strong>Office:</strong> Office 1, 11 Walford Road, Birmingham, B11 1NP</div>
+                            </div>
                           </div>
-                        )}
-                        <div className="pt-2 text-[11px] text-muted-foreground border-t border-border/40">
-                          <div className="font-bold text-foreground">Terrific Travel Ltd</div>
-                          <div>Phone: 01215 291 670</div>
-                          <div>Address: Office 1, 11 Walford Road, Birmingham, B11 1NP</div>
+                        </div>
+                        <div className="mt-2.5 pt-1.5 border-t border-dashed border-border/50 text-[9px] text-muted-foreground leading-tight">
+                          CONFIDENTIALITY NOTICE: This email and any attachments are confidential and intended solely for the use of the recipient. Terrific Travel Ltd is registered in England and Wales.
                         </div>
                       </div>
                     </div>

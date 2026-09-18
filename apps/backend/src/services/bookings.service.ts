@@ -1944,9 +1944,16 @@ export class BookingsService {
       phone: booking.agent?.phoneNumber || (booking.createdBy as any)?.phoneNumber || actorPhone,
     };
 
+    const uniquePnrsInFlights = Array.from(
+      new Set(
+        flightsToSend
+          .map((f: any) => (f.pnr || '').trim().toUpperCase())
+          .filter(Boolean)
+      )
+    );
     const targetPnr = (!isGroup && targetPnrScope !== 'GROUP')
       ? targetPnrScope
-      : (flightsToSend[0]?.pnr || booking.flightServices[0]?.pnr || 'GROUP');
+      : (uniquePnrsInFlights.length > 0 ? uniquePnrsInFlights.join(', ') : 'PENDING');
 
     // Calculate amounts accurately (excluding vendor payments / agent payouts)
     const clientTransactions = (booking.transactions || []).filter((tx: any) => {
