@@ -11,6 +11,7 @@ import { errorHandler } from './middleware/error.middleware';
 import { startAttendanceCron } from './cron/attendance.cron';
 import { startMissingDetailsReminderCron } from './cron/missing-details-reminder.cron';
 import { startLeadFollowUpReminderCron } from './cron/lead-followup-reminder.cron';
+import { TERRIFIC_LOGO_BASE64 } from './assets/logo.constant';
 
 async function bootstrap() {
   const app = express();
@@ -65,6 +66,14 @@ async function bootstrap() {
       status: 'ok',
       timestamp: new Date().toISOString(),
     });
+  });
+
+  // Public brand logo asset endpoint
+  app.get('/api/assets/logo.png', (req, res) => {
+    const logoBuffer = Buffer.from(TERRIFIC_LOGO_BASE64, 'base64');
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Cache-Control', 'public, max-age=31536000');
+    res.send(logoBuffer);
   });
 
   // Mount API main router

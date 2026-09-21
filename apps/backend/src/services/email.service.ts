@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as nodemailer from 'nodemailer';
 import { config, logger } from '../config';
+import { TERRIFIC_LOGO_BASE64 } from '../assets/logo.constant';
 
 export class EmailService {
   private transporter: nodemailer.Transporter;
@@ -1486,9 +1487,8 @@ export class EmailService {
     const owner = bookingAgentDetails;
     const isDifferentAgent = owner && owner.name && owner.name.trim().toLowerCase() !== actor.name.trim().toLowerCase();
 
-    // Check if company logo file exists on disk
-    const logoPath = path.resolve(__dirname, '../assets/terrific_logo_full.png');
-    const hasLogo = fs.existsSync(logoPath);
+    // Prepare company logo buffer from embedded asset (guaranteed to be present in all environments)
+    const logoBuffer = Buffer.from(TERRIFIC_LOGO_BASE64, 'base64');
 
     const plainText = [
       'Dear Team,',
@@ -1578,7 +1578,7 @@ export class EmailService {
   <table cellpadding="0" cellspacing="0" border="0" style="margin-top: 28px; border-top: 2px solid #ea580c; padding-top: 18px; font-family: Calibri, 'Segoe UI', Aptos, Arial, sans-serif; width: 100%; max-width: 680px;">
     <tr>
       <td style="vertical-align: top; width: 180px; padding-right: 22px; border-right: 2px solid #fed7aa; text-align: center;">
-        ${hasLogo ? `<img src="cid:company_logo" alt="Terrific Travel" width="165" style="display: block; width: 165px; height: auto; margin: 0 auto;" />` : `<div style="font-size: 18px; font-weight: 800; color: #ea580c;">TERRIFIC TRAVEL</div>`}
+        <img src="cid:company_logo" alt="Terrific Travel" width="160" height="77" style="display: block; width: 160px; max-width: 160px; height: 77px; margin: 0 auto; border: 0; outline: none; text-decoration: none;" />
         <div style="margin-top: 10px; font-size: 10px; font-weight: 800; color: #ea580c; letter-spacing: 0.8px; text-transform: uppercase;">
           ATOL PROTECTED
         </div>
@@ -1634,14 +1634,18 @@ export class EmailService {
       });
     }
 
-    // Attach company logo for inline display in Outlook
-    if (hasLogo) {
-      attachments.push({
-        filename: 'terrific_logo_full.png',
-        path: logoPath,
-        cid: 'company_logo',
-      });
-    }
+    // Attach company logo for inline display in Outlook and Webmail
+    attachments.push({
+      filename: 'terrific_logo_full.png',
+      content: logoBuffer,
+      cid: 'company_logo',
+      contentType: 'image/png',
+      contentDisposition: 'inline',
+      headers: {
+        'Content-ID': '<company_logo>',
+        'X-Attachment-Id': 'company_logo',
+      },
+    });
 
     // Attach all passenger passport scans
     if (passportAttachments && passportAttachments.length > 0) {

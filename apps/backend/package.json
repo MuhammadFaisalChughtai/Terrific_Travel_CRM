@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && node -e \"const fs=require('fs'); fs.mkdirSync('dist/src/assets', {recursive:true}); fs.copyFileSync('src/assets/terrific_logo_full.png', 'dist/src/assets/terrific_logo_full.png');\"",
     "start": "node dist/src/server.js",
     "start:dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "prisma:generate": "prisma generate",
