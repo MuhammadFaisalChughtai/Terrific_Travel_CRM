@@ -4,13 +4,13 @@ import { IssuanceType, IssuanceStatus } from '@prisma/client';
 
 export class IssuanceService {
   /**
-   * Helper to check if a user is an admin or manager
+   * Helper to check if a user is a System Administrator (Admin or SuperAdmin)
    */
-  private isAdminOrManager(user: any): boolean {
+  private isSystemAdmin(user: any): boolean {
     if (!user || !user.roles) return false;
     return user.roles.some((r: string) => {
-      const up = r.toUpperCase();
-      return up === 'ADMIN' || up === 'SUPER_ADMIN' || up === 'SUPERADMIN' || up === 'MANAGER';
+      const up = r.toUpperCase().replace(/[\s_-]+/g, '');
+      return up === 'ADMIN' || up === 'SUPERADMIN';
     });
   }
 
@@ -77,6 +77,7 @@ export class IssuanceService {
 
       return {
         ...t,
+        isLocked: t.status === IssuanceStatus.ISSUED && t.isLocked,
         isSlaBreached,
         elapsedMinutes: Math.floor(timeInStatusMs / (60 * 1000)),
         creatorName,
@@ -294,9 +295,9 @@ export class IssuanceService {
 
     const { newStatus, outputConfirmation, holdReason } = payload;
 
-    // RULE 1: Agents cannot move cards to "ISSUED"
-    if (newStatus === IssuanceStatus.ISSUED && !this.isAdminOrManager(user)) {
-      throw new Error('Forbidden: Only Issuance Admins & Managers can finalize bookings to Issued status.');
+    // STRICT RULE: Only System Administrators can move cards or change status on the Issuance Board
+    if (!this.isSystemAdmin(user)) {
+      throw new Error('Forbidden: Only System Administrators can move cards or change status on the Issuance Board.');
     }
 
     // RULE 2: Mandatory Output Validation for ISSUED status
@@ -323,6 +324,12 @@ export class IssuanceService {
     // On-Hold reason tracking
     if (newStatus === IssuanceStatus.ON_HOLD) {
       updateData.holdReason = holdReason?.trim() || 'Missing information / agent clarification required.';
+    }
+
+    // If a System Admin moves a ticket out of ISSUED, unlock it
+    if (ticket.status === IssuanceStatus.ISSUED && newStatus !== IssuanceStatus.ISSUED) {
+      updateData.isLocked = false;
+      updateData.lockedAt = null;
     }
 
     // If moving to ISSUED, apply output field, set locked to true
@@ -444,8 +451,8 @@ export class IssuanceService {
       data.travelStartDate !== undefined ||
       data.travelEndDate !== undefined;
 
-    if (ticket.isLocked && isSensitiveEdited && !this.isAdminOrManager(user)) {
-      throw new Error('Locked Record: Financial and travel dates are finalized and locked. Requires Manager override.');
+    if (ticket.isLocked && isSensitiveEdited && !this.isSystemAdmin(user)) {
+      throw new Error('Locked Record: Financial and travel dates are finalized and locked. Requires System Admin override.');
     }
 
     const updatePayload: any = { ...data };

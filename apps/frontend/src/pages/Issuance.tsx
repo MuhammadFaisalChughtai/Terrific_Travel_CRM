@@ -28,6 +28,7 @@ import {
   Mail,
   Receipt,
   Ticket,
+  ShieldCheck,
 } from 'lucide-react';
 
 export interface IssuanceTicket {
@@ -136,14 +137,13 @@ export default function IssuancePage() {
   const [newRoomCategory, setNewRoomCategory] = useState('');
   const [newBoardBasis, setNewBoardBasis] = useState('RO');
 
-  // Role Checks
-  const isAgentOnly = useMemo(() => {
-    if (!user || !user.roles) return true;
-    const isPrivileged = user.roles.some((r) => {
-      const up = r.toUpperCase();
-      return up === 'ADMIN' || up === 'SUPER_ADMIN' || up === 'SUPERADMIN' || up === 'MANAGER';
+  // Strict Role Check: ONLY System Admins can move cards
+  const isSystemAdmin = useMemo(() => {
+    if (!user || !user.roles) return false;
+    return user.roles.some((r) => {
+      const up = r.toUpperCase().replace(/[\s_-]+/g, '');
+      return up === 'ADMIN' || up === 'SUPERADMIN';
     });
-    return !isPrivileged;
   }, [user]);
 
   // Fetch Tickets
@@ -216,13 +216,19 @@ export default function IssuancePage() {
     setNewBoardBasis('RO');
   };
 
-  // Drag & Drop Handlers
+  // Drag & Drop Handlers - Strictly restricted to System Admin
   const handleDragStart = (e: React.DragEvent, ticketId: string) => {
+    if (!isSystemAdmin) {
+      e.preventDefault();
+      toast.error('Permission Denied: Only System Administrators can move cards on the Issuance Board.');
+      return;
+    }
     e.dataTransfer.setData('text/plain', ticketId);
     setDraggedTicketId(ticketId);
   };
 
   const handleDragOver = (e: React.DragEvent, columnId: string) => {
+    if (!isSystemAdmin) return;
     e.preventDefault();
     if (dragOverColumn !== columnId) {
       setDragOverColumn(columnId);
@@ -240,14 +246,15 @@ export default function IssuancePage() {
     setDraggedTicketId(null);
 
     if (!ticketId) return;
-    const ticket = tickets.find((t) => t.id === ticketId);
-    if (!ticket || ticket.status === targetStatus) return;
 
-    // Rule: Booking Agents cannot move to ISSUED
-    if (targetStatus === 'ISSUED' && isAgentOnly) {
-      toast.error('Permission Denied: Only Issuance Admins can move cards to Issued.');
+    // Strict Rule: ONLY System Admin can move cards
+    if (!isSystemAdmin) {
+      toast.error('Permission Denied: Only System Administrators can move cards on the Issuance Board.');
       return;
     }
+
+    const ticket = tickets.find((t) => t.id === ticketId);
+    if (!ticket || ticket.status === targetStatus) return;
 
     // Rule: Intercept drop onto ISSUED if mandatory confirmation is missing
     const existingCode =
@@ -350,13 +357,15 @@ export default function IssuancePage() {
               <Ticket className="w-6 h-6 text-primary" />
               <span>Issuance Board</span>
             </h1>
-            {isAgentOnly ? (
-              <span className="text-[11px] font-semibold bg-sky-50 dark:bg-sky-950/50 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800 px-2.5 py-0.5 rounded-full">
-                Agent View
+            {isSystemAdmin ? (
+              <span className="text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 px-2.5 py-0.5 rounded-full flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                System Admin Desk
               </span>
             ) : (
-              <span className="text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 px-2.5 py-0.5 rounded-full">
-                Admin Issuance Desk
+              <span className="text-[11px] font-semibold bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 px-2.5 py-0.5 rounded-full flex items-center gap-1.5">
+                <Lock className="w-3 h-3 text-amber-600" />
+                View Only (Only System Admin can move cards)
               </span>
             )}
           </div>
@@ -491,7 +500,7 @@ export default function IssuancePage() {
                       No {filterType === 'HOTEL' ? 'hotel reservations' : filterType === 'FLIGHT' ? 'flight tickets' : 'requests'} in this column
                     </p>
                     <p className="text-[10px] text-muted-foreground/70 mt-0.5">
-                      Drag cards here to update status
+                      {isSystemAdmin ? 'Drag cards here to update status' : 'Only System Admins can move cards'}
                     </p>
                   </div>
                 ) : (
@@ -502,10 +511,12 @@ export default function IssuancePage() {
                     return (
                       <div
                         key={ticket.id}
-                        draggable={!ticket.isLocked || !isAgentOnly}
+                        draggable={isSystemAdmin}
                         onDragStart={(e) => handleDragStart(e, ticket.id)}
                         onClick={() => setViewTicket(ticket)}
-                        className={`group relative bg-card rounded-xl p-3.5 border transition-all duration-150 cursor-grab active:cursor-grabbing hover:shadow-md select-none ${
+                        className={`group relative bg-card rounded-xl p-3.5 border transition-all duration-150 select-none ${
+                          isSystemAdmin ? 'cursor-grab active:cursor-grabbing hover:shadow-md' : 'cursor-pointer hover:border-primary/50'
+                        } ${
                           isSlaBreach
                             ? 'border-red-500 ring-1 ring-red-500/40 bg-red-500/5'
                             : 'border-border hover:border-border/80'
