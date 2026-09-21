@@ -1577,12 +1577,12 @@ export class EmailService {
   <!-- Professional Corporate Signature with Company Logo -->
   <table cellpadding="0" cellspacing="0" border="0" style="margin-top: 28px; border-top: 2px solid #ea580c; padding-top: 18px; font-family: Calibri, 'Segoe UI', Aptos, Arial, sans-serif; width: 100%; max-width: 680px;">
     <tr>
-      <td style="vertical-align: top; width: 180px; padding-right: 22px; border-right: 2px solid #fed7aa; text-align: center;">
-        <img src="cid:company_logo" alt="Terrific Travel" width="160" height="77" style="display: block; width: 160px; max-width: 160px; height: 77px; margin: 0 auto; border: 0; outline: none; text-decoration: none;" />
-        <div style="margin-top: 10px; font-size: 10px; font-weight: 800; color: #ea580c; letter-spacing: 0.8px; text-transform: uppercase;">
+      <td style="vertical-align: middle; width: 180px; padding-right: 22px; border-right: 2px solid #fed7aa; text-align: center;">
+        <img src="cid:company_logo" alt="Terrific Travel" width="155" height="100" style="display: block; width: 155px; max-width: 155px; height: 100px; margin: 0 auto 12px auto; border: 0; outline: none; text-decoration: none;" />
+        <div style="display: inline-block; padding: 4px 10px; background-color: #fff7ed; border: 1px solid #fdba74; border-radius: 4px; font-size: 10px; font-weight: 800; color: #ea580c; letter-spacing: 0.8px; text-transform: uppercase;">
           ATOL PROTECTED
         </div>
-        <div style="font-size: 9.5px; color: #64748b; margin-top: 2px;">
+        <div style="font-size: 9.5px; color: #64748b; margin-top: 5px; font-weight: 600;">
           Certified Agency
         </div>
       </td>
@@ -1598,7 +1598,7 @@ export class EmailService {
         </div>` : ''}
 
         ${isDifferentAgent ? `
-        <div style="margin: 8px 0; padding: 7px 11px; background-color: #f8fafc; border-left: 3px solid #cbd5e1; font-size: 12px; color: #475569;">
+        <div style="margin: 8px 0; padding: 8px 12px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 3px solid #ea580c; border-radius: 4px; font-size: 12px; color: #475569;">
           <strong style="color: #1e293b;">Booking Owner Agent:</strong> ${owner.name}${owner.designation ? ` (${owner.designation})` : ''}
           ${owner.email ? `<br/><strong style="color: #475569;">Email:</strong> <a href="mailto:${owner.email}" style="color: #0284c7; text-decoration: none;">${owner.email}</a>` : ''}
           ${owner.phone ? ` &bull; <strong style="color: #475569;">Phone:</strong> ${owner.phone}` : ''}
