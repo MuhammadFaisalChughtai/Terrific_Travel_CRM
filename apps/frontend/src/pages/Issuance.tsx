@@ -462,7 +462,11 @@ export default function IssuancePage() {
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold uppercase tracking-wider text-foreground">
-                      {column.label}
+                      {column.id === 'ISSUED' && filterType === 'HOTEL'
+                        ? 'Confirmed / Finalized'
+                        : column.id === 'TO_DO' && filterType === 'HOTEL'
+                          ? 'To Confirm'
+                          : column.label}
                     </span>
                     <span
                       className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${column.badgeClass}`}
@@ -470,7 +474,11 @@ export default function IssuancePage() {
                       {colTickets.length}
                     </span>
                   </div>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">{column.description}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    {column.id === 'ISSUED' && filterType === 'HOTEL'
+                      ? 'Hotel reservation confirmed & voucher ready'
+                      : column.description}
+                  </p>
                 </div>
               </div>
 
@@ -479,7 +487,9 @@ export default function IssuancePage() {
                 {colTickets.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-48 border border-dashed border-border rounded-xl text-center p-4">
                     <FileText className="w-7 h-7 text-muted-foreground/40 mb-2" />
-                    <p className="text-xs text-muted-foreground font-medium">No tickets in this column</p>
+                    <p className="text-xs text-muted-foreground font-medium">
+                      No {filterType === 'HOTEL' ? 'hotel reservations' : filterType === 'FLIGHT' ? 'flight tickets' : 'requests'} in this column
+                    </p>
                     <p className="text-[10px] text-muted-foreground/70 mt-0.5">
                       Drag cards here to update status
                     </p>
@@ -639,7 +649,9 @@ export default function IssuancePage() {
             <div className="flex items-center justify-between pb-3 border-b border-border">
               <h3 className="text-base font-bold text-foreground flex items-center gap-2">
                 <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                Finalize &amp; Issue {pendingIssueTicket.type === 'FLIGHT' ? 'Flight' : 'Hotel'}
+                {pendingIssueTicket.type === 'FLIGHT'
+                  ? 'Finalize & Issue Flight Ticket'
+                  : 'Finalize & Confirm Hotel Reservation'}
               </h3>
               <button
                 onClick={() => setPendingIssueTicket(null)}
@@ -685,7 +697,11 @@ export default function IssuancePage() {
                   className="w-full text-sm font-semibold tracking-wide py-2.5 px-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 uppercase placeholder:normal-case text-foreground"
                 />
                 <p className="text-[11px] text-muted-foreground mt-1.5">
-                  Submitting this code will finalize the booking, lock the financial and travel date records, and automatically email the confirmation to the client and agent.
+                  Submitting this code will finalize the{' '}
+                  {pendingIssueTicket.type === 'FLIGHT'
+                    ? 'flight ticket'
+                    : 'hotel reservation'}
+                  , lock the financial and travel date records, and automatically email the confirmation to the client and agent.
                 </p>
               </div>
 
@@ -702,7 +718,11 @@ export default function IssuancePage() {
                   disabled={!confirmationCode.trim() || statusMutation.isPending}
                   className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 rounded-xl shadow-xs transition-colors"
                 >
-                  {statusMutation.isPending ? 'Finalizing...' : 'Confirm & Issue Ticket'}
+                  {statusMutation.isPending
+                    ? 'Finalizing...'
+                    : pendingIssueTicket.type === 'FLIGHT'
+                      ? 'Confirm & Issue Ticket'
+                      : 'Confirm & Finalize Reservation'}
                 </button>
               </div>
             </form>
@@ -717,7 +737,7 @@ export default function IssuancePage() {
             <div className="flex items-center justify-between pb-3 border-b border-border">
               <h3 className="text-base font-bold text-amber-600 flex items-center gap-2">
                 <AlertTriangle className="w-5 h-5 text-amber-500" />
-                Place Ticket On Hold
+                Place {pendingHoldTicket.type === 'FLIGHT' ? 'Flight' : 'Hotel'} On Hold
               </h3>
               <button
                 onClick={() => setPendingHoldTicket(null)}
