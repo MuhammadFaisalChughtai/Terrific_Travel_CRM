@@ -44,6 +44,7 @@ import {
   Send,
   Mail,
   AlertTriangle,
+  Ticket,
 } from "lucide-react";
 // @ts-ignore
 import html2pdf from "html2pdf.js";
@@ -2958,6 +2959,25 @@ export default function BookingManager({
                                           <div className="flex items-center gap-1 border-l border-border/80 pl-3">
                                             <button
                                               type="button"
+                                              onClick={async (e) => {
+                                                e.stopPropagation();
+                                                try {
+                                                  await apiClient.post(`/issuance/tickets/from-booking/${booking.id}`, {
+                                                    type: "FLIGHT",
+                                                    serviceId: fs.id,
+                                                  });
+                                                  toast.success(`Issuance request created for Flight ${fs.flightNo}! Sent to Issuance Board.`);
+                                                } catch (err: any) {
+                                                  toast.error(err.response?.data?.error || "Failed to create issuance request");
+                                                }
+                                              }}
+                                              className="p-2 hover:bg-sky-50 dark:hover:bg-sky-950/30 rounded-lg text-muted-foreground hover:text-sky-600 border border-transparent hover:border-sky-200 transition-all cursor-pointer"
+                                              title="Request Flight Issuance (Send to Issuance Board)"
+                                            >
+                                              <Ticket size={15} />
+                                            </button>
+                                            <button
+                                              type="button"
                                               onClick={(e) => {
                                                 e.stopPropagation();
                                                 setPrintTicketSelectedFlight(fs);
@@ -3101,6 +3121,25 @@ export default function BookingManager({
                               title="Print Hotel Voucher"
                             >
                               <FileText size={11} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                try {
+                                  await apiClient.post(`/issuance/tickets/from-booking/${booking.id}`, {
+                                    type: "HOTEL",
+                                    serviceId: acc.id,
+                                  });
+                                  toast.success(`Issuance request created for ${acc.hotelName}! Sent to Issuance Board.`);
+                                } catch (err: any) {
+                                  toast.error(err.response?.data?.error || "Failed to create issuance request");
+                                }
+                              }}
+                              className="p-1 hover:bg-secondary rounded text-muted-foreground hover:text-emerald-600 transition-all"
+                              title="Request Hotel Issuance (Send to Issuance Board)"
+                            >
+                              <Ticket size={11} />
                             </button>
                             {isOwner && (
                               <>

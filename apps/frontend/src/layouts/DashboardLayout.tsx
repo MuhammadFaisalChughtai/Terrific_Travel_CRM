@@ -36,6 +36,7 @@ import {
   UserCheck,
   ShieldAlert,
   Receipt,
+  Ticket,
 } from "lucide-react";
 
 export default function DashboardLayout() {
@@ -201,6 +202,7 @@ export default function DashboardLayout() {
   const menuItems = [
     { name: "Dashboard", path: "/", icon: LayoutDashboard },
     { name: "Bookings", path: "/bookings", icon: CalendarRange },
+    { name: "Issuance Board", path: "/issuance", icon: Ticket },
     { name: "Leads Log Book", path: "/leads", icon: UserCheck },
     { name: "Upcoming Tours", path: "/tours", icon: Compass },
     { name: "Invoices", path: "/invoices", icon: FileText },

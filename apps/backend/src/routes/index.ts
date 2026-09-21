@@ -21,6 +21,7 @@ import leadsRoutes from './leads.routes';
 import fineRoutes from './fine.routes';
 import bonusRoutes from './bonus.routes';
 import payrollRoutes from './payroll.routes';
+import issuanceRoutes from './issuance.routes';
 
 const router = Router();
 
@@ -46,5 +47,6 @@ router.use('/agent-margins', agentMarginRoutes);
 router.use('/reports', reportsRoutes);
 router.use('/leads', leadsRoutes);
 router.use('/payroll', payrollRoutes);
+router.use('/issuance', issuanceRoutes);
 
 export default router;

@@ -104,6 +104,8 @@ model User {
   issuedBonuses           AgentBonus[]     @relation("IssuedBonuses")
   payslips                Payslip[]
   createdPayslips         Payslip[]        @relation("CreatedPayslips")
+  createdIssuances        IssuanceTicket[] @relation("CreatedIssuances")
+  assignedIssuances       IssuanceTicket[] @relation("AssignedIssuances")
 }
 
 enum LeadStatus {
@@ -346,6 +348,7 @@ model Booking {
   fullyPaidAt         DateTime?
   journalEntries      JournalEntry[]
   journalEntryLines   JournalEntryLine[]     @relation("LineBooking")
+  issuanceTickets     IssuanceTicket[]
 
   @@index([bookingReference])
 }
@@ -1055,5 +1058,96 @@ model Payslip {
 
   createdAt           DateTime     @default(now())
   updatedAt           DateTime     @updatedAt
+}
+
+// ==========================================
+// ISSUANCE QUEUE & BOARD (FLIGHT & HOTEL)
+// ==========================================
+
+enum IssuanceType {
+  FLIGHT
+  HOTEL
+}
+
+enum IssuanceStatus {
+  TO_DO
+  PENDING
+  ON_HOLD
+  ISSUED
+}
+
+model IssuanceTicket {
+  id                    String              @id @default(uuid())
+  ticketNumber          String              @unique
+  type                  IssuanceType
+  status                IssuanceStatus      @default(TO_DO)
+  paymentStatus         String              @default("PENDING")
+
+  // Common Fields
+  leadGuestName         String
+  guestEmail            String?
+  guestPhone            String?
+  travelStartDate       DateTime
+  travelEndDate         DateTime?
+  totalCost             Float               @default(0.0)
+  currency              String              @default("GBP")
+
+  // Flight-Specific Fields
+  airline               String?
+  flightNumbers         String?
+  routing               String?
+  pnrTicketNumber       String?             // Mandatory output to move to ISSUED
+
+  // Hotel-Specific Fields
+  hotelName             String?
+  destination           String?
+  roomCategory          String?
+  boardBasis            String?
+  hotelReservationNo    String?             // Mandatory output to move to ISSUED
+
+  // SLA & Locking
+  statusChangedAt       DateTime            @default(now())
+  isLocked              Boolean             @default(false)
+  lockedAt              DateTime?
+  holdReason            String?             @db.Text
+
+  // Booking Connection
+  bookingId             String?
+  booking               Booking?            @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  bookingReference      String?
+  serviceId             String?             // Specific FlightService or AccommodationService ID
+
+  // User assignments
+  createdById           String?
+  createdBy             User?               @relation("CreatedIssuances", fields: [createdById], references: [id], onDelete: SetNull)
+  assignedToId          String?
+  assignedTo            User?               @relation("AssignedIssuances", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  auditLogs             IssuanceTicketAuditLog[]
+
+  @@index([status])
+  @@index([type])
+  @@index([bookingId])
+  @@index([bookingReference])
+  @@index([statusChangedAt])
+  @@index([createdById])
+  @@index([assignedToId])
+}
+
+model IssuanceTicketAuditLog {
+  id          String          @id @default(uuid())
+  ticketId    String
+  ticket      IssuanceTicket  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  userId      String?
+  userName    String?
+  fromStatus  IssuanceStatus?
+  toStatus    IssuanceStatus
+  action      String
+  notes       String?         @db.Text
+  createdAt   DateTime        @default(now())
+
+  @@index([ticketId])
 }
 
