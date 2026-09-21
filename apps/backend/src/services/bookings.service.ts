@@ -1194,7 +1194,9 @@ export class BookingsService {
         checkedBaggage: data.checkedBaggage !== undefined ? data.checkedBaggage : undefined,
         personalItem: data.personalItem !== undefined ? data.personalItem : undefined,
         notes: data.notes !== undefined ? data.notes : undefined,
-        issueDate: data.issueDate !== undefined ? (data.issueDate ? new Date(data.issueDate) : null) : undefined,
+        issueDate: data.issueDate !== undefined
+          ? (data.issueDate ? new Date(data.issueDate) : null)
+          : (data.status === 'TICKET_ISSUED' ? new Date() : undefined),
         refundAmount: data.refundAmount !== undefined ? (Number(data.refundAmount) || 0) : undefined,
         fineAmount: data.fineAmount !== undefined ? (Number(data.fineAmount) || 0) : undefined,
         status: data.status !== undefined ? data.status : undefined,
@@ -1212,6 +1214,76 @@ export class BookingsService {
     });
 
     return flight;
+  }
+
+  async updateFlightsStatus(
+    bookingId: string,
+    data: { status: string; flightIds?: string[]; pnr?: string; issueDate?: string | Date },
+    actorUser?: any
+  ) {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: { flightServices: true }
+    });
+    if (!booking) throw new NotFoundException('Booking not found');
+
+    let targetFlightIds: string[] = [];
+    if (data.flightIds && data.flightIds.length > 0) {
+      targetFlightIds = data.flightIds;
+    } else if (data.pnr) {
+      const cleanPnr = data.pnr.trim().toUpperCase();
+      if (cleanPnr === 'ALL' || cleanPnr === 'GROUP') {
+        targetFlightIds = booking.flightServices.map((f: any) => f.id);
+      } else {
+        targetFlightIds = booking.flightServices.filter((f: any) => {
+          const raw = (f.pnr || '').trim().toUpperCase();
+          return raw === cleanPnr || raw.split(/[,;\s]+/).map((s: string) => s.trim()).includes(cleanPnr);
+        }).map((f: any) => f.id);
+      }
+    } else {
+      targetFlightIds = booking.flightServices.map((f: any) => f.id);
+    }
+
+    if (targetFlightIds.length === 0) {
+      throw new BadRequestException('No flight segments found to update status.');
+    }
+
+    const updatePayload: any = { status: data.status };
+    if (data.status === 'TICKET_ISSUED') {
+      updatePayload.issueDate = data.issueDate ? new Date(data.issueDate) : new Date();
+    }
+
+    await prisma.flightService.updateMany({
+      where: { id: { in: targetFlightIds } },
+      data: updatePayload,
+    });
+
+    await rabbitMQService.publish('booking.updated', {
+      bookingId: booking.id,
+    });
+
+    if (actorUser?.id) {
+      await auditLogService.log({
+        userId: actorUser.id,
+        action: 'Update',
+        module: 'Bookings',
+        recordId: booking.id,
+        newValue: {
+          subAction: `UpdateFlightStatus_${data.status}`,
+          flightIds: targetFlightIds,
+          pnr: data.pnr || 'CUSTOM',
+          status: data.status,
+          timestamp: new Date().toISOString(),
+        },
+      });
+    }
+
+    return {
+      success: true,
+      updatedCount: targetFlightIds.length,
+      status: data.status,
+      flightIds: targetFlightIds,
+    };
   }
 
   async deleteFlightService(bookingId: string, flightServiceId: string) {
@@ -2007,6 +2079,18 @@ export class BookingsService {
       gdsText: options.gdsText,
     });
 
+    // Automatically update the dispatched flight segments to 'ORDER_SENT'
+    const flightIdsSent = flightsToSend.map((f: any) => f.id);
+    if (flightIdsSent.length > 0) {
+      await prisma.flightService.updateMany({
+        where: { id: { in: flightIdsSent } },
+        data: { status: 'ORDER_SENT' },
+      });
+      await rabbitMQService.publish('booking.updated', {
+        bookingId: booking.id,
+      });
+    }
+
     // Write structured audit log
     if (actorUser?.id) {
       await auditLogService.log({
@@ -2018,6 +2102,8 @@ export class BookingsService {
           subAction: isGroup ? 'SendTicketOrder_Group' : `SendTicketOrder_PNR_${targetPnrScope}`,
           pnrScope: isGroup ? 'GROUP' : targetPnrScope,
           segmentsCount: flightsToSend.length,
+          statusUpdatedTo: 'ORDER_SENT',
+          flightIds: flightIdsSent,
           recipients: ['office@terrifictravel.co.uk', 'ticketing@terrifictravel.co.uk'],
           sender: 'terrifictravelltd@gmail.com',
           timestamp: new Date().toISOString(),

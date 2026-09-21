@@ -125,6 +125,15 @@ export const deleteFlightService = asyncHandler(async (req: AuthenticatedRequest
   });
 });
 
+export const updateFlightsStatus = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id } = req.params;
+  const result = await bookingsService.updateFlightsStatus(id, req.body, req.user);
+  res.status(200).json({
+    success: true,
+    data: result,
+  });
+});
+
 export const addAccommodationService = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
   const result = await bookingsService.addAccommodationService(id, req.body);

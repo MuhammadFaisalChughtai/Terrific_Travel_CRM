@@ -38,6 +38,7 @@ import {
   RotateCcw,
   Download,
   CheckCircle,
+  Check,
   XCircle,
   Undo,
   Send,
@@ -267,6 +268,37 @@ export default function BookingManager({
   const [isSendingTicketOrder, setIsSendingTicketOrder] = useState(false);
   const ticketOrderPrintRef = useRef<HTMLDivElement>(null);
 
+  const handleUpdateFlightStatus = async (flightId: string, newStatus: string) => {
+    if (!booking) return;
+    const toastId = toast.loading(`Updating flight status to ${newStatus.replace(/_/g, " ")}...`);
+    try {
+      await apiClient.patch(`/bookings/${booking.id}/flights/${flightId}`, {
+        status: newStatus,
+        issueDate: newStatus === "TICKET_ISSUED" ? new Date().toISOString() : undefined,
+      });
+      toast.success(`Flight marked as ${newStatus.replace(/_/g, " ")}`, { id: toastId });
+      queryClient.invalidateQueries({ queryKey: ["booking", booking.id] });
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Failed to update flight status", { id: toastId });
+    }
+  };
+
+  const handleUpdatePnrStatus = async (pnrKey: string, newStatus: string) => {
+    if (!booking) return;
+    const toastId = toast.loading(`Updating PNR ${pnrKey} to ${newStatus.replace(/_/g, " ")}...`);
+    try {
+      await apiClient.patch(`/bookings/${booking.id}/flights-status`, {
+        pnr: pnrKey,
+        status: newStatus,
+        issueDate: newStatus === "TICKET_ISSUED" ? new Date().toISOString() : undefined,
+      });
+      toast.success(`PNR ${pnrKey} marked as ${newStatus.replace(/_/g, " ")}`, { id: toastId });
+      queryClient.invalidateQueries({ queryKey: ["booking", booking.id] });
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Failed to update PNR status", { id: toastId });
+    }
+  };
+
   const formatGdsFlightText = (pnr: string, flights: any[], passengers: any[]) => {
     const lines: string[] = [];
     const pnrsFromFlights = Array.from(
@@ -471,12 +503,13 @@ export default function BookingManager({
       });
 
       toast.success(
-        `${ticketOrderPnr === "ALL" ? "Group ticket order (All PNRs)" : `Ticket order for PNR ${ticketOrderPnr}`} for booking ${booking.bookingReference} successfully sent to office@terrifictravel.co.uk & ticketing@terrifictravel.co.uk!`,
+        `${ticketOrderPnr === "ALL" ? "Group ticket order (All PNRs)" : `Ticket order for PNR ${ticketOrderPnr}`} for booking ${booking.bookingReference} successfully sent to office@terrifictravel.co.uk & ticketing@terrifictravel.co.uk! Status updated to ORDER SENT.`,
         { id: toastId, duration: 6000 },
       );
       setIsTicketOrderModalOpen(false);
       setTicketOrderNotes("");
       setTicketOrderGdsText("");
+      queryClient.invalidateQueries({ queryKey: ["booking", booking.id] });
     } catch (err: any) {
       toast.error(
         err?.response?.data?.message || "Failed to send ticket order email.",
@@ -2546,7 +2579,93 @@ export default function BookingManager({
                                       </span>
                                     )}
                                   </span>
-                                  <div className="flex items-center gap-1.5">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    {/* PNR Status Badge & Quick Dropdown */}
+                                    {(() => {
+                                      const statuses = sortedFlights.map((f: any) => (f.status || "CONFIRMED").toUpperCase());
+                                      const allIssued = statuses.length > 0 && statuses.every((s: string) => s === "TICKET_ISSUED");
+                                      const anySent = statuses.some((s: string) => s === "ORDER_SENT");
+                                      const allCancelled = statuses.length > 0 && statuses.every((s: string) => s === "CANCELLED");
+
+                                      let pnrBadgeClass = "bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30";
+                                      let pnrIcon = <Check size={10} />;
+                                      let pnrLabel = "Confirmed";
+
+                                      if (allIssued) {
+                                        pnrBadgeClass = "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30";
+                                        pnrIcon = <CheckCircle2 size={10} />;
+                                        pnrLabel = "Tickets Issued";
+                                      } else if (anySent) {
+                                        pnrBadgeClass = "bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/30";
+                                        pnrIcon = <Mail size={10} />;
+                                        pnrLabel = "Order Sent";
+                                      } else if (allCancelled) {
+                                        pnrBadgeClass = "bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-500/30";
+                                        pnrIcon = <XCircle size={10} />;
+                                        pnrLabel = "Cancelled";
+                                      }
+
+                                      return (
+                                        <div className="relative group/pnrstatus">
+                                          <button
+                                            type="button"
+                                            onClick={(e) => e.stopPropagation()}
+                                            className={`inline-flex items-center gap-1 text-[10px] font-black uppercase px-2 py-0.5 rounded-md border shadow-2xs transition-all cursor-pointer select-none ${pnrBadgeClass}`}
+                                            title="Click to update status for all segments in this PNR"
+                                          >
+                                            {pnrIcon}
+                                            <span>{pnrLabel}</span>
+                                            <ChevronDown size={9} className="opacity-70 group-hover/pnrstatus:rotate-180 transition-transform" />
+                                          </button>
+                                          <div className="absolute right-0 top-full mt-1 z-30 hidden group-hover/pnrstatus:flex flex-col bg-popover border border-border rounded-lg shadow-xl py-1 min-w-[155px]">
+                                            <div className="px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-wider text-muted-foreground border-b border-border/60">
+                                              Update PNR Status
+                                            </div>
+                                            <button
+                                              type="button"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleUpdatePnrStatus(pnrKey, "CONFIRMED");
+                                              }}
+                                              className="px-2.5 py-1.5 text-left text-[11px] font-bold hover:bg-secondary/60 flex items-center gap-1.5 cursor-pointer text-foreground"
+                                            >
+                                              <Check size={12} className="text-sky-500" /> Confirmed
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleUpdatePnrStatus(pnrKey, "ORDER_SENT");
+                                              }}
+                                              className="px-2.5 py-1.5 text-left text-[11px] font-bold hover:bg-secondary/60 flex items-center gap-1.5 cursor-pointer text-foreground"
+                                            >
+                                              <Mail size={12} className="text-indigo-500" /> Order Sent
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleUpdatePnrStatus(pnrKey, "TICKET_ISSUED");
+                                              }}
+                                              className="px-2.5 py-1.5 text-left text-[11px] font-bold hover:bg-secondary/60 flex items-center gap-1.5 cursor-pointer text-foreground"
+                                            >
+                                              <CheckCircle2 size={12} className="text-emerald-500" /> Tickets Issued
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleUpdatePnrStatus(pnrKey, "CANCELLED");
+                                              }}
+                                              className="px-2.5 py-1.5 text-left text-[11px] font-bold hover:bg-secondary/60 flex items-center gap-1.5 cursor-pointer text-rose-600"
+                                            >
+                                              <XCircle size={12} className="text-rose-500" /> Cancelled
+                                            </button>
+                                          </div>
+                                        </div>
+                                      );
+                                    })()}
+
                                     <button
                                       type="button"
                                       onClick={(e) => {
@@ -2649,11 +2768,83 @@ export default function BookingManager({
                                               </p>
                                             )}
                                             <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-                                              {fs.status === "CANCELLED" && (
-                                                <span className="text-[9px] bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-900/50 px-1.5 py-0.5 rounded font-black uppercase">
-                                                  Cancelled
+                                              {/* Interactive Flight Status Badge */}
+                                              {(() => {
+                                                const s = (fs.status || "CONFIRMED").toUpperCase();
+                                                let badgeCls = "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800";
+                                                let ic = <Check size={10} />;
+                                                let txt = "Confirmed";
+
+                                                if (s === "ORDER_SENT") {
+                                                  badgeCls = "bg-indigo-50 text-indigo-700 border-indigo-300 dark:bg-indigo-950/50 dark:text-indigo-300 dark:border-indigo-700";
+                                                  ic = <Mail size={10} />;
+                                                  txt = "Order Sent";
+                                                } else if (s === "TICKET_ISSUED") {
+                                                  badgeCls = "bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-700";
+                                                  ic = <CheckCircle2 size={10} />;
+                                                  txt = "Ticket Issued";
+                                                } else if (s === "CANCELLED") {
+                                                  badgeCls = "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-900/50";
+                                                  ic = <XCircle size={10} />;
+                                                  txt = "Cancelled";
+                                                }
+
+                                                return (
+                                                  <div className="relative group/fsstatus inline-flex items-center">
+                                                    <button
+                                                      type="button"
+                                                      onClick={(e) => e.stopPropagation()}
+                                                      className={`inline-flex items-center gap-1 text-[9px] font-black uppercase px-2 py-0.5 rounded border shadow-2xs cursor-pointer select-none transition-all ${badgeCls}`}
+                                                      title="Click to change flight status"
+                                                    >
+                                                      {ic}
+                                                      <span>{txt}</span>
+                                                      <ChevronDown size={8} className="opacity-70 group-hover/fsstatus:rotate-180 transition-transform" />
+                                                    </button>
+                                                    <div className="absolute left-0 top-full mt-1 z-30 hidden group-hover/fsstatus:flex flex-col bg-popover border border-border rounded-lg shadow-xl py-1 min-w-[145px]">
+                                                      <div className="px-2 py-0.5 text-[8.5px] font-extrabold uppercase tracking-wider text-muted-foreground border-b border-border/60">
+                                                        Update Flight Status
+                                                      </div>
+                                                      <button
+                                                        type="button"
+                                                        onClick={(e) => { e.stopPropagation(); handleUpdateFlightStatus(fs.id, "CONFIRMED"); }}
+                                                        className={`px-2.5 py-1 text-left text-[11px] font-bold hover:bg-secondary/60 flex items-center gap-1.5 cursor-pointer ${s === "CONFIRMED" ? "text-primary" : "text-foreground"}`}
+                                                      >
+                                                        <Check size={11} className="text-sky-500" /> Confirmed
+                                                      </button>
+                                                      <button
+                                                        type="button"
+                                                        onClick={(e) => { e.stopPropagation(); handleUpdateFlightStatus(fs.id, "ORDER_SENT"); }}
+                                                        className={`px-2.5 py-1 text-left text-[11px] font-bold hover:bg-secondary/60 flex items-center gap-1.5 cursor-pointer ${s === "ORDER_SENT" ? "text-primary" : "text-foreground"}`}
+                                                      >
+                                                        <Mail size={11} className="text-indigo-500" /> Order Sent
+                                                      </button>
+                                                      <button
+                                                        type="button"
+                                                        onClick={(e) => { e.stopPropagation(); handleUpdateFlightStatus(fs.id, "TICKET_ISSUED"); }}
+                                                        className={`px-2.5 py-1 text-left text-[11px] font-bold hover:bg-secondary/60 flex items-center gap-1.5 cursor-pointer ${s === "TICKET_ISSUED" ? "text-primary" : "text-foreground"}`}
+                                                      >
+                                                        <CheckCircle2 size={11} className="text-emerald-500" /> Ticket Issued
+                                                      </button>
+                                                      <button
+                                                        type="button"
+                                                        onClick={(e) => { e.stopPropagation(); handleUpdateFlightStatus(fs.id, "CANCELLED"); }}
+                                                        className={`px-2.5 py-1 text-left text-[11px] font-bold hover:bg-secondary/60 flex items-center gap-1.5 cursor-pointer ${s === "CANCELLED" ? "text-primary" : "text-rose-600"}`}
+                                                      >
+                                                        <XCircle size={11} className="text-rose-500" /> Cancelled
+                                                      </button>
+                                                    </div>
+                                                  </div>
+                                                );
+                                              })()}
+
+                                              {/* Issue Date Pill if Ticket Issued */}
+                                              {fs.issueDate && fs.status === "TICKET_ISSUED" && (
+                                                <span className="text-[9px] bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 px-1.5 py-0.5 rounded font-bold inline-flex items-center gap-1">
+                                                  Issued: {new Date(fs.issueDate).toLocaleDateString("en-GB")}
                                                 </span>
                                               )}
+
                                               {isConnecting && (
                                                 <span className="text-[9px] bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded font-black uppercase">
                                                   Connecting

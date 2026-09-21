@@ -1192,10 +1192,12 @@ export default function PnrFlightModal({
                   <select
                     value={status}
                     onChange={(e) => setStatus(e.target.value)}
-                    className="text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                    className="text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary font-medium"
                   >
-                    <option value="CONFIRMED">CONFIRMED</option>
-                    <option value="CANCELLED">CANCELLED</option>
+                    <option value="CONFIRMED">CONFIRMED (Confirmed)</option>
+                    <option value="ORDER_SENT">ORDER SENT (In Ticketing Queue)</option>
+                    <option value="TICKET_ISSUED">TICKET ISSUED (Tickets Issued)</option>
+                    <option value="CANCELLED">CANCELLED (Cancelled)</option>
                   </select>
                 </div>
 
