@@ -2342,6 +2342,38 @@ export function generateVisaInvoiceHtml(booking: any, visa: any) {
   `;
 }
 
+// Helper to format flight numbers for transport vouchers (handles multiple flights joined by / or ,)
+function formatVoucherFlightNos(
+  flightNoStr: string | null | undefined,
+  flightServices: any[] = [],
+): string {
+  if (!flightNoStr || !flightNoStr.trim()) return "—";
+  const parts = flightNoStr.split(/[\/,]/).map((s: string) => s.trim()).filter(Boolean);
+  if (parts.length === 0) return "—";
+
+  return parts
+    .map((part: string) => {
+      const matched = flightServices.find(
+        (f: any) =>
+          f.flightNo && f.flightNo.trim().toUpperCase() === part.toUpperCase(),
+      );
+      if (matched) {
+        const route =
+          matched.departedFrom && matched.arrivedAt
+            ? `${matched.departedFrom} ➔ ${matched.arrivedAt}`
+            : "";
+        const time = matched.departureTime ? `@ ${matched.departureTime}` : "";
+        const extra = [route, time].filter(Boolean).join(" ");
+        return `<div style="margin-bottom: 4px; line-height: 1.25;">
+          <span style="font-weight: 700; color: #0284C7; font-size: 10px;">✈ ${part}</span>
+          ${extra ? `<br/><span style="font-size: 8.5px; color: #64748B; font-weight: 500;">${extra}</span>` : ""}
+        </div>`;
+      }
+      return `<div style="margin-bottom: 4px;"><span style="font-weight: 700; color: #0284C7; font-size: 10px;">✈ ${part}</span></div>`;
+    })
+    .join("");
+}
+
 // 5. GENERATE TRANSPORT VOUCHER
 export function generateTransportVoucherHtml(booking: any, transport: any) {
   const leader =
@@ -2382,6 +2414,24 @@ export function generateTransportVoucherHtml(booking: any, transport: any) {
   // Agent name used as REF field (matching screenshot "Basma Travels" pattern)
   const agentRef =
     booking.agent?.name || booking.agentName || "Terrific Travel";
+
+  // Summary of all flight numbers on these transfers
+  const transferFlightNumbers = Array.from(
+    new Set(
+      transfers.flatMap((t: any) =>
+        t.flightNo
+          ? t.flightNo
+              .split(/[\/,]/)
+              .map((s: string) => s.trim())
+              .filter(Boolean)
+          : [],
+      ),
+    ),
+  );
+  const allTransferFlightSummary =
+    transferFlightNumbers.length > 0
+      ? transferFlightNumbers.join(" & ")
+      : "—";
 
   return `
     <div class="document-container">
@@ -2428,9 +2478,13 @@ export function generateTransportVoucherHtml(booking: any, transport: any) {
             <span style="font-weight: 700; color: #334155; min-width: 110px;">Booking No:</span>
             <span style="color: #0F172A;">${booking.bookingReference}</span>
           </div>
-          <div style="display: flex; padding: 8px 12px; gap: 8px;">
+          <div style="display: flex; border-bottom: 1px solid #E2E8F0; padding: 8px 12px; gap: 8px;">
             <span style="font-weight: 700; color: #334155; min-width: 110px;">REF:</span>
             <span style="color: #0F172A;">${agentRef}</span>
+          </div>
+          <div style="display: flex; padding: 8px 12px; gap: 8px;">
+            <span style="font-weight: 700; color: #334155; min-width: 110px;">FLIGHT(S):</span>
+            <span style="color: #0284C7; font-weight: 700;">${allTransferFlightSummary}</span>
           </div>
         </div>
         <div style="display: flex; flex-direction: column;">
@@ -2460,7 +2514,7 @@ export function generateTransportVoucherHtml(booking: any, transport: any) {
           <tr>
             <th>Date</th>
             <th>Time</th>
-            <th>Flight No</th>
+            <th>Flight No(s)</th>
             <th>Pick-Up</th>
             <th>Drop-Off</th>
             <th>No. of Guests</th>
@@ -2482,7 +2536,7 @@ export function generateTransportVoucherHtml(booking: any, transport: any) {
             <tr>
               <td><strong>${formatDate(t.date)}</strong></td>
               <td>${t.departureTime || t.arrivalTime || "—"}</td>
-              <td>${t.flightNo || "—"}</td>
+              <td>${formatVoucherFlightNos(t.flightNo, booking.flightServices)}</td>
               <td><strong>${t.departureDestination}</strong></td>
               <td><strong>${t.arrivalDestination}</strong></td>
               <td>${paxCount}</td>
@@ -3034,7 +3088,11 @@ export function renderTransportVoucher(
       <td><strong>${t.arrivalDestination}</strong></td>
       <td>
         <span style="font-weight: 700; color: #0F172A;">${t.vehicleType}</span>
-        ${t.flightNo ? `<br/><span style="font-size: 9px; color: #0284C7; font-weight: bold;">Flight: ${t.flightNo}</span>` : ""}
+        ${
+          t.flightNo
+            ? `<div style="margin-top: 4px;">${formatVoucherFlightNos(t.flightNo, booking.flightServices)}</div>`
+            : ""
+        }
       </td>
     </tr>
   `,

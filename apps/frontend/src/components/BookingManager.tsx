@@ -3382,7 +3382,8 @@ export default function BookingManager({
                               </p>
                               {ts.flightNo && (
                                 <p className="text-primary font-medium">
-                                  Flight: {ts.flightNo}
+                                  {ts.flightNo.includes("/") || ts.flightNo.includes(",") ? "Flights: " : "Flight: "}
+                                  {ts.flightNo}
                                 </p>
                               )}
                               {ts.passengerName && (

@@ -4,7 +4,7 @@ import { apiClient } from '../api/client';
 import { useAuthStore } from '../store/auth.store';
 import Modal from './Modal';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Plane, Plus, X } from 'lucide-react';
 
 
 interface TransportReservationModalProps {
@@ -39,9 +39,10 @@ export default function TransportReservationModal({
   const [departureTime, setDepartureTime] = useState('');
   const [arrivalTime, setArrivalTime] = useState('');
   
-  // Flight selection dropdown states
-  const [flightNoSelect, setFlightNoSelect] = useState('');
-  const [customFlightNo, setCustomFlightNo] = useState('');
+  // Flight selection states (supports multiple flights)
+  const [selectedFlights, setSelectedFlights] = useState<string[]>([]);
+  const [customFlightInput, setCustomFlightInput] = useState('');
+  const [showCustomInput, setShowCustomInput] = useState(false);
   const [isReturnFlight, setIsReturnFlight] = useState(false);
 
   // Passenger selection states
@@ -83,28 +84,30 @@ export default function TransportReservationModal({
         setDepartureTime(transportToEdit.departureTime || '');
         setArrivalTime(transportToEdit.arrivalTime || '');
 
-        // Determine if flight number is in the booking list or needs to be custom
-        const matchedFlight = booking?.flightServices?.find(
-          (f: any) => f.flightNo === transportToEdit.flightNo
-        );
-
+        // Parse flight number(s) on edit (supports multiple flights, e.g. "TK 137 / TK 1980")
         if (transportToEdit.flightNo) {
+          const parsed = transportToEdit.flightNo
+            .split(/[\/,]/)
+            .map((s: string) => s.trim())
+            .filter(Boolean);
+          setSelectedFlights(parsed);
+
+          // Check if this transport matches return flight pattern
+          const matchedFlight = booking?.flightServices?.find(
+            (f: any) => parsed.some((p: string) => p.toUpperCase() === f.flightNo?.toUpperCase())
+          );
           if (matchedFlight) {
-            setFlightNoSelect(transportToEdit.flightNo);
-            setCustomFlightNo('');
-            // Check if this transport matches return flight pattern (e.g. arrival matches flight departedFrom)
             const isRet = transportToEdit.arrivalDestination?.toUpperCase() === matchedFlight.departedFrom?.toUpperCase();
             setIsReturnFlight(isRet);
           } else {
-            setFlightNoSelect('Custom');
-            setCustomFlightNo(transportToEdit.flightNo);
             setIsReturnFlight(false);
           }
         } else {
-          setFlightNoSelect('');
-          setCustomFlightNo('');
+          setSelectedFlights([]);
           setIsReturnFlight(false);
         }
+        setCustomFlightInput('');
+        setShowCustomInput(false);
 
         setPrice(String(transportToEdit.price || '0'));
         setAgentQuotedPrice(transportToEdit.agentQuotedPrice !== undefined && transportToEdit.agentQuotedPrice !== null ? String(transportToEdit.agentQuotedPrice) : '');
@@ -127,8 +130,9 @@ export default function TransportReservationModal({
         setArrivalDestination('');
         setDepartureTime('');
         setArrivalTime('');
-        setFlightNoSelect('');
-        setCustomFlightNo('');
+        setSelectedFlights([]);
+        setCustomFlightInput('');
+        setShowCustomInput(false);
         setIsReturnFlight(false);
         setPrice('0');
         setAgentQuotedPrice('');
@@ -164,6 +168,51 @@ export default function TransportReservationModal({
     return type !== 'flight' && type !== 'accommodation' && type !== 'hotel';
   }) || [];
 
+  const handleAddFlight = (fn: string) => {
+    if (!fn) return;
+    const clean = fn.trim();
+    if (!clean) return;
+    if (selectedFlights.some(f => f.toUpperCase() === clean.toUpperCase())) {
+      toast.info(`Flight ${clean} is already added`);
+      return;
+    }
+
+    const updated = [...selectedFlights, clean];
+    setSelectedFlights(updated);
+
+    // Auto-fill route info from the added flight if fields are empty
+    const matchedFlight = booking?.flightServices?.find(
+      (f: any) => f.flightNo?.toUpperCase() === clean.toUpperCase()
+    );
+    if (matchedFlight) {
+      if (!date) setDate(formatDateToInput(matchedFlight.date));
+
+      const flightIdx = booking?.flightServices?.findIndex(
+        (f: any) => f.flightNo?.toUpperCase() === clean.toUpperCase()
+      );
+      const isRet = flightIdx > 0;
+
+      // If this is the first flight being selected, auto-fill destinations & times
+      if (selectedFlights.length === 0) {
+        setIsReturnFlight(isRet);
+        const hotelName = booking?.accommodations?.[0]?.hotelName || '';
+        if (isRet) {
+          if (!departureDestination) setDepartureDestination(hotelName);
+          if (!arrivalDestination) setArrivalDestination(matchedFlight.departedFrom || '');
+          if (!arrivalTime) setArrivalTime(matchedFlight.departTime || '');
+        } else {
+          if (!departureDestination) setDepartureDestination(matchedFlight.arrivedAt || '');
+          if (!arrivalDestination) setArrivalDestination(hotelName);
+          if (!departureTime) setDepartureTime(matchedFlight.arrivalTime || matchedFlight.departTime || '');
+        }
+      }
+    }
+  };
+
+  const handleRemoveFlight = (idxToRemove: number) => {
+    setSelectedFlights(prev => prev.filter((_, idx) => idx !== idxToRemove));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -172,7 +221,7 @@ export default function TransportReservationModal({
       return;
     }
 
-    const finalFlightNo = flightNoSelect === 'Custom' ? customFlightNo.trim() : flightNoSelect;
+    const finalFlightNo = selectedFlights.length > 0 ? selectedFlights.join(' / ') : null;
 
     setIsSubmitting(true);
     try {
@@ -384,57 +433,145 @@ export default function TransportReservationModal({
                 />
               </div>
 
-              {/* Flight Number Selector */}
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                  Flight No
-                </label>
-                <select
-                  value={flightNoSelect}
-                  onChange={(e) => {
-                    const selectedVal = e.target.value;
-                    setFlightNoSelect(selectedVal);
-                    if (selectedVal !== 'Custom') {
-                      setCustomFlightNo('');
-                      const selectedFlight = booking?.flightServices?.find(
-                        (f: any) => f.flightNo === selectedVal
+              {/* Flight Number Selector & Badges (Supports Multiple Flights) */}
+              <div className="flex flex-col gap-1.5 col-span-1">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                    <span>Flight No(s)</span>
+                    {selectedFlights.length > 0 && (
+                      <span className="text-[10px] font-bold text-primary px-1.5 py-0.5 rounded bg-primary/10 border border-primary/20">
+                        {selectedFlights.length} {selectedFlights.length === 1 ? 'Flight' : 'Flights'}
+                      </span>
+                    )}
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowCustomInput(prev => !prev)}
+                    className="text-[10px] font-semibold text-primary hover:underline"
+                  >
+                    {showCustomInput ? 'Select from Booking' : '+ Custom Flight'}
+                  </button>
+                </div>
+
+                {/* Selected Flight Badges */}
+                {selectedFlights.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 p-2 bg-secondary/40 border border-border/80 rounded-lg">
+                    {selectedFlights.map((fn, idx) => {
+                      const matched = booking?.flightServices?.find(
+                        (f: any) => f.flightNo?.toUpperCase() === fn.toUpperCase()
                       );
-                      if (selectedFlight) {
-                        setDate(formatDateToInput(selectedFlight.date));
-                        
-                        // Auto-detect return flight: if selected flight is not the first flight in booking
-                        const flightIdx = booking?.flightServices?.findIndex(
-                          (f: any) => f.flightNo === selectedVal
-                        );
-                        const isRet = flightIdx > 0;
-                        setIsReturnFlight(isRet);
+                      return (
+                        <span
+                          key={idx}
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded bg-background text-primary border border-primary/30 text-[11px] font-bold shadow-xs"
+                        >
+                          <Plane size={11} className="text-primary shrink-0" />
+                          <span>{fn}</span>
+                          {matched && (
+                            <span className="text-[9.5px] font-medium text-muted-foreground">
+                              ({matched.departedFrom} ➔ {matched.arrivedAt})
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveFlight(idx)}
+                            className="ml-1 text-muted-foreground hover:text-rose-600 rounded p-0.5 transition-colors"
+                            title="Remove flight"
+                          >
+                            <X size={12} />
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
 
-                        const hotelName = booking?.accommodations?.[0]?.hotelName || '';
-
-                        if (isRet) {
-                          setDepartureDestination(hotelName);
-                          setArrivalDestination(selectedFlight.departedFrom || '');
-                          setDepartureTime('');
-                          setArrivalTime(selectedFlight.departTime || '');
-                        } else {
-                          setDepartureDestination(selectedFlight.arrivedAt || '');
-                          setArrivalDestination(hotelName);
-                          setDepartureTime(selectedFlight.arrivalTime || selectedFlight.departTime || '');
-                          setArrivalTime('');
+                {/* Dropdown to add flight from booking */}
+                {!showCustomInput ? (
+                  <div className="relative">
+                    <select
+                      value=""
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === '__CUSTOM__') {
+                          setShowCustomInput(true);
+                        } else if (val) {
+                          handleAddFlight(val);
                         }
-                      }
-                    }
-                  }}
-                  className="w-full text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
-                >
-                  <option value="">-- None / Select Booking Flight --</option>
-                  {booking?.flightServices?.map((f: any) => (
-                    <option key={f.id} value={f.flightNo}>
-                      {formatFlightOptionLabel(f)}
-                    </option>
-                  ))}
-                  <option value="Custom">Custom Flight Number...</option>
-                </select>
+                      }}
+                      className="w-full text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary cursor-pointer"
+                    >
+                      <option value="">
+                        {selectedFlights.length === 0
+                          ? '-- Select Booking Flight to Add --'
+                          : '+ Add Another Flight from Booking...'}
+                      </option>
+                      {booking?.flightServices?.map((f: any) => {
+                        const isAlreadySelected = selectedFlights.some(
+                          sf => sf.toUpperCase() === f.flightNo?.toUpperCase()
+                        );
+                        return (
+                          <option
+                            key={f.id}
+                            value={f.flightNo}
+                            disabled={isAlreadySelected}
+                          >
+                            {formatFlightOptionLabel(f)} {isAlreadySelected ? '✓ (Added)' : ''}
+                          </option>
+                        );
+                      })}
+                      <option value="__CUSTOM__">+ Enter Custom Flight No...</option>
+                    </select>
+                  </div>
+                ) : (
+                  /* Custom flight text entry */
+                  <div className="flex gap-1.5 items-center">
+                    <input
+                      type="text"
+                      placeholder="e.g. TK 137 or SV 821"
+                      value={customFlightInput}
+                      onChange={(e) => setCustomFlightInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          if (customFlightInput.trim()) {
+                            handleAddFlight(customFlightInput.trim());
+                            setCustomFlightInput('');
+                          }
+                        }
+                      }}
+                      className="flex-1 text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (customFlightInput.trim()) {
+                          handleAddFlight(customFlightInput.trim());
+                          setCustomFlightInput('');
+                        }
+                      }}
+                      className="px-3 py-1.5 bg-primary text-primary-foreground text-xs font-semibold rounded-lg hover:bg-primary/90 transition-colors shrink-0"
+                    >
+                      Add
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowCustomInput(false);
+                        setCustomFlightInput('');
+                      }}
+                      className="px-2 py-1.5 text-muted-foreground hover:text-foreground text-xs font-medium"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+
+                {selectedFlights.length > 1 && (
+                  <p className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1">
+                    <span>✓ Both flights ({selectedFlights.join(' & ')}) will be included on the Transport Voucher.</span>
+                  </p>
+                )}
               </div>
 
               {/* Passenger Selector */}
@@ -484,25 +621,8 @@ export default function TransportReservationModal({
                 </div>
               </div>
 
-              {/* Custom Flight Number Input (if Custom selected) */}
-              {flightNoSelect === 'Custom' && (
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                    Custom Flight No *
-                  </label>
-                  <input
-                    required
-                    type="text"
-                    placeholder="Enter Custom Flight No"
-                    value={customFlightNo}
-                    onChange={(e) => setCustomFlightNo(e.target.value)}
-                    className="w-full text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
-                  />
-                </div>
-              )}
-
               {/* Is Return Flight Toggle */}
-              {flightNoSelect && flightNoSelect !== 'Custom' && (
+              {selectedFlights.length > 0 && (
                 <div className="flex items-center gap-2 col-span-2 py-1">
                   <input
                     type="checkbox"
@@ -512,8 +632,9 @@ export default function TransportReservationModal({
                       const checked = e.target.checked;
                       setIsReturnFlight(checked);
                       
+                      const primaryFlightNo = selectedFlights[0];
                       const selectedFlight = booking?.flightServices?.find(
-                        (f: any) => f.flightNo === flightNoSelect
+                        (f: any) => f.flightNo?.toUpperCase() === primaryFlightNo?.toUpperCase()
                       );
                       if (selectedFlight) {
                         const hotelName = booking?.accommodations?.[0]?.hotelName || '';
