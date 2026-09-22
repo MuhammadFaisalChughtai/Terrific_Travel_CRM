@@ -263,6 +263,7 @@ export default function BookingManager({
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [isTicketOrderModalOpen, setIsTicketOrderModalOpen] = useState(false);
   const [ticketOrderPnr, setTicketOrderPnr] = useState<string>("ALL");
+  const [ticketOrderPassengerIds, setTicketOrderPassengerIds] = useState<string[]>([]);
   const [ticketOrderGdsText, setTicketOrderGdsText] = useState("");
   const [isMissingPassportModalOpen, setIsMissingPassportModalOpen] = useState(false);
   const [ticketOrderNotes, setTicketOrderNotes] = useState("");
@@ -425,13 +426,15 @@ export default function BookingManager({
 
   const openTicketOrderModal = (pnr: string = "ALL") => {
     if (!booking) return;
-    const missingPassports = (booking.passengers || []).filter(
-      (p: any) => !p.passportScanKey || !p.passportScanKey.trim(),
-    );
-    if (missingPassports.length > 0) {
-      setIsMissingPassportModalOpen(true);
+    const allPax = booking.passengers || [];
+    if (allPax.length === 0) {
+      toast.error("No passengers registered in this booking.");
       return;
     }
+
+    // Default to assigning all passengers in the booking
+    const defaultPaxIds = allPax.map((p: any) => p.id);
+    setTicketOrderPassengerIds(defaultPaxIds);
 
     setTicketOrderPnr(pnr);
     setTicketOrderNotes("");
@@ -456,7 +459,7 @@ export default function BookingManager({
       pnr === "ALL"
         ? (uniquePnrs.length > 0 ? uniquePnrs.join(", ") : "GROUP")
         : pnr;
-    setTicketOrderGdsText(formatGdsFlightText(targetPnrVal, activeFlights, booking.passengers || []));
+    setTicketOrderGdsText(formatGdsFlightText(targetPnrVal, activeFlights, allPax));
     setIsTicketOrderModalOpen(true);
   };
 
@@ -467,12 +470,21 @@ export default function BookingManager({
       return;
     }
 
-    // Check if any passenger is missing passport scan
-    const missing = (booking.passengers || []).filter(
+    if (ticketOrderPassengerIds.length === 0) {
+      toast.error("Please assign at least one passenger to this ticket order.");
+      return;
+    }
+
+    // Check if any ASSIGNED passenger is missing passport scan
+    const assignedPax = (booking.passengers || []).filter((p: any) =>
+      ticketOrderPassengerIds.includes(p.id)
+    );
+    const missing = assignedPax.filter(
       (p: any) => !p.passportScanKey || !p.passportScanKey.trim(),
     );
     if (missing.length > 0) {
-      setIsTicketOrderModalOpen(false);
+      const missingNames = missing.map((p: any) => `${p.firstName || ''} ${p.lastName || ''}`.trim()).join(", ");
+      toast.error(`Missing passport scan for assigned passenger(s): ${missingNames}`);
       setIsMissingPassportModalOpen(true);
       return;
     }
@@ -501,10 +513,11 @@ export default function BookingManager({
         pdfBase64: pdfBase64 || undefined,
         pnr: ticketOrderPnr,
         gdsText: ticketOrderGdsText.trim() || undefined,
+        passengerIds: ticketOrderPassengerIds,
       });
 
       toast.success(
-        `${ticketOrderPnr === "ALL" ? "Group ticket order (All PNRs)" : `Ticket order for PNR ${ticketOrderPnr}`} for booking ${booking.bookingReference} successfully sent to office@terrifictravel.co.uk & ticketing@terrifictravel.co.uk! Status updated to ORDER SENT.`,
+        `${ticketOrderPnr === "ALL" ? "Group ticket order (All PNRs)" : `Ticket order for PNR ${ticketOrderPnr}`} (${assignedPax.length} pax) for booking ${booking.bookingReference} successfully sent to office@terrifictravel.co.uk & ticketing@terrifictravel.co.uk! Status updated to ORDER SENT.`,
         { id: toastId, duration: 6000 },
       );
       setIsTicketOrderModalOpen(false);
@@ -4240,6 +4253,10 @@ export default function BookingManager({
                 ? (activeUniquePnrs.length > 0 ? activeUniquePnrs.join(", ") : "GROUP")
                 : ticketOrderPnr;
 
+            const assignedPassengers = (booking.passengers || []).filter((p: any) =>
+              ticketOrderPassengerIds.includes(p.id)
+            );
+
             const selectPnrScope = (selectedPnr: string) => {
               setTicketOrderPnr(selectedPnr);
               const targetFlights =
@@ -4265,8 +4282,28 @@ export default function BookingManager({
                   ? (targetUniquePnrs.length > 0 ? targetUniquePnrs.join(", ") : "GROUP")
                   : selectedPnr;
               setTicketOrderGdsText(
-                formatGdsFlightText(targetPnrVal, targetFlights, booking.passengers || []),
+                formatGdsFlightText(targetPnrVal, targetFlights, assignedPassengers),
               );
+            };
+
+            const togglePassengerAssignment = (paxId: string) => {
+              const next = ticketOrderPassengerIds.includes(paxId)
+                ? ticketOrderPassengerIds.filter((id) => id !== paxId)
+                : [...ticketOrderPassengerIds, paxId];
+              setTicketOrderPassengerIds(next);
+              const newAssigned = (booking.passengers || []).filter((p: any) => next.includes(p.id));
+              setTicketOrderGdsText(formatGdsFlightText(emailTargetPnr, activeFlights, newAssigned));
+            };
+
+            const selectAllPassengers = () => {
+              const allIds = (booking.passengers || []).map((p: any) => p.id);
+              setTicketOrderPassengerIds(allIds);
+              setTicketOrderGdsText(formatGdsFlightText(emailTargetPnr, activeFlights, booking.passengers || []));
+            };
+
+            const deselectAllPassengers = () => {
+              setTicketOrderPassengerIds([]);
+              setTicketOrderGdsText(formatGdsFlightText(emailTargetPnr, activeFlights, []));
             };
 
             return (
@@ -4366,6 +4403,95 @@ export default function BookingManager({
                   </div>
                 </div>
 
+                {/* Manual Passenger Assignment Selector */}
+                <div className="p-3 bg-secondary/40 border border-border rounded-xl space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
+                      <Users size={13} className="text-primary" />
+                      <span>Assign Passengers to this Ticket Order:</span>
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                        {assignedPassengers.length} of {(booking.passengers || []).length} Assigned
+                      </span>
+                      <button
+                        type="button"
+                        onClick={selectAllPassengers}
+                        className="text-[10px] text-primary hover:underline font-semibold cursor-pointer"
+                      >
+                        Select All
+                      </button>
+                      <span className="text-muted-foreground text-[10px]">&bull;</span>
+                      <button
+                        type="button"
+                        onClick={deselectAllPassengers}
+                        className="text-[10px] text-muted-foreground hover:text-foreground cursor-pointer"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                    {(booking.passengers || []).map((p: any, idx: number) => {
+                      const isAssigned = ticketOrderPassengerIds.includes(p.id);
+                      const hasPassport = Boolean(p.passportScanKey && p.passportScanKey.trim());
+                      const fullName = `${p.title ? p.title + ' ' : ''}${p.firstName || ''} ${p.lastName || ''}`.trim() || `Passenger #${idx + 1}`;
+
+                      return (
+                        <div
+                          key={p.id || idx}
+                          onClick={() => togglePassengerAssignment(p.id)}
+                          className={`p-2.5 rounded-lg border transition-all cursor-pointer flex items-start gap-2.5 select-none ${
+                            isAssigned
+                              ? "bg-card border-orange-500/50 ring-1 ring-orange-500/20 shadow-xs"
+                              : "bg-secondary/20 border-border/70 opacity-60 hover:opacity-100 hover:bg-secondary/40"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isAssigned}
+                            onChange={() => {}}
+                            className="mt-0.5 rounded text-orange-600 focus:ring-orange-500 cursor-pointer pointer-events-none"
+                          />
+                          <div className="flex-1 min-w-0 space-y-0.5">
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="text-xs font-bold text-foreground truncate">
+                                {fullName}
+                              </span>
+                              {p.role === "Leader" && (
+                                <span className="text-[9px] font-extrabold px-1 py-0.2 rounded bg-amber-500/15 text-amber-600 shrink-0">
+                                  LEAD
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[10px] text-muted-foreground flex items-center gap-1.5">
+                              <span>{p.age || "Adult"}</span>
+                              {p.passportNumber && (
+                                <>
+                                  <span>&bull;</span>
+                                  <span className="font-mono">{p.passportNumber}</span>
+                                </>
+                              )}
+                            </div>
+                            <div className="pt-0.5">
+                              {hasPassport ? (
+                                <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-600 dark:text-emerald-400">
+                                  <CheckCircle2 size={10} /> Passport Uploaded
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-[9px] font-bold text-rose-600 dark:text-rose-400">
+                                  <AlertCircle size={10} /> Missing Passport Scan
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 {/* Monospace GDS Flight & Passenger Block (Editable) */}
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
@@ -4388,7 +4514,7 @@ export default function BookingManager({
                             ? (targetUniquePnrs.length > 0 ? targetUniquePnrs.join(", ") : "GROUP")
                             : ticketOrderPnr;
                         setTicketOrderGdsText(
-                          formatGdsFlightText(targetPnrVal, activeFlights, booking.passengers || []),
+                          formatGdsFlightText(targetPnrVal, activeFlights, assignedPassengers),
                         );
                       }}
                       className="text-[10px] text-primary hover:underline cursor-pointer"
@@ -4432,7 +4558,7 @@ export default function BookingManager({
                       </div>
 
                       {/* Passenger Passport Details in Email */}
-                      {(booking.passengers || []).length > 0 && (
+                      {assignedPassengers.length > 0 && (
                         <div className="space-y-1 pt-1">
                           <div className="text-[11px] font-bold text-foreground uppercase tracking-wider">
                             Passenger Passport Details:
@@ -4452,7 +4578,7 @@ export default function BookingManager({
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-border/50">
-                                {(booking.passengers || []).map((p: any, idx: number) => {
+                                {assignedPassengers.map((p: any, idx: number) => {
                                   const fullName = `${p.title || ""} ${p.firstName || ""} ${p.lastName || ""}`.trim();
                                   const dob = p.dateOfBirth ? new Date(p.dateOfBirth).toLocaleDateString("en-GB") : "N/A";
                                   const exp = p.passportExpiryDate ? new Date(p.passportExpiryDate).toLocaleDateString("en-GB") : "N/A";
@@ -4478,7 +4604,7 @@ export default function BookingManager({
                             </table>
                           </div>
                           <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1 pt-0.5">
-                            <CheckCircle2 size={11} /> Passenger passport scan copies ({(booking.passengers || []).length}) are attached directly to this email.
+                            <CheckCircle2 size={11} /> Passenger passport scan copies ({assignedPassengers.length}) are attached directly to this email.
                           </div>
                         </div>
                       )}
@@ -4671,11 +4797,11 @@ export default function BookingManager({
                 <div className="border border-border rounded-xl overflow-hidden bg-card">
                   <div className="px-3 py-2 bg-secondary/50 border-b border-border font-bold text-[11px] uppercase tracking-wider text-muted-foreground flex items-center justify-between">
                     <span className="flex items-center gap-1.5 text-primary">
-                      <Users size={12} /> Attached Passenger Details ({booking.passengers?.length || 0})
+                      <Users size={12} /> Assigned Passenger Details ({assignedPassengers.length})
                     </span>
                   </div>
                   <div className="max-h-36 overflow-y-auto divide-y divide-border/60">
-                    {(booking.passengers || []).map((p: any, idx: number) => (
+                    {assignedPassengers.map((p: any, idx: number) => (
                       <div key={p.id || idx} className="p-2.5 flex items-center justify-between text-xs hover:bg-secondary/20">
                         <div className="space-y-0.5">
                           <div className="flex items-center gap-2">
@@ -4731,10 +4857,10 @@ export default function BookingManager({
                     </span>
                     <div>
                       <span className="font-bold text-foreground text-xs block">
-                        Passenger Passport Scans Attached ({booking.passengers?.length || 0})
+                        Assigned Passenger Passport Scans Attached ({assignedPassengers.length})
                       </span>
                       <span className="text-[10px] text-muted-foreground">
-                        All passenger passport scans are verified and will be attached directly to the email for the ticketing team.
+                        All assigned passenger passport scans are verified and will be attached directly to the email for the ticketing team.
                       </span>
                     </div>
                   </div>

@@ -506,23 +506,17 @@ export default function IssuancePage() {
                 ) : (
                   colTickets.map((ticket) => {
                     const isFlight = ticket.type === 'FLIGHT';
-                    const isSlaBreach = ticket.isSlaBreached;
-
                     return (
                       <div
                         key={ticket.id}
                         draggable={isSystemAdmin}
                         onDragStart={(e) => handleDragStart(e, ticket.id)}
                         onClick={() => setViewTicket(ticket)}
-                        className={`group relative bg-card rounded-xl p-3.5 border transition-all duration-150 select-none ${
+                        className={`group relative bg-card rounded-xl p-3.5 border border-border transition-all duration-150 select-none hover:shadow-xs hover:border-border/80 ${
                           isSystemAdmin ? 'cursor-grab active:cursor-grabbing hover:shadow-md' : 'cursor-pointer hover:border-primary/50'
-                        } ${
-                          isSlaBreach
-                            ? 'border-red-500 ring-1 ring-red-500/40 bg-red-500/5'
-                            : 'border-border hover:border-border/80'
                         }`}
                       >
-                        {/* Type Badge & SLA / Lock Badge */}
+                        {/* Type Badge & Lock Badge */}
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-1.5">
                             {isFlight ? (
@@ -542,20 +536,10 @@ export default function IssuancePage() {
                           </div>
 
                           {/* Status Flags */}
-                          {ticket.isLocked ? (
+                          {ticket.isLocked && (
                             <span className="flex items-center gap-1 text-[10px] font-medium bg-secondary text-muted-foreground px-2 py-0.5 rounded-md border border-border">
                               <Lock className="w-3 h-3 text-muted-foreground" />
                               Locked
-                            </span>
-                          ) : isSlaBreach ? (
-                            <span className="flex items-center gap-1 text-[10px] font-bold bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300 border border-red-300 dark:border-red-800 px-2 py-0.5 rounded-md animate-pulse">
-                              <AlertTriangle className="w-3 h-3 text-red-600 dark:text-red-400" />
-                              SLA &gt; 2h
-                            </span>
-                          ) : (
-                            <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                              <Clock className="w-3 h-3" />
-                              {ticket.elapsedMinutes ?? 0}m
                             </span>
                           )}
                         </div>
@@ -624,10 +608,18 @@ export default function IssuancePage() {
                         {/* Footer Details: Date, Cost, Originating Agent */}
                         <div className="mt-3 pt-2.5 border-t border-border flex items-center justify-between text-[11px] text-muted-foreground">
                           <div className="flex items-center gap-1">
-                            <Calendar className="w-3 h-3 text-muted-foreground" />
-                            <span>{new Date(ticket.travelStartDate).toLocaleDateString()}</span>
+                            <Calendar className={`w-3 h-3 ${ticket.type === 'HOTEL' ? 'text-emerald-600 dark:text-emerald-400' : 'text-sky-600 dark:text-sky-400'}`} />
+                            {ticket.type === 'HOTEL' ? (
+                              <span className="font-medium text-foreground">
+                                {new Date(ticket.travelStartDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+                                {ticket.travelEndDate ? ` – ${new Date(ticket.travelEndDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}` : ''}
+                              </span>
+                            ) : (
+                              <span>{new Date(ticket.travelStartDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                            )}
                           </div>
                           <div className="font-bold text-foreground">
+                            {ticket.type === 'HOTEL' && <span className="text-[10px] font-normal text-muted-foreground mr-1">Quoted:</span>}
                             {ticket.currency} {Number(ticket.totalCost).toFixed(2)}
                           </div>
                         </div>
@@ -880,11 +872,11 @@ export default function IssuancePage() {
                 </div>
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">
-                    Guest Email
+                    {newType === 'HOTEL' ? 'Hotel / Supplier Email' : 'Guest Email'}
                   </label>
                   <input
                     type="email"
-                    placeholder="guest@example.com"
+                    placeholder={newType === 'HOTEL' ? 'reservations@hotel.com' : 'guest@example.com'}
                     value={newGuestEmail}
                     onChange={(e) => setNewGuestEmail(e.target.value)}
                     className="w-full text-xs py-2 px-3 bg-background border border-border rounded-xl text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
@@ -896,7 +888,7 @@ export default function IssuancePage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">
-                    Travel Start Date *
+                    {newType === 'HOTEL' ? 'Check-In Date *' : 'Departure Date *'}
                   </label>
                   <input
                     required
@@ -908,10 +900,11 @@ export default function IssuancePage() {
                 </div>
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">
-                    Travel End Date
+                    {newType === 'HOTEL' ? 'Check-Out Date *' : 'Return Date (Optional)'}
                   </label>
                   <input
                     type="date"
+                    required={newType === 'HOTEL'}
                     value={newTravelEnd}
                     onChange={(e) => setNewTravelEnd(e.target.value)}
                     className="w-full text-xs py-2 px-3 bg-background border border-border rounded-xl text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
@@ -1124,9 +1117,26 @@ export default function IssuancePage() {
                   </p>
                 </div>
               ) : (
-                <div className="p-3 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900 rounded-xl space-y-1">
+                <div className="p-3 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900 rounded-xl space-y-1.5">
                   <p><strong>Hotel:</strong> {viewTicket.hotelName || 'N/A'}</p>
                   <p><strong>Destination:</strong> {viewTicket.destination || 'N/A'}</p>
+                  <p>
+                    <strong>Check-In Date:</strong>{' '}
+                    <span className="font-semibold text-emerald-700 dark:text-emerald-400">
+                      {new Date(viewTicket.travelStartDate).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
+                    </span>
+                  </p>
+                  {viewTicket.travelEndDate && (
+                    <p>
+                      <strong>Check-Out Date:</strong>{' '}
+                      <span className="font-semibold text-rose-700 dark:text-rose-400">
+                        {new Date(viewTicket.travelEndDate).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
+                      </span>
+                    </p>
+                  )}
+                  {viewTicket.guestEmail && (
+                    <p><strong>Hotel / Supplier Email:</strong> {viewTicket.guestEmail}</p>
+                  )}
                   <p><strong>Room Category:</strong> {viewTicket.roomCategory || 'N/A'} ({viewTicket.boardBasis || 'RO'})</p>
                   <p>
                     <strong>Confirmation No:</strong>{' '}

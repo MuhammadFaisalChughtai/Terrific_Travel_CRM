@@ -1884,7 +1884,7 @@ export class BookingsService {
   /** Send official flight ticket order email directly to office and ticketing team */
   async sendTicketOrder(
     bookingId: string,
-    options: { customNotes?: string; pdfBase64?: string; pnr?: string; flightIds?: string[]; gdsText?: string },
+    options: { customNotes?: string; pdfBase64?: string; pnr?: string; flightIds?: string[]; gdsText?: string; passengerIds?: string[] },
     actorUser?: any
   ) {
     const booking = await prisma.booking.findUnique({
@@ -1931,10 +1931,14 @@ export class BookingsService {
       }
     }
 
-    // Enforce that all passengers have passport scans uploaded
-    const passengers = booking.passengers || [];
+    // Filter passengers by options.passengerIds if provided, else use all booking passengers
+    let passengers = booking.passengers || [];
+    if (options.passengerIds && options.passengerIds.length > 0) {
+      passengers = passengers.filter((p: any) => options.passengerIds!.includes(p.id));
+    }
+
     if (passengers.length === 0) {
-      throw new BadRequestException('No passengers registered in this booking to issue ticket order.');
+      throw new BadRequestException('No passengers selected/registered for this ticket order.');
     }
 
     const missingPassports = passengers.filter((p: any) => !p.passportScanKey || !p.passportScanKey.trim());
@@ -2054,7 +2058,7 @@ export class BookingsService {
       amountLeft,
       paymentStatus: booking.paymentStatus,
       currencySymbol: '£',
-      passengers: booking.passengers,
+      passengers: passengers,
       flights: flightsToSend.map((fs: any) => ({
         pnr: fs.pnr,
         flightNo: fs.flightNo,

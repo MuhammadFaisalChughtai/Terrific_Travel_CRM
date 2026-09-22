@@ -236,8 +236,8 @@ export const sendPassengerLink = asyncHandler(async (req: AuthenticatedRequest, 
 
 export const sendTicketOrder = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
-  const { customNotes, pdfBase64, pnr, flightIds, gdsText } = req.body;
-  const result = await bookingsService.sendTicketOrder(id, { customNotes, pdfBase64, pnr, flightIds, gdsText }, req.user);
+  const { customNotes, pdfBase64, pnr, flightIds, gdsText, passengerIds } = req.body;
+  const result = await bookingsService.sendTicketOrder(id, { customNotes, pdfBase64, pnr, flightIds, gdsText, passengerIds }, req.user);
   res.status(200).json({ success: true, data: result });
 });
 
