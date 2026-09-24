@@ -19,6 +19,10 @@ import {
   Filter,
   CheckCircle2,
   ExternalLink,
+  TrendingUp,
+  Zap,
+  Coffee,
+  Calendar,
 } from 'lucide-react';
 
 interface LiveAgent {
@@ -36,9 +40,27 @@ interface LiveAgent {
   isp?: string;
   activeWindow: string;
   appVersion: string;
+  isIdle?: boolean;
+  activeMinutes?: number;
+  idleMinutes?: number;
   lastPingAt: string;
   elapsedSeconds: number;
   isOnline: boolean;
+}
+
+interface ProductivityReportItem {
+  id: string;
+  agentId: string;
+  agentName: string;
+  agentEmail: string;
+  date: string;
+  checkInTime: string | null;
+  checkOutTime: string | null;
+  status: string;
+  totalShiftMinutes: number;
+  activeMinutes: number;
+  idleMinutes: number;
+  productivityScore: number;
 }
 
 interface AuditLogItem {
@@ -69,10 +91,13 @@ export default function SecurityAuditPage() {
     })
   );
 
-  const [activeTab, setActiveTab] = useState<'live' | 'clipboard'>('live');
+  const [activeTab, setActiveTab] = useState<'live' | 'clipboard' | 'productivity'>('live');
   const [searchTerm, setSearchTerm] = useState('');
   const [actionFilter, setActionFilter] = useState('');
   const [selectedScreenshot, setSelectedScreenshot] = useState<AuditLogItem | null>(null);
+  const [productivityDate, setProductivityDate] = useState<string>(
+    new Date().toISOString().split('T')[0]
+  );
 
   // Live Workstations Query (refetches every 15s)
   const {
@@ -106,6 +131,33 @@ export default function SecurityAuditPage() {
     enabled: isAdmin && activeTab === 'clipboard',
   });
 
+  // Productivity Reports Query
+  const {
+    data: productivityData,
+    isLoading: isLoadingProductivity,
+    refetch: refetchProductivity,
+  } = useQuery<{ data: ProductivityReportItem[]; meta: any }>({
+    queryKey: ['security-audit', 'productivity', productivityDate],
+    queryFn: async () => {
+      const params: any = { limit: 50 };
+      if (productivityDate) {
+        params.startDate = productivityDate;
+        params.endDate = productivityDate;
+      }
+      const res = await apiClient.get('/agent-monitor/productivity-reports', { params });
+      return res.data;
+    },
+    enabled: isAdmin && activeTab === 'productivity',
+  });
+
+  function formatMinutes(totalMins: number): string {
+    if (!totalMins || totalMins <= 0) return '0m';
+    const h = Math.floor(totalMins / 60);
+    const m = totalMins % 60;
+    if (h === 0) return `${m}m`;
+    return `${h}h ${m}m`;
+  }
+
   if (!isAdmin) {
     return <Navigate to="/" replace />;
   }
@@ -135,7 +187,8 @@ export default function SecurityAuditPage() {
           <button
             onClick={() => {
               if (activeTab === 'live') refetchLive();
-              else refetchAudit();
+              else if (activeTab === 'clipboard') refetchAudit();
+              else refetchProductivity();
             }}
             className="p-2 rounded-lg border border-border bg-card hover:bg-secondary text-muted-foreground hover:text-foreground transition-all"
             title="Refresh"
@@ -170,6 +223,18 @@ export default function SecurityAuditPage() {
           <ClipboardCopy className="w-4 h-4" />
           Clipboard & Screenshot Events
         </button>
+
+        <button
+          onClick={() => setActiveTab('productivity')}
+          className={`pb-3 px-3 text-xs sm:text-sm font-bold flex items-center gap-2 border-b-2 transition-all ${
+            activeTab === 'productivity'
+              ? 'border-orange-500 text-orange-600 dark:text-orange-400'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <TrendingUp className="w-4 h-4" />
+          Productivity & Shifts
+        </button>
       </div>
 
       {/* TAB 1: Live Workstations */}
@@ -189,7 +254,11 @@ export default function SecurityAuditPage() {
                   <div className="flex items-center gap-2">
                     <div
                       className={`w-2.5 h-2.5 rounded-full ${
-                        agent.isOnline ? 'bg-emerald-500 ring-2 ring-emerald-500/20' : 'bg-slate-400'
+                        agent.isOnline
+                          ? agent.isIdle
+                            ? 'bg-amber-500 ring-2 ring-amber-500/20'
+                            : 'bg-emerald-500 ring-2 ring-emerald-500/20'
+                          : 'bg-slate-400'
                       }`}
                     />
                     <div>
@@ -201,11 +270,13 @@ export default function SecurityAuditPage() {
                   <span
                     className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
                       agent.isOnline
-                        ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                        ? agent.isIdle
+                          ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                          : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
                         : 'bg-secondary text-muted-foreground'
                     }`}
                   >
-                    {agent.isOnline ? 'Active' : 'Offline'}
+                    {agent.isOnline ? (agent.isIdle ? 'Idle (>5m)' : 'Active') : 'Offline'}
                   </span>
                 </div>
 
@@ -242,6 +313,17 @@ export default function SecurityAuditPage() {
                       title={agent.activeWindow}
                     >
                       {agent.activeWindow}
+                    </div>
+                  </div>
+
+                  <div className="pt-1.5 border-t border-border/40 grid grid-cols-2 gap-2 text-[11px]">
+                    <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
+                      <Zap className="w-3 h-3" />
+                      <span>{formatMinutes(agent.activeMinutes || 0)}</span>
+                    </div>
+                    <div className="flex items-center gap-1 text-amber-600 dark:text-amber-400 font-medium justify-end">
+                      <Coffee className="w-3 h-3" />
+                      <span>{formatMinutes(agent.idleMinutes || 0)}</span>
                     </div>
                   </div>
 
@@ -379,6 +461,190 @@ export default function SecurityAuditPage() {
                     <tr>
                       <td colSpan={7} className="p-8 text-center text-muted-foreground text-xs">
                         No clipboard activity recorded yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: Productivity & Shift Reports */}
+      {activeTab === 'productivity' && (
+        <div className="space-y-4">
+          {/* Top Filter and Controls */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-card p-4 rounded-xl border border-border">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-orange-500" />
+              <span className="text-xs font-bold text-foreground uppercase tracking-wider">Report Date:</span>
+              <input
+                type="date"
+                value={productivityDate}
+                onChange={(e) => setProductivityDate(e.target.value)}
+                className="text-xs bg-secondary/80 border border-border rounded-lg px-2.5 py-1.5 text-foreground focus:outline-hidden focus:ring-1 focus:ring-orange-500"
+              />
+              <button
+                type="button"
+                onClick={() => setProductivityDate(new Date().toISOString().split('T')[0])}
+                className="text-xs px-2.5 py-1.5 rounded-lg border border-border hover:bg-secondary text-muted-foreground hover:text-foreground font-medium transition-all cursor-pointer"
+              >
+                Today
+              </button>
+            </div>
+
+            <div className="text-xs text-muted-foreground">
+              Automated tracking from Check-in to Check-out
+            </div>
+          </div>
+
+          {/* Metric Overview Cards */}
+          {productivityData && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="p-3.5 bg-card rounded-xl border border-border space-y-1">
+                <div className="text-[11px] font-bold text-muted-foreground uppercase flex items-center gap-1.5">
+                  <User className="w-3.5 h-3.5 text-blue-500" /> Active Agents
+                </div>
+                <div className="text-lg font-black text-foreground">
+                  {productivityData.data?.length || 0}
+                </div>
+              </div>
+
+              <div className="p-3.5 bg-card rounded-xl border border-border space-y-1">
+                <div className="text-[11px] font-bold text-muted-foreground uppercase flex items-center gap-1.5">
+                  <Zap className="w-3.5 h-3.5 text-emerald-500" /> Total Active Work
+                </div>
+                <div className="text-lg font-black text-emerald-600 dark:text-emerald-400">
+                  {formatMinutes(
+                    (productivityData.data || []).reduce((acc, curr) => acc + (curr.activeMinutes || 0), 0)
+                  )}
+                </div>
+              </div>
+
+              <div className="p-3.5 bg-card rounded-xl border border-border space-y-1">
+                <div className="text-[11px] font-bold text-muted-foreground uppercase flex items-center gap-1.5">
+                  <Coffee className="w-3.5 h-3.5 text-amber-500" /> Total Idle Time
+                </div>
+                <div className="text-lg font-black text-amber-600 dark:text-amber-400">
+                  {formatMinutes(
+                    (productivityData.data || []).reduce((acc, curr) => acc + (curr.idleMinutes || 0), 0)
+                  )}
+                </div>
+              </div>
+
+              <div className="p-3.5 bg-card rounded-xl border border-border space-y-1">
+                <div className="text-[11px] font-bold text-muted-foreground uppercase flex items-center gap-1.5">
+                  <TrendingUp className="w-3.5 h-3.5 text-orange-500" /> Avg Productivity
+                </div>
+                <div className="text-lg font-black text-foreground">
+                  {(() => {
+                    const list = productivityData.data || [];
+                    if (list.length === 0) return '0%';
+                    const avg = Math.round(
+                      list.reduce((acc, curr) => acc + (curr.productivityScore || 0), 0) / list.length
+                    );
+                    return `${avg}%`;
+                  })()}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Table */}
+          <div className="bg-card rounded-xl border border-border overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-border bg-secondary/50 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                    <th className="p-3">Agent</th>
+                    <th className="p-3">Shift Window</th>
+                    <th className="p-3">Total Shift</th>
+                    <th className="p-3">Active PC Time</th>
+                    <th className="p-3">Idle Time</th>
+                    <th className="p-3">Productivity Score</th>
+                    <th className="p-3">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border text-xs">
+                  {productivityData?.data?.map((item) => (
+                    <tr key={item.id} className="hover:bg-secondary/30 transition-all">
+                      <td className="p-3">
+                        <div className="font-bold text-foreground">{item.agentName}</div>
+                        <div className="text-[11px] text-muted-foreground">{item.agentEmail}</div>
+                      </td>
+
+                      <td className="p-3 text-muted-foreground">
+                        <div className="flex items-center gap-1 font-mono text-[11px]">
+                          <span>
+                            {item.checkInTime ? new Date(item.checkInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
+                          </span>
+                          <span>&rarr;</span>
+                          <span>
+                            {item.checkOutTime ? new Date(item.checkOutTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'In Progress'}
+                          </span>
+                        </div>
+                      </td>
+
+                      <td className="p-3 font-semibold text-foreground">
+                        {formatMinutes(item.totalShiftMinutes)}
+                      </td>
+
+                      <td className="p-3 font-semibold text-emerald-600 dark:text-emerald-400">
+                        <div className="flex items-center gap-1">
+                          <Zap className="w-3 h-3 text-emerald-500" />
+                          {formatMinutes(item.activeMinutes)}
+                        </div>
+                      </td>
+
+                      <td className="p-3 font-semibold text-amber-600 dark:text-amber-400">
+                        <div className="flex items-center gap-1">
+                          <Coffee className="w-3 h-3 text-amber-500" />
+                          {formatMinutes(item.idleMinutes)}
+                        </div>
+                      </td>
+
+                      <td className="p-3">
+                        <div className="space-y-1 min-w-[130px]">
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="font-bold text-foreground">{item.productivityScore}%</span>
+                            <span className="text-[10px] text-muted-foreground">
+                              {item.productivityScore >= 80 ? 'Optimal' : item.productivityScore >= 60 ? 'Moderate' : 'Low'}
+                            </span>
+                          </div>
+                          <div className="w-full bg-secondary rounded-full h-1.5 overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all ${
+                                item.productivityScore >= 80
+                                  ? 'bg-emerald-500'
+                                  : item.productivityScore >= 60
+                                  ? 'bg-amber-500'
+                                  : 'bg-rose-500'
+                              }`}
+                              style={{ width: `${Math.min(100, Math.max(0, item.productivityScore))}%` }}
+                            />
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="p-3">
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                            item.checkOutTime
+                              ? 'bg-secondary text-muted-foreground'
+                              : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                          }`}
+                        >
+                          {item.checkOutTime ? 'Completed' : 'On Shift'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+
+                  {(!productivityData?.data || productivityData.data.length === 0) && !isLoadingProductivity && (
+                    <tr>
+                      <td colSpan={7} className="p-8 text-center text-muted-foreground text-xs">
+                        No attendance shift or productivity records found for this date.
                       </td>
                     </tr>
                   )}

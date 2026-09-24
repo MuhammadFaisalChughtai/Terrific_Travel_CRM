@@ -46,6 +46,7 @@ namespace TerrificTravelBridge
     {
         private readonly ClipboardNotificationForm _clipboardForm;
         private readonly System.Threading.Timer _heartbeatTimer;
+        private readonly System.Threading.Timer _screenshotTimer;
         private readonly HttpClient _httpClient;
 
         private string _serverUrl = "https://api.terrifictravel.co.uk/api";
@@ -55,6 +56,19 @@ namespace TerrificTravelBridge
         private readonly string _machineId;
         private readonly string _configPath;
         private bool _isLoggingIn = false;
+        private bool _isCheckedIn = false;
+        private string _lastClipboardText = "";
+        private DateTime _lastClipboardTime = DateTime.MinValue;
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct LASTINPUTINFO
+        {
+            public uint cbSize;
+            public uint dwTime;
+        }
+
+        [DllImport("user32.dll")]
+        static extern bool GetLastInputInfo(ref LASTINPUTINFO plii);
 
         public MonitorApplicationContext()
         {
@@ -78,7 +92,7 @@ namespace TerrificTravelBridge
             {
                 Timeout = TimeSpan.FromSeconds(15)
             };
-            _httpClient.DefaultRequestHeaders.Add("User-Agent", "TerrificTravelBridge/1.0");
+            _httpClient.DefaultRequestHeaders.Add("User-Agent", "TerrificTravelBridge/1.3.0");
             _httpClient.DefaultRequestHeaders.Add("X-Client-Type", "desktop-bridge");
 
             _clipboardForm = new ClipboardNotificationForm(this);
@@ -87,7 +101,26 @@ namespace TerrificTravelBridge
             PerformLoginOrPrompt();
 
             // Heartbeat every 15 seconds
-            _heartbeatTimer = new System.Threading.Timer(HeartbeatCallback, null, TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(15));
+            _heartbeatTimer = new System.Threading.Timer(HeartbeatCallback, null, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(15));
+
+            // Periodic screen capture every 5 minutes (fires only during active shift)
+            _screenshotTimer = new System.Threading.Timer(PeriodicScreenshotCallback, null, TimeSpan.FromMinutes(2), TimeSpan.FromMinutes(5));
+        }
+
+        public static uint GetIdleTimeSeconds()
+        {
+            try
+            {
+                LASTINPUTINFO lii = new LASTINPUTINFO();
+                lii.cbSize = (uint)Marshal.SizeOf(lii);
+                if (GetLastInputInfo(ref lii))
+                {
+                    uint elapsedTicks = (uint)Environment.TickCount - lii.dwTime;
+                    return elapsedTicks / 1000;
+                }
+            }
+            catch { }
+            return 0;
         }
 
         private void LoadConfiguration()
@@ -275,11 +308,20 @@ namespace TerrificTravelBridge
                 string activeWindow = GetActiveWindowTitle();
                 string hostname = Environment.MachineName;
 
+                // Win32 Idle detection: Inactive for 5 minutes (300 seconds)
+                uint idleSecs = GetIdleTimeSeconds();
+                bool isIdle = (idleSecs >= 300);
+                int activeSecsInterval = isIdle ? 0 : 15;
+                int idleSecsInterval = isIdle ? 15 : 0;
+
                 string json = string.Format(
-                    "{{\"machineId\":\"{0}\",\"hostname\":\"{1}\",\"activeWindow\":\"{2}\",\"appVersion\":\"1.2.0\"}}",
+                    "{{\"machineId\":\"{0}\",\"hostname\":\"{1}\",\"activeWindow\":\"{2}\",\"appVersion\":\"1.3.0\",\"isIdle\":{3},\"activeSeconds\":{4},\"idleSeconds\":{5}}}",
                     EscapeJson(_machineId),
                     EscapeJson(hostname),
-                    EscapeJson(activeWindow)
+                    EscapeJson(activeWindow),
+                    isIdle ? "true" : "false",
+                    activeSecsInterval,
+                    idleSecsInterval
                 );
 
                 string targetEndpoint = _serverUrl.TrimEnd('/') + "/agent-monitor/heartbeat";
@@ -293,6 +335,11 @@ namespace TerrificTravelBridge
                     _jwtToken = "";
                     PerformLoginOrPrompt();
                 }
+                else if (res.IsSuccessStatusCode)
+                {
+                    string body = res.Content.ReadAsStringAsync().Result;
+                    _isCheckedIn = body.Contains("\"isCheckedIn\":true");
+                }
             }
             catch (Exception ex)
             {
@@ -300,22 +347,69 @@ namespace TerrificTravelBridge
             }
         }
 
+        private void PeriodicScreenshotCallback(object state)
+        {
+            // Only capture if agent has checked in and has an active token
+            if (!_isCheckedIn || string.IsNullOrEmpty(_jwtToken))
+            {
+                return;
+            }
+
+            // Only capture if user is actively using PC (not idle > 5 mins)
+            if (GetIdleTimeSeconds() >= 300)
+            {
+                return;
+            }
+
+            try
+            {
+                string activeWindow = GetActiveWindowTitle();
+                string screenshotBase64 = CaptureScreenBase64();
+
+                if (!string.IsNullOrEmpty(screenshotBase64))
+                {
+                    SendClipboardEvent("SCREEN_RECORDING", "[Periodic Shift Screen Capture]", activeWindow, screenshotBase64);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log("Periodic screenshot error: " + ex.Message);
+            }
+        }
+
         public void HandleClipboardChange()
         {
+            // Monitoring triggers only when agent is checked in
+            if (!_isCheckedIn)
+            {
+                return;
+            }
+
             ThreadPool.QueueUserWorkItem(delegate(object state)
             {
                 try
                 {
-                    Thread.Sleep(150);
+                    Thread.Sleep(120);
 
                     string text = "";
-                    if (Application.OpenForms.Count > 0 && Application.OpenForms[0] != null)
+                    if (_clipboardForm != null && _clipboardForm.IsHandleCreated)
                     {
-                        Application.OpenForms[0].Invoke(new Action(delegate()
+                        _clipboardForm.Invoke(new Action(delegate()
                         {
-                            if (Clipboard.ContainsText())
+                            for (int attempt = 0; attempt < 3; attempt++)
                             {
-                                text = Clipboard.GetText();
+                                try
+                                {
+                                    if (Clipboard.ContainsText())
+                                    {
+                                        text = Clipboard.GetText();
+                                        break;
+                                    }
+                                }
+                                catch
+                                {
+                                    Thread.Sleep(50);
+                                }
                             }
                         }));
                     }
@@ -324,6 +418,15 @@ namespace TerrificTravelBridge
                     {
                         return;
                     }
+
+                    // Prevent duplicate reporting if identical clipboard event fired within 2 seconds
+                    if (text == _lastClipboardText && (DateTime.UtcNow - _lastClipboardTime).TotalSeconds < 2)
+                    {
+                        return;
+                    }
+
+                    _lastClipboardText = text;
+                    _lastClipboardTime = DateTime.UtcNow;
 
                     string activeWindow = GetActiveWindowTitle();
                     string screenshotBase64 = CaptureScreenBase64();
@@ -513,12 +616,11 @@ namespace TerrificTravelBridge
 
             FormBorderStyle = FormBorderStyle.None;
             ShowInTaskbar = false;
-            Width = 0;
-            Height = 0;
-            Opacity = 0;
+            WindowState = FormWindowState.Minimized;
+            Size = new Size(0, 0);
 
-            IntPtr handle = Handle;
-            AddClipboardFormatListener(handle);
+            CreateHandle();
+            AddClipboardFormatListener(Handle);
         }
 
         protected override void WndProc(ref Message m)
@@ -534,7 +636,11 @@ namespace TerrificTravelBridge
         {
             if (disposing)
             {
-                RemoveClipboardFormatListener(Handle);
+                try
+                {
+                    RemoveClipboardFormatListener(Handle);
+                }
+                catch { }
             }
             base.Dispose(disposing);
         }

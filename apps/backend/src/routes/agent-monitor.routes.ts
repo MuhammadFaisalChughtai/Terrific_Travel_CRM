@@ -9,6 +9,7 @@ import {
   getAuditLogs,
   getScreenshotStream,
   getStatus,
+  getProductivityReports,
 } from '../controllers/agent-monitor.controller';
 
 const upload = multer({
@@ -28,6 +29,7 @@ router.get('/status', getStatus);
 // Admin/Superadmin-only inspection endpoints
 router.get('/live', requireRoles('ADMIN', 'SUPER_ADMIN', 'SUPERADMIN') as any, getLiveAgents);
 router.get('/audit', requireRoles('ADMIN', 'SUPER_ADMIN', 'SUPERADMIN') as any, getAuditLogs);
+router.get('/productivity-reports', requireRoles('ADMIN', 'SUPER_ADMIN', 'SUPERADMIN') as any, getProductivityReports);
 router.get('/screenshot/*', requireRoles('ADMIN', 'SUPER_ADMIN', 'SUPERADMIN') as any, getScreenshotStream);
 
 export default router;

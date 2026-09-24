@@ -76,12 +76,25 @@ export class AgentMonitorService {
     ipAddress: string;
     activeWindow?: string;
     appVersion?: string;
+    isIdle?: boolean;
+    activeSeconds?: number;
+    idleSeconds?: number;
   }) {
-    const { userId, machineId, hostname, ipAddress, activeWindow, appVersion } = params;
+    const {
+      userId,
+      machineId,
+      hostname,
+      ipAddress,
+      activeWindow,
+      appVersion,
+      isIdle,
+      activeSeconds,
+      idleSeconds,
+    } = params;
 
     const geo = await resolveGeoLocation(ipAddress);
 
-    return prisma.agentWorkstationHeartbeat.upsert({
+    const heartbeat = await prisma.agentWorkstationHeartbeat.upsert({
       where: {
         userId_machineId: {
           userId,
@@ -97,6 +110,9 @@ export class AgentMonitorService {
         isp: geo.isp || undefined,
         activeWindow: activeWindow || undefined,
         appVersion: appVersion || undefined,
+        isIdle: typeof isIdle === 'boolean' ? isIdle : false,
+        activeSeconds: activeSeconds ? { increment: activeSeconds } : undefined,
+        idleSeconds: idleSeconds ? { increment: idleSeconds } : undefined,
         lastPingAt: new Date(),
       },
       create: {
@@ -110,9 +126,65 @@ export class AgentMonitorService {
         isp: geo.isp,
         activeWindow,
         appVersion,
+        isIdle: typeof isIdle === 'boolean' ? isIdle : false,
+        activeSeconds: activeSeconds || 0,
+        idleSeconds: idleSeconds || 0,
         lastPingAt: new Date(),
       },
     });
+
+    // Check today's attendance for the user to determine if shift is active
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { agentId: true },
+    });
+
+    let isCheckedIn = false;
+    let checkInTime: Date | null = null;
+    let checkOutTime: Date | null = null;
+
+    if (user?.agentId) {
+      const today = new Date();
+      today.setUTCHours(0, 0, 0, 0);
+
+      const attendanceRecord = await prisma.attendance.findUnique({
+        where: {
+          agentId_date: {
+            agentId: user.agentId,
+            date: today,
+          },
+        },
+      });
+
+      if (attendanceRecord) {
+        checkInTime = attendanceRecord.checkInTime;
+        checkOutTime = attendanceRecord.checkOutTime;
+        // Shift is active if checked in and not checked out
+        isCheckedIn = Boolean(attendanceRecord.checkInTime && !attendanceRecord.checkOutTime);
+
+        // If shift is active, accumulate activeMinutes / idleMinutes
+        if (isCheckedIn && ((activeSeconds || 0) > 0 || (idleSeconds || 0) > 0)) {
+          const addActiveMins = Math.round((activeSeconds || 0) / 60);
+          const addIdleMins = Math.round((idleSeconds || 0) / 60);
+          if (addActiveMins > 0 || addIdleMins > 0) {
+            await prisma.attendance.update({
+              where: { id: attendanceRecord.id },
+              data: {
+                activeMinutes: { increment: addActiveMins },
+                idleMinutes: { increment: addIdleMins },
+              },
+            });
+          }
+        }
+      }
+    }
+
+    return {
+      heartbeat,
+      isCheckedIn,
+      checkInTime,
+      checkOutTime,
+    };
   }
 
   async recordClipboardEvent(params: {
@@ -224,6 +296,9 @@ export class AgentMonitorService {
         isp: hb.isp,
         activeWindow: hb.activeWindow || 'Desktop / Idle',
         appVersion: hb.appVersion || '1.0.0',
+        isIdle: Boolean(hb.isIdle),
+        activeMinutes: Math.floor((hb.activeSeconds || 0) / 60),
+        idleMinutes: Math.floor((hb.idleSeconds || 0) / 60),
         lastPingAt: hb.lastPingAt,
         elapsedSeconds,
         isOnline,
@@ -303,6 +378,85 @@ export class AgentMonitorService {
         country: log.country,
         createdAt: log.createdAt,
       })),
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async getProductivityReports(params: {
+    startDate?: string;
+    endDate?: string;
+    agentId?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    const page = Math.max(Number(params.page) || 1, 1);
+    const limit = Math.min(Math.max(Number(params.limit) || 20, 1), 100);
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+    if (params.agentId) where.agentId = params.agentId;
+    if (params.startDate || params.endDate) {
+      where.date = {};
+      if (params.startDate) where.date.gte = new Date(params.startDate);
+      if (params.endDate) where.date.lte = new Date(params.endDate);
+    }
+
+    const [total, records] = await Promise.all([
+      prisma.attendance.count({ where }),
+      prisma.attendance.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { date: 'desc' },
+        include: {
+          agent: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    const data = records.map((rec) => {
+      let totalShiftMinutes = 0;
+      if (rec.checkInTime) {
+        const end = rec.checkOutTime ? new Date(rec.checkOutTime) : new Date();
+        const start = new Date(rec.checkInTime);
+        totalShiftMinutes = Math.max(0, Math.floor((end.getTime() - start.getTime()) / 60000));
+      }
+
+      const activeMinutes = rec.activeMinutes || 0;
+      const idleMinutes = rec.idleMinutes || 0;
+      const totalTracked = activeMinutes + idleMinutes;
+      const productivityScore =
+        totalTracked > 0 ? Math.min(100, Math.round((activeMinutes / totalTracked) * 100)) : 0;
+
+      return {
+        id: rec.id,
+        agentId: rec.agentId,
+        agentName: rec.agent?.name || 'Agent',
+        agentEmail: rec.agent?.email || '',
+        date: rec.date.toISOString().split('T')[0],
+        checkInTime: rec.checkInTime ? rec.checkInTime.toISOString() : null,
+        checkOutTime: rec.checkOutTime ? rec.checkOutTime.toISOString() : null,
+        status: rec.status,
+        totalShiftMinutes,
+        activeMinutes,
+        idleMinutes,
+        productivityScore,
+      };
+    });
+
+    return {
+      data,
       meta: {
         total,
         page,

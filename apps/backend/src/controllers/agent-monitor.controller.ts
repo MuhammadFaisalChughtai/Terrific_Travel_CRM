@@ -26,19 +26,22 @@ export const recordHeartbeat = asyncHandler(async (req: AuthenticatedRequest, re
     throw new BadRequestException('User authentication required.');
   }
 
-  const { machineId, hostname, activeWindow, appVersion } = req.body;
+  const { machineId, hostname, activeWindow, appVersion, isIdle, activeSeconds, idleSeconds } = req.body;
   if (!machineId) {
     throw new BadRequestException('machineId is required.');
   }
 
   const ipAddress = extractClientIp(req);
 
-  const heartbeat = await agentMonitorService.recordHeartbeat({
+  const result = await agentMonitorService.recordHeartbeat({
     userId: req.user.id,
     machineId,
     hostname,
     activeWindow,
     appVersion,
+    isIdle: typeof isIdle === 'boolean' ? isIdle : false,
+    activeSeconds: activeSeconds ? Number(activeSeconds) : undefined,
+    idleSeconds: idleSeconds ? Number(idleSeconds) : undefined,
     ipAddress,
   });
 
@@ -46,10 +49,13 @@ export const recordHeartbeat = asyncHandler(async (req: AuthenticatedRequest, re
     success: true,
     data: {
       status: 'active',
-      lastPingAt: heartbeat.lastPingAt,
-      ipAddress: heartbeat.ipAddress,
-      city: heartbeat.city,
-      country: heartbeat.country,
+      lastPingAt: result.heartbeat.lastPingAt,
+      ipAddress: result.heartbeat.ipAddress,
+      city: result.heartbeat.city,
+      country: result.heartbeat.country,
+      isCheckedIn: result.isCheckedIn,
+      checkInTime: result.checkInTime,
+      checkOutTime: result.checkOutTime,
     },
   });
 });
@@ -175,3 +181,21 @@ export const getStatus = asyncHandler(async (req: AuthenticatedRequest, res: Res
     },
   });
 });
+
+export const getProductivityReports = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { page, limit, agentId, startDate, endDate } = req.query;
+
+  const result = await agentMonitorService.getProductivityReports({
+    page: page ? Number(page) : undefined,
+    limit: limit ? Number(limit) : undefined,
+    agentId: typeof agentId === 'string' ? agentId : undefined,
+    startDate: typeof startDate === 'string' ? startDate : undefined,
+    endDate: typeof endDate === 'string' ? endDate : undefined,
+  });
+
+  res.status(200).json({
+    success: true,
+    ...result,
+  });
+});
+

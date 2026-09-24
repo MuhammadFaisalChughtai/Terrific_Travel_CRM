@@ -870,6 +870,8 @@ model Attendance {
   status        AttendanceStatus
   isLate        Boolean          @default(false)
   lateMinutes   Int              @default(0)
+  activeMinutes Int              @default(0)
+  idleMinutes   Int              @default(0)
   hasBonus      Boolean          @default(false)
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
@@ -1166,6 +1168,9 @@ model AgentWorkstationHeartbeat {
   isp           String?
   activeWindow  String?
   appVersion    String?
+  isIdle        Boolean  @default(false)
+  activeSeconds Int      @default(0)
+  idleSeconds   Int      @default(0)
   lastPingAt    DateTime @default(now())
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
