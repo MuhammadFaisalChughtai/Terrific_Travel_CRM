@@ -53,10 +53,22 @@ export default function Dashboard() {
   const [pendingSearch, setPendingSearch] = useState("");
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
-  const isAgent =
-    user?.roles.includes("Agent") || user?.roles.includes("TRAVEL_AGENT");
-  const isAdmin =
-    user?.roles.includes("SUPER_ADMIN") || user?.roles.includes("ADMIN");
+  const cleanRoles = useMemo(() => {
+    return (user?.roles || []).map((r: any) => {
+      const raw = typeof r === "string" ? r : r?.name || "";
+      return raw.toUpperCase().replace(/[\s_-]+/g, "");
+    });
+  }, [user?.roles]);
+
+  const isAdmin = useMemo(() => {
+    return cleanRoles.some((r) =>
+      ["ADMIN", "SUPERADMIN", "ADMINISTRATOR", "ROOT"].includes(r)
+    );
+  }, [cleanRoles]);
+
+  const isAgent = useMemo(() => {
+    return !isAdmin && cleanRoles.some((r) => r.includes("AGENT"));
+  }, [cleanRoles, isAdmin]);
 
   // Fetch dashboard summary stats (all-time, for category breakdowns + agent leaderboard)
   const { data: statsData, isLoading: statsLoading } = useQuery({
@@ -129,15 +141,16 @@ export default function Dashboard() {
 
   // Fallback UI data if loading/empty
   const stats = statsData || {
-    totalUsers: 148,
-    totalBookings: 64,
-    totalRevenue: 28400,
-    totalProfit: 9800,
+    totalUsers: 0,
+    totalBookings: 0,
+    totalRevenue: 0,
+    totalMargin: 0,
+    totalProfit: 0,
     totalCustomerPending: 0,
     customerPendingBookingsCount: 0,
-    flightBookings: 32,
-    hotelBookings: 20,
-    tourBookings: 12,
+    flightBookings: 0,
+    hotelBookings: 0,
+    tourBookings: 0,
   };
 
   const periodStats = periodStatsData || {

@@ -1643,13 +1643,13 @@ export default function BookingManager({
                     </div>
                   )}
 
-                  {/* Agent Margin — Admin/Manager only */}
-                  {isOwner && !isAgent && (
+                  {/* Agent Margin */}
+                  {isOwner && (
                     <div className="bg-card p-3.5 rounded-lg shadow-sm border border-border flex flex-col justify-between">
                       <div className="flex items-center gap-1 text-blue-500 mb-1">
                         <BadgePercent size={12} />
                         <span className="text-[10px] font-bold uppercase tracking-wider text-blue-500">
-                          Agent Margin
+                          {isAgent ? "My Margin" : "Agent Margin"}
                         </span>
                       </div>
                        <div className="flex flex-col gap-0.5">
@@ -1715,13 +1715,13 @@ export default function BookingManager({
                     </div>
                   )}
 
-                  {/* Total Profit — Admin/Manager only */}
-                  {isOwner && !isAgent && (
+                  {/* Total Profit */}
+                  {isOwner && (
                     <div className="bg-card p-3.5 rounded-lg shadow-sm border border-border flex flex-col justify-between">
                       <div className="flex items-center gap-1 text-emerald-600 mb-1">
                         <TrendingUp size={12} />
                         <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">
-                          Total Profit
+                          {isAgent ? "Generated Profit" : "Total Profit"}
                         </span>
                       </div>
                       <span className="text-[15px] font-bold text-emerald-700 dark:text-emerald-400">

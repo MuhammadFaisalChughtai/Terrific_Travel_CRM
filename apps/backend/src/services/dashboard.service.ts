@@ -92,46 +92,112 @@ const bookingInclude = {
   passengers: true,
 };
 
+export interface DashboardFilter {
+  isAgent?: boolean;
+  agentId?: string;
+  userId?: string;
+}
+
+function parseFilter(filter?: DashboardFilter | string): {
+  isAgent: boolean;
+  agentId?: string;
+  userId?: string;
+  agentWhereClause: any;
+} {
+  if (!filter) {
+    return { isAgent: false, agentWhereClause: null };
+  }
+  if (typeof filter === 'string') {
+    return {
+      isAgent: true,
+      agentId: filter,
+      agentWhereClause: { agentId: filter },
+    };
+  }
+
+  const { isAgent, agentId, userId } = filter;
+  if (!isAgent) {
+    return { isAgent: false, agentWhereClause: null };
+  }
+
+  if (agentId && userId) {
+    return {
+      isAgent: true,
+      agentId,
+      userId,
+      agentWhereClause: {
+        OR: [
+          { agentId },
+          { createdById: userId },
+          { assignedToId: userId },
+        ],
+      },
+    };
+  } else if (agentId) {
+    return {
+      isAgent: true,
+      agentId,
+      agentWhereClause: { agentId },
+    };
+  } else if (userId) {
+    return {
+      isAgent: true,
+      userId,
+      agentWhereClause: {
+        OR: [
+          { createdById: userId },
+          { assignedToId: userId },
+        ],
+      },
+    };
+  }
+
+  return {
+    isAgent: true,
+    agentWhereClause: { id: '__no_agent_match__' },
+  };
+}
+
 export class DashboardService {
-  async getStats(agentId?: string) {
-    const [users, bookings, flights, hotels, tours, allBookings, allAgents, globalBookings, globalAgents] = await Promise.all([
+  async getStats(filter?: DashboardFilter | string) {
+    const { isAgent, agentId, userId, agentWhereClause } = parseFilter(filter);
+    const bookingScope = agentWhereClause || {};
+
+    const [users, bookings, flights, hotels, tours, allBookings, globalBookings, globalAgents] = await Promise.all([
       prisma.user.count({
-        where: agentId ? { agentId } : {}
+        where: isAgent ? (agentId ? { agentId } : (userId ? { id: userId } : { id: '__none__' })) : {}
       }),
       prisma.booking.count({
-        where: agentId ? { agentId } : {}
+        where: bookingScope
       }),
       prisma.booking.count({
         where: {
+          ...bookingScope,
           status: { not: 'CANCELLED' },
           flightServices: { some: {} },
-          ...(agentId ? { agentId } : {})
         }
       }),
       prisma.booking.count({
         where: {
+          ...bookingScope,
           status: { not: 'CANCELLED' },
           accommodations: { some: {} },
-          ...(agentId ? { agentId } : {})
         }
       }),
       prisma.booking.count({
         where: {
+          ...bookingScope,
           status: { not: 'CANCELLED' },
           OR: [
             { visaServices: { some: {} } },
             { transportServices: { some: {} } },
             { additionalServices: { some: {} } }
           ],
-          ...(agentId ? { agentId } : {})
         }
       }),
       prisma.booking.findMany({
-        where: agentId ? { agentId } : {},
+        where: bookingScope,
         include: bookingInclude,
-      }),
-      prisma.agent.findMany({
-        where: agentId ? { id: agentId } : {}
       }),
       prisma.booking.findMany({
         include: bookingInclude,
@@ -144,13 +210,15 @@ export class DashboardService {
 
     const agentMap: Record<string, { id: string; name: string; profit: number; bookingsCount: number }> = {};
     let totalProfit = 0;
+    let totalMargin = 0;
     let totalCustomerPending = 0;
     let customerPendingBookingsCount = 0;
 
-    // Calculate profit for the filtered bookings (for the stat card)
+    // Calculate profit and margin for the filtered bookings (for the stat card)
     allBookings.forEach((b: any) => {
-      const { netProfit } = calculateBookingFinancials(b);
-      totalProfit += netProfit;
+      const financials = calculateBookingFinancials(b);
+      totalProfit += financials.netProfit;
+      totalMargin += financials.margin;
 
       if (b.status !== 'CANCELLED') {
         const { pendingAmount } = calculateCustomerPending(b);
@@ -196,6 +264,7 @@ export class DashboardService {
       totalUsers: users,
       totalBookings: bookings,
       totalRevenue: Math.round(totalRevenue * 100) / 100,
+      totalMargin: Math.round(totalMargin * 100) / 100,
       totalProfit: Math.round(totalProfit * 100) / 100,
       totalCustomerPending: Math.round(totalCustomerPending * 100) / 100,
       customerPendingBookingsCount,
@@ -206,7 +275,11 @@ export class DashboardService {
     };
   }
 
-  async getStatsByPeriod(period: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly' | 'all', agentId?: string) {
+  async getStatsByPeriod(
+    period: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly' | 'all',
+    filter?: DashboardFilter | string
+  ) {
+    const { isAgent, agentWhereClause } = parseFilter(filter);
     const now = new Date();
     let startDate: Date | undefined;
     let endDate: Date | undefined = new Date(now);
@@ -234,24 +307,25 @@ export class DashboardService {
     }
     // 'all' => no date filter
 
-    const bookingWhere: any = {
-      ...(agentId ? { agentId } : {}),
-      ...(startDate ? { 
-        OR: [
-          { bookingDate: { gte: startDate, lte: endDate } },
-          { bookingDate: null, createdAt: { gte: startDate, lte: endDate } }
-        ]
-      } : {}),
-    };
+    const dateFilter = startDate ? { 
+      OR: [
+        { bookingDate: { gte: startDate, lte: endDate } },
+        { bookingDate: null, createdAt: { gte: startDate, lte: endDate } }
+      ]
+    } : null;
 
-    const performanceWhere: any = {
-      ...(startDate ? { 
-        OR: [
-          { bookingDate: { gte: startDate, lte: endDate } },
-          { bookingDate: null, createdAt: { gte: startDate, lte: endDate } }
-        ]
-      } : {}),
-    };
+    let bookingWhere: any = {};
+    if (agentWhereClause && dateFilter) {
+      bookingWhere = {
+        AND: [agentWhereClause, dateFilter]
+      };
+    } else if (agentWhereClause) {
+      bookingWhere = agentWhereClause;
+    } else if (dateFilter) {
+      bookingWhere = dateFilter;
+    }
+
+    const performanceWhere: any = dateFilter ? dateFilter : {};
 
     const [bookings, flightBookings, hotelBookings, tourBookings, performanceBookings] = await Promise.all([
       prisma.booking.findMany({
@@ -360,9 +434,10 @@ export class DashboardService {
     };
   }
 
-  async getTrends(agentId?: string) {
+  async getTrends(filter?: DashboardFilter | string) {
+    const { agentWhereClause } = parseFilter(filter);
     const bookings = await prisma.booking.findMany({
-      where: agentId ? { agentId } : {},
+      where: agentWhereClause || {},
       include: bookingInclude,
       orderBy: {
         createdAt: 'asc'

@@ -42,12 +42,15 @@ export default function Bookings() {
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
   const [searchParams] = useSearchParams();
-  // True when the logged-in user is an agent/manager (not admin)
-  const isAgent =
-    !!user?.roles?.length &&
-    !["Admin", "SUPER_ADMIN", "SUPERADMIN"].some((r) =>
-      user?.roles?.includes(r),
-    );
+  // Role detection
+  const cleanRoles = (user?.roles || []).map((r: any) => {
+    const raw = typeof r === "string" ? r : r?.name || "";
+    return raw.toUpperCase().replace(/[\s_-]+/g, "");
+  });
+  const isAdmin = cleanRoles.some((r) =>
+    ["ADMIN", "SUPERADMIN", "ADMINISTRATOR", "ROOT"].includes(r)
+  );
+  const isAgent = !isAdmin && cleanRoles.some((r) => r.includes("AGENT"));
 
   // Checkout cart Zustand state
   const { flight, hotel, room, tour, clearCart } = useBookingStore();
@@ -579,12 +582,11 @@ export default function Bookings() {
                       </th>
                       <th className="px-4 py-3">Passenger</th>
                       <th className="px-4 py-3">Agent</th>
-                      <th className="px-4 py-3 text-right">Total Price</th>
+                      <th className="px-4 py-3 text-right">{isAgent ? "Revenue" : "Total Price"}</th>
                       <th className="px-4 py-3 text-right">Paid</th>
                       <th className="px-4 py-3 text-right">Remaining</th>
-                      {!isAgent && (
-                        <th className="px-4 py-3 text-right">Agent Margin</th>
-                      )}
+                      <th className="px-4 py-3 text-right">{isAgent ? "My Profit" : "Profit"}</th>
+                      <th className="px-4 py-3 text-right">{isAgent ? "My Margin" : "Agent Margin"}</th>
                       {!isAgent && (
                         <th className="px-4 py-3 text-right">Vendor Due</th>
                       )}
@@ -798,19 +800,12 @@ export default function Bookings() {
                         .filter(Boolean)
                         .join(" ");
                       const isOwner =
-                        // Admin roles always have full access
-                        [
-                          "Admin",
-                          "SUPER_ADMIN",
-                          "SUPERADMIN",
-                        ].some((r) => user?.roles?.includes(r)) ||
-                        // Created or owns this booking by user-id
+                        isAdmin ||
                         booking.createdById === user?.id ||
+                        booking.assignedToId === user?.id ||
                         booking.userId === user?.id ||
-                        // Agent matched by linked agentId (preferred path)
                         (!!user?.agentId &&
                           booking.agentId === user?.agentId) ||
-                        // Fallback: agent name matches user's full name (covers un-linked accounts)
                         (!user?.agentId &&
                           !!userFullName &&
                           !!booking.agent?.name &&
@@ -863,52 +858,53 @@ export default function Bookings() {
                           <td className="px-4 py-3.5 whitespace-nowrap text-right font-semibold text-muted-foreground align-middle">
                             {formatCurrency(displayRemainingAmount)}
                           </td>
-                          {!isAgent && (
-                            <td className="px-4 py-3.5 whitespace-nowrap text-right font-semibold text-blue-600 dark:text-blue-400 align-middle">
-                              <div className="flex flex-col items-end gap-0.5">
-                                <span>
-                                  {isOwner && agentMargin !== null
-                                    ? formatCurrency(agentMargin)
-                                    : "—"}
-                                </span>
-                                {booking.agentMarginVoided && (
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
-                                      Voided
-                                    </span>
-                                    {isOwner && (
-                                      <button
-                                        type="button"
-                                        onClick={async (e) => {
-                                          e.stopPropagation();
-                                          try {
-                                            await apiClient.patch(
-                                              `/agent-margins/bookings/${booking.id}/toggle-void`,
-                                            );
-                                            queryClient.invalidateQueries({
-                                              queryKey: ["bookings"],
-                                            });
-                                            toast.success(
-                                              "Agent margin unvoided successfully!",
-                                            );
-                                          } catch (err: any) {
-                                            toast.error(
-                                              err.response?.data?.message ||
-                                                "Failed to unvoid agent margin",
-                                            );
-                                          }
-                                        }}
-                                        className="text-[9px] font-bold text-emerald-600 hover:text-emerald-700 underline"
-                                        title="Restore / Unvoid this margin calculation"
-                                      >
-                                        Unvoid
-                                      </button>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            </td>
-                          )}
+                          <td className="px-4 py-3.5 whitespace-nowrap text-right font-bold text-emerald-600 dark:text-emerald-400 align-middle">
+                            {formatCurrency(rawProfit)}
+                          </td>
+                          <td className="px-4 py-3.5 whitespace-nowrap text-right font-semibold text-violet-600 dark:text-violet-400 align-middle">
+                            <div className="flex flex-col items-end gap-0.5">
+                              <span>
+                                {agentMargin !== null
+                                  ? formatCurrency(agentMargin)
+                                  : "—"}
+                              </span>
+                              {booking.agentMarginVoided && (
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                                    Voided
+                                  </span>
+                                  {isAdmin && (
+                                    <button
+                                      type="button"
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        try {
+                                          await apiClient.patch(
+                                            `/agent-margins/bookings/${booking.id}/toggle-void`,
+                                          );
+                                          queryClient.invalidateQueries({
+                                            queryKey: ["bookings"],
+                                          });
+                                          toast.success(
+                                            "Agent margin unvoided successfully!",
+                                          );
+                                        } catch (err: any) {
+                                          toast.error(
+                                            err.response?.data?.message ||
+                                              "Failed to unvoid agent margin",
+                                          );
+                                        }
+                                      }}
+                                      className="text-[9px] font-bold text-emerald-600 hover:text-emerald-700 underline"
+                                      title="Restore / Unvoid this margin calculation"
+                                    >
+                                      Unvoid
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </td>
                           {!isAgent && (
                             <td className="px-4 py-3.5 whitespace-nowrap text-right font-semibold text-rose-600 dark:text-rose-400 align-middle">
                               {isOwner ? formatCurrency(vendorRemaining) : "—"}

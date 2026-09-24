@@ -275,15 +275,39 @@ export class BookingsService {
       orderField = { status: sortOrder };
     }
     
-    const isAdmin = user.roles.some((role: string) => 
-      ['SUPER_ADMIN', 'ADMIN', 'Admin'].includes(role)
+    const cleanRoles = (user.roles || []).map((role: string) => {
+      const raw = typeof role === 'string' ? role : (role as any)?.name || '';
+      return raw.toUpperCase().replace(/[\s_-]+/g, '');
+    });
+    const isAdmin = cleanRoles.some((role: string) => 
+      ['SUPERADMIN', 'ADMIN', 'ADMINISTRATOR', 'ROOT'].includes(role)
     );
-    const isManager = user.roles.some((role: string) => 
-      ['Manager'].includes(role)
+    const isManager = !isAdmin && cleanRoles.some((role: string) => 
+      ['MANAGER', 'BRANCHMANAGER'].includes(role)
     );
-    const isAgent = user.roles.some((role: string) => 
-      ['Agent', 'TRAVEL_AGENT'].includes(role)
+    const isAgent = !isAdmin && cleanRoles.some((role: string) => 
+      role.includes('AGENT')
     );
+
+    let agentIdForUser = user.agentId;
+    if (isAgent && !agentIdForUser && user.email) {
+      try {
+        const matchingAgent = await prisma.agent.findFirst({
+          where: {
+            OR: [
+              { email: { equals: user.email, mode: 'insensitive' } },
+              { payrollEmail: { equals: user.email, mode: 'insensitive' } },
+            ],
+          },
+          select: { id: true },
+        });
+        if (matchingAgent) {
+          agentIdForUser = matchingAgent.id;
+        }
+      } catch (err) {
+        // Continue gracefully
+      }
+    }
 
     if (query.upcoming === 'true') {
       where.lockedStatus = { not: 'LOCKED' };
@@ -294,20 +318,28 @@ export class BookingsService {
         if (user.agentId) {
           where.OR = [
             { agentId: user.agentId },
-            { createdById: user.id }
+            { createdById: user.id },
+            { assignedToId: user.id },
           ];
         } else {
-          where.createdById = user.id;
+          where.OR = [
+            { createdById: user.id },
+            { assignedToId: user.id },
+          ];
         }
       } else if (isAgent) {
         // Agents only see their own bookings
-        if (user.agentId) {
+        if (agentIdForUser) {
           where.OR = [
-            { agentId: user.agentId },
-            { createdById: user.id }
+            { agentId: agentIdForUser },
+            { createdById: user.id },
+            { assignedToId: user.id },
           ];
         } else {
-          where.createdById = user.id;
+          where.OR = [
+            { createdById: user.id },
+            { assignedToId: user.id },
+          ];
         }
       } else {
         // Customers/others see their own bookings
@@ -469,8 +501,43 @@ export class BookingsService {
       return { total, limit, offset, items: paginatedItems };
     }
 
-    // Apply role-based visibility boundaries using variables declared at top of method
-    if (!isAdmin && !isManager && !isAgent) {
+    // Apply role-based visibility boundaries
+    if (isAdmin) {
+      // Admins see all bookings; can filter by specific agent
+      if (query.agentId && query.agentId !== 'Any') {
+        where.agentId = query.agentId;
+      }
+    } else if (isManager) {
+      if (user.agentId) {
+        where.OR = [
+          { agentId: user.agentId },
+          { createdById: user.id },
+          { assignedToId: user.id },
+        ];
+      } else {
+        where.OR = [
+          { createdById: user.id },
+          { assignedToId: user.id },
+        ];
+      }
+      if (query.agentId && query.agentId !== 'Any') {
+        where.agentId = query.agentId;
+      }
+    } else if (isAgent) {
+      // Agents strictly see only their own bookings
+      if (agentIdForUser) {
+        where.OR = [
+          { agentId: agentIdForUser },
+          { createdById: user.id },
+          { assignedToId: user.id },
+        ];
+      } else {
+        where.OR = [
+          { createdById: user.id },
+          { assignedToId: user.id },
+        ];
+      }
+    } else {
       where.userId = user.id;
     }
 
@@ -527,8 +594,8 @@ export class BookingsService {
       }
     }
 
-    // 5. Agent Filter
-    if (query.agentId && query.agentId !== 'Any') {
+    // 5. Agent Filter (Admin / Manager override)
+    if ((isAdmin || isManager) && query.agentId && query.agentId !== 'Any') {
       where.agentId = query.agentId;
     }
 
