@@ -62,9 +62,11 @@ interface AuditLogItem {
 export default function SecurityAuditPage() {
   const user = useAuthStore((state) => state.user);
   const isAdmin = Boolean(
-    user?.roles?.some((r) =>
-      ['ADMIN', 'SUPER_ADMIN', 'SUPERADMIN', 'Admin', 'Super Admin'].includes(r)
-    )
+    user?.roles?.some((r) => {
+      const raw = typeof r === "string" ? r : (r as any)?.name || "";
+      const clean = raw.toUpperCase().replace(/[\s_-]+/g, "");
+      return ["ADMIN", "SUPERADMIN", "ADMINISTRATOR", "ROOT"].includes(clean);
+    })
   );
 
   const [activeTab, setActiveTab] = useState<'live' | 'clipboard'>('live');
