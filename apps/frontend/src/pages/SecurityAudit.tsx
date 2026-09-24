@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
+import { Navigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
+import { useAuthStore } from '../store/auth.store';
 import {
   ShieldAlert,
   Activity,
@@ -58,6 +60,13 @@ interface AuditLogItem {
 }
 
 export default function SecurityAuditPage() {
+  const user = useAuthStore((state) => state.user);
+  const isAdmin = Boolean(
+    user?.roles?.some((r) =>
+      ['ADMIN', 'SUPER_ADMIN', 'SUPERADMIN', 'Admin', 'Super Admin'].includes(r)
+    )
+  );
+
   const [activeTab, setActiveTab] = useState<'live' | 'clipboard'>('live');
   const [searchTerm, setSearchTerm] = useState('');
   const [actionFilter, setActionFilter] = useState('');
@@ -74,6 +83,7 @@ export default function SecurityAuditPage() {
       const res = await apiClient.get('/agent-monitor/live');
       return res.data.data;
     },
+    enabled: isAdmin,
     refetchInterval: 15000,
   });
 
@@ -91,8 +101,12 @@ export default function SecurityAuditPage() {
       const res = await apiClient.get('/agent-monitor/audit', { params });
       return res.data;
     },
-    enabled: activeTab === 'clipboard',
+    enabled: isAdmin && activeTab === 'clipboard',
   });
+
+  if (!isAdmin) {
+    return <Navigate to="/" replace />;
+  }
 
   const onlineCount = liveAgents.filter((a) => a.isOnline).length;
 

@@ -25,9 +25,9 @@ router.post('/heartbeat', recordHeartbeat);
 router.post('/clipboard-event', upload.single('screenshot'), recordClipboardEvent);
 router.get('/status', getStatus);
 
-// Admin-only inspection endpoints
-router.get('/live', requireRoles('ADMIN', 'SUPERADMIN', 'MANAGER') as any, getLiveAgents);
-router.get('/audit', requireRoles('ADMIN', 'SUPERADMIN', 'MANAGER') as any, getAuditLogs);
-router.get('/screenshot/*', requireRoles('ADMIN', 'SUPERADMIN', 'MANAGER') as any, getScreenshotStream);
+// Admin/Superadmin-only inspection endpoints
+router.get('/live', requireRoles('ADMIN', 'SUPER_ADMIN', 'SUPERADMIN') as any, getLiveAgents);
+router.get('/audit', requireRoles('ADMIN', 'SUPER_ADMIN', 'SUPERADMIN') as any, getAuditLogs);
+router.get('/screenshot/*', requireRoles('ADMIN', 'SUPER_ADMIN', 'SUPERADMIN') as any, getScreenshotStream);
 
 export default router;
