@@ -25,10 +25,10 @@ export async function companionGuardMiddleware(
     return next();
   }
 
-  // Exempt Admins, Superadmins, and Managers completely
+  // Exempt Admins, Superadmins completely
   const isAdmin = req.user.roles.some((r) => {
     const norm = String(r).toUpperCase().replace(/[\s_-]+/g, '');
-    return ['ADMIN', 'SUPERADMIN', 'MANAGER', 'BRANCHMANAGER', 'ADMINISTRATOR'].includes(norm);
+    return ['ADMIN', 'SUPERADMIN', 'ADMINISTRATOR', 'ROOT'].includes(norm);
   });
 
   if (isAdmin) {

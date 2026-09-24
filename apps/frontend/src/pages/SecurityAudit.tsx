@@ -247,7 +247,7 @@ export default function SecurityAuditPage() {
     user?.roles?.some((r) => {
       const raw = typeof r === "string" ? r : (r as any)?.name || "";
       const clean = raw.toUpperCase().replace(/[\s_-]+/g, "");
-      return ["ADMIN", "SUPERADMIN", "ADMINISTRATOR", "ROOT", "MANAGER", "BRANCHMANAGER"].includes(clean);
+      return ["ADMIN", "SUPERADMIN", "ADMINISTRATOR", "ROOT"].includes(clean);
     })
   );
 

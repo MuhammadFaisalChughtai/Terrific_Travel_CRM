@@ -188,7 +188,7 @@ export const getStatus = asyncHandler(async (req: AuthenticatedRequest, res: Res
 
   const isAdmin = req.user.roles.some((r) => {
     const norm = String(r).toUpperCase().replace(/[\s_-]+/g, '');
-    return ['ADMIN', 'SUPERADMIN', 'MANAGER', 'BRANCHMANAGER', 'ADMINISTRATOR'].includes(norm);
+    return ['ADMIN', 'SUPERADMIN', 'ADMINISTRATOR', 'ROOT'].includes(norm);
   });
 
   const isActive = await agentMonitorService.isUserCompanionActive(req.user.id);
