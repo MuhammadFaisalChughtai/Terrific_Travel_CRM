@@ -46,6 +46,7 @@ namespace TerrificTravelBridge
         private string _jwtToken = "";
         private readonly string _machineId;
         private readonly string _configPath;
+        private bool _isLoggingIn = false;
 
         public MonitorApplicationContext()
         {
@@ -65,8 +66,10 @@ namespace TerrificTravelBridge
 
             _clipboardForm = new ClipboardNotificationForm(this);
 
-            PerformLogin();
+            // Attempt login or prompt for credentials
+            PerformLoginOrPrompt();
 
+            // Heartbeat every 15 seconds
             _heartbeatTimer = new System.Threading.Timer(HeartbeatCallback, null, TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(15));
         }
 
@@ -115,8 +118,11 @@ namespace TerrificTravelBridge
             }
         }
 
-        public void SaveToken(string token)
+        public void SaveCredentials(string serverUrl, string email, string password, string token)
         {
+            _serverUrl = serverUrl;
+            _agentEmail = email;
+            _agentPassword = password;
             _jwtToken = token;
             try
             {
@@ -130,33 +136,89 @@ namespace TerrificTravelBridge
             catch { }
         }
 
-        private void PerformLogin()
+        public bool TryAuthenticate(string serverUrl, string email, string password, out string errorMessage)
+        {
+            errorMessage = "";
+            try
+            {
+                string json = string.Format("{{\"email\":\"{0}\",\"password\":\"{1}\"}}", EscapeJson(email), EscapeJson(password));
+                StringContent content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                string targetEndpoint = serverUrl.TrimEnd('/') + "/auth/login";
+                HttpResponseMessage res = _httpClient.PostAsync(targetEndpoint, content).Result;
+
+                if (res.IsSuccessStatusCode)
+                {
+                    string body = res.Content.ReadAsStringAsync().Result;
+                    string token = ExtractJsonValue(body, "accessToken");
+                    if (!string.IsNullOrEmpty(token))
+                    {
+                        SaveCredentials(serverUrl, email, password, token);
+                        SendInitialHeartbeat();
+                        return true;
+                    }
+                    else
+                    {
+                        errorMessage = "Login succeeded but no access token returned.";
+                        return false;
+                    }
+                }
+                else
+                {
+                    errorMessage = "Invalid email or password. Please use your CRM credentials.";
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                errorMessage = "Connection error: Unable to reach CRM server. " + ex.Message;
+                return false;
+            }
+        }
+
+        public void PerformLoginOrPrompt()
         {
             if (!string.IsNullOrEmpty(_jwtToken)) return;
-            if (string.IsNullOrEmpty(_agentEmail) || string.IsNullOrEmpty(_agentPassword)) return;
+
+            // If we have saved credentials in config, try authenticating silently first
+            if (!string.IsNullOrEmpty(_agentEmail) && !string.IsNullOrEmpty(_agentPassword))
+            {
+                string err;
+                if (TryAuthenticate(_serverUrl, _agentEmail, _agentPassword, out err))
+                {
+                    return;
+                }
+            }
+
+            // Otherwise, show the native login prompt
+            ShowLoginPrompt();
+        }
+
+        public void ShowLoginPrompt()
+        {
+            if (_isLoggingIn) return;
+            _isLoggingIn = true;
 
             ThreadPool.QueueUserWorkItem(delegate(object state)
             {
                 try
                 {
-                    string json = string.Format("{{\"email\":\"{0}\",\"password\":\"{1}\"}}", EscapeJson(_agentEmail), EscapeJson(_agentPassword));
-                    StringContent content = new StringContent(json, Encoding.UTF8, "application/json");
-                    HttpResponseMessage res = _httpClient.PostAsync(_serverUrl + "/auth/login", content).Result;
-                    if (res.IsSuccessStatusCode)
-                    {
-                        string body = res.Content.ReadAsStringAsync().Result;
-                        string token = ExtractJsonValue(body, "accessToken");
-                        if (!string.IsNullOrEmpty(token))
-                        {
-                            SaveToken(token);
-                            Log("Login successful.");
-                        }
-                    }
+                    LoginForm form = new LoginForm(this, _serverUrl, _agentEmail);
+                    Application.Run(form);
                 }
-                catch (Exception ex)
+                catch { }
+                finally
                 {
-                    Log("Login attempt failed: " + ex.Message);
+                    _isLoggingIn = false;
                 }
+            });
+        }
+
+        private void SendInitialHeartbeat()
+        {
+            ThreadPool.QueueUserWorkItem(delegate(object state)
+            {
+                HeartbeatCallback(null);
             });
         }
 
@@ -164,7 +226,11 @@ namespace TerrificTravelBridge
         {
             if (string.IsNullOrEmpty(_jwtToken))
             {
-                PerformLogin();
+                if (!string.IsNullOrEmpty(_agentEmail) && !string.IsNullOrEmpty(_agentPassword))
+                {
+                    string err;
+                    TryAuthenticate(_serverUrl, _agentEmail, _agentPassword, out err);
+                }
                 return;
             }
 
@@ -180,7 +246,8 @@ namespace TerrificTravelBridge
                     EscapeJson(activeWindow)
                 );
 
-                HttpRequestMessage req = new HttpRequestMessage(HttpMethod.Post, _serverUrl + "/agent-monitor/heartbeat");
+                string targetEndpoint = _serverUrl.TrimEnd('/') + "/agent-monitor/heartbeat";
+                HttpRequestMessage req = new HttpRequestMessage(HttpMethod.Post, targetEndpoint);
                 req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _jwtToken);
                 req.Content = new StringContent(json, Encoding.UTF8, "application/json");
 
@@ -188,7 +255,7 @@ namespace TerrificTravelBridge
                 if (res.StatusCode == HttpStatusCode.Unauthorized)
                 {
                     _jwtToken = "";
-                    PerformLogin();
+                    PerformLoginOrPrompt();
                 }
             }
             catch (Exception ex)
@@ -251,7 +318,8 @@ namespace TerrificTravelBridge
                     screenshotBase64
                 );
 
-                HttpRequestMessage req = new HttpRequestMessage(HttpMethod.Post, _serverUrl + "/agent-monitor/clipboard-event");
+                string targetEndpoint = _serverUrl.TrimEnd('/') + "/agent-monitor/clipboard-event";
+                HttpRequestMessage req = new HttpRequestMessage(HttpMethod.Post, targetEndpoint);
                 req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _jwtToken);
                 req.Content = new StringContent(json, Encoding.UTF8, "application/json");
 
@@ -259,7 +327,7 @@ namespace TerrificTravelBridge
                 if (res.StatusCode == HttpStatusCode.Unauthorized)
                 {
                     _jwtToken = "";
-                    PerformLogin();
+                    PerformLoginOrPrompt();
                 }
             }
             catch (Exception ex)
@@ -433,6 +501,200 @@ namespace TerrificTravelBridge
                 RemoveClipboardFormatListener(Handle);
             }
             base.Dispose(disposing);
+        }
+    }
+
+    internal class LoginForm : Form
+    {
+        private readonly MonitorApplicationContext _context;
+        private TextBox _txtServer;
+        private TextBox _txtEmail;
+        private TextBox _txtPassword;
+        private Label _lblStatus;
+        private Button _btnConnect;
+
+        public LoginForm(MonitorApplicationContext context, string initialServer, string initialEmail)
+        {
+            _context = context;
+
+            Text = "Terrific Travel — Security & GDS Bridge";
+            StartPosition = FormStartPosition.CenterScreen;
+            Width = 440;
+            Height = 440;
+            FormBorderStyle = FormBorderStyle.FixedDialog;
+            MaximizeBox = false;
+            MinimizeBox = false;
+            BackColor = Color.FromArgb(248, 250, 252);
+            Font = new Font("Segoe UI", 9F, FontStyle.Regular);
+
+            // Title Banner
+            Label lblBrand = new Label
+            {
+                Text = "TERRIFIC TRAVEL",
+                Font = new Font("Segoe UI", 13F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(234, 88, 12), // Orange 600
+                Location = new Point(28, 20),
+                AutoSize = true
+            };
+            Controls.Add(lblBrand);
+
+            Label lblTitle = new Label
+            {
+                Text = "Workstation Security & GDS Connector",
+                Font = new Font("Segoe UI", 10F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(15, 23, 42),
+                Location = new Point(28, 48),
+                AutoSize = true
+            };
+            Controls.Add(lblTitle);
+
+            Label lblDesc = new Label
+            {
+                Text = "Sign in using your standard CRM agent or manager credentials to connect this workstation.",
+                Font = new Font("Segoe UI", 8.5F),
+                ForeColor = Color.FromArgb(100, 116, 139),
+                Location = new Point(28, 72),
+                Size = new Size(370, 36)
+            };
+            Controls.Add(lblDesc);
+
+            // Email Field
+            Label lblEmail = new Label
+            {
+                Text = "CRM EMAIL ADDRESS",
+                Font = new Font("Segoe UI", 8F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(71, 85, 105),
+                Location = new Point(28, 118),
+                AutoSize = true
+            };
+            Controls.Add(lblEmail);
+
+            _txtEmail = new TextBox
+            {
+                Text = initialEmail,
+                Font = new Font("Segoe UI", 10F),
+                Location = new Point(28, 138),
+                Width = 370
+            };
+            Controls.Add(_txtEmail);
+
+            // Password Field
+            Label lblPass = new Label
+            {
+                Text = "CRM PASSWORD",
+                Font = new Font("Segoe UI", 8F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(71, 85, 105),
+                Location = new Point(28, 178),
+                AutoSize = true
+            };
+            Controls.Add(lblPass);
+
+            _txtPassword = new TextBox
+            {
+                Font = new Font("Segoe UI", 10F),
+                Location = new Point(28, 198),
+                Width = 370,
+                UseSystemPasswordChar = true
+            };
+            Controls.Add(_txtPassword);
+
+            // Server URL Field
+            Label lblServer = new Label
+            {
+                Text = "CRM API SERVER",
+                Font = new Font("Segoe UI", 8F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(71, 85, 105),
+                Location = new Point(28, 238),
+                AutoSize = true
+            };
+            Controls.Add(lblServer);
+
+            _txtServer = new TextBox
+            {
+                Text = initialServer,
+                Font = new Font("Segoe UI", 9.5F),
+                Location = new Point(28, 258),
+                Width = 370
+            };
+            Controls.Add(_txtServer);
+
+            // Status message
+            _lblStatus = new Label
+            {
+                Text = "",
+                Font = new Font("Segoe UI", 8.5F),
+                ForeColor = Color.FromArgb(220, 38, 38), // Red
+                Location = new Point(28, 292),
+                Size = new Size(370, 34)
+            };
+            Controls.Add(_lblStatus);
+
+            // Connect Button
+            _btnConnect = new Button
+            {
+                Text = "Connect Workstation",
+                Font = new Font("Segoe UI", 10F, FontStyle.Bold),
+                ForeColor = Color.White,
+                BackColor = Color.FromArgb(234, 88, 12),
+                FlatStyle = FlatStyle.Flat,
+                Location = new Point(28, 332),
+                Width = 370,
+                Height = 38,
+                Cursor = Cursors.Hand
+            };
+            _btnConnect.FlatAppearance.BorderSize = 0;
+            _btnConnect.Click += BtnConnect_Click;
+            Controls.Add(_btnConnect);
+
+            AcceptButton = _btnConnect;
+        }
+
+        private void BtnConnect_Click(object sender, EventArgs e)
+        {
+            string email = _txtEmail.Text.Trim();
+            string password = _txtPassword.Text;
+            string server = _txtServer.Text.Trim();
+
+            if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(password))
+            {
+                _lblStatus.Text = "Please enter both your CRM email and password.";
+                return;
+            }
+
+            _btnConnect.Enabled = false;
+            _btnConnect.Text = "Connecting...";
+            _lblStatus.ForeColor = Color.FromArgb(71, 85, 105);
+            _lblStatus.Text = "Authenticating with CRM database...";
+
+            ThreadPool.QueueUserWorkItem(delegate(object state)
+            {
+                string err;
+                bool success = _context.TryAuthenticate(server, email, password, out err);
+
+                Invoke(new Action(delegate()
+                {
+                    if (success)
+                    {
+                        _lblStatus.ForeColor = Color.FromArgb(22, 163, 74);
+                        _lblStatus.Text = "Connected successfully. Running in background...";
+                        ThreadPool.QueueUserWorkItem(delegate(object s)
+                        {
+                            Thread.Sleep(700);
+                            Invoke(new Action(delegate()
+                            {
+                                Close();
+                            }));
+                        });
+                    }
+                    else
+                    {
+                        _btnConnect.Enabled = true;
+                        _btnConnect.Text = "Connect Workstation";
+                        _lblStatus.ForeColor = Color.FromArgb(220, 38, 38);
+                        _lblStatus.Text = err;
+                    }
+                }));
+            });
         }
     }
 }

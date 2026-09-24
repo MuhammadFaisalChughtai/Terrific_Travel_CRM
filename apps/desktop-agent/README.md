@@ -13,20 +13,16 @@ A silent, lightweight background service for Windows 10 & 11 workstations that i
 
 ---
 
-## 2. Configuration (`config.ini`)
-The configuration is stored at:
-```
-%APPDATA%\TerrificTravel\config.ini
-```
-
-Example content:
-```ini
-server_url=https://crm.terrifictravel.co.uk/api
-email=agent.name@terrifictravel.co.uk
-password=AgentPassword123
-token=
-```
-- If `token` is blank, the application automatically logs in using the provided `email` and `password` on startup, acquires a secure JWT access token, and caches it locally.
+## 2. Authentication & CRM Database Credentials
+The desktop app directly connects to the **same CRM database accounts** already used by Agents and Managers:
+1. **Interactive First-Time Sign-In**:
+   - If not yet configured, the app presents a clean, branded dialog: *"Terrific Travel Workstation Security & GDS Connector"*.
+   - The agent/manager simply inputs their standard **CRM Email Address** and **CRM Password** (the exact same credentials used for browser login).
+   - The application calls `POST /api/auth/login`, validates against the database (`User` table with bcrypt hash), caches the authorized token in `%APPDATA%\TerrificTravel\config.ini`, closes the window, and continues running in the background.
+2. **Silent Startup on Subsequent Boots**:
+   - On Windows boot, the service automatically signs in silently using the saved credentials or token without showing any dialogs.
+3. **Password Changes**:
+   - If an agent's password is changed in the CRM database, the app seamlessly catches the `401 Unauthorized` response on heartbeat and prompts for their updated CRM password.
 
 ---
 
