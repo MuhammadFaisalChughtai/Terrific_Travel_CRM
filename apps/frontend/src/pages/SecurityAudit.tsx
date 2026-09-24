@@ -60,6 +60,7 @@ interface ProductivityReportItem {
   agentId: string;
   agentName: string;
   agentEmail: string;
+  role?: string;
   date: string;
   checkInTime: string | null;
   checkOutTime: string | null;
@@ -260,12 +261,13 @@ export default function SecurityAuditPage() {
     new Date().toISOString().split('T')[0]
   );
 
-  // Dedicated Agent History Modal State
+  // Dedicated Agent / Staff History Modal State
   const [detailAgent, setDetailAgent] = useState<{
     userId?: string;
     agentId?: string;
     name: string;
     email: string;
+    role?: string;
   } | null>(null);
   const [agentModalTab, setAgentModalTab] = useState<'audit' | 'productivity'>('audit');
   const [agentModalPage, setAgentModalPage] = useState(1);
@@ -278,7 +280,7 @@ export default function SecurityAuditPage() {
   const [clipboardPage, setClipboardPage] = useState(1);
   const [clipboardLimit, setClipboardLimit] = useState(25);
 
-  const openAgentModal = (agent: { userId?: string; agentId?: string; name: string; email: string }) => {
+  const openAgentModal = (agent: { userId?: string; agentId?: string; name: string; email: string; role?: string }) => {
     setDetailAgent(agent);
     setAgentModalTab('audit');
     setAgentModalPage(1);
@@ -576,21 +578,37 @@ export default function SecurityAuditPage() {
                       }`}
                     />
                     <div>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          openAgentModal({
-                            userId: agent.userId,
-                            name: agent.userName,
-                            email: agent.userEmail,
-                          })
-                        }
-                        className="text-sm font-bold text-foreground hover:text-orange-500 hover:underline transition-colors text-left flex items-center gap-1.5 cursor-pointer group"
-                        title="Click to view all activity records for this agent"
-                      >
-                        <span>{agent.userName}</span>
-                        <ExternalLink className="w-3 h-3 text-orange-500 opacity-0 group-hover:opacity-100 transition-opacity" />
-                      </button>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            openAgentModal({
+                              userId: agent.userId,
+                              name: agent.userName,
+                              email: agent.userEmail,
+                              role: agent.roles?.find((r) => /manager/i.test(r)) || agent.roles?.[0],
+                            })
+                          }
+                          className="text-sm font-bold text-foreground hover:text-orange-500 hover:underline transition-colors text-left flex items-center gap-1.5 cursor-pointer group"
+                          title="Click to view all activity records for this person"
+                        >
+                          <span>{agent.userName}</span>
+                          <ExternalLink className="w-3 h-3 text-orange-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </button>
+                        {agent.roles && agent.roles.length > 0 && (
+                          <span
+                            className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded border ${
+                              agent.roles.some((r) => /manager/i.test(r))
+                                ? 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-500/30'
+                                : agent.roles.some((r) => /admin/i.test(r))
+                                ? 'bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/30'
+                                : 'bg-sky-500/15 text-sky-600 dark:text-sky-400 border-sky-500/30'
+                            }`}
+                          >
+                            {agent.roles.find((r) => /manager/i.test(r)) || agent.roles[0]}
+                          </span>
+                        )}
+                      </div>
                       <div className="text-[11px] text-muted-foreground">{agent.userEmail}</div>
                     </div>
                   </div>
@@ -912,7 +930,7 @@ export default function SecurityAuditPage() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="p-3.5 bg-card rounded-xl border border-border space-y-1">
                 <div className="text-[11px] font-bold text-muted-foreground uppercase flex items-center gap-1.5">
-                  <User className="w-3.5 h-3.5 text-blue-500" /> Active Agents
+                  <User className="w-3.5 h-3.5 text-blue-500" /> Active Staff (Agents & Managers)
                 </div>
                 <div className="text-lg font-black text-foreground">
                   {productivityData.data?.length || 0}
@@ -965,7 +983,7 @@ export default function SecurityAuditPage() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-border bg-secondary/50 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                    <th className="p-3">Agent</th>
+                    <th className="p-3">Staff / Agent</th>
                     <th className="p-3">Shift Window</th>
                     <th className="p-3">Total Shift</th>
                     <th className="p-3">Active PC Time</th>
@@ -978,21 +996,37 @@ export default function SecurityAuditPage() {
                   {productivityData?.data?.map((item) => (
                     <tr key={item.id} className="hover:bg-secondary/30 transition-all">
                       <td className="p-3">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            openAgentModal({
-                              agentId: item.agentId,
-                              name: item.agentName,
-                              email: item.agentEmail,
-                            })
-                          }
-                          className="font-bold text-foreground hover:text-orange-500 hover:underline transition-colors text-left flex items-center gap-1.5 cursor-pointer group"
-                          title="Click to view all activity records for this agent"
-                        >
-                          <span>{item.agentName}</span>
-                          <ExternalLink className="w-3 h-3 text-orange-500 opacity-0 group-hover:opacity-100 transition-opacity" />
-                        </button>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              openAgentModal({
+                                agentId: item.agentId,
+                                name: item.agentName,
+                                email: item.agentEmail,
+                                role: item.role,
+                              })
+                            }
+                            className="font-bold text-foreground hover:text-orange-500 hover:underline transition-colors text-left flex items-center gap-1.5 cursor-pointer group"
+                            title="Click to view all activity records for this person"
+                          >
+                            <span>{item.agentName}</span>
+                            <ExternalLink className="w-3 h-3 text-orange-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </button>
+                          {item.role && (
+                            <span
+                              className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded border ${
+                                /manager/i.test(item.role)
+                                  ? 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-500/30'
+                                  : /admin/i.test(item.role)
+                                  ? 'bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/30'
+                                  : 'bg-sky-500/15 text-sky-600 dark:text-sky-400 border-sky-500/30'
+                              }`}
+                            >
+                              {item.role}
+                            </span>
+                          )}
+                        </div>
                         <div className="text-[11px] text-muted-foreground">{item.agentEmail}</div>
                       </td>
 
@@ -1092,6 +1126,19 @@ export default function SecurityAuditPage() {
                     <h2 className="text-base sm:text-lg font-bold text-foreground">
                       {detailAgent.name}
                     </h2>
+                    {detailAgent.role && (
+                      <span
+                        className={`text-[9px] font-black uppercase px-2 py-0.5 rounded border ${
+                          /manager/i.test(detailAgent.role)
+                            ? 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-500/30'
+                            : /admin/i.test(detailAgent.role)
+                            ? 'bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/30'
+                            : 'bg-sky-500/15 text-sky-600 dark:text-sky-400 border-sky-500/30'
+                        }`}
+                      >
+                        {detailAgent.role}
+                      </span>
+                    )}
                     {(() => {
                       const isLive = liveAgents.find(
                         (a) => a.userId === detailAgent.userId || a.userEmail === detailAgent.email

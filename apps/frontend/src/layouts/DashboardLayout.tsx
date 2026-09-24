@@ -247,7 +247,7 @@ export default function DashboardLayout() {
       name: "Security & DLP",
       path: "/security-audit",
       icon: ShieldAlert,
-      roles: ["Admin"],
+      roles: ["Admin", "Manager", "BranchManager", "SuperAdmin"],
     },
     {
       name: "Payment Approvals",

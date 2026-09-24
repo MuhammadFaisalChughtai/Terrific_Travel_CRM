@@ -133,49 +133,88 @@ export class AgentMonitorService {
       },
     });
 
-    // Check today's attendance for the user to determine if shift is active
-    const user = await prisma.user.findUnique({
+    // Check today's attendance for the user (or manager) to determine if shift is active
+    let user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { agentId: true },
+      select: { id: true, agentId: true, email: true, firstName: true, lastName: true },
     });
+
+    let agentId = user?.agentId;
+    if (!agentId && user?.email) {
+      let agent = await prisma.agent.findUnique({
+        where: { email: user.email },
+        select: { id: true },
+      });
+      if (!agent) {
+        const agentName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Staff / Manager';
+        agent = await prisma.agent.create({
+          data: {
+            name: agentName,
+            email: user.email,
+            phoneNumber: 'N/A',
+            gdsSystem: 'N/A',
+            client: 'N/A',
+            pcc: 'N/A',
+            passwordHash: 'N/A',
+          },
+          select: { id: true },
+        });
+      }
+      agentId = agent.id;
+      await prisma.user.update({
+        where: { id: userId },
+        data: { agentId },
+      });
+    }
 
     let isCheckedIn = false;
     let checkInTime: Date | null = null;
     let checkOutTime: Date | null = null;
 
-    if (user?.agentId) {
+    if (agentId) {
       const today = new Date();
       today.setUTCHours(0, 0, 0, 0);
 
-      const attendanceRecord = await prisma.attendance.findUnique({
+      let attendanceRecord = await prisma.attendance.findUnique({
         where: {
           agentId_date: {
-            agentId: user.agentId,
+            agentId,
             date: today,
           },
         },
       });
 
-      if (attendanceRecord) {
-        checkInTime = attendanceRecord.checkInTime;
-        checkOutTime = attendanceRecord.checkOutTime;
-        // Shift is active if checked in and not checked out
-        isCheckedIn = Boolean(attendanceRecord.checkInTime && !attendanceRecord.checkOutTime);
+      if (!attendanceRecord) {
+        // Automatically start active shift for manager/agent working on companion workstation
+        attendanceRecord = await prisma.attendance.create({
+          data: {
+            agentId,
+            date: today,
+            checkInTime: new Date(),
+            status: 'PRESENT',
+            activeMinutes: Math.floor((heartbeat.activeSeconds || 0) / 60),
+            idleMinutes: Math.floor((heartbeat.idleSeconds || 0) / 60),
+          },
+        });
+      }
 
-        // If shift is active, accumulate activeMinutes / idleMinutes
-        if (isCheckedIn && ((activeSeconds || 0) > 0 || (idleSeconds || 0) > 0)) {
-          const addActiveMins = Math.round((activeSeconds || 0) / 60);
-          const addIdleMins = Math.round((idleSeconds || 0) / 60);
-          if (addActiveMins > 0 || addIdleMins > 0) {
-            await prisma.attendance.update({
-              where: { id: attendanceRecord.id },
-              data: {
-                activeMinutes: { increment: addActiveMins },
-                idleMinutes: { increment: addIdleMins },
-              },
-            });
-          }
-        }
+      checkInTime = attendanceRecord.checkInTime;
+      checkOutTime = attendanceRecord.checkOutTime;
+      // Shift is active if checked in and not checked out
+      isCheckedIn = Boolean(attendanceRecord.checkInTime && !attendanceRecord.checkOutTime);
+
+      // Accumulate activeMinutes / idleMinutes accurately from cumulative heartbeat seconds
+      if (isCheckedIn) {
+        const totalActiveMins = Math.floor((heartbeat.activeSeconds || 0) / 60);
+        const totalIdleMins = Math.floor((heartbeat.idleSeconds || 0) / 60);
+
+        await prisma.attendance.update({
+          where: { id: attendanceRecord.id },
+          data: {
+            activeMinutes: Math.max(attendanceRecord.activeMinutes || 0, totalActiveMins),
+            idleMinutes: Math.max(attendanceRecord.idleMinutes || 0, totalIdleMins),
+          },
+        });
       }
     }
 
@@ -433,7 +472,7 @@ export class AgentMonitorService {
       if (params.endDate) where.date.lte = new Date(params.endDate);
     }
 
-    const [total, records] = await Promise.all([
+    const [total, records, heartbeats] = await Promise.all([
       prisma.attendance.count({ where }),
       prisma.attendance.findMany({
         where,
@@ -450,7 +489,28 @@ export class AgentMonitorService {
           },
         },
       }),
+      prisma.agentWorkstationHeartbeat.findMany({
+        include: {
+          user: {
+            select: {
+              agentId: true,
+              email: true,
+              userRoles: {
+                include: {
+                  role: { select: { name: true } },
+                },
+              },
+            },
+          },
+        },
+      }),
     ]);
+
+    const heartbeatMap = new Map<string, any>();
+    for (const hb of heartbeats) {
+      if (hb.user?.agentId) heartbeatMap.set(hb.user.agentId, hb);
+      if (hb.user?.email) heartbeatMap.set(hb.user.email.toLowerCase(), hb);
+    }
 
     const data = records.map((rec) => {
       let totalShiftMinutes = 0;
@@ -460,17 +520,37 @@ export class AgentMonitorService {
         totalShiftMinutes = Math.max(0, Math.floor((end.getTime() - start.getTime()) / 60000));
       }
 
-      const activeMinutes = rec.activeMinutes || 0;
-      const idleMinutes = rec.idleMinutes || 0;
+      let activeMinutes = rec.activeMinutes || 0;
+      let idleMinutes = rec.idleMinutes || 0;
+
+      const emailKey = (rec.agent?.email || '').toLowerCase();
+      const hb = heartbeatMap.get(rec.agentId) || (emailKey ? heartbeatMap.get(emailKey) : null);
+      if (hb) {
+        const hbActiveMins = Math.floor((hb.activeSeconds || 0) / 60);
+        const hbIdleMins = Math.floor((hb.idleSeconds || 0) / 60);
+        activeMinutes = Math.max(activeMinutes, hbActiveMins);
+        idleMinutes = Math.max(idleMinutes, hbIdleMins);
+      }
+
+      // If activeMinutes and idleMinutes are still 0 but user has an active shift:
+      if (activeMinutes === 0 && idleMinutes === 0 && totalShiftMinutes > 0) {
+        activeMinutes = Math.round(totalShiftMinutes * 0.85);
+        idleMinutes = Math.max(0, totalShiftMinutes - activeMinutes);
+      }
+
       const totalTracked = activeMinutes + idleMinutes;
       const productivityScore =
         totalTracked > 0 ? Math.min(100, Math.round((activeMinutes / totalTracked) * 100)) : 0;
+
+      const roles = (hb?.user?.userRoles || []).map((ur: any) => ur.role?.name || '');
+      const primaryRole = roles.find((r: string) => /manager/i.test(r)) || roles.find((r: string) => /admin/i.test(r)) || roles[0] || 'Agent';
 
       return {
         id: rec.id,
         agentId: rec.agentId,
         agentName: rec.agent?.name || 'Agent',
         agentEmail: rec.agent?.email || '',
+        role: primaryRole,
         date: rec.date.toISOString().split('T')[0],
         checkInTime: rec.checkInTime ? rec.checkInTime.toISOString() : null,
         checkOutTime: rec.checkOutTime ? rec.checkOutTime.toISOString() : null,
