@@ -20,6 +20,14 @@ namespace TerrificTravelBridge
         [STAThread]
         static void Main(string[] args)
         {
+            try
+            {
+                // Force enable TLS 1.2 (3072) and TLS 1.1 (768) in .NET Framework
+                ServicePointManager.SecurityProtocol = (SecurityProtocolType)3072 | (SecurityProtocolType)768 | (SecurityProtocolType)192;
+                ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
+            }
+            catch { }
+
             const string appGuid = "TerrificTravelBridge_SingleInstance_Mutex_2026";
             bool isNewInstance;
             _mutex = new Mutex(true, appGuid, out isNewInstance);
@@ -50,6 +58,13 @@ namespace TerrificTravelBridge
 
         public MonitorApplicationContext()
         {
+            try
+            {
+                ServicePointManager.SecurityProtocol = (SecurityProtocolType)3072 | (SecurityProtocolType)768 | (SecurityProtocolType)192;
+                ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
+            }
+            catch { }
+
             _machineId = GetPersistentMachineId();
             _configPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "TerrificTravel", "config.ini");
 
@@ -155,9 +170,9 @@ namespace TerrificTravelBridge
                 string targetEndpoint = serverUrl.TrimEnd('/') + "/auth/login";
                 HttpResponseMessage res = _httpClient.PostAsync(targetEndpoint, content).Result;
 
+                string body = res.Content.ReadAsStringAsync().Result;
                 if (res.IsSuccessStatusCode)
                 {
-                    string body = res.Content.ReadAsStringAsync().Result;
                     string token = ExtractJsonValue(body, "accessToken");
                     if (!string.IsNullOrEmpty(token))
                     {
@@ -173,13 +188,26 @@ namespace TerrificTravelBridge
                 }
                 else
                 {
-                    errorMessage = "Invalid email or password. Please use your CRM credentials.";
+                    string serverMsg = ExtractJsonValue(body, "message");
+                    if (!string.IsNullOrEmpty(serverMsg))
+                    {
+                        errorMessage = serverMsg;
+                    }
+                    else
+                    {
+                        errorMessage = "Invalid email or password. Please use your CRM credentials.";
+                    }
                     return false;
                 }
             }
             catch (Exception ex)
             {
-                errorMessage = "Connection error: Unable to reach CRM server. " + ex.Message;
+                Exception inner = ex;
+                while (inner.InnerException != null)
+                {
+                    inner = inner.InnerException;
+                }
+                errorMessage = "Connection error: " + inner.Message;
                 return false;
             }
         }
