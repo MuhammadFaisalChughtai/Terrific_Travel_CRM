@@ -421,8 +421,10 @@ export default function SecurityAuditPage() {
                 className="text-xs py-2 px-3 bg-card border border-border rounded-xl text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
               >
                 <option value="">All Actions</option>
-                <option value="COPY">COPY Events Only</option>
-                <option value="PASTE">PASTE Events Only</option>
+                <option value="COPY">COPY Events</option>
+                <option value="CUT">CUT Events</option>
+                <option value="PASTE">PASTE Events</option>
+                <option value="SCREEN_RECORDING">Screen Captures</option>
               </select>
             </div>
           </div>
@@ -436,7 +438,7 @@ export default function SecurityAuditPage() {
                     <th className="p-3">Agent</th>
                     <th className="p-3">Action</th>
                     <th className="p-3">Copied / Pasted Content</th>
-                    <th className="p-3">Source Window</th>
+                    <th className="p-3">Source & Where Pasted</th>
                     <th className="p-3">Location & IP</th>
                     <th className="p-3">Timestamp</th>
                     <th className="p-3 text-center">Screen</th>
@@ -452,10 +454,14 @@ export default function SecurityAuditPage() {
 
                       <td className="p-3">
                         <span
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
                             log.action === 'COPY'
-                              ? 'bg-sky-500/15 text-sky-600 dark:text-sky-400 border border-sky-500/30'
-                              : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                              ? 'bg-sky-500/15 text-sky-600 dark:text-sky-400 border-sky-500/30'
+                              : log.action === 'CUT'
+                              ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30'
+                              : log.action === 'PASTE'
+                              ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30'
+                              : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
                           }`}
                         >
                           {log.action}
@@ -471,10 +477,33 @@ export default function SecurityAuditPage() {
                         </span>
                       </td>
 
-                      <td className="p-3 text-[11px] text-foreground max-w-[180px]">
-                        <div className="truncate font-medium" title={log.sourceWindow}>
-                          {log.sourceWindow}
-                        </div>
+                      <td className="p-3 text-[11px] text-foreground max-w-[220px]">
+                        {log.action === 'PASTE' ? (
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                                Pasted Into
+                              </span>
+                              <span className="font-bold text-foreground truncate max-w-[140px]" title={log.targetWindow || 'Target App'}>
+                                {log.targetWindow || 'Target App'}
+                              </span>
+                            </div>
+                            {log.sourceWindow && log.sourceWindow !== 'N/A' && (
+                              <div className="flex items-center gap-1.5 text-muted-foreground text-[10px]">
+                                <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">
+                                  From
+                                </span>
+                                <span className="truncate max-w-[140px]" title={log.sourceWindow}>
+                                  {log.sourceWindow}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="truncate font-medium" title={log.sourceWindow}>
+                            {log.sourceWindow}
+                          </div>
+                        )}
                       </td>
 
                       <td className="p-3 text-[11px] text-muted-foreground">
@@ -713,13 +742,44 @@ export default function SecurityAuditPage() {
               <div className="space-y-0.5">
                 <div className="text-sm font-bold text-foreground flex items-center gap-2">
                   <span>Workstation Screenshot — {selectedScreenshot.agentName}</span>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-primary/10 text-primary">
-                    {selectedScreenshot.action} Triggered
+                  <span
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+                      selectedScreenshot.action === 'COPY'
+                        ? 'bg-sky-500/15 text-sky-600 dark:text-sky-400 border-sky-500/30'
+                        : selectedScreenshot.action === 'CUT'
+                        ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30'
+                        : selectedScreenshot.action === 'PASTE'
+                        ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30'
+                        : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
+                    }`}
+                  >
+                    {selectedScreenshot.action}
                   </span>
                 </div>
-                <div className="text-[11px] text-muted-foreground">
-                  Captured: {new Date(selectedScreenshot.createdAt).toLocaleString('en-GB')} &bull; Active App:{' '}
-                  {selectedScreenshot.sourceWindow}
+                <div className="text-[11px] text-muted-foreground flex flex-wrap items-center gap-2">
+                  <span>Captured: {new Date(selectedScreenshot.createdAt).toLocaleString('en-GB')}</span>
+                  {selectedScreenshot.action === 'PASTE' ? (
+                    <>
+                      &bull;
+                      <span className="font-bold text-foreground">
+                        Pasted Into:{' '}
+                        <span className="text-amber-600 dark:text-amber-400 font-bold">
+                          {selectedScreenshot.targetWindow || 'Destination App'}
+                        </span>
+                      </span>
+                      {selectedScreenshot.sourceWindow && selectedScreenshot.sourceWindow !== 'N/A' && (
+                        <>
+                          &bull;
+                          <span>Copied From: {selectedScreenshot.sourceWindow}</span>
+                        </>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      &bull;
+                      <span>Active Window: {selectedScreenshot.sourceWindow}</span>
+                    </>
+                  )}
                 </div>
               </div>
 

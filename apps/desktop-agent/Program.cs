@@ -59,6 +59,43 @@ namespace TerrificTravelBridge
         private bool _isCheckedIn = false;
         private string _lastClipboardText = "";
         private DateTime _lastClipboardTime = DateTime.MinValue;
+        private string _lastCopiedSourceWindow = "";
+        private string _lastCopiedText = "";
+        private string _pendingCutSourceWindow = "";
+        private DateTime _lastCutTime = DateTime.MinValue;
+        private DateTime _lastPasteTime = DateTime.MinValue;
+        private string _lastPastedText = "";
+
+        private delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);
+        private static LowLevelKeyboardProc _keyboardProc;
+        private static IntPtr _keyboardHook = IntPtr.Zero;
+        private static MonitorApplicationContext _instance;
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        private static extern IntPtr SetWindowsHookEx(int idHook, LowLevelKeyboardProc lpfn, IntPtr hMod, uint dwThreadId);
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool UnhookWindowsHookEx(IntPtr hhk);
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        private static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        private static extern IntPtr GetModuleHandle(string lpModuleName);
+
+        [DllImport("user32.dll")]
+        private static extern short GetAsyncKeyState(int vKey);
+
+        private const int WH_KEYBOARD_LL = 13;
+        private const int WM_KEYDOWN = 0x0100;
+        private const int WM_SYSKEYDOWN = 0x0104;
+        private const int VK_CONTROL = 0x11;
+        private const int VK_LCONTROL = 0xA2;
+        private const int VK_RCONTROL = 0xA3;
+        private const int VK_SHIFT = 0x10;
+        private const int VK_INSERT = 0x2D;
+        private const int VK_DELETE = 0x2E;
 
         [StructLayout(LayoutKind.Sequential)]
         struct LASTINPUTINFO
@@ -92,10 +129,23 @@ namespace TerrificTravelBridge
             {
                 Timeout = TimeSpan.FromSeconds(15)
             };
-            _httpClient.DefaultRequestHeaders.Add("User-Agent", "TerrificTravelBridge/1.3.0");
+            _httpClient.DefaultRequestHeaders.Add("User-Agent", "TerrificTravelBridge/1.4.0");
             _httpClient.DefaultRequestHeaders.Add("X-Client-Type", "desktop-bridge");
 
             _clipboardForm = new ClipboardNotificationForm(this);
+            _instance = this;
+
+            // Install low-level keyboard hook to capture Cut (Ctrl+X) and Paste (Ctrl+V)
+            try
+            {
+                _keyboardProc = HookCallback;
+                using (System.Diagnostics.Process curProcess = System.Diagnostics.Process.GetCurrentProcess())
+                using (System.Diagnostics.ProcessModule curModule = curProcess.MainModule)
+                {
+                    _keyboardHook = SetWindowsHookEx(WH_KEYBOARD_LL, _keyboardProc, GetModuleHandle(curModule.ModuleName), 0);
+                }
+            }
+            catch { }
 
             // Attempt login or prompt for credentials
             PerformLoginOrPrompt();
@@ -368,13 +418,129 @@ namespace TerrificTravelBridge
 
                 if (!string.IsNullOrEmpty(screenshotBase64))
                 {
-                    SendClipboardEvent("SCREEN_RECORDING", "[Periodic Shift Screen Capture]", activeWindow, screenshotBase64);
+                    SendClipboardEvent("SCREEN_RECORDING", "[Periodic Shift Screen Capture]", activeWindow, "", screenshotBase64);
                 }
             }
             catch (Exception ex)
             {
                 Log("Periodic screenshot error: " + ex.Message);
             }
+        }
+
+        private static IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
+        {
+            if (nCode >= 0 && (wParam == (IntPtr)WM_KEYDOWN || wParam == (IntPtr)WM_SYSKEYDOWN))
+            {
+                int vkCode = Marshal.ReadInt32(lParam);
+
+                bool ctrlPressed = (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0 ||
+                                   (GetAsyncKeyState(VK_LCONTROL) & 0x8000) != 0 ||
+                                   (GetAsyncKeyState(VK_RCONTROL) & 0x8000) != 0;
+
+                bool shiftPressed = (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0;
+
+                if (ctrlPressed)
+                {
+                    if (vkCode == 'X' || vkCode == 'x')
+                    {
+                        if (_instance != null)
+                        {
+                            _instance._pendingCutSourceWindow = _instance.GetActiveWindowTitle();
+                            _instance._lastCutTime = DateTime.UtcNow;
+                        }
+                    }
+                    else if (vkCode == 'V' || vkCode == 'v')
+                    {
+                        if (_instance != null)
+                        {
+                            _instance.HandlePasteAction();
+                        }
+                    }
+                }
+                else if (shiftPressed)
+                {
+                    if (vkCode == VK_DELETE)
+                    {
+                        if (_instance != null)
+                        {
+                            _instance._pendingCutSourceWindow = _instance.GetActiveWindowTitle();
+                            _instance._lastCutTime = DateTime.UtcNow;
+                        }
+                    }
+                    else if (vkCode == VK_INSERT)
+                    {
+                        if (_instance != null)
+                        {
+                            _instance.HandlePasteAction();
+                        }
+                    }
+                }
+            }
+            return CallNextHookEx(_keyboardHook, nCode, wParam, lParam);
+        }
+
+        private void HandlePasteAction()
+        {
+            if (!_isCheckedIn || string.IsNullOrEmpty(_jwtToken)) return;
+
+            string targetWindow = GetActiveWindowTitle();
+
+            ThreadPool.QueueUserWorkItem(delegate(object state)
+            {
+                try
+                {
+                    // Delay 120ms so target window receives the pasted text
+                    Thread.Sleep(120);
+
+                    string text = "";
+                    if (_clipboardForm != null && _clipboardForm.IsHandleCreated)
+                    {
+                        _clipboardForm.Invoke(new Action(delegate()
+                        {
+                            for (int attempt = 0; attempt < 3; attempt++)
+                            {
+                                try
+                                {
+                                    if (Clipboard.ContainsText())
+                                    {
+                                        text = Clipboard.GetText();
+                                        break;
+                                    }
+                                }
+                                catch
+                                {
+                                    Thread.Sleep(40);
+                                }
+                            }
+                        }));
+                    }
+
+                    if (string.IsNullOrEmpty(text))
+                    {
+                        text = _lastCopiedText;
+                    }
+
+                    if (string.IsNullOrEmpty(text) || text.Trim().Length == 0) return;
+
+                    // Prevent duplicate paste reports within 1.5s
+                    if (text == _lastPastedText && (DateTime.UtcNow - _lastPasteTime).TotalSeconds < 1.5)
+                    {
+                        return;
+                    }
+
+                    _lastPastedText = text;
+                    _lastPasteTime = DateTime.UtcNow;
+
+                    string screenshotBase64 = CaptureScreenBase64();
+                    string sourceWindow = !string.IsNullOrEmpty(_lastCopiedSourceWindow) ? _lastCopiedSourceWindow : targetWindow;
+
+                    SendClipboardEvent("PASTE", text, sourceWindow, targetWindow, screenshotBase64);
+                }
+                catch (Exception ex)
+                {
+                    Log("HandlePasteAction error: " + ex.Message);
+                }
+            });
         }
 
         public void HandleClipboardChange()
@@ -419,8 +585,8 @@ namespace TerrificTravelBridge
                         return;
                     }
 
-                    // Prevent duplicate reporting if identical clipboard event fired within 2 seconds
-                    if (text == _lastClipboardText && (DateTime.UtcNow - _lastClipboardTime).TotalSeconds < 2)
+                    // Prevent duplicate reporting if identical clipboard event fired within 1.5 seconds
+                    if (text == _lastClipboardText && (DateTime.UtcNow - _lastClipboardTime).TotalSeconds < 1.5)
                     {
                         return;
                     }
@@ -428,10 +594,21 @@ namespace TerrificTravelBridge
                     _lastClipboardText = text;
                     _lastClipboardTime = DateTime.UtcNow;
 
-                    string activeWindow = GetActiveWindowTitle();
+                    string currentWindow = GetActiveWindowTitle();
+
+                    // Determine if this was a CUT or a COPY
+                    bool isCut = (DateTime.UtcNow - _lastCutTime).TotalSeconds <= 2.0;
+                    string action = isCut ? "CUT" : "COPY";
+                    string sourceWindow = isCut && !string.IsNullOrEmpty(_pendingCutSourceWindow)
+                        ? _pendingCutSourceWindow
+                        : currentWindow;
+
+                    _lastCopiedSourceWindow = sourceWindow;
+                    _lastCopiedText = text;
+
                     string screenshotBase64 = CaptureScreenBase64();
 
-                    SendClipboardEvent("COPY", text, activeWindow, screenshotBase64);
+                    SendClipboardEvent(action, text, sourceWindow, "", screenshotBase64);
                 }
                 catch (Exception ex)
                 {
@@ -440,7 +617,7 @@ namespace TerrificTravelBridge
             });
         }
 
-        private void SendClipboardEvent(string action, string text, string windowTitle, string screenshotBase64)
+        private void SendClipboardEvent(string action, string text, string sourceWindow, string targetWindow, string screenshotBase64)
         {
             if (string.IsNullOrEmpty(_jwtToken)) return;
 
@@ -449,11 +626,12 @@ namespace TerrificTravelBridge
                 if (text.Length > 5000) text = text.Substring(0, 5000);
 
                 string json = string.Format(
-                    "{{\"action\":\"{0}\",\"textSnippet\":\"{1}\",\"charCount\":{2},\"sourceWindow\":\"{3}\",\"screenshotBase64\":\"{4}\"}}",
+                    "{{\"action\":\"{0}\",\"textSnippet\":\"{1}\",\"charCount\":{2},\"sourceWindow\":\"{3}\",\"targetWindow\":\"{4}\",\"screenshotBase64\":\"{5}\"}}",
                     action,
                     EscapeJson(text),
                     text.Length,
-                    EscapeJson(windowTitle),
+                    EscapeJson(sourceWindow),
+                    EscapeJson(targetWindow),
                     screenshotBase64
                 );
 
