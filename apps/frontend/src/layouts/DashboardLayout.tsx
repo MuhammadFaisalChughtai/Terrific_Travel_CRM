@@ -256,6 +256,12 @@ export default function DashboardLayout() {
       icon: Receipt,
       roles: ["Admin"],
     },
+    {
+      name: "Security & DLP",
+      path: "/security-audit",
+      icon: ShieldAlert,
+      roles: ["Admin"],
+    },
     // {
     //   name: "Financials",
     //   path: "/reports",

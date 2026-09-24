@@ -106,6 +106,8 @@ model User {
   createdPayslips         Payslip[]        @relation("CreatedPayslips")
   createdIssuances        IssuanceTicket[] @relation("CreatedIssuances")
   assignedIssuances       IssuanceTicket[] @relation("AssignedIssuances")
+  workstationHeartbeats   AgentWorkstationHeartbeat[]
+  clipboardLogs           DlpClipboardLog[]
 }
 
 enum LeadStatus {
@@ -1149,5 +1151,48 @@ model IssuanceTicketAuditLog {
   createdAt   DateTime        @default(now())
 
   @@index([ticketId])
+}
+
+model AgentWorkstationHeartbeat {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  machineId     String
+  hostname      String?
+  ipAddress     String
+  city          String?
+  region        String?
+  country       String?
+  isp           String?
+  activeWindow  String?
+  appVersion    String?
+  lastPingAt    DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([userId, machineId])
+  @@index([userId])
+  @@index([lastPingAt])
+}
+
+model DlpClipboardLog {
+  id             String   @id @default(uuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action         String   // "COPY" | "PASTE"
+  textSnippet    String   @db.Text
+  charCount      Int      @default(0)
+  sourceWindow   String?
+  targetWindow   String?
+  screenshotKey  String?
+  screenshotUrl  String?
+  ipAddress      String?
+  city           String?
+  country        String?
+  createdAt      DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([action])
 }
 

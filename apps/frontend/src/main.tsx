@@ -31,6 +31,7 @@ import BookedServices from "./pages/BookedServices";
 import LeadsPage from "./pages/Leads";
 import PayrollPage from "./pages/Payroll";
 import IssuancePage from "./pages/Issuance";
+import SecurityAuditPage from "./pages/SecurityAudit";
 import { useAuthStore } from "./store/auth.store";
 import { apiClient } from "./api/client";
 
@@ -140,6 +141,7 @@ function AppRouter() {
           <Route path="booked-services" element={<BookedServices />} />
           <Route path="leads" element={<LeadsPage />} />
           <Route path="payroll" element={<PayrollPage />} />
+          <Route path="security-audit" element={<SecurityAuditPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" />} />
