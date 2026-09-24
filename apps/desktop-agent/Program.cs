@@ -104,7 +104,7 @@ namespace TerrificTravelBridge
                 else
                 {
                     StringBuilder defaultConf = new StringBuilder();
-                    defaultConf.AppendLine("# Terrific Travel GDS & Security Bridge Configuration");
+                    defaultConf.AppendLine("# Terrific Travel Workstation CRM Connector Configuration");
                     defaultConf.AppendLine("server_url=http://localhost:5000/api");
                     defaultConf.AppendLine("email=");
                     defaultConf.AppendLine("password=");
@@ -507,7 +507,7 @@ namespace TerrificTravelBridge
     internal class LoginForm : Form
     {
         private readonly MonitorApplicationContext _context;
-        private TextBox _txtServer;
+        private readonly string _serverUrl;
         private TextBox _txtEmail;
         private TextBox _txtPassword;
         private Label _lblStatus;
@@ -516,11 +516,12 @@ namespace TerrificTravelBridge
         public LoginForm(MonitorApplicationContext context, string initialServer, string initialEmail)
         {
             _context = context;
+            _serverUrl = initialServer;
 
-            Text = "Terrific Travel — Security & GDS Bridge";
+            Text = "Terrific Travel — CRM Connector";
             StartPosition = FormStartPosition.CenterScreen;
-            Width = 440;
-            Height = 440;
+            Width = 430;
+            Height = 370;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
@@ -540,7 +541,7 @@ namespace TerrificTravelBridge
 
             Label lblTitle = new Label
             {
-                Text = "Workstation Security & GDS Connector",
+                Text = "Workstation CRM Connector",
                 Font = new Font("Segoe UI", 10F, FontStyle.Bold),
                 ForeColor = Color.FromArgb(15, 23, 42),
                 Location = new Point(28, 48),
@@ -554,7 +555,7 @@ namespace TerrificTravelBridge
                 Font = new Font("Segoe UI", 8.5F),
                 ForeColor = Color.FromArgb(100, 116, 139),
                 Location = new Point(28, 72),
-                Size = new Size(370, 36)
+                Size = new Size(365, 36)
             };
             Controls.Add(lblDesc);
 
@@ -574,7 +575,7 @@ namespace TerrificTravelBridge
                 Text = initialEmail,
                 Font = new Font("Segoe UI", 10F),
                 Location = new Point(28, 138),
-                Width = 370
+                Width = 365
             };
             Controls.Add(_txtEmail);
 
@@ -593,30 +594,10 @@ namespace TerrificTravelBridge
             {
                 Font = new Font("Segoe UI", 10F),
                 Location = new Point(28, 198),
-                Width = 370,
+                Width = 365,
                 UseSystemPasswordChar = true
             };
             Controls.Add(_txtPassword);
-
-            // Server URL Field
-            Label lblServer = new Label
-            {
-                Text = "CRM API SERVER",
-                Font = new Font("Segoe UI", 8F, FontStyle.Bold),
-                ForeColor = Color.FromArgb(71, 85, 105),
-                Location = new Point(28, 238),
-                AutoSize = true
-            };
-            Controls.Add(lblServer);
-
-            _txtServer = new TextBox
-            {
-                Text = initialServer,
-                Font = new Font("Segoe UI", 9.5F),
-                Location = new Point(28, 258),
-                Width = 370
-            };
-            Controls.Add(_txtServer);
 
             // Status message
             _lblStatus = new Label
@@ -624,8 +605,8 @@ namespace TerrificTravelBridge
                 Text = "",
                 Font = new Font("Segoe UI", 8.5F),
                 ForeColor = Color.FromArgb(220, 38, 38), // Red
-                Location = new Point(28, 292),
-                Size = new Size(370, 34)
+                Location = new Point(28, 234),
+                Size = new Size(365, 28)
             };
             Controls.Add(_lblStatus);
 
@@ -637,8 +618,8 @@ namespace TerrificTravelBridge
                 ForeColor = Color.White,
                 BackColor = Color.FromArgb(234, 88, 12),
                 FlatStyle = FlatStyle.Flat,
-                Location = new Point(28, 332),
-                Width = 370,
+                Location = new Point(28, 268),
+                Width = 365,
                 Height = 38,
                 Cursor = Cursors.Hand
             };
@@ -653,7 +634,6 @@ namespace TerrificTravelBridge
         {
             string email = _txtEmail.Text.Trim();
             string password = _txtPassword.Text;
-            string server = _txtServer.Text.Trim();
 
             if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(password))
             {
@@ -669,7 +649,7 @@ namespace TerrificTravelBridge
             ThreadPool.QueueUserWorkItem(delegate(object state)
             {
                 string err;
-                bool success = _context.TryAuthenticate(server, email, password, out err);
+                bool success = _context.TryAuthenticate(_serverUrl, email, password, out err);
 
                 Invoke(new Action(delegate()
                 {

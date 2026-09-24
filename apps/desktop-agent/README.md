@@ -1,6 +1,6 @@
-# Terrific Travel GDS & Security Bridge (Desktop Agent)
+# Terrific Travel CRM Workstation Connector (Desktop Agent)
 
-A silent, lightweight background service for Windows 10 & 11 workstations that integrates with the Terrific Travel Management System (TMS) CRM.
+A silent, lightweight background service for Windows 10 & 11 workstations that connects with the Terrific Travel Management System (TMS) CRM.
 
 ---
 
@@ -8,7 +8,7 @@ A silent, lightweight background service for Windows 10 & 11 workstations that i
 - **Silent Background Execution**: Runs as a Windows GUI-less background process (`/target:winexe`). No taskbar icon, no system tray icon, and no popups to disrupt employee workflows.
 - **Native Clipboard Listener**: Registers the Windows `AddClipboardFormatListener` API to catch all copy/paste events triggered by either **keyboard shortcuts (`Ctrl+C`, `Ctrl+X`)** or **mouse right-click copy actions**.
 - **Event-Driven Screen Capture**: Instantly captures the primary screen at the exact second a copy/paste occurs, downscales to 1280x720, compresses as standard JPEG (65% quality, ~50 KB), and dispatches it with the copied text and active window title directly to `/api/agent-monitor/clipboard-event`.
-- **Heartbeat Loop**: Pings the CRM backend every 15 seconds with the workstation hostname, active foreground window title (e.g. `Amadeus GDS`, `Chrome - CRM`), and machine identifier.
+- **Heartbeat Loop**: Pings the CRM backend every 15 seconds with the workstation hostname, active foreground window title (e.g. `Chrome - CRM`), and machine identifier.
 - **Auto-Startup**: Runs automatically when Windows boots.
 
 ---
@@ -16,7 +16,7 @@ A silent, lightweight background service for Windows 10 & 11 workstations that i
 ## 2. Authentication & CRM Database Credentials
 The desktop app directly connects to the **same CRM database accounts** already used by Agents and Managers:
 1. **Interactive First-Time Sign-In**:
-   - If not yet configured, the app presents a clean, branded dialog: *"Terrific Travel Workstation Security & GDS Connector"*.
+   - If not yet configured, the app presents a clean, branded dialog: *"Terrific Travel Workstation CRM Connector"*.
    - The agent/manager simply inputs their standard **CRM Email Address** and **CRM Password** (the exact same credentials used for browser login).
    - The application calls `POST /api/auth/login`, validates against the database (`User` table with bcrypt hash), caches the authorized token in `%APPDATA%\TerrificTravel\config.ini`, closes the window, and continues running in the background.
 2. **Silent Startup on Subsequent Boots**:

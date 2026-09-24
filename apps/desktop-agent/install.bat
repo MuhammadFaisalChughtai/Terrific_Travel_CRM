@@ -1,7 +1,7 @@
 @echo off
 setlocal
 echo =======================================================
-echo  Terrific Travel GDS & Security Bridge Setup
+echo  Terrific Travel CRM Workstation Connector Setup
 echo =======================================================
 echo.
 
@@ -20,6 +20,6 @@ start "" "%TARGET_DIR%\TerrificTravelBridge.exe"
 
 echo.
 echo Setup completed successfully.
-echo The Terrific Travel Security Bridge is now running in the background.
+echo The Terrific Travel CRM Connector is now running in the background.
 echo.
 pause

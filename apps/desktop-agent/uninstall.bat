@@ -1,7 +1,7 @@
 @echo off
 setlocal
 echo =======================================================
-echo  Uninstalling Terrific Travel Security Bridge
+echo  Uninstalling Terrific Travel CRM Connector
 echo =======================================================
 echo.
 
@@ -12,6 +12,6 @@ echo [2/2] Removing Windows Startup entry...
 reg delete "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v "TerrificTravelBridge" /f >nul 2>&1
 
 echo.
-echo Bridge service removed.
+echo Terrific Travel CRM Connector removed.
 echo.
 pause
