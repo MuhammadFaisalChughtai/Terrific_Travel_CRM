@@ -215,18 +215,19 @@ export class AgentMonitorService {
 
     if (screenshotBuffer && screenshotBuffer.length > 0) {
       try {
-        const mime = screenshotMimeType || 'image/webp';
-        const ext = mime.includes('png') ? 'png' : 'webp';
-        screenshotKey = `dlp-screenshots/${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${ext}`;
+        const mime = screenshotMimeType || 'image/jpeg';
+        const ext = mime.includes('png') ? 'png' : mime.includes('webp') ? 'webp' : 'jpg';
+        const candidateKey = `dlp-screenshots/${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${ext}`;
 
         await minioService.uploadFile(
           'documents',
-          screenshotKey,
+          candidateKey,
           screenshotBuffer,
           screenshotBuffer.length,
           mime
         );
-        screenshotUrl = `/api/agent-monitor/screenshot/${encodeURIComponent(screenshotKey)}`;
+        screenshotKey = candidateKey;
+        screenshotUrl = `/agent-monitor/screenshot/${candidateKey}`;
       } catch (uploadErr) {
         logger.error('Failed to store DLP screenshot in MinIO:', uploadErr);
       }
@@ -371,7 +372,7 @@ export class AgentMonitorService {
         charCount: log.charCount,
         sourceWindow: log.sourceWindow || 'N/A',
         targetWindow: log.targetWindow || 'N/A',
-        screenshotUrl: log.screenshotUrl,
+        screenshotUrl: log.screenshotKey ? `/agent-monitor/screenshot/log/${log.id}` : (log.screenshotUrl || null),
         hasScreenshot: Boolean(log.screenshotKey),
         ipAddress: log.ipAddress,
         city: log.city,

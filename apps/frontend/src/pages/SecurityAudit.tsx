@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
@@ -87,7 +87,7 @@ export default function SecurityAuditPage() {
     user?.roles?.some((r) => {
       const raw = typeof r === "string" ? r : (r as any)?.name || "";
       const clean = raw.toUpperCase().replace(/[\s_-]+/g, "");
-      return ["ADMIN", "SUPERADMIN", "ADMINISTRATOR", "ROOT"].includes(clean);
+      return ["ADMIN", "SUPERADMIN", "ADMINISTRATOR", "ROOT", "MANAGER", "BRANCHMANAGER"].includes(clean);
     })
   );
 
@@ -95,9 +95,59 @@ export default function SecurityAuditPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [actionFilter, setActionFilter] = useState('');
   const [selectedScreenshot, setSelectedScreenshot] = useState<AuditLogItem | null>(null);
+  const [screenshotBlobUrl, setScreenshotBlobUrl] = useState<string | null>(null);
+  const [isLoadingImage, setIsLoadingImage] = useState(false);
+  const [imageError, setImageError] = useState(false);
   const [productivityDate, setProductivityDate] = useState<string>(
     new Date().toISOString().split('T')[0]
   );
+
+  useEffect(() => {
+    if (!selectedScreenshot) {
+      if (screenshotBlobUrl) {
+        URL.revokeObjectURL(screenshotBlobUrl);
+      }
+      setScreenshotBlobUrl(null);
+      setIsLoadingImage(false);
+      setImageError(false);
+      return;
+    }
+
+    if (!selectedScreenshot.hasScreenshot && !selectedScreenshot.screenshotUrl) {
+      setScreenshotBlobUrl(null);
+      setIsLoadingImage(false);
+      setImageError(false);
+      return;
+    }
+
+    let active = true;
+    setIsLoadingImage(true);
+    setImageError(false);
+
+    const targetUrl = selectedScreenshot.id
+      ? `/agent-monitor/screenshot/log/${selectedScreenshot.id}`
+      : selectedScreenshot.screenshotUrl?.replace(/^\/api/, '') || '';
+
+    apiClient
+      .get(targetUrl, { responseType: 'blob' })
+      .then((res) => {
+        if (!active) return;
+        const objectUrl = URL.createObjectURL(res.data);
+        setScreenshotBlobUrl(objectUrl);
+      })
+      .catch((err) => {
+        if (!active) return;
+        console.error('Failed to load screenshot evidence:', err);
+        setImageError(true);
+      })
+      .finally(() => {
+        if (active) setIsLoadingImage(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [selectedScreenshot]);
 
   // Live Workstations Query (refetches every 15s)
   const {
@@ -681,10 +731,23 @@ export default function SecurityAuditPage() {
               </button>
             </div>
 
-            <div className="flex-1 overflow-auto p-4 bg-neutral-950 flex flex-col items-center justify-center">
-              {selectedScreenshot.screenshotUrl ? (
+            <div className="flex-1 overflow-auto p-4 bg-neutral-950 flex flex-col items-center justify-center min-h-[320px]">
+              {isLoadingImage ? (
+                <div className="flex flex-col items-center justify-center p-12 text-muted-foreground gap-3">
+                  <RefreshCw className="w-8 h-8 animate-spin text-orange-500" />
+                  <span className="text-xs font-semibold text-neutral-300">Retrieving screen evidence...</span>
+                </div>
+              ) : imageError ? (
+                <div className="flex flex-col items-center justify-center p-12 text-center text-muted-foreground gap-2 max-w-md">
+                  <AlertTriangle className="w-8 h-8 text-amber-500" />
+                  <span className="text-xs font-bold text-neutral-200">Screen capture image unavailable</span>
+                  <span className="text-[11px] text-neutral-400">
+                    The clipboard text was captured, but the screenshot payload could not be loaded.
+                  </span>
+                </div>
+              ) : screenshotBlobUrl ? (
                 <img
-                  src={selectedScreenshot.screenshotUrl}
+                  src={screenshotBlobUrl}
                   alt="Captured Screen Evidence"
                   className="max-h-[60vh] max-w-full rounded-lg border border-neutral-800 shadow-lg object-contain"
                 />

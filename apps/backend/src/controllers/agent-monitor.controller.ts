@@ -4,6 +4,7 @@ import { asyncHandler } from '../middleware/async.middleware';
 import { agentMonitorService } from '../services/agent-monitor.service';
 import { BadRequestException, NotFoundException } from '../middleware/error.middleware';
 import { minioService } from '../services/minio.service';
+import { prisma } from '../config';
 
 function extractClientIp(req: any): string {
   const forwarded = req.headers['x-forwarded-for'];
@@ -144,18 +145,38 @@ export const getAuditLogs = asyncHandler(async (req: AuthenticatedRequest, res: 
 });
 
 export const getScreenshotStream = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  const key = req.params[0] || (req.params as any).key;
-  if (!key) {
-    throw new BadRequestException('Screenshot key is required.');
+  const rawParam = req.params.logId || req.params[0] || (req.params as any).key || (req.query.key as string) || '';
+  if (!rawParam) {
+    throw new BadRequestException('Screenshot key or ID is required.');
+  }
+
+  let key = decodeURIComponent(String(rawParam)).replace(/^\/+/, '');
+
+  // If the parameter is an ID, look up the screenshotKey from DlpClipboardLog
+  if (!key.includes('/') || key.length === 36 || key.length === 24) {
+    const log = await prisma.dlpClipboardLog.findFirst({
+      where: {
+        OR: [{ id: key }, { screenshotKey: key }],
+      },
+      select: { screenshotKey: true },
+    });
+    if (log?.screenshotKey) {
+      key = log.screenshotKey;
+    }
   }
 
   try {
     const stream = await minioService.getObjectStream('documents', key);
-    res.setHeader('Content-Type', key.endsWith('.png') ? 'image/png' : 'image/webp');
+    let contentType = 'image/jpeg';
+    if (key.endsWith('.png')) contentType = 'image/png';
+    else if (key.endsWith('.webp')) contentType = 'image/webp';
+    else if (key.endsWith('.jpg') || key.endsWith('.jpeg')) contentType = 'image/jpeg';
+
+    res.setHeader('Content-Type', contentType);
     res.setHeader('Cache-Control', 'private, max-age=86400');
     stream.pipe(res);
-  } catch (err) {
-    throw new NotFoundException('Screenshot not found.');
+  } catch (err: any) {
+    throw new NotFoundException(`Screenshot not found: ${err?.message || 'NoSuchKey'}`);
   }
 });
 
