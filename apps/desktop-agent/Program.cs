@@ -63,6 +63,8 @@ namespace TerrificTravelBridge
             {
                 Timeout = TimeSpan.FromSeconds(15)
             };
+            _httpClient.DefaultRequestHeaders.Add("User-Agent", "TerrificTravelBridge/1.0");
+            _httpClient.DefaultRequestHeaders.Add("X-Client-Type", "desktop-bridge");
 
             _clipboardForm = new ClipboardNotificationForm(this);
 
@@ -147,7 +149,7 @@ namespace TerrificTravelBridge
             errorMessage = "";
             try
             {
-                string json = string.Format("{{\"email\":\"{0}\",\"password\":\"{1}\"}}", EscapeJson(email), EscapeJson(password));
+                string json = string.Format("{{\"email\":\"{0}\",\"password\":\"{1}\",\"clientType\":\"desktop-bridge\"}}", EscapeJson(email), EscapeJson(password));
                 StringContent content = new StringContent(json, Encoding.UTF8, "application/json");
 
                 string targetEndpoint = serverUrl.TrimEnd('/') + "/auth/login";

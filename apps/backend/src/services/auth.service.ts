@@ -5,6 +5,7 @@ import * as bcrypt from 'bcrypt';
 import * as jwt from 'jsonwebtoken';
 import { rabbitMQService } from './rabbitmq.service';
 import { BadRequestException, UnauthorizedException } from '../middleware/error.middleware';
+import { agentMonitorService } from './agent-monitor.service';
 
 export class AuthService {
   async register(dto: RegisterDto) {
@@ -50,7 +51,7 @@ export class AuthService {
     };
   }
 
-  async login(dto: LoginDto) {
+  async login(dto: LoginDto, options?: { isDesktopBridge?: boolean }) {
     const user = await prisma.user.findUnique({
       where: { email: dto.email },
       include: {
@@ -86,6 +87,20 @@ export class AuthService {
         )
       )
     ) as string[];
+
+    const isAdmin = roles.some((r: string) => {
+      const clean = String(r).toUpperCase().replace(/[\s_-]+/g, '');
+      return ['ADMIN', 'SUPERADMIN', 'ADMINISTRATOR', 'ROOT'].includes(clean);
+    });
+
+    // If regular staff/agent/manager and logging in from browser (not the desktop bridge):
+    // DO NOT allow sign-in if the desktop companion service is not active on their workstation!
+    if (!isAdmin && !options?.isDesktopBridge) {
+      const isCompanionActive = await agentMonitorService.isUserCompanionActive(user.id);
+      if (!isCompanionActive) {
+        throw new UnauthorizedException('Workstation authorization required. Unable to establish secure session.');
+      }
+    }
 
     const tokens = await this.generateTokens(user.id, user.email, roles, permissions);
     await this.saveRefreshToken(user.id, tokens.refreshToken);

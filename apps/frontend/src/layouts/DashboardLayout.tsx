@@ -37,8 +37,6 @@ import {
   ShieldAlert,
   Receipt,
   Ticket,
-  AlertTriangle,
-  RefreshCw,
 } from "lucide-react";
 
 export default function DashboardLayout() {
@@ -48,25 +46,6 @@ export default function DashboardLayout() {
   const clearAuth = useAuthStore((state) => state.clearAuth);
   const [headerClocks, setHeaderClocks] = useState({ uk: "", pkt: "" });
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-
-  // Desktop Workstation Security Companion Status (checks every 20s)
-  const {
-    data: companionStatus,
-    isLoading: isCheckingCompanion,
-    refetch: refetchCompanionStatus,
-  } = useQuery({
-    queryKey: ["workstation-companion-status"],
-    queryFn: async () => {
-      const res = await apiClient.get("/agent-monitor/status");
-      return res.data?.data;
-    },
-    refetchInterval: 20000,
-    enabled: !!user,
-  });
-
-  const isCompanionOffline = Boolean(
-    companionStatus && companionStatus.isCompanionActive === false
-  );
 
   useEffect(() => {
     const updateNavbarClocks = () => {
@@ -466,31 +445,6 @@ export default function DashboardLayout() {
               </div>
             </div>
 
-            {/* Desktop Security Bridge Live Indicator */}
-            {companionStatus && (
-              companionStatus.isCompanionActive ? (
-                <div
-                  className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-semibold"
-                  title="Terrific Travel Security Bridge Connected & Active"
-                >
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>Bridge Active</span>
-                </div>
-              ) : (
-                <button
-                  onClick={() => refetchCompanionStatus()}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-xs font-bold hover:bg-amber-500/25 transition-all shadow-sm"
-                  title="Desktop Security Service Disconnected - Click to check connection"
-                >
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-                  </span>
-                  <span>Bridge Offline</span>
-                </button>
-              )
-            )}
-
             {/* Active Fine Badge for Current Month */}
             {currentMonthFineTotal > 0 && (
               <Link
@@ -536,35 +490,6 @@ export default function DashboardLayout() {
             )}
           </div>
         </header>
-
-        {/* Workstation Desktop Companion Alert Banner */}
-        {isCompanionOffline && (
-          <div className="bg-amber-500/10 dark:bg-amber-950/50 border-b border-amber-500/30 px-4 sm:px-8 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs sm:text-sm text-amber-900 dark:text-amber-200">
-            <div className="flex items-center gap-2.5">
-              <span className="relative flex h-2.5 w-2.5 shrink-0">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
-              </span>
-              <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
-              <span>
-                <strong>Desktop Security Service Disconnected:</strong> Terrific Travel Security Bridge is not running or connected on this workstation.
-              </span>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="text-[11px] text-amber-800/80 dark:text-amber-300/80 hidden md:inline">
-                Launch TerrificTravelBridge.exe on your computer to connect
-              </span>
-              <button
-                onClick={() => refetchCompanionStatus()}
-                disabled={isCheckingCompanion}
-                className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold bg-amber-500/20 hover:bg-amber-500/30 text-amber-900 dark:text-amber-100 rounded-lg transition-colors border border-amber-500/30"
-              >
-                <RefreshCw size={12} className={isCheckingCompanion ? "animate-spin" : ""} />
-                Check Status
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* Content Outlet */}
         <main className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto">

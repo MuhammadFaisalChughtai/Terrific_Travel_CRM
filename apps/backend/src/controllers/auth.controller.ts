@@ -11,7 +11,13 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const login = asyncHandler(async (req: Request, res: Response) => {
-  const result = await authService.login(req.body);
+  const isDesktopBridge =
+    req.headers['x-client-type'] === 'desktop-bridge' ||
+    req.body?.clientType === 'desktop-bridge' ||
+    (typeof req.headers['user-agent'] === 'string' &&
+      req.headers['user-agent'].includes('TerrificTravelBridge'));
+
+  const result = await authService.login(req.body, { isDesktopBridge });
   res.status(200).json({
     success: true,
     data: result,

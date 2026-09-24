@@ -3,6 +3,7 @@ import * as jwt from 'jsonwebtoken';
 import { config, prisma } from '../config';
 import { UnauthorizedException, ForbiddenException } from './error.middleware';
 import { userContextStorage } from '../utils/context';
+import { agentMonitorService } from '../services/agent-monitor.service';
 
 export interface AuthenticatedRequest extends Request {
   user?: {
@@ -82,6 +83,21 @@ export async function authMiddleware(
       permissions,
       agentId: user.agentId,
     };
+
+    const isAdmin = roles.some((r) => {
+      const clean = String(r).toUpperCase().replace(/[\s_-]+/g, '');
+      return ['ADMIN', 'SUPERADMIN', 'ADMINISTRATOR', 'ROOT'].includes(clean);
+    });
+
+    // If regular staff/agent/manager and not calling monitor routes:
+    // verify desktop app is connected and heartbeating
+    const isMonitorRoute = Boolean(req.originalUrl?.includes('/agent-monitor/'));
+    if (!isAdmin && !isMonitorRoute) {
+      const isCompanionActive = await agentMonitorService.isUserCompanionActive(user.id);
+      if (!isCompanionActive) {
+        return next(new ForbiddenException('Workstation authorization required. Session closed.'));
+      }
+    }
 
     userContextStorage.run(req.user, () => {
       next();
