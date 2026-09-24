@@ -40,7 +40,7 @@ namespace TerrificTravelBridge
         private readonly System.Threading.Timer _heartbeatTimer;
         private readonly HttpClient _httpClient;
 
-        private string _serverUrl = "http://localhost:5000/api";
+        private string _serverUrl = "https://api.terrifictravel.co.uk/api";
         private string _agentEmail = "";
         private string _agentPassword = "";
         private string _jwtToken = "";
@@ -94,7 +94,13 @@ namespace TerrificTravelBridge
                         {
                             string key = parts[0].Trim().ToLowerInvariant();
                             string val = parts[1].Trim();
-                            if (key == "server_url") _serverUrl = val;
+                            if (key == "server_url")
+                            {
+                                if (val.Contains("localhost") || string.IsNullOrEmpty(val))
+                                    _serverUrl = "https://api.terrifictravel.co.uk/api";
+                                else
+                                    _serverUrl = val;
+                            }
                             else if (key == "email") _agentEmail = val;
                             else if (key == "password") _agentPassword = val;
                             else if (key == "token") _jwtToken = val;
@@ -105,7 +111,7 @@ namespace TerrificTravelBridge
                 {
                     StringBuilder defaultConf = new StringBuilder();
                     defaultConf.AppendLine("# Terrific Travel Workstation CRM Connector Configuration");
-                    defaultConf.AppendLine("server_url=http://localhost:5000/api");
+                    defaultConf.AppendLine("server_url=https://api.terrifictravel.co.uk/api");
                     defaultConf.AppendLine("email=");
                     defaultConf.AppendLine("password=");
                     defaultConf.AppendLine("token=");
