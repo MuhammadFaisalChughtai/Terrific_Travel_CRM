@@ -9,6 +9,23 @@ interface GeoLocation {
   isp?: string;
 }
 
+export interface ProductivityItem {
+  id: string;
+  agentId: string;
+  userId: string;
+  agentName: string;
+  agentEmail: string;
+  role: string;
+  date: string;
+  checkInTime: string | null;
+  checkOutTime: string | null;
+  status: string;
+  totalShiftMinutes: number;
+  activeMinutes: number;
+  idleMinutes: number;
+  productivityScore: number;
+}
+
 const geoCache = new Map<string, { data: GeoLocation; expiresAt: number }>();
 
 async function resolveGeoLocation(ip: string): Promise<GeoLocation> {
@@ -220,7 +237,7 @@ export class AgentMonitorService {
 
     return {
       heartbeat,
-      isCheckedIn,
+      isCheckedIn: true, // Always return true so companion workstation continuous capture never halts
       checkInTime,
       checkOutTime,
     };
@@ -364,9 +381,20 @@ export class AgentMonitorService {
 
     let targetUserId = params.userId;
     if (!targetUserId && params.agentId) {
+      let agentEmail: string | undefined;
+      const agentRecord = await prisma.agent.findUnique({
+        where: { id: params.agentId },
+        select: { email: true },
+      });
+      if (agentRecord) agentEmail = agentRecord.email;
+
       const user = await prisma.user.findFirst({
         where: {
-          OR: [{ id: params.agentId }, { agentId: params.agentId }],
+          OR: [
+            { id: params.agentId },
+            { agentId: params.agentId },
+            ...(agentEmail ? [{ email: { equals: agentEmail, mode: 'insensitive' as const } }] : []),
+          ],
         },
         select: { id: true },
       });
@@ -455,13 +483,23 @@ export class AgentMonitorService {
 
     const where: any = {};
     let targetAgentId = params.agentId;
-    if (!targetAgentId && params.userId) {
+    let targetUserId = params.userId;
+
+    if (!targetAgentId && targetUserId) {
       const user = await prisma.user.findUnique({
-        where: { id: params.userId },
+        where: { id: targetUserId },
         select: { agentId: true },
       });
       if (user?.agentId) {
         targetAgentId = user.agentId;
+      }
+    } else if (targetAgentId && !targetUserId) {
+      const user = await prisma.user.findFirst({
+        where: { OR: [{ id: targetAgentId }, { agentId: targetAgentId }] },
+        select: { id: true },
+      });
+      if (user) {
+        targetUserId = user.id;
       }
     }
 
@@ -472,12 +510,9 @@ export class AgentMonitorService {
       if (params.endDate) where.date.lte = new Date(params.endDate);
     }
 
-    const [total, records, heartbeats] = await Promise.all([
-      prisma.attendance.count({ where }),
+    const [records, heartbeats, allAgents, allUsers] = await Promise.all([
       prisma.attendance.findMany({
         where,
-        skip,
-        take: limit,
         orderBy: { date: 'desc' },
         include: {
           agent: {
@@ -493,8 +528,11 @@ export class AgentMonitorService {
         include: {
           user: {
             select: {
+              id: true,
               agentId: true,
               email: true,
+              firstName: true,
+              lastName: true,
               userRoles: {
                 include: {
                   role: { select: { name: true } },
@@ -504,15 +542,98 @@ export class AgentMonitorService {
           },
         },
       }),
+      prisma.agent.findMany({
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          users: {
+            select: {
+              id: true,
+              userRoles: {
+                include: { role: { select: { name: true } } },
+              },
+            },
+          },
+        },
+      }),
+      prisma.user.findMany({
+        where: { isActive: true },
+        select: {
+          id: true,
+          agentId: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          userRoles: {
+            include: { role: { select: { name: true } } },
+          },
+        },
+      }),
     ]);
 
     const heartbeatMap = new Map<string, any>();
     for (const hb of heartbeats) {
+      if (hb.userId) heartbeatMap.set(hb.userId, hb);
       if (hb.user?.agentId) heartbeatMap.set(hb.user.agentId, hb);
       if (hb.user?.email) heartbeatMap.set(hb.user.email.toLowerCase(), hb);
     }
 
-    const data = records.map((rec) => {
+    // Build unified active staff catalog (Agents & Managers)
+    interface StaffInfo {
+      id: string;
+      agentId: string;
+      userId: string;
+      name: string;
+      email: string;
+      role: string;
+    }
+    const staffMap = new Map<string, StaffInfo>();
+
+    for (const u of allUsers) {
+      const roles = (u.userRoles || []).map((ur) => ur.role?.name || '');
+      const primaryRole =
+        roles.find((r) => /manager/i.test(r)) ||
+        roles.find((r) => /admin/i.test(r)) ||
+        roles[0] ||
+        'Agent';
+
+      const key = (u.email || u.id).toLowerCase();
+      staffMap.set(key, {
+        id: u.id,
+        agentId: u.agentId || u.id,
+        userId: u.id,
+        name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || 'Staff Member',
+        email: u.email,
+        role: primaryRole,
+      });
+    }
+
+    for (const a of allAgents) {
+      const key = (a.email || a.id).toLowerCase();
+      const existing = staffMap.get(key);
+      const user = a.users?.[0];
+      const roles = (user?.userRoles || []).map((ur) => ur.role?.name || '');
+      const primaryRole =
+        existing?.role ||
+        roles.find((r) => /manager/i.test(r)) ||
+        roles.find((r) => /admin/i.test(r)) ||
+        roles[0] ||
+        'Agent';
+
+      staffMap.set(key, {
+        id: a.id,
+        agentId: a.id,
+        userId: user?.id || existing?.userId || a.id,
+        name: a.name || existing?.name || 'Staff Member',
+        email: a.email,
+        role: primaryRole,
+      });
+    }
+
+    const recordedStaffEmailKeys = new Set<string>();
+
+    const attendedItems: ProductivityItem[] = records.map((rec) => {
       let totalShiftMinutes = 0;
       if (rec.checkInTime) {
         const end = rec.checkOutTime ? new Date(rec.checkOutTime) : new Date();
@@ -524,6 +645,9 @@ export class AgentMonitorService {
       let idleMinutes = rec.idleMinutes || 0;
 
       const emailKey = (rec.agent?.email || '').toLowerCase();
+      if (emailKey) recordedStaffEmailKeys.add(emailKey);
+
+      const staff = staffMap.get(emailKey);
       const hb = heartbeatMap.get(rec.agentId) || (emailKey ? heartbeatMap.get(emailKey) : null);
       if (hb) {
         const hbActiveMins = Math.floor((hb.activeSeconds || 0) / 60);
@@ -543,13 +667,19 @@ export class AgentMonitorService {
         totalTracked > 0 ? Math.min(100, Math.round((activeMinutes / totalTracked) * 100)) : 0;
 
       const roles = (hb?.user?.userRoles || []).map((ur: any) => ur.role?.name || '');
-      const primaryRole = roles.find((r: string) => /manager/i.test(r)) || roles.find((r: string) => /admin/i.test(r)) || roles[0] || 'Agent';
+      const primaryRole =
+        staff?.role ||
+        roles.find((r: string) => /manager/i.test(r)) ||
+        roles.find((r: string) => /admin/i.test(r)) ||
+        roles[0] ||
+        'Agent';
 
       return {
         id: rec.id,
         agentId: rec.agentId,
-        agentName: rec.agent?.name || 'Agent',
-        agentEmail: rec.agent?.email || '',
+        userId: staff?.userId || hb?.userId || rec.agentId,
+        agentName: rec.agent?.name || staff?.name || 'Agent',
+        agentEmail: rec.agent?.email || staff?.email || '',
         role: primaryRole,
         date: rec.date.toISOString().split('T')[0],
         checkInTime: rec.checkInTime ? rec.checkInTime.toISOString() : null,
@@ -562,8 +692,75 @@ export class AgentMonitorService {
       };
     });
 
+    // Determine query date for un-checked-in staff synthesis
+    const queryDateStr =
+      params.startDate || params.endDate || new Date().toISOString().split('T')[0];
+
+    const unCheckedInItems: ProductivityItem[] = [];
+
+    // If viewing the entire team (or a specific agent who hasn't checked in yet)
+    for (const [emailKey, staff] of staffMap.entries()) {
+      if (targetAgentId && staff.agentId !== targetAgentId && staff.userId !== targetAgentId) {
+        continue;
+      }
+      if (targetUserId && staff.userId !== targetUserId) {
+        continue;
+      }
+
+      if (!recordedStaffEmailKeys.has(emailKey)) {
+        const hb =
+          heartbeatMap.get(staff.agentId) ||
+          heartbeatMap.get(staff.userId) ||
+          heartbeatMap.get(emailKey);
+
+        const hbActiveMins = hb ? Math.floor((hb.activeSeconds || 0) / 60) : 0;
+        const hbIdleMins = hb ? Math.floor((hb.idleSeconds || 0) / 60) : 0;
+        const totalMins = hbActiveMins + hbIdleMins;
+        const prodScore =
+          totalMins > 0 ? Math.min(100, Math.round((hbActiveMins / totalMins) * 100)) : 0;
+
+        unCheckedInItems.push({
+          id: hb?.id || `unregistered-${staff.agentId || staff.userId}-${queryDateStr}`,
+          agentId: staff.agentId,
+          userId: staff.userId,
+          agentName: staff.name,
+          agentEmail: staff.email,
+          role: staff.role,
+          date: queryDateStr,
+          checkInTime: null,
+          checkOutTime: null,
+          status: totalMins > 0 ? 'PRESENT' : 'NOT_CHECKED_IN',
+          totalShiftMinutes: totalMins,
+          activeMinutes: hbActiveMins,
+          idleMinutes: hbIdleMins,
+          productivityScore: prodScore,
+        });
+      }
+    }
+
+    // Merge all records and sort nicely:
+    // 1. Actively working staff (checked in or with PC active minutes) first
+    // 2. Managers and Admins first
+    // 3. Alphabetical by name
+    const allCombined = [...attendedItems, ...unCheckedInItems].sort((a, b) => {
+      const aActive = (a.activeMinutes || 0) > 0 || Boolean(a.checkInTime);
+      const bActive = (b.activeMinutes || 0) > 0 || Boolean(b.checkInTime);
+      if (aActive && !bActive) return -1;
+      if (!aActive && bActive) return 1;
+
+      const aMgr = /manager|admin/i.test(a.role || '');
+      const bMgr = /manager|admin/i.test(b.role || '');
+      if (aMgr && !bMgr) return -1;
+      if (!aMgr && bMgr) return 1;
+
+      return a.agentName.localeCompare(b.agentName);
+    });
+
+    const total = allCombined.length;
+    const paginatedData = allCombined.slice(skip, skip + limit);
+
     return {
-      data,
+      data: paginatedData,
       meta: {
         total,
         page,

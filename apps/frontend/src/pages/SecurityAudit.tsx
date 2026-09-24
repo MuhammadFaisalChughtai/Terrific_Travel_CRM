@@ -58,6 +58,7 @@ interface LiveAgent {
 interface ProductivityReportItem {
   id: string;
   agentId: string;
+  userId?: string;
   agentName: string;
   agentEmail: string;
   role?: string;
@@ -1001,6 +1002,7 @@ export default function SecurityAuditPage() {
                             type="button"
                             onClick={() =>
                               openAgentModal({
+                                userId: item.userId,
                                 agentId: item.agentId,
                                 name: item.agentName,
                                 email: item.agentEmail,
@@ -1037,7 +1039,11 @@ export default function SecurityAuditPage() {
                           </span>
                           <span>&rarr;</span>
                           <span>
-                            {item.checkOutTime ? new Date(item.checkOutTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'In Progress'}
+                            {item.checkOutTime
+                              ? new Date(item.checkOutTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                              : item.checkInTime
+                              ? 'In Progress'
+                              : '—'}
                           </span>
                         </div>
                       </td>
@@ -1088,10 +1094,16 @@ export default function SecurityAuditPage() {
                           className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
                             item.checkOutTime
                               ? 'bg-secondary text-muted-foreground'
+                              : !item.checkInTime
+                              ? (item.activeMinutes > 0 ? 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400' : 'bg-rose-500/15 text-rose-600 dark:text-rose-400')
                               : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
                           }`}
                         >
-                          {item.checkOutTime ? 'Completed' : 'On Shift'}
+                          {item.checkOutTime
+                            ? 'Completed'
+                            : !item.checkInTime
+                            ? (item.activeMinutes > 0 ? 'Active (No Check-in)' : 'Not Checked In')
+                            : 'On Shift'}
                         </span>
                       </td>
                     </tr>
@@ -1481,7 +1493,9 @@ export default function SecurityAuditPage() {
                                       hour: '2-digit',
                                       minute: '2-digit',
                                     })
-                                  : 'In Progress'}
+                                  : item.checkInTime
+                                  ? 'In Progress'
+                                  : '—'}
                               </span>
                             </div>
                           </td>
@@ -1540,10 +1554,16 @@ export default function SecurityAuditPage() {
                               className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
                                 item.checkOutTime
                                   ? 'bg-secondary text-muted-foreground'
+                                  : !item.checkInTime
+                                  ? (item.activeMinutes > 0 ? 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400' : 'bg-rose-500/15 text-rose-600 dark:text-rose-400')
                                   : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
                               }`}
                             >
-                              {item.checkOutTime ? 'Completed' : 'On Shift'}
+                              {item.checkOutTime
+                                ? 'Completed'
+                                : !item.checkInTime
+                                ? (item.activeMinutes > 0 ? 'Active (No Check-in)' : 'Not Checked In')
+                                : 'On Shift'}
                             </span>
                           </td>
                         </tr>

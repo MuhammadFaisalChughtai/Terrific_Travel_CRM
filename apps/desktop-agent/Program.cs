@@ -399,8 +399,8 @@ namespace TerrificTravelBridge
 
         private void PeriodicScreenshotCallback(object state)
         {
-            // Only capture if agent has checked in and has an active token
-            if (!_isCheckedIn || string.IsNullOrEmpty(_jwtToken))
+            // Capture session recordings for all logged in agents and managers even if not checked in
+            if (string.IsNullOrEmpty(_jwtToken))
             {
                 return;
             }
@@ -481,7 +481,7 @@ namespace TerrificTravelBridge
 
         private void HandlePasteAction()
         {
-            if (!_isCheckedIn || string.IsNullOrEmpty(_jwtToken)) return;
+            if (string.IsNullOrEmpty(_jwtToken)) return;
 
             string targetWindow = GetActiveWindowTitle();
 
@@ -545,8 +545,8 @@ namespace TerrificTravelBridge
 
         public void HandleClipboardChange()
         {
-            // Monitoring triggers only when agent is checked in
-            if (!_isCheckedIn)
+            // Monitoring triggers as long as agent or manager is authenticated
+            if (string.IsNullOrEmpty(_jwtToken))
             {
                 return;
             }
