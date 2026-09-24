@@ -126,12 +126,13 @@ export const getLiveAgents = asyncHandler(async (req: AuthenticatedRequest, res:
 });
 
 export const getAuditLogs = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  const { page, limit, userId, action, search, startDate, endDate } = req.query;
+  const { page, limit, userId, agentId, action, search, startDate, endDate } = req.query;
 
   const result = await agentMonitorService.getAuditLogs({
     page: page ? Number(page) : undefined,
     limit: limit ? Number(limit) : undefined,
     userId: typeof userId === 'string' ? userId : undefined,
+    agentId: typeof agentId === 'string' ? agentId : undefined,
     action: typeof action === 'string' ? action : undefined,
     search: typeof search === 'string' ? search : undefined,
     startDate: typeof startDate === 'string' ? startDate : undefined,
@@ -204,12 +205,13 @@ export const getStatus = asyncHandler(async (req: AuthenticatedRequest, res: Res
 });
 
 export const getProductivityReports = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  const { page, limit, agentId, startDate, endDate } = req.query;
+  const { page, limit, agentId, userId, startDate, endDate } = req.query;
 
   const result = await agentMonitorService.getProductivityReports({
     page: page ? Number(page) : undefined,
     limit: limit ? Number(limit) : undefined,
     agentId: typeof agentId === 'string' ? agentId : undefined,
+    userId: typeof userId === 'string' ? userId : undefined,
     startDate: typeof startDate === 'string' ? startDate : undefined,
     endDate: typeof endDate === 'string' ? endDate : undefined,
   });

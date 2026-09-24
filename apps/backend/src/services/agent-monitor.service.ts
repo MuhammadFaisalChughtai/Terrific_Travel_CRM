@@ -311,6 +311,7 @@ export class AgentMonitorService {
     page?: number;
     limit?: number;
     userId?: string;
+    agentId?: string;
     action?: string;
     search?: string;
     startDate?: string;
@@ -322,8 +323,21 @@ export class AgentMonitorService {
 
     const where: any = {};
 
-    if (params.userId) {
-      where.userId = params.userId;
+    let targetUserId = params.userId;
+    if (!targetUserId && params.agentId) {
+      const user = await prisma.user.findFirst({
+        where: {
+          OR: [{ id: params.agentId }, { agentId: params.agentId }],
+        },
+        select: { id: true },
+      });
+      if (user) {
+        targetUserId = user.id;
+      }
+    }
+
+    if (targetUserId) {
+      where.userId = targetUserId;
     }
     if (params.action) {
       where.action = params.action.toUpperCase();
@@ -392,6 +406,7 @@ export class AgentMonitorService {
     startDate?: string;
     endDate?: string;
     agentId?: string;
+    userId?: string;
     page?: number;
     limit?: number;
   }) {
@@ -400,7 +415,18 @@ export class AgentMonitorService {
     const skip = (page - 1) * limit;
 
     const where: any = {};
-    if (params.agentId) where.agentId = params.agentId;
+    let targetAgentId = params.agentId;
+    if (!targetAgentId && params.userId) {
+      const user = await prisma.user.findUnique({
+        where: { id: params.userId },
+        select: { agentId: true },
+      });
+      if (user?.agentId) {
+        targetAgentId = user.agentId;
+      }
+    }
+
+    if (targetAgentId) where.agentId = targetAgentId;
     if (params.startDate || params.endDate) {
       where.date = {};
       if (params.startDate) where.date.gte = new Date(params.startDate);
