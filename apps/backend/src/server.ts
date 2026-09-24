@@ -60,6 +60,18 @@ async function bootstrap() {
   const swaggerSpec = swaggerJSDoc(swaggerOptions);
   app.use('/swagger', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
+  // Root & API welcome/status endpoint
+  app.get(['/', '/api'], (req, res) => {
+    res.status(200).json({
+      success: true,
+      service: 'Terrific Travel API',
+      version: '1.0.0',
+      status: 'online',
+      health: '/api/health',
+      docs: '/swagger',
+    });
+  });
+
   // Health check endpoint (mandatory for Docker Compose check)
   app.get('/api/health', (req, res) => {
     res.status(200).json({
