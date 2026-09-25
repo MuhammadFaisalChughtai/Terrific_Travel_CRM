@@ -50,6 +50,8 @@ interface LiveAgent {
   isIdle?: boolean;
   activeMinutes?: number;
   idleMinutes?: number;
+  breakMinutes?: number;
+  isOnBreak?: boolean;
   lastPingAt: string;
   elapsedSeconds: number;
   isOnline: boolean;
@@ -69,6 +71,8 @@ interface ProductivityReportItem {
   totalShiftMinutes: number;
   activeMinutes: number;
   idleMinutes: number;
+  breakMinutes?: number;
+  isOnBreak?: boolean;
   productivityScore: number;
 }
 
@@ -616,14 +620,22 @@ export default function SecurityAuditPage() {
 
                   <span
                     className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                      agent.isOnline
+                      agent.isOnBreak
+                        ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30'
+                        : agent.isOnline
                         ? agent.isIdle
                           ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
                           : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
                         : 'bg-secondary text-muted-foreground'
                     }`}
                   >
-                    {agent.isOnline ? (agent.isIdle ? 'Idle (>5m)' : 'Active') : 'Offline'}
+                    {agent.isOnBreak
+                      ? '☕ On Break'
+                      : agent.isOnline
+                      ? agent.isIdle
+                        ? 'Idle (>5m)'
+                        : 'Active'
+                      : 'Offline'}
                   </span>
                 </div>
 
@@ -663,13 +675,17 @@ export default function SecurityAuditPage() {
                     </div>
                   </div>
 
-                  <div className="pt-1.5 border-t border-border/40 grid grid-cols-2 gap-2 text-[11px]">
-                    <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
-                      <Zap className="w-3 h-3" />
+                  <div className="pt-1.5 border-t border-border/40 grid grid-cols-3 gap-1 text-[10px]">
+                    <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold" title="Active Working Time">
+                      <Zap className="w-3 h-3 text-emerald-500 shrink-0" />
                       <span>{formatMinutes(agent.activeMinutes || 0)}</span>
                     </div>
-                    <div className="flex items-center gap-1 text-amber-600 dark:text-amber-400 font-medium justify-end">
-                      <Coffee className="w-3 h-3" />
+                    <div className="flex items-center gap-1 text-orange-600 dark:text-orange-400 font-semibold justify-center" title="Break Time">
+                      <Coffee className="w-3 h-3 text-orange-500 shrink-0" />
+                      <span>{formatMinutes(agent.breakMinutes || 0)}</span>
+                    </div>
+                    <div className="flex items-center gap-1 text-amber-600 dark:text-amber-400 font-semibold justify-end" title="Idle Time">
+                      <Clock className="w-3 h-3 text-amber-500 shrink-0" />
                       <span>{formatMinutes(agent.idleMinutes || 0)}</span>
                     </div>
                   </div>
@@ -928,7 +944,7 @@ export default function SecurityAuditPage() {
 
           {/* Metric Overview Cards */}
           {productivityData && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
               <div className="p-3.5 bg-card rounded-xl border border-border space-y-1">
                 <div className="text-[11px] font-bold text-muted-foreground uppercase flex items-center gap-1.5">
                   <User className="w-3.5 h-3.5 text-blue-500" /> Active Staff (Agents & Managers)
@@ -951,7 +967,18 @@ export default function SecurityAuditPage() {
 
               <div className="p-3.5 bg-card rounded-xl border border-border space-y-1">
                 <div className="text-[11px] font-bold text-muted-foreground uppercase flex items-center gap-1.5">
-                  <Coffee className="w-3.5 h-3.5 text-amber-500" /> Total Idle Time
+                  <Coffee className="w-3.5 h-3.5 text-orange-500" /> Total Break Time
+                </div>
+                <div className="text-lg font-black text-orange-600 dark:text-orange-400">
+                  {formatMinutes(
+                    (productivityData.data || []).reduce((acc, curr) => acc + (curr.breakMinutes || 0), 0)
+                  )}
+                </div>
+              </div>
+
+              <div className="p-3.5 bg-card rounded-xl border border-border space-y-1">
+                <div className="text-[11px] font-bold text-muted-foreground uppercase flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-amber-500" /> Total Idle Time
                 </div>
                 <div className="text-lg font-black text-amber-600 dark:text-amber-400">
                   {formatMinutes(
@@ -988,6 +1015,7 @@ export default function SecurityAuditPage() {
                     <th className="p-3">Shift Window</th>
                     <th className="p-3">Total Shift</th>
                     <th className="p-3">Active PC Time</th>
+                    <th className="p-3">Break Time</th>
                     <th className="p-3">Idle Time</th>
                     <th className="p-3">Productivity Score</th>
                     <th className="p-3">Status</th>
@@ -1059,9 +1087,16 @@ export default function SecurityAuditPage() {
                         </div>
                       </td>
 
+                      <td className="p-3 font-semibold text-orange-600 dark:text-orange-400">
+                        <div className="flex items-center gap-1">
+                          <Coffee className="w-3 h-3 text-orange-500" />
+                          {formatMinutes(item.breakMinutes || 0)}
+                        </div>
+                      </td>
+
                       <td className="p-3 font-semibold text-amber-600 dark:text-amber-400">
                         <div className="flex items-center gap-1">
-                          <Coffee className="w-3 h-3 text-amber-500" />
+                          <Clock className="w-3 h-3 text-amber-500" />
                           {formatMinutes(item.idleMinutes)}
                         </div>
                       </td>
@@ -1092,14 +1127,18 @@ export default function SecurityAuditPage() {
                       <td className="p-3">
                         <span
                           className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                            item.checkOutTime
+                            item.isOnBreak || item.status === 'ON_BREAK'
+                              ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30'
+                              : item.checkOutTime
                               ? 'bg-secondary text-muted-foreground'
                               : !item.checkInTime
                               ? (item.activeMinutes > 0 ? 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400' : 'bg-rose-500/15 text-rose-600 dark:text-rose-400')
                               : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
                           }`}
                         >
-                          {item.checkOutTime
+                          {item.isOnBreak || item.status === 'ON_BREAK'
+                            ? '☕ On Break'
+                            : item.checkOutTime
                             ? 'Completed'
                             : !item.checkInTime
                             ? (item.activeMinutes > 0 ? 'Active (No Check-in)' : 'Not Checked In')
@@ -1111,7 +1150,7 @@ export default function SecurityAuditPage() {
 
                   {(!productivityData?.data || productivityData.data.length === 0) && !isLoadingProductivity && (
                     <tr>
-                      <td colSpan={7} className="p-8 text-center text-muted-foreground text-xs">
+                      <td colSpan={8} className="p-8 text-center text-muted-foreground text-xs">
                         No attendance shift or productivity records found for this date.
                       </td>
                     </tr>
@@ -1460,6 +1499,7 @@ export default function SecurityAuditPage() {
                         <th className="p-3">Shift Window</th>
                         <th className="p-3">Total Shift Duration</th>
                         <th className="p-3">Active PC Time</th>
+                        <th className="p-3">Break Time</th>
                         <th className="p-3">Idle Time</th>
                         <th className="p-3">Productivity Score</th>
                         <th className="p-3">Status</th>
@@ -1511,9 +1551,16 @@ export default function SecurityAuditPage() {
                             </div>
                           </td>
 
+                          <td className="p-3 font-semibold text-orange-600 dark:text-orange-400">
+                            <div className="flex items-center gap-1">
+                              <Coffee className="w-3 h-3 text-orange-500" />
+                              {formatMinutes(item.breakMinutes || 0)}
+                            </div>
+                          </td>
+
                           <td className="p-3 font-semibold text-amber-600 dark:text-amber-400">
                             <div className="flex items-center gap-1">
-                              <Coffee className="w-3 h-3 text-amber-500" />
+                              <Clock className="w-3 h-3 text-amber-500" />
                               {formatMinutes(item.idleMinutes)}
                             </div>
                           </td>
@@ -1552,14 +1599,18 @@ export default function SecurityAuditPage() {
                           <td className="p-3 whitespace-nowrap">
                             <span
                               className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                                item.checkOutTime
+                                item.isOnBreak || item.status === 'ON_BREAK'
+                                  ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30'
+                                  : item.checkOutTime
                                   ? 'bg-secondary text-muted-foreground'
                                   : !item.checkInTime
                                   ? (item.activeMinutes > 0 ? 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400' : 'bg-rose-500/15 text-rose-600 dark:text-rose-400')
                                   : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
                               }`}
                             >
-                              {item.checkOutTime
+                              {item.isOnBreak || item.status === 'ON_BREAK'
+                                ? '☕ On Break'
+                                : item.checkOutTime
                                 ? 'Completed'
                                 : !item.checkInTime
                                 ? (item.activeMinutes > 0 ? 'Active (No Check-in)' : 'Not Checked In')
@@ -1571,7 +1622,7 @@ export default function SecurityAuditPage() {
 
                       {isLoadingAgentProductivity && (
                         <tr>
-                          <td colSpan={7} className="p-8 text-center text-muted-foreground text-xs">
+                          <td colSpan={8} className="p-8 text-center text-muted-foreground text-xs">
                             <div className="flex items-center justify-center gap-2">
                               <RefreshCw className="w-4 h-4 animate-spin text-orange-500" />
                               <span>Loading productivity history...</span>
@@ -1583,7 +1634,7 @@ export default function SecurityAuditPage() {
                       {(!agentProductivityData?.data || agentProductivityData.data.length === 0) &&
                         !isLoadingAgentProductivity && (
                           <tr>
-                            <td colSpan={7} className="p-8 text-center text-muted-foreground text-xs">
+                            <td colSpan={8} className="p-8 text-center text-muted-foreground text-xs">
                               No shift or attendance records found for this agent.
                             </td>
                           </tr>

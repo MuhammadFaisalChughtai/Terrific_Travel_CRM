@@ -23,6 +23,26 @@ export const checkOut = asyncHandler(async (req: AuthenticatedRequest, res: Resp
   res.status(200).json({ success: true, data: result });
 });
 
+export const startBreak = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    res.status(401).json({ success: false, message: 'Unauthorized' });
+    return;
+  }
+  const result = await attendanceService.startBreak(userId);
+  res.status(200).json({ success: true, data: result });
+});
+
+export const endBreak = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    res.status(401).json({ success: false, message: 'Unauthorized' });
+    return;
+  }
+  const result = await attendanceService.endBreak(userId);
+  res.status(200).json({ success: true, data: result });
+});
+
 export const getTodayStatus = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const userId = req.user?.id;
   if (!userId) {

@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, differenceInMinutes } from "date-fns";
 import { useAuthStore } from "../store/auth.store";
 import { apiClient } from "../api/client";
-import { LogIn, LogOut, CheckCircle2, XCircle, Clock, Filter, Users, Loader2, Edit, AlertCircle, ShieldAlert, ShieldCheck, Plus, Check, Gift, Award, Calendar } from "lucide-react";
+import { LogIn, LogOut, CheckCircle2, XCircle, Clock, Filter, Users, Loader2, Edit, AlertCircle, ShieldAlert, ShieldCheck, Plus, Check, Gift, Award, Calendar, Coffee, Play } from "lucide-react";
 import { toast } from "sonner";
 import Modal from "../components/Modal";
 import EditAttendanceModal from "../components/EditAttendanceModal";
@@ -19,9 +19,12 @@ interface AttendanceRecord {
   date: string;
   checkInTime: string | null;
   checkOutTime: string | null;
-  status: "PRESENT" | "ABSENT" | "ON_LEAVE";
+  status: "PRESENT" | "ABSENT" | "ON_LEAVE" | "ON_BREAK";
   isLate?: boolean;
   lateMinutes?: number;
+  breakMinutes?: number;
+  isOnBreak?: boolean;
+  breakStartTime?: string | null;
   agent?: {
     id?: string;
     name: string;
@@ -286,6 +289,37 @@ export default function Attendance() {
     },
   });
 
+  // Start Break Mutation
+  const startBreakMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiClient.post("/attendance/start-break");
+      return res.data;
+    },
+    onSuccess: () => {
+      toast.success("Break started! Enjoy your break.");
+      queryClient.invalidateQueries({ queryKey: ["attendance", "today"] });
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message || "Failed to start break");
+    },
+  });
+
+  // End Break Mutation
+  const endBreakMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiClient.post("/attendance/end-break");
+      return res.data;
+    },
+    onSuccess: (data: any) => {
+      const added = data?.data?.addedMinutes || 0;
+      toast.success(`Break ended (${added} min${added === 1 ? '' : 's'}). Welcome back!`);
+      queryClient.invalidateQueries({ queryKey: ["attendance", "today"] });
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message || "Failed to end break");
+    },
+  });
+
   const formatFineAmount = (amount: number, curr?: string) => {
     const code = (curr || "GBP").toUpperCase();
     const symbols: Record<string, string> = {
@@ -387,10 +421,71 @@ export default function Attendance() {
                     <CheckCircle2 className="text-emerald-600 dark:text-emerald-400 w-6 h-6" />
                   </div>
 
+                  {/* Break State & Action Buttons */}
+                  {todayStatus.isOnBreak ? (
+                    <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 p-4 rounded-lg text-left space-y-3 shadow-xs">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                          <div className="p-2 bg-amber-500/20 text-amber-600 dark:text-amber-400 rounded-lg">
+                            <Coffee className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-amber-900 dark:text-amber-200 uppercase tracking-wider">
+                              Currently On Break
+                            </p>
+                            <p className="text-[11px] text-muted-foreground">
+                              {todayStatus.breakStartTime
+                                ? `Started at ${format(new Date(todayStatus.breakStartTime), "hh:mm a")}`
+                                : "Active Break Session"}
+                            </p>
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-400/50 animate-pulse">
+                          Taking Break
+                        </span>
+                      </div>
+
+                      <button
+                        onClick={() => endBreakMutation.mutate()}
+                        disabled={endBreakMutation.isPending}
+                        className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2 shadow-sm cursor-pointer text-sm"
+                      >
+                        {endBreakMutation.isPending ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Play size={16} />
+                        )}
+                        Resume Work (End Break)
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => startBreakMutation.mutate()}
+                        disabled={startBreakMutation.isPending || checkOutMutation.isPending}
+                        className="w-full py-2.5 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-400/50 text-amber-800 dark:text-amber-300 font-bold rounded-lg transition-colors flex items-center justify-center gap-2 cursor-pointer text-sm"
+                      >
+                        {startBreakMutation.isPending ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Coffee size={16} />
+                        )}
+                        Take a Break
+                      </button>
+                    </div>
+                  )}
+
+                  {(todayStatus.breakMinutes || 0) > 0 && (
+                    <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground font-medium py-1 px-3 bg-secondary/50 rounded-lg">
+                      <Coffee className="w-3.5 h-3.5 text-amber-500" />
+                      <span>Total Break Taken Today: <strong className="text-foreground">{todayStatus.breakMinutes} mins</strong></span>
+                    </div>
+                  )}
+
                   <button
                     onClick={() => checkOutMutation.mutate()}
-                    disabled={checkOutMutation.isPending}
-                    className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2 shadow-md"
+                    disabled={checkOutMutation.isPending || startBreakMutation.isPending}
+                    className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2 shadow-md cursor-pointer"
                   >
                     {checkOutMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <LogOut size={20} />}
                     Check Out
@@ -400,9 +495,14 @@ export default function Attendance() {
                 <div className="bg-muted p-4 rounded-lg text-center space-y-2">
                   <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto" />
                   <p className="font-bold text-sm">Completed Shift for Today</p>
-                  <div className="text-xs text-muted-foreground flex justify-center gap-4 pt-1">
+                  <div className="text-xs text-muted-foreground flex flex-wrap justify-center gap-4 pt-1">
                     <span>In: {format(new Date(todayStatus.checkInTime!), "hh:mm a")}</span>
                     <span>Out: {format(new Date(todayStatus.checkOutTime!), "hh:mm a")}</span>
+                    {(todayStatus.breakMinutes || 0) > 0 && (
+                      <span className="text-amber-600 dark:text-amber-400 font-medium">
+                        ☕ Break: {todayStatus.breakMinutes}m
+                      </span>
+                    )}
                   </div>
                 </div>
               )}
@@ -779,6 +879,7 @@ export default function Attendance() {
                     <th className="p-3">Check In</th>
                     <th className="p-3">Check Out</th>
                     <th className="p-3">Total Time</th>
+                    <th className="p-3">Break Time</th>
                     <th className="p-3">Status</th>
                     <th className="p-3 text-right">Actions</th>
                   </tr>
@@ -786,7 +887,7 @@ export default function Attendance() {
                 <tbody className="divide-y divide-border">
                   {loadingAll ? (
                     <tr>
-                      <td colSpan={7} className="p-8 text-center text-muted-foreground">
+                      <td colSpan={8} className="p-8 text-center text-muted-foreground">
                         <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-primary" />
                         Loading attendance records...
                       </td>
@@ -899,6 +1000,19 @@ export default function Attendance() {
                           <td className="p-3 font-bold text-foreground">
                             {record.checkInTime && record.checkOutTime ? `${hours}h ${minutes}m` : "—"}
                           </td>
+                          <td className="p-3 font-medium text-amber-700 dark:text-amber-400">
+                            {record.isOnBreak ? (
+                              <span className="inline-flex items-center gap-1 font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 px-2 py-0.5 rounded text-[10px]">
+                                <Coffee size={12} /> {record.breakMinutes || 0}m (On Break)
+                              </span>
+                            ) : (record.breakMinutes || 0) > 0 ? (
+                              <span className="inline-flex items-center gap-1">
+                                <Coffee size={12} className="text-amber-500" /> {record.breakMinutes}m
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </td>
                           <td className="p-3">
                             <span
                               className={`px-2 py-0.5 rounded font-black text-[10px] uppercase ${
@@ -929,7 +1043,7 @@ export default function Attendance() {
                     })
                   ) : (
                     <tr>
-                      <td colSpan={7} className="p-8 text-center text-muted-foreground">
+                      <td colSpan={8} className="p-8 text-center text-muted-foreground">
                         No attendance records found.
                       </td>
                     </tr>

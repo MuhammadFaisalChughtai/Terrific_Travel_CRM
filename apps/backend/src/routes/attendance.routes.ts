@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { checkIn, checkOut, getTodayStatus, getAllAttendance, updateAttendance } from '../controllers/attendance.controller';
+import { checkIn, checkOut, startBreak, endBreak, getTodayStatus, getAllAttendance, updateAttendance } from '../controllers/attendance.controller';
 import { authMiddleware } from '../middleware/auth.middleware';
 import { requireRoles } from '../middleware/rbac.middleware';
 
@@ -12,6 +12,8 @@ router.use(authMiddleware as any);
 // Agent & Staff routes
 router.post('/check-in', requireRoles('Agent', 'TRAVEL_AGENT', 'Admin', 'SUPER_ADMIN', 'ADMIN', 'Manager', 'MANAGER') as any, checkIn);
 router.post('/check-out', requireRoles('Agent', 'TRAVEL_AGENT', 'Admin', 'SUPER_ADMIN', 'ADMIN', 'Manager', 'MANAGER') as any, checkOut);
+router.post('/start-break', requireRoles('Agent', 'TRAVEL_AGENT', 'Admin', 'SUPER_ADMIN', 'ADMIN', 'Manager', 'MANAGER') as any, startBreak);
+router.post('/end-break', requireRoles('Agent', 'TRAVEL_AGENT', 'Admin', 'SUPER_ADMIN', 'ADMIN', 'Manager', 'MANAGER') as any, endBreak);
 router.get('/today', requireRoles('Agent', 'TRAVEL_AGENT', 'Admin', 'SUPER_ADMIN', 'ADMIN', 'Manager', 'MANAGER') as any, getTodayStatus);
 
 // Admin routes

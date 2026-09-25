@@ -23,6 +23,8 @@ export interface ProductivityItem {
   totalShiftMinutes: number;
   activeMinutes: number;
   idleMinutes: number;
+  breakMinutes: number;
+  isOnBreak: boolean;
   productivityScore: number;
 }
 
@@ -341,28 +343,48 @@ export class AgentMonitorService {
   }
 
   async getLiveAgents() {
-    const heartbeats = await prisma.agentWorkstationHeartbeat.findMany({
-      orderBy: {
-        lastPingAt: 'desc',
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            userRoles: {
-              include: {
-                role: {
-                  select: { name: true },
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+
+    const [heartbeats, todayAttendances] = await Promise.all([
+      prisma.agentWorkstationHeartbeat.findMany({
+        orderBy: {
+          lastPingAt: 'desc',
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              agentId: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              userRoles: {
+                include: {
+                  role: {
+                    select: { name: true },
+                  },
                 },
               },
             },
           },
         },
-      },
-    });
+      }),
+      prisma.attendance.findMany({
+        where: { date: today },
+        select: {
+          agentId: true,
+          isOnBreak: true,
+          breakMinutes: true,
+          breakStartTime: true,
+        },
+      }),
+    ]);
+
+    const attendanceBreakMap = new Map<string, { isOnBreak: boolean; breakMinutes: number; breakStartTime: Date | null }>();
+    for (const att of todayAttendances) {
+      if (att.agentId) attendanceBreakMap.set(att.agentId, att);
+    }
 
     const now = Date.now();
     const todayStr = new Date().toISOString().split('T')[0];
@@ -377,6 +399,14 @@ export class AgentMonitorService {
       // Active minutes today: only reflect if the heartbeat actually pinged today
       const activeMinutes = isPingToday ? Math.floor((hb.activeSeconds || 0) / 60) : 0;
       const idleMinutes = isPingToday ? Math.floor((hb.idleSeconds || 0) / 60) : 0;
+
+      const attInfo = attendanceBreakMap.get(hb.user?.agentId) || attendanceBreakMap.get(hb.userId);
+      const isOnBreak = Boolean(attInfo?.isOnBreak);
+      let breakMinutes = attInfo?.breakMinutes || 0;
+      if (isOnBreak && attInfo?.breakStartTime) {
+        const elapsedBreak = Math.max(0, Math.floor((now - new Date(attInfo.breakStartTime).getTime()) / 60000));
+        breakMinutes += elapsedBreak;
+      }
 
       return {
         id: hb.id,
@@ -396,6 +426,8 @@ export class AgentMonitorService {
         isIdle: Boolean(hb.isIdle),
         activeMinutes,
         idleMinutes,
+        breakMinutes,
+        isOnBreak,
         lastPingAt: hb.lastPingAt,
         elapsedSeconds,
         isOnline,
@@ -737,6 +769,13 @@ export class AgentMonitorService {
       const productivityScore =
         totalTracked > 0 ? Math.min(100, Math.round((activeMinutes / totalTracked) * 100)) : 0;
 
+      const isCurrentlyOnBreak = Boolean(rec.isOnBreak);
+      let breakMinutes = rec.breakMinutes || 0;
+      if (isCurrentlyOnBreak && rec.breakStartTime) {
+        const elapsedBreak = Math.max(0, Math.floor((Date.now() - new Date(rec.breakStartTime).getTime()) / 60000));
+        breakMinutes += elapsedBreak;
+      }
+
       const roles = (hb?.user?.userRoles || []).map((ur: any) => ur.role?.name || '');
       const primaryRole =
         staff?.role ||
@@ -755,10 +794,12 @@ export class AgentMonitorService {
         date: recDateStr,
         checkInTime: rec.checkInTime ? rec.checkInTime.toISOString() : null,
         checkOutTime: rec.checkOutTime ? rec.checkOutTime.toISOString() : null,
-        status: rec.status,
+        status: isCurrentlyOnBreak ? 'ON_BREAK' : rec.status,
         totalShiftMinutes,
         activeMinutes,
         idleMinutes,
+        breakMinutes,
+        isOnBreak: isCurrentlyOnBreak,
         productivityScore,
       };
     });
@@ -808,6 +849,8 @@ export class AgentMonitorService {
           totalShiftMinutes: totalMins,
           activeMinutes: hbActiveMins,
           idleMinutes: hbIdleMins,
+          breakMinutes: 0,
+          isOnBreak: false,
           productivityScore: prodScore,
         });
       }

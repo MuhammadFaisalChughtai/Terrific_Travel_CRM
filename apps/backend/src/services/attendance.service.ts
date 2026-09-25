@@ -133,6 +133,74 @@ export class AttendanceService {
     return record;
   }
 
+  async startBreak(userId: string) {
+    const user = await prisma.user.findUnique({ where: { id: userId }, include: { agent: true } });
+    if (!user || !user.agentId) throw new BadRequestException('You must check in first before starting a break');
+
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+
+    const record = await prisma.attendance.findUnique({
+      where: {
+        agentId_date: {
+          agentId: user.agentId,
+          date: today,
+        },
+      },
+    });
+
+    if (!record || !record.checkInTime) {
+      throw new BadRequestException('You must check in first before starting a break');
+    }
+    if (record.checkOutTime) {
+      throw new BadRequestException('You have already checked out for today');
+    }
+    if (record.isOnBreak) {
+      throw new BadRequestException('You are already on a break');
+    }
+
+    return prisma.attendance.update({
+      where: { id: record.id },
+      data: {
+        isOnBreak: true,
+        breakStartTime: new Date(),
+      },
+    });
+  }
+
+  async endBreak(userId: string) {
+    const user = await prisma.user.findUnique({ where: { id: userId }, include: { agent: true } });
+    if (!user || !user.agentId) throw new BadRequestException('User not found');
+
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+
+    const record = await prisma.attendance.findUnique({
+      where: {
+        agentId_date: {
+          agentId: user.agentId,
+          date: today,
+        },
+      },
+    });
+
+    if (!record || !record.isOnBreak || !record.breakStartTime) {
+      throw new BadRequestException('You are not currently on a break');
+    }
+
+    const now = new Date();
+    const elapsedMinutes = Math.max(1, Math.round((now.getTime() - new Date(record.breakStartTime).getTime()) / 60000));
+
+    return prisma.attendance.update({
+      where: { id: record.id },
+      data: {
+        isOnBreak: false,
+        breakStartTime: null,
+        breakMinutes: (record.breakMinutes || 0) + elapsedMinutes,
+      },
+    });
+  }
+
   async checkOut(userId: string) {
     const user = await prisma.user.findUnique({ where: { id: userId }, include: { agent: true } });
     if (!user) throw new BadRequestException('User not found');
@@ -158,9 +226,20 @@ export class AttendanceService {
       throw new BadRequestException('Already checked out for today');
     }
 
+    let additionalBreak = 0;
+    if (existingRecord.isOnBreak && existingRecord.breakStartTime) {
+      additionalBreak = Math.max(1, Math.round((new Date().getTime() - new Date(existingRecord.breakStartTime).getTime()) / 60000));
+    }
+
     return prisma.attendance.update({
       where: { id: existingRecord.id },
-      data: { checkOutTime: new Date(), status: 'PRESENT' }
+      data: {
+        checkOutTime: new Date(),
+        status: 'PRESENT',
+        isOnBreak: false,
+        breakStartTime: null,
+        breakMinutes: (existingRecord.breakMinutes || 0) + additionalBreak,
+      },
     });
   }
 
