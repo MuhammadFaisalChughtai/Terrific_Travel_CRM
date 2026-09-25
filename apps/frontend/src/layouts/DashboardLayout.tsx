@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "../store/auth.store";
 import { apiClient } from "../api/client";
 import { useThemeStore } from "../store/theme.store";
 import { useDashboardStore } from "../store/dashboard.store";
 import { useNotificationStore } from "../store/notification.store";
+import { toast } from "sonner";
 import {
   LayoutDashboard,
   PieChart,
@@ -37,6 +38,7 @@ import {
   ShieldAlert,
   Receipt,
   Ticket,
+  Coffee,
 } from "lucide-react";
 
 export default function DashboardLayout() {
@@ -78,6 +80,41 @@ export default function DashboardLayout() {
     enabled:
       !!user &&
       (user.roles.includes("ADMIN") || user.roles.includes("SUPER_ADMIN")),
+  });
+
+  const queryClient = useQueryClient();
+  const { data: todayAttendance } = useQuery({
+    queryKey: ["attendance", "today"],
+    queryFn: async () => {
+      const res = await apiClient.get("/attendance/today");
+      return res.data.data;
+    },
+    enabled: !!user,
+    refetchInterval: 15000,
+  });
+
+  const toggleBreakMutation = useMutation({
+    mutationFn: async () => {
+      if (todayAttendance?.isOnBreak) {
+        const res = await apiClient.post("/attendance/end-break");
+        return res.data;
+      } else {
+        const res = await apiClient.post("/attendance/start-break");
+        return res.data;
+      }
+    },
+    onSuccess: (data: any) => {
+      if (todayAttendance?.isOnBreak) {
+        const added = data?.data?.addedMinutes || 0;
+        toast.success(`Welcome back! Break ended (${added} min${added === 1 ? '' : 's'}).`);
+      } else {
+        toast.success("Break started! Enjoy your break.");
+      }
+      queryClient.invalidateQueries({ queryKey: ["attendance", "today"] });
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message || "Failed to update break status");
+    },
   });
 
   useEffect(() => {
@@ -444,6 +481,23 @@ export default function DashboardLayout() {
                 <span className="font-bold font-mono text-emerald-700 dark:text-emerald-300 text-xs">{headerClocks.pkt || "—"}</span>
               </div>
             </div>
+
+            {/* Quick Break / Unbreak Control for Staff in Navbar */}
+            {todayAttendance?.checkInTime && !todayAttendance?.checkOutTime && (
+              <button
+                onClick={() => toggleBreakMutation.mutate()}
+                disabled={toggleBreakMutation.isPending}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all shadow-xs cursor-pointer ${
+                  todayAttendance.isOnBreak
+                    ? "bg-amber-500 text-white hover:bg-amber-600 animate-pulse border border-amber-600"
+                    : "bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30"
+                }`}
+                title={todayAttendance.isOnBreak ? "Click to Unbreak (Resume Work)" : "Click to Take a Break"}
+              >
+                <Coffee size={14} />
+                <span>{todayAttendance.isOnBreak ? "Unbreak" : "Break"}</span>
+              </button>
+            )}
 
             {/* Active Fine Badge for Current Month */}
             {currentMonthFineTotal > 0 && (

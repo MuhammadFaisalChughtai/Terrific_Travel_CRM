@@ -83,6 +83,31 @@ function getPktTimeFromUkTime(ukTimeStr: string): string {
   return `${displayH}:${displayM} ${ampm} PKT`;
 }
 
+function BreakLiveTimer({ startTime }: { startTime?: string | null }) {
+  const [elapsed, setElapsed] = useState("");
+
+  useEffect(() => {
+    if (!startTime) return;
+    const start = new Date(startTime).getTime();
+    const update = () => {
+      const diffSecs = Math.max(0, Math.floor((Date.now() - start) / 1000));
+      const mins = Math.floor(diffSecs / 60);
+      const secs = diffSecs % 60;
+      setElapsed(`${mins}m ${secs < 10 ? "0" : ""}${secs}s`);
+    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [startTime]);
+
+  if (!startTime || !elapsed) return null;
+  return (
+    <span className="font-mono font-bold text-amber-900 dark:text-amber-200">
+      ({elapsed})
+    </span>
+  );
+}
+
 export default function Attendance() {
   const user = useAuthStore((state) => state.user);
   const queryClient = useQueryClient();
@@ -396,14 +421,31 @@ export default function Attendance() {
           ) : (
             <div className="space-y-4">
               {!isCheckedIn ? (
-                <button
-                  onClick={() => checkInMutation.mutate()}
-                  disabled={checkInMutation.isPending}
-                  className="w-full py-3 bg-[#f4722b] hover:bg-[#d96222] text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2 shadow-md"
-                >
-                  {checkInMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <LogIn size={20} />}
-                  Check In
-                </button>
+                <div className="space-y-3">
+                  <button
+                    onClick={() => checkInMutation.mutate()}
+                    disabled={checkInMutation.isPending || startBreakMutation.isPending}
+                    className="w-full py-3 bg-[#f4722b] hover:bg-[#d96222] text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2 shadow-md cursor-pointer text-base"
+                  >
+                    {checkInMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <LogIn size={20} />}
+                    Check In
+                  </button>
+
+                  <div className="relative flex py-1 items-center">
+                    <div className="flex-grow border-t border-border"></div>
+                    <span className="flex-shrink mx-2 text-[10px] text-muted-foreground uppercase font-bold tracking-wider">or go on break</span>
+                    <div className="flex-grow border-t border-border"></div>
+                  </div>
+
+                  <button
+                    onClick={() => startBreakMutation.mutate()}
+                    disabled={startBreakMutation.isPending || checkInMutation.isPending}
+                    className="w-full py-2.5 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-400/50 text-amber-800 dark:text-amber-300 font-bold rounded-lg transition-colors flex items-center justify-center gap-2 shadow-xs cursor-pointer text-sm"
+                  >
+                    {startBreakMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Coffee size={18} className="text-amber-500" />}
+                    ☕ Break (Take Break)
+                  </button>
+                </div>
               ) : !isCheckedOut ? (
                 <div className="space-y-4">
                   <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 p-4 rounded-lg flex items-center justify-between text-left">
@@ -423,60 +465,63 @@ export default function Attendance() {
 
                   {/* Break State & Action Buttons */}
                   {todayStatus.isOnBreak ? (
-                    <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 p-4 rounded-lg text-left space-y-3 shadow-xs">
+                    <div className="bg-amber-50 dark:bg-amber-950/40 border-2 border-amber-400 dark:border-amber-700/80 p-4 rounded-xl text-left space-y-3 shadow-md">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2.5">
-                          <div className="p-2 bg-amber-500/20 text-amber-600 dark:text-amber-400 rounded-lg">
+                          <div className="p-2 bg-amber-500 text-white rounded-lg shadow-sm">
                             <Coffee className="w-5 h-5" />
                           </div>
                           <div>
-                            <p className="text-xs font-bold text-amber-900 dark:text-amber-200 uppercase tracking-wider">
-                              Currently On Break
+                            <p className="text-xs font-black text-amber-900 dark:text-amber-200 uppercase tracking-wider flex items-center gap-1.5 flex-wrap">
+                              <span>Currently On Break</span>
+                              <BreakLiveTimer startTime={todayStatus.breakStartTime} />
                             </p>
-                            <p className="text-[11px] text-muted-foreground">
+                            <p className="text-[11px] text-muted-foreground font-medium">
                               {todayStatus.breakStartTime
                                 ? `Started at ${format(new Date(todayStatus.breakStartTime), "hh:mm a")}`
                                 : "Active Break Session"}
                             </p>
                           </div>
                         </div>
-                        <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-400/50 animate-pulse">
-                          Taking Break
+                        <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-amber-500 text-white shadow-xs animate-pulse">
+                          Paused
                         </span>
                       </div>
 
+                      {/* UNBREAK BUTTON */}
                       <button
                         onClick={() => endBreakMutation.mutate()}
                         disabled={endBreakMutation.isPending}
-                        className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2 shadow-sm cursor-pointer text-sm"
+                        className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white font-extrabold rounded-lg transition-all flex items-center justify-center gap-2 shadow-md cursor-pointer text-base"
                       >
                         {endBreakMutation.isPending ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <Loader2 className="w-5 h-5 animate-spin" />
                         ) : (
-                          <Play size={16} />
+                          <Play size={20} className="fill-white" />
                         )}
-                        Resume Work (End Break)
+                        ☕ Unbreak (End Break &amp; Resume Work)
                       </button>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-2">
+                    <div className="space-y-2">
+                      {/* BREAK BUTTON */}
                       <button
                         onClick={() => startBreakMutation.mutate()}
                         disabled={startBreakMutation.isPending || checkOutMutation.isPending}
-                        className="w-full py-2.5 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-400/50 text-amber-800 dark:text-amber-300 font-bold rounded-lg transition-colors flex items-center justify-center gap-2 cursor-pointer text-sm"
+                        className="w-full py-3 bg-amber-500 hover:bg-amber-600 active:scale-[0.99] text-white font-extrabold rounded-lg transition-all flex items-center justify-center gap-2 shadow-md cursor-pointer text-base"
                       >
                         {startBreakMutation.isPending ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <Loader2 className="w-5 h-5 animate-spin" />
                         ) : (
-                          <Coffee size={16} />
+                          <Coffee size={20} />
                         )}
-                        Take a Break
+                        ☕ Break (Go on Break)
                       </button>
                     </div>
                   )}
 
                   {(todayStatus.breakMinutes || 0) > 0 && (
-                    <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground font-medium py-1 px-3 bg-secondary/50 rounded-lg">
+                    <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground font-medium py-1.5 px-3 bg-secondary/50 rounded-lg">
                       <Coffee className="w-3.5 h-3.5 text-amber-500" />
                       <span>Total Break Taken Today: <strong className="text-foreground">{todayStatus.breakMinutes} mins</strong></span>
                     </div>

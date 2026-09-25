@@ -135,23 +135,31 @@ export class AttendanceService {
 
   async startBreak(userId: string) {
     const user = await prisma.user.findUnique({ where: { id: userId }, include: { agent: true } });
-    if (!user || !user.agentId) throw new BadRequestException('You must check in first before starting a break');
+    if (!user) throw new BadRequestException('User not found');
 
     const today = new Date();
     today.setUTCHours(0, 0, 0, 0);
 
-    const record = await prisma.attendance.findUnique({
-      where: {
-        agentId_date: {
-          agentId: user.agentId,
-          date: today,
-        },
-      },
-    });
+    let record: any = user.agentId
+      ? await prisma.attendance.findUnique({
+          where: {
+            agentId_date: {
+              agentId: user.agentId,
+              date: today,
+            },
+          },
+        })
+      : null;
 
     if (!record || !record.checkInTime) {
-      throw new BadRequestException('You must check in first before starting a break');
+      // Auto check-in first if staff clicks break before checking in
+      record = await this.checkIn(userId);
     }
+
+    if (!record) {
+      throw new BadRequestException('Failed to initialize attendance session');
+    }
+
     if (record.checkOutTime) {
       throw new BadRequestException('You have already checked out for today');
     }
@@ -170,19 +178,21 @@ export class AttendanceService {
 
   async endBreak(userId: string) {
     const user = await prisma.user.findUnique({ where: { id: userId }, include: { agent: true } });
-    if (!user || !user.agentId) throw new BadRequestException('User not found');
+    if (!user) throw new BadRequestException('User not found');
 
     const today = new Date();
     today.setUTCHours(0, 0, 0, 0);
 
-    const record = await prisma.attendance.findUnique({
-      where: {
-        agentId_date: {
-          agentId: user.agentId,
-          date: today,
-        },
-      },
-    });
+    const record = user.agentId
+      ? await prisma.attendance.findUnique({
+          where: {
+            agentId_date: {
+              agentId: user.agentId,
+              date: today,
+            },
+          },
+        })
+      : null;
 
     if (!record || !record.isOnBreak || !record.breakStartTime) {
       throw new BadRequestException('You are not currently on a break');
