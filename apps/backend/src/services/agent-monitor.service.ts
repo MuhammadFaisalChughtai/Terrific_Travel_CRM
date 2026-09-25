@@ -111,6 +111,20 @@ export class AgentMonitorService {
       idleSeconds,
     } = params;
 
+    // Detect Lock Screen or Idle Windows:
+    // When Windows locks (Win+L), the foreground window is "Windows Default Lock Screen", "LockApp.exe", or "LogonUI.exe".
+    // In this state, the user is NOT working on their PC, so force isIdle = true, activeSeconds = 0, and route time to idleSeconds.
+    const isLockScreenOrIdle = Boolean(
+      activeWindow &&
+      /lock screen|default lock|logonui|windows logon|screensaver|desktop \/ idle/i.test(activeWindow)
+    );
+    const effectiveIsIdle = isLockScreenOrIdle || Boolean(isIdle);
+    const rawActive = activeSeconds ? Number(activeSeconds) : 0;
+    const rawIdle = idleSeconds ? Number(idleSeconds) : 0;
+
+    const effectiveActiveSeconds = effectiveIsIdle ? 0 : rawActive;
+    const effectiveIdleSeconds = effectiveIsIdle ? (rawIdle + rawActive) : rawIdle;
+
     const geo = await resolveGeoLocation(ipAddress);
     const now = new Date();
     const todayStr = now.toISOString().split('T')[0];
@@ -142,14 +156,14 @@ export class AgentMonitorService {
           isp: geo.isp || undefined,
           activeWindow: activeWindow || undefined,
           appVersion: appVersion || undefined,
-          isIdle: typeof isIdle === 'boolean' ? isIdle : false,
+          isIdle: effectiveIsIdle,
           // Daily reset: on a new day or overflow, start fresh from 0 (+ this ping's seconds)
           activeSeconds: (isNewDay || isStaleOverflow)
-            ? (activeSeconds || 0)
-            : (activeSeconds ? { increment: activeSeconds } : undefined),
+            ? effectiveActiveSeconds
+            : (effectiveActiveSeconds > 0 ? { increment: effectiveActiveSeconds } : undefined),
           idleSeconds: (isNewDay || isStaleOverflow)
-            ? (idleSeconds || 0)
-            : (idleSeconds ? { increment: idleSeconds } : undefined),
+            ? effectiveIdleSeconds
+            : (effectiveIdleSeconds > 0 ? { increment: effectiveIdleSeconds } : undefined),
           lastPingAt: now,
         },
       });
@@ -166,9 +180,9 @@ export class AgentMonitorService {
           isp: geo.isp,
           activeWindow,
           appVersion,
-          isIdle: typeof isIdle === 'boolean' ? isIdle : false,
-          activeSeconds: activeSeconds || 0,
-          idleSeconds: idleSeconds || 0,
+          isIdle: effectiveIsIdle,
+          activeSeconds: effectiveActiveSeconds,
+          idleSeconds: effectiveIdleSeconds,
           lastPingAt: now,
         },
       });
@@ -253,9 +267,12 @@ export class AgentMonitorService {
         if (checkInTime) {
           const shiftEnd = checkOutTime ? new Date(checkOutTime) : new Date();
           const elapsedMins = Math.max(0, Math.floor((shiftEnd.getTime() - new Date(checkInTime).getTime()) / 60000));
+          const breakMins = attendanceRecord.breakMinutes || 0;
           if (elapsedMins > 0) {
-            totalActiveMins = Math.min(totalActiveMins, elapsedMins);
-            totalIdleMins = Math.min(totalIdleMins, Math.max(0, elapsedMins - totalActiveMins));
+            // Active time cannot exceed shift duration minus break time
+            totalActiveMins = Math.min(totalActiveMins, Math.max(0, elapsedMins - breakMins));
+            // Idle time accurately covers all elapsed shift time not actively working and not on break
+            totalIdleMins = Math.max(totalIdleMins, Math.max(0, elapsedMins - totalActiveMins - breakMins));
           }
         }
 
@@ -423,7 +440,7 @@ export class AgentMonitorService {
         isp: hb.isp,
         activeWindow: hb.activeWindow || 'Desktop / Idle',
         appVersion: hb.appVersion || '1.0.0',
-        isIdle: Boolean(hb.isIdle),
+        isIdle: !isOnline || Boolean(hb.isIdle) || /lock screen|default lock|logonui|windows logon|screensaver/i.test(hb.activeWindow || ''),
         activeMinutes,
         idleMinutes,
         breakMinutes,
@@ -727,29 +744,48 @@ export class AgentMonitorService {
       const recDateStr = rec.date.toISOString().split('T')[0];
       const isRecordToday = recDateStr === todayStr;
 
+      const isCurrentlyOnBreak = Boolean(rec.isOnBreak);
+      let breakMinutes = rec.breakMinutes || 0;
+      if (isCurrentlyOnBreak && rec.breakStartTime) {
+        const elapsedBreak = Math.max(0, Math.floor((Date.now() - new Date(rec.breakStartTime).getTime()) / 60000));
+        breakMinutes += elapsedBreak;
+      }
+
       // Live heartbeats are ONLY merged for TODAY's records!
       // Historical days must preserve the permanently saved activeMinutes and idleMinutes in database!
       if (isRecordToday && hb && hb.lastPingAt) {
-        const hbPingDateStr = new Date(hb.lastPingAt).toISOString().split('T')[0];
+        const lastPingDate = new Date(hb.lastPingAt);
+        const hbPingDateStr = lastPingDate.toISOString().split('T')[0];
         if (hbPingDateStr === todayStr) {
           const hbActiveMins = Math.floor((hb.activeSeconds || 0) / 60);
           const hbIdleMins = Math.floor((hb.idleSeconds || 0) / 60);
-          activeMinutes = Math.max(activeMinutes, hbActiveMins);
+
+          // If shift was active, PC active time cannot exceed the duration between check-in and the workstation's last ping
+          if (rec.checkInTime) {
+            const shiftStartDate = new Date(rec.checkInTime);
+            const shiftDurationUpToLastPing = Math.max(0, Math.floor((lastPingDate.getTime() - shiftStartDate.getTime()) / 60000));
+            const cappedHbActive = Math.min(hbActiveMins, shiftDurationUpToLastPing);
+            activeMinutes = Math.max(activeMinutes, cappedHbActive);
+          } else {
+            activeMinutes = Math.max(activeMinutes, hbActiveMins);
+          }
           idleMinutes = Math.max(idleMinutes, hbIdleMins);
         }
       }
 
-      // Hard Cap: Active PC minutes and idle minutes can NEVER exceed actual shift duration
+      // Mathematical Shift Invariant:
+      // totalShiftMinutes === activeMinutes + breakMinutes + idleMinutes
       if (totalShiftMinutes > 0) {
-        if (activeMinutes > totalShiftMinutes) {
-          activeMinutes = totalShiftMinutes;
-          idleMinutes = 0;
-        } else if (activeMinutes + idleMinutes > totalShiftMinutes) {
-          idleMinutes = Math.max(0, totalShiftMinutes - activeMinutes);
+        const availableShiftWorkMinutes = Math.max(0, totalShiftMinutes - breakMinutes);
+        if (activeMinutes > availableShiftWorkMinutes) {
+          activeMinutes = availableShiftWorkMinutes;
         }
+        // Idle minutes accurately captures all time when the user is not actively on PC and not on break
+        // (including when workstation is offline, locked, or idle)
+        idleMinutes = Math.max(0, availableShiftWorkMinutes - activeMinutes);
 
-        // Auto-heal any database record that had stale multi-day overflow saved
-        if (rec.activeMinutes > totalShiftMinutes) {
+        // Auto-heal database record if stored activeMinutes or idleMinutes differ
+        if (rec.activeMinutes !== activeMinutes || rec.idleMinutes !== idleMinutes) {
           prisma.attendance
             .update({
               where: { id: rec.id },
@@ -759,22 +795,9 @@ export class AgentMonitorService {
         }
       }
 
-      // If activeMinutes and idleMinutes are still 0 but user has an active shift:
-      if (activeMinutes === 0 && idleMinutes === 0 && totalShiftMinutes > 0) {
-        activeMinutes = Math.round(totalShiftMinutes * 0.85);
-        idleMinutes = Math.max(0, totalShiftMinutes - activeMinutes);
-      }
-
       const totalTracked = activeMinutes + idleMinutes;
       const productivityScore =
         totalTracked > 0 ? Math.min(100, Math.round((activeMinutes / totalTracked) * 100)) : 0;
-
-      const isCurrentlyOnBreak = Boolean(rec.isOnBreak);
-      let breakMinutes = rec.breakMinutes || 0;
-      if (isCurrentlyOnBreak && rec.breakStartTime) {
-        const elapsedBreak = Math.max(0, Math.floor((Date.now() - new Date(rec.breakStartTime).getTime()) / 60000));
-        breakMinutes += elapsedBreak;
-      }
 
       const roles = (hb?.user?.userRoles || []).map((ur: any) => ur.role?.name || '');
       const primaryRole =

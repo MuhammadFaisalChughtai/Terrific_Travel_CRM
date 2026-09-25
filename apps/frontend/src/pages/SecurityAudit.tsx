@@ -1125,25 +1125,80 @@ export default function SecurityAuditPage() {
                       </td>
 
                       <td className="p-3">
-                        <span
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                            item.isOnBreak || item.status === 'ON_BREAK'
-                              ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30'
-                              : item.checkOutTime
-                              ? 'bg-secondary text-muted-foreground'
-                              : !item.checkInTime
-                              ? (item.activeMinutes > 0 ? 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400' : 'bg-rose-500/15 text-rose-600 dark:text-rose-400')
-                              : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-                          }`}
-                        >
-                          {item.isOnBreak || item.status === 'ON_BREAK'
-                            ? '☕ On Break'
-                            : item.checkOutTime
-                            ? 'Completed'
-                            : !item.checkInTime
-                            ? (item.activeMinutes > 0 ? 'Active (No Check-in)' : 'Not Checked In')
-                            : 'On Shift'}
-                        </span>
+                        {(() => {
+                          const liveAgent = liveAgents.find(
+                            (a) =>
+                              (item.userId && a.userId === item.userId) ||
+                              (item.agentEmail && a.userEmail?.toLowerCase() === item.agentEmail.toLowerCase())
+                          );
+
+                          if (item.isOnBreak || item.status === 'ON_BREAK') {
+                            return (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                                ☕ On Break
+                              </span>
+                            );
+                          }
+
+                          if (item.checkOutTime) {
+                            return (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-secondary text-muted-foreground border border-border">
+                                Completed
+                              </span>
+                            );
+                          }
+
+                          if (!item.checkInTime) {
+                            return (
+                              <span
+                                className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                                  item.activeMinutes > 0
+                                    ? 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30'
+                                    : 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30'
+                                }`}
+                              >
+                                {item.activeMinutes > 0 ? 'Active (No Check-in)' : 'Not Checked In'}
+                              </span>
+                            );
+                          }
+
+                          if (liveAgent) {
+                            if (!liveAgent.isOnline) {
+                              return (
+                                <span
+                                  className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-secondary text-muted-foreground border border-border flex items-center gap-1 w-fit"
+                                  title={`Workstation offline. Last ping was at ${new Date(liveAgent.lastPingAt).toLocaleTimeString()}`}
+                                >
+                                  <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/60" />
+                                  On Shift (Away / Offline)
+                                </span>
+                              );
+                            }
+                            if (liveAgent.isIdle) {
+                              return (
+                                <span
+                                  className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 flex items-center gap-1 w-fit"
+                                  title="Workstation is idle or locked"
+                                >
+                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                                  On Shift (Idle)
+                                </span>
+                              );
+                            }
+                            return (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 flex items-center gap-1 w-fit">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                On Shift (Active)
+                              </span>
+                            );
+                          }
+
+                          return (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                              On Shift
+                            </span>
+                          );
+                        })()}
                       </td>
                     </tr>
                   ))}
@@ -1192,19 +1247,33 @@ export default function SecurityAuditPage() {
                     )}
                     {(() => {
                       const isLive = liveAgents.find(
-                        (a) => a.userId === detailAgent.userId || a.userEmail === detailAgent.email
+                        (a) => a.userId === detailAgent.userId || a.userEmail?.toLowerCase() === detailAgent.email?.toLowerCase()
                       );
                       if (isLive?.isOnline) {
                         return (
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                            {isLive.isIdle ? 'Idle on PC' : 'Online / Active'}
+                          <span
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 ${
+                              isLive.isIdle
+                                ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30'
+                                : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
+                            }`}
+                          >
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full ${
+                                isLive.isIdle ? 'bg-amber-500' : 'bg-emerald-500 animate-pulse'
+                              }`}
+                            />
+                            {isLive.isIdle ? 'Idle / Locked on PC' : 'Online / Active'}
                           </span>
                         );
                       }
                       return (
-                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-secondary text-muted-foreground border border-border">
-                          Offline
+                        <span
+                          className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-secondary text-muted-foreground border border-border flex items-center gap-1"
+                          title={isLive?.lastPingAt ? `Last ping: ${new Date(isLive.lastPingAt).toLocaleTimeString()}` : 'No heartbeat received'}
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/60" />
+                          Offline {isLive?.lastPingAt ? `(Last: ${new Date(isLive.lastPingAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})` : ''}
                         </span>
                       );
                     })()}
@@ -1597,25 +1666,80 @@ export default function SecurityAuditPage() {
                           </td>
 
                           <td className="p-3 whitespace-nowrap">
-                            <span
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                                item.isOnBreak || item.status === 'ON_BREAK'
-                                  ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30'
-                                  : item.checkOutTime
-                                  ? 'bg-secondary text-muted-foreground'
-                                  : !item.checkInTime
-                                  ? (item.activeMinutes > 0 ? 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400' : 'bg-rose-500/15 text-rose-600 dark:text-rose-400')
-                                  : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-                              }`}
-                            >
-                              {item.isOnBreak || item.status === 'ON_BREAK'
-                                ? '☕ On Break'
-                                : item.checkOutTime
-                                ? 'Completed'
-                                : !item.checkInTime
-                                ? (item.activeMinutes > 0 ? 'Active (No Check-in)' : 'Not Checked In')
-                                : 'On Shift'}
-                            </span>
+                            {(() => {
+                              const liveAgent = liveAgents.find(
+                                (a) =>
+                                  (item.userId && a.userId === item.userId) ||
+                                  (item.agentEmail && a.userEmail?.toLowerCase() === item.agentEmail.toLowerCase())
+                              );
+
+                              if (item.isOnBreak || item.status === 'ON_BREAK') {
+                                return (
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                                    ☕ On Break
+                                  </span>
+                                );
+                              }
+
+                              if (item.checkOutTime) {
+                                return (
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-secondary text-muted-foreground border border-border">
+                                    Completed
+                                  </span>
+                                );
+                              }
+
+                              if (!item.checkInTime) {
+                                return (
+                                  <span
+                                    className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                                      item.activeMinutes > 0
+                                        ? 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30'
+                                        : 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30'
+                                    }`}
+                                  >
+                                    {item.activeMinutes > 0 ? 'Active (No Check-in)' : 'Not Checked In'}
+                                  </span>
+                                );
+                              }
+
+                              if (liveAgent) {
+                                if (!liveAgent.isOnline) {
+                                  return (
+                                    <span
+                                      className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-secondary text-muted-foreground border border-border flex items-center gap-1 w-fit"
+                                      title={`Workstation offline. Last ping was at ${new Date(liveAgent.lastPingAt).toLocaleTimeString()}`}
+                                    >
+                                      <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/60" />
+                                      On Shift (Away / Offline)
+                                    </span>
+                                  );
+                                }
+                                if (liveAgent.isIdle) {
+                                  return (
+                                    <span
+                                      className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 flex items-center gap-1 w-fit"
+                                      title="Workstation is idle or locked"
+                                    >
+                                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                                      On Shift (Idle)
+                                    </span>
+                                  );
+                                }
+                                return (
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 flex items-center gap-1 w-fit">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                    On Shift (Active)
+                                  </span>
+                                );
+                              }
+
+                              return (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                                  On Shift
+                                </span>
+                              );
+                            })()}
                           </td>
                         </tr>
                       ))}

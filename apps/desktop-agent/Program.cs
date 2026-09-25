@@ -341,6 +341,18 @@ namespace TerrificTravelBridge
             });
         }
 
+        private static bool IsLockScreenOrIdleWindow(string windowTitle)
+        {
+            if (string.IsNullOrWhiteSpace(windowTitle)) return false;
+            string title = windowTitle.ToLowerInvariant();
+            return title.Contains("lock screen") ||
+                   title.Contains("default lock") ||
+                   title.Contains("logonui") ||
+                   title.Contains("windows logon") ||
+                   title.Contains("screensaver") ||
+                   title.Contains("desktop / idle");
+        }
+
         private void HeartbeatCallback(object state)
         {
             if (string.IsNullOrEmpty(_jwtToken))
@@ -358,14 +370,15 @@ namespace TerrificTravelBridge
                 string activeWindow = GetActiveWindowTitle();
                 string hostname = Environment.MachineName;
 
-                // Win32 Idle detection: Inactive for 5 minutes (300 seconds)
+                // Win32 Idle detection: Inactive for 5 minutes (300 seconds) or lock screen active
                 uint idleSecs = GetIdleTimeSeconds();
-                bool isIdle = (idleSecs >= 300);
+                bool isLockScreen = IsLockScreenOrIdleWindow(activeWindow);
+                bool isIdle = isLockScreen || (idleSecs >= 300);
                 int activeSecsInterval = isIdle ? 0 : 15;
                 int idleSecsInterval = isIdle ? 15 : 0;
 
                 string json = string.Format(
-                    "{{\"machineId\":\"{0}\",\"hostname\":\"{1}\",\"activeWindow\":\"{2}\",\"appVersion\":\"1.3.0\",\"isIdle\":{3},\"activeSeconds\":{4},\"idleSeconds\":{5}}}",
+                    "{{\"machineId\":\"{0}\",\"hostname\":\"{1}\",\"activeWindow\":\"{2}\",\"appVersion\":\"1.4.0\",\"isIdle\":{3},\"activeSeconds\":{4},\"idleSeconds\":{5}}}",
                     EscapeJson(_machineId),
                     EscapeJson(hostname),
                     EscapeJson(activeWindow),
@@ -414,6 +427,11 @@ namespace TerrificTravelBridge
             try
             {
                 string activeWindow = GetActiveWindowTitle();
+                if (IsLockScreenOrIdleWindow(activeWindow))
+                {
+                    return;
+                }
+
                 string screenshotBase64 = CaptureScreenBase64();
 
                 if (!string.IsNullOrEmpty(screenshotBase64))
