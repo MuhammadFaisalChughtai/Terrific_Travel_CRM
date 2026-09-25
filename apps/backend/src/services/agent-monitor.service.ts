@@ -110,45 +110,67 @@ export class AgentMonitorService {
     } = params;
 
     const geo = await resolveGeoLocation(ipAddress);
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
 
-    const heartbeat = await prisma.agentWorkstationHeartbeat.upsert({
+    const existingHb = await prisma.agentWorkstationHeartbeat.findUnique({
       where: {
         userId_machineId: {
           userId,
           machineId,
         },
       },
-      update: {
-        hostname: hostname || undefined,
-        ipAddress,
-        city: geo.city || undefined,
-        region: geo.region || undefined,
-        country: geo.country || undefined,
-        isp: geo.isp || undefined,
-        activeWindow: activeWindow || undefined,
-        appVersion: appVersion || undefined,
-        isIdle: typeof isIdle === 'boolean' ? isIdle : false,
-        activeSeconds: activeSeconds ? { increment: activeSeconds } : undefined,
-        idleSeconds: idleSeconds ? { increment: idleSeconds } : undefined,
-        lastPingAt: new Date(),
-      },
-      create: {
-        userId,
-        machineId,
-        hostname,
-        ipAddress,
-        city: geo.city,
-        region: geo.region,
-        country: geo.country,
-        isp: geo.isp,
-        activeWindow,
-        appVersion,
-        isIdle: typeof isIdle === 'boolean' ? isIdle : false,
-        activeSeconds: activeSeconds || 0,
-        idleSeconds: idleSeconds || 0,
-        lastPingAt: new Date(),
-      },
     });
+
+    // Check if new calendar day has started or if activeSeconds is stale/overflow from previous days
+    const isNewDay = existingHb ? existingHb.lastPingAt.toISOString().split('T')[0] !== todayStr : false;
+    const secondsSinceMidnight = Math.floor((now.getTime() - new Date(todayStr).getTime()) / 1000);
+    const isStaleOverflow = existingHb ? (existingHb.activeSeconds > secondsSinceMidnight) : false;
+
+    let heartbeat;
+    if (existingHb) {
+      heartbeat = await prisma.agentWorkstationHeartbeat.update({
+        where: { id: existingHb.id },
+        data: {
+          hostname: hostname || undefined,
+          ipAddress,
+          city: geo.city || undefined,
+          region: geo.region || undefined,
+          country: geo.country || undefined,
+          isp: geo.isp || undefined,
+          activeWindow: activeWindow || undefined,
+          appVersion: appVersion || undefined,
+          isIdle: typeof isIdle === 'boolean' ? isIdle : false,
+          // Daily reset: on a new day or overflow, start fresh from 0 (+ this ping's seconds)
+          activeSeconds: (isNewDay || isStaleOverflow)
+            ? (activeSeconds || 0)
+            : (activeSeconds ? { increment: activeSeconds } : undefined),
+          idleSeconds: (isNewDay || isStaleOverflow)
+            ? (idleSeconds || 0)
+            : (idleSeconds ? { increment: idleSeconds } : undefined),
+          lastPingAt: now,
+        },
+      });
+    } else {
+      heartbeat = await prisma.agentWorkstationHeartbeat.create({
+        data: {
+          userId,
+          machineId,
+          hostname,
+          ipAddress,
+          city: geo.city,
+          region: geo.region,
+          country: geo.country,
+          isp: geo.isp,
+          activeWindow,
+          appVersion,
+          isIdle: typeof isIdle === 'boolean' ? isIdle : false,
+          activeSeconds: activeSeconds || 0,
+          idleSeconds: idleSeconds || 0,
+          lastPingAt: now,
+        },
+      });
+    }
 
     // Check today's attendance for the user (or manager) to determine if shift is active
     let user = await prisma.user.findUnique({
@@ -202,7 +224,7 @@ export class AgentMonitorService {
       });
 
       if (!attendanceRecord) {
-        // Automatically start active shift for manager/agent working on companion workstation
+        // Automatically start active shift for manager/agent working on companion workstation for TODAY
         attendanceRecord = await prisma.attendance.create({
           data: {
             agentId,
@@ -220,16 +242,26 @@ export class AgentMonitorService {
       // Shift is active if checked in and not checked out
       isCheckedIn = Boolean(attendanceRecord.checkInTime && !attendanceRecord.checkOutTime);
 
-      // Accumulate activeMinutes / idleMinutes accurately from cumulative heartbeat seconds
+      // Accumulate activeMinutes / idleMinutes accurately for today's shift
       if (isCheckedIn) {
-        const totalActiveMins = Math.floor((heartbeat.activeSeconds || 0) / 60);
-        const totalIdleMins = Math.floor((heartbeat.idleSeconds || 0) / 60);
+        let totalActiveMins = Math.floor((heartbeat.activeSeconds || 0) / 60);
+        let totalIdleMins = Math.floor((heartbeat.idleSeconds || 0) / 60);
+
+        // Cap to elapsed shift minutes so active PC time never exceeds actual shift duration
+        if (checkInTime) {
+          const shiftEnd = checkOutTime ? new Date(checkOutTime) : new Date();
+          const elapsedMins = Math.max(0, Math.floor((shiftEnd.getTime() - new Date(checkInTime).getTime()) / 60000));
+          if (elapsedMins > 0) {
+            totalActiveMins = Math.min(totalActiveMins, elapsedMins);
+            totalIdleMins = Math.min(totalIdleMins, Math.max(0, elapsedMins - totalActiveMins));
+          }
+        }
 
         await prisma.attendance.update({
           where: { id: attendanceRecord.id },
           data: {
-            activeMinutes: Math.max(attendanceRecord.activeMinutes || 0, totalActiveMins),
-            idleMinutes: Math.max(attendanceRecord.idleMinutes || 0, totalIdleMins),
+            activeMinutes: totalActiveMins,
+            idleMinutes: totalIdleMins,
           },
         });
       }
@@ -333,10 +365,18 @@ export class AgentMonitorService {
     });
 
     const now = Date.now();
+    const todayStr = new Date().toISOString().split('T')[0];
+
     return (heartbeats as any[]).map((hb) => {
-      const lastPingTime = new Date(hb.lastPingAt).getTime();
+      const lastPingDate = new Date(hb.lastPingAt);
+      const lastPingTime = lastPingDate.getTime();
       const elapsedSeconds = Math.round((now - lastPingTime) / 1000);
       const isOnline = elapsedSeconds <= 45;
+      const isPingToday = lastPingDate.toISOString().split('T')[0] === todayStr;
+
+      // Active minutes today: only reflect if the heartbeat actually pinged today
+      const activeMinutes = isPingToday ? Math.floor((hb.activeSeconds || 0) / 60) : 0;
+      const idleMinutes = isPingToday ? Math.floor((hb.idleSeconds || 0) / 60) : 0;
 
       return {
         id: hb.id,
@@ -354,8 +394,8 @@ export class AgentMonitorService {
         activeWindow: hb.activeWindow || 'Desktop / Idle',
         appVersion: hb.appVersion || '1.0.0',
         isIdle: Boolean(hb.isIdle),
-        activeMinutes: Math.floor((hb.activeSeconds || 0) / 60),
-        idleMinutes: Math.floor((hb.idleSeconds || 0) / 60),
+        activeMinutes,
+        idleMinutes,
         lastPingAt: hb.lastPingAt,
         elapsedSeconds,
         isOnline,
@@ -633,6 +673,8 @@ export class AgentMonitorService {
 
     const recordedStaffEmailKeys = new Set<string>();
 
+    const todayStr = new Date().toISOString().split('T')[0];
+
     const attendedItems: ProductivityItem[] = records.map((rec) => {
       let totalShiftMinutes = 0;
       if (rec.checkInTime) {
@@ -649,11 +691,40 @@ export class AgentMonitorService {
 
       const staff = staffMap.get(emailKey);
       const hb = heartbeatMap.get(rec.agentId) || (emailKey ? heartbeatMap.get(emailKey) : null);
-      if (hb) {
-        const hbActiveMins = Math.floor((hb.activeSeconds || 0) / 60);
-        const hbIdleMins = Math.floor((hb.idleSeconds || 0) / 60);
-        activeMinutes = Math.max(activeMinutes, hbActiveMins);
-        idleMinutes = Math.max(idleMinutes, hbIdleMins);
+
+      const recDateStr = rec.date.toISOString().split('T')[0];
+      const isRecordToday = recDateStr === todayStr;
+
+      // Live heartbeats are ONLY merged for TODAY's records!
+      // Historical days must preserve the permanently saved activeMinutes and idleMinutes in database!
+      if (isRecordToday && hb && hb.lastPingAt) {
+        const hbPingDateStr = new Date(hb.lastPingAt).toISOString().split('T')[0];
+        if (hbPingDateStr === todayStr) {
+          const hbActiveMins = Math.floor((hb.activeSeconds || 0) / 60);
+          const hbIdleMins = Math.floor((hb.idleSeconds || 0) / 60);
+          activeMinutes = Math.max(activeMinutes, hbActiveMins);
+          idleMinutes = Math.max(idleMinutes, hbIdleMins);
+        }
+      }
+
+      // Hard Cap: Active PC minutes and idle minutes can NEVER exceed actual shift duration
+      if (totalShiftMinutes > 0) {
+        if (activeMinutes > totalShiftMinutes) {
+          activeMinutes = totalShiftMinutes;
+          idleMinutes = 0;
+        } else if (activeMinutes + idleMinutes > totalShiftMinutes) {
+          idleMinutes = Math.max(0, totalShiftMinutes - activeMinutes);
+        }
+
+        // Auto-heal any database record that had stale multi-day overflow saved
+        if (rec.activeMinutes > totalShiftMinutes) {
+          prisma.attendance
+            .update({
+              where: { id: rec.id },
+              data: { activeMinutes, idleMinutes },
+            })
+            .catch(() => {});
+        }
       }
 
       // If activeMinutes and idleMinutes are still 0 but user has an active shift:
@@ -681,7 +752,7 @@ export class AgentMonitorService {
         agentName: rec.agent?.name || staff?.name || 'Agent',
         agentEmail: rec.agent?.email || staff?.email || '',
         role: primaryRole,
-        date: rec.date.toISOString().split('T')[0],
+        date: recDateStr,
         checkInTime: rec.checkInTime ? rec.checkInTime.toISOString() : null,
         checkOutTime: rec.checkOutTime ? rec.checkOutTime.toISOString() : null,
         status: rec.status,
@@ -694,7 +765,7 @@ export class AgentMonitorService {
 
     // Determine query date for un-checked-in staff synthesis
     const queryDateStr =
-      params.startDate || params.endDate || new Date().toISOString().split('T')[0];
+      params.startDate || params.endDate || todayStr;
 
     const unCheckedInItems: ProductivityItem[] = [];
 
@@ -713,8 +784,12 @@ export class AgentMonitorService {
           heartbeatMap.get(staff.userId) ||
           heartbeatMap.get(emailKey);
 
-        const hbActiveMins = hb ? Math.floor((hb.activeSeconds || 0) / 60) : 0;
-        const hbIdleMins = hb ? Math.floor((hb.idleSeconds || 0) / 60) : 0;
+        const hbPingDateStr = hb?.lastPingAt ? new Date(hb.lastPingAt).toISOString().split('T')[0] : '';
+        const isPingOnQueryDate = hbPingDateStr === queryDateStr;
+
+        // ONLY count minutes if the workstation actually pinged on this queried date!
+        const hbActiveMins = (isPingOnQueryDate && hb) ? Math.floor((hb.activeSeconds || 0) / 60) : 0;
+        const hbIdleMins = (isPingOnQueryDate && hb) ? Math.floor((hb.idleSeconds || 0) / 60) : 0;
         const totalMins = hbActiveMins + hbIdleMins;
         const prodScore =
           totalMins > 0 ? Math.min(100, Math.round((hbActiveMins / totalMins) * 100)) : 0;
