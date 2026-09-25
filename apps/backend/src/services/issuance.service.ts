@@ -239,9 +239,6 @@ export class IssuanceService {
         // Specifically set hotel cost to Agent Quoted Price (or purchase price if quoted not set)
         ticketData.totalCost = Number(hotel.agentQuotedPrice ?? hotel.price) || 0.0;
         ticketData.currency = hotel.currency || 'GBP';
-        if (hotel.vendor?.supportEmail) {
-          ticketData.guestEmail = hotel.vendor.supportEmail.trim();
-        }
       }
     }
 
@@ -466,6 +463,23 @@ export class IssuanceService {
         createdBy: { select: { id: true, firstName: true, lastName: true, email: true } },
         assignedTo: { select: { id: true, firstName: true, lastName: true, email: true } },
       },
+    });
+  }
+
+  /**
+   * Delete / Remove an issuance ticket
+   */
+  async delete(ticketId: string, user: any) {
+    const ticket = await prisma.issuanceTicket.findUnique({
+      where: { id: ticketId },
+    });
+
+    if (!ticket) {
+      throw new Error('Issuance ticket not found');
+    }
+
+    return prisma.issuanceTicket.delete({
+      where: { id: ticketId },
     });
   }
 

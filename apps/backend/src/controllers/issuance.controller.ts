@@ -54,3 +54,13 @@ export const update = asyncHandler(async (req: AuthenticatedRequest, res: Respon
     data: result,
   });
 });
+
+export const remove = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id } = req.params;
+  const result = await issuanceService.delete(id, req.user!);
+  res.status(200).json({
+    success: true,
+    data: result,
+    message: 'Issuance ticket removed successfully',
+  });
+});
