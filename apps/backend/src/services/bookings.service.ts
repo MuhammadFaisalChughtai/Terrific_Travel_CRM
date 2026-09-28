@@ -328,19 +328,8 @@ export class BookingsService {
           ];
         }
       } else if (isAgent) {
-        // Agents only see their own bookings
-        if (agentIdForUser) {
-          where.OR = [
-            { agentId: agentIdForUser },
-            { createdById: user.id },
-            { assignedToId: user.id },
-          ];
-        } else {
-          where.OR = [
-            { createdById: user.id },
-            { assignedToId: user.id },
-          ];
-        }
+        // Agents can view ALL bookings (view-only enforced at controller/frontend layer)
+        // No where filter — agents see all bookings
       } else {
         // Customers/others see their own bookings
         where.userId = user.id;
@@ -524,19 +513,8 @@ export class BookingsService {
         where.agentId = query.agentId;
       }
     } else if (isAgent) {
-      // Agents strictly see only their own bookings
-      if (agentIdForUser) {
-        where.OR = [
-          { agentId: agentIdForUser },
-          { createdById: user.id },
-          { assignedToId: user.id },
-        ];
-      } else {
-        where.OR = [
-          { createdById: user.id },
-          { assignedToId: user.id },
-        ];
-      }
+      // Agents can view ALL bookings (view-only enforced at controller/frontend layer)
+      // No where filter — agents see all bookings
     } else {
       where.userId = user.id;
     }

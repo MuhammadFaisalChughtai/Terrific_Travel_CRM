@@ -812,6 +812,11 @@ export default function Bookings() {
                           booking.agent.name.trim().toLowerCase() ===
                             userFullName.trim().toLowerCase());
 
+                      const isRowLocked = booking.lockedStatus === "LOCKED" || booking.isLocked === true;
+                      // Can edit this row: admins always, non-admins only if they own it and it's not locked
+                      const canEditRow = isAdmin || (!isRowLocked && isOwner);
+                      // Can see margin/profit: admins, managers, or the booking owner
+                      const canViewRowMarginProfit = isAdmin || !isAgent || isOwner;
                       return (
                         <tr
                           key={booking.id}
@@ -821,21 +826,14 @@ export default function Bookings() {
                             {(bookingsResult?.total ?? bookings.length) - ((currentPage - 1) * itemsPerPage) - index}
                           </td>
                           <td className="px-4 py-3.5 whitespace-nowrap font-semibold font-mono text-primary align-middle">
-                            {isOwner && booking.lockedStatus === "UNLOCKED" ? (
-                              <button
-                                onClick={() => setSelectedBookingId(booking.id)}
-                                className="text-primary hover:text-primary-hover p-1 rounded hover:bg-secondary/35 transition-all"
-                                title="View / Edit Booking"
-                              >
-                                {booking.bookingReference ||
-                                  booking.id.substring(0, 8).toUpperCase()}
-                              </button>
-                            ) : (
-                              <>
-                                {booking.bookingReference ||
-                                  booking.id.substring(0, 8).toUpperCase()}
-                              </>
-                            )}
+                            <button
+                              onClick={() => setSelectedBookingId(booking.id)}
+                              className="text-primary hover:text-primary-hover p-1 rounded hover:bg-secondary/35 transition-all"
+                              title={canEditRow ? "View / Edit Booking" : "View Booking (Read-Only)"}
+                            >
+                              {booking.bookingReference ||
+                                booking.id.substring(0, 8).toUpperCase()}
+                            </button>
                           </td>
                           <td className="px-4 py-3.5 whitespace-nowrap text-muted-foreground align-middle">
                             {bookingDate}
@@ -859,51 +857,55 @@ export default function Bookings() {
                             {formatCurrency(displayRemainingAmount)}
                           </td>
                           <td className="px-4 py-3.5 whitespace-nowrap text-right font-bold text-emerald-600 dark:text-emerald-400 align-middle">
-                            {formatCurrency(rawProfit)}
+                            {canViewRowMarginProfit ? formatCurrency(rawProfit) : "—"}
                           </td>
                           <td className="px-4 py-3.5 whitespace-nowrap text-right font-semibold text-violet-600 dark:text-violet-400 align-middle">
-                            <div className="flex flex-col items-end gap-0.5">
-                              <span>
-                                {agentMargin !== null
-                                  ? formatCurrency(agentMargin)
-                                  : "—"}
-                              </span>
-                              {booking.agentMarginVoided && (
-                                <div className="flex items-center gap-1.5">
-                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
-                                    Voided
-                                  </span>
-                                  {isAdmin && (
-                                    <button
-                                      type="button"
-                                      onClick={async (e) => {
-                                        e.stopPropagation();
-                                        try {
-                                          await apiClient.patch(
-                                            `/agent-margins/bookings/${booking.id}/toggle-void`,
-                                          );
-                                          queryClient.invalidateQueries({
-                                            queryKey: ["bookings"],
-                                          });
-                                          toast.success(
-                                            "Agent margin unvoided successfully!",
-                                          );
-                                        } catch (err: any) {
-                                          toast.error(
-                                            err.response?.data?.message ||
-                                              "Failed to unvoid agent margin",
-                                          );
-                                        }
-                                      }}
-                                      className="text-[9px] font-bold text-emerald-600 hover:text-emerald-700 underline"
-                                      title="Restore / Unvoid this margin calculation"
-                                    >
-                                      Unvoid
-                                    </button>
-                                  )}
-                                </div>
-                              )}
-                            </div>
+                            {!canViewRowMarginProfit ? (
+                              <span className="text-muted-foreground">—</span>
+                            ) : (
+                              <div className="flex flex-col items-end gap-0.5">
+                                <span>
+                                  {agentMargin !== null
+                                    ? formatCurrency(agentMargin)
+                                    : "—"}
+                                </span>
+                                {booking.agentMarginVoided && (
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                                      Voided
+                                    </span>
+                                    {isAdmin && (
+                                      <button
+                                        type="button"
+                                        onClick={async (e) => {
+                                          e.stopPropagation();
+                                          try {
+                                            await apiClient.patch(
+                                              `/agent-margins/bookings/${booking.id}/toggle-void`,
+                                            );
+                                            queryClient.invalidateQueries({
+                                              queryKey: ["bookings"],
+                                            });
+                                            toast.success(
+                                              "Agent margin unvoided successfully!",
+                                            );
+                                          } catch (err: any) {
+                                            toast.error(
+                                              err.response?.data?.message ||
+                                                "Failed to unvoid agent margin",
+                                            );
+                                          }
+                                        }}
+                                        className="text-[9px] font-bold text-emerald-600 hover:text-emerald-700 underline"
+                                        title="Restore / Unvoid this margin calculation"
+                                      >
+                                        Unvoid
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </td>
                           {!isAgent && (
                             <td className="px-4 py-3.5 whitespace-nowrap text-right font-semibold text-rose-600 dark:text-rose-400 align-middle">

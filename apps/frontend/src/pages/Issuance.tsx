@@ -68,6 +68,11 @@ export interface IssuanceTicket {
   creatorName?: string;
   assigneeName?: string | null;
   createdAt: string;
+  vendorId?: string | null;
+  vendorName?: string | null;
+  reservationNumber?: string | null;
+  hotelConfirmationNumber?: string | null;
+  bookedPrice?: number | null;
 }
 
 const COLUMNS = [
@@ -114,6 +119,12 @@ export default function IssuancePage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [pendingIssueTicket, setPendingIssueTicket] = useState<IssuanceTicket | null>(null);
   const [confirmationCode, setConfirmationCode] = useState('');
+  // Hotel issuance finalize fields
+  const [hotelReservationNumber, setHotelReservationNumber] = useState('');
+  const [hotelConfirmationNumber, setHotelConfirmationNumber] = useState('');
+  const [hotelVendorId, setHotelVendorId] = useState('');
+  const [hotelBookedPrice, setHotelBookedPrice] = useState('');
+
   const [pendingHoldTicket, setPendingHoldTicket] = useState<IssuanceTicket | null>(null);
   const [holdReasonText, setHoldReasonText] = useState('');
   const [viewTicket, setViewTicket] = useState<IssuanceTicket | null>(null);
@@ -147,6 +158,16 @@ export default function IssuancePage() {
     });
   }, [user]);
 
+  // Fetch Vendors for Hotel Supplier Selection
+  const { data: vendorsData } = useQuery<any>({
+    queryKey: ['vendors-list-issuance'],
+    queryFn: async () => {
+      const res = await apiClient.get('/vendors?limit=100');
+      return res.data?.data || res.data || [];
+    },
+  });
+  const vendors = Array.isArray(vendorsData) ? vendorsData : [];
+
   // Fetch Tickets
   const { data: tickets = [], isLoading, refetch } = useQuery<IssuanceTicket[]>({
     queryKey: ['issuance-tickets', filterType],
@@ -164,16 +185,25 @@ export default function IssuancePage() {
       newStatus: string;
       outputConfirmation?: string;
       holdReason?: string;
+      vendorId?: string;
+      reservationNumber?: string;
+      confirmationNumber?: string;
+      bookedPrice?: number;
     }) => {
       const res = await apiClient.patch(`/issuance/tickets/${payload.ticketId}/status`, {
         newStatus: payload.newStatus,
         outputConfirmation: payload.outputConfirmation,
         holdReason: payload.holdReason,
+        vendorId: payload.vendorId,
+        reservationNumber: payload.reservationNumber,
+        confirmationNumber: payload.confirmationNumber,
+        bookedPrice: payload.bookedPrice,
       });
       return res.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['issuance-tickets'] });
+      queryClient.invalidateQueries({ queryKey: ['booking'] });
       toast.success('Ticket status updated successfully');
     },
     onError: (err: any) => {
@@ -274,12 +304,9 @@ export default function IssuancePage() {
     const ticket = tickets.find((t) => t.id === ticketId);
     if (!ticket || ticket.status === targetStatus) return;
 
-    // Rule: Intercept drop onto ISSUED if mandatory confirmation is missing
-    const existingCode =
-      ticket.type === 'FLIGHT' ? ticket.pnrTicketNumber : ticket.hotelReservationNo;
-    if (targetStatus === 'ISSUED' && (!existingCode || !existingCode.trim())) {
-      setPendingIssueTicket(ticket);
-      setConfirmationCode('');
+    // Rule: Intercept drop onto ISSUED to capture reservation/confirmation/vendor/cost
+    if (targetStatus === 'ISSUED') {
+      openIssueModal(ticket);
       return;
     }
 
@@ -294,17 +321,59 @@ export default function IssuancePage() {
     statusMutation.mutate({ ticketId: ticket.id, newStatus: targetStatus });
   };
 
+  const openIssueModal = (ticket: IssuanceTicket) => {
+    setPendingIssueTicket(ticket);
+    if (ticket.type === 'HOTEL') {
+      setHotelReservationNumber(ticket.reservationNumber || ticket.hotelReservationNo || '');
+      setHotelConfirmationNumber(ticket.hotelConfirmationNumber || '');
+      setHotelVendorId(ticket.vendorId || '');
+      setHotelBookedPrice(
+        ticket.bookedPrice !== undefined && ticket.bookedPrice !== null
+          ? String(ticket.bookedPrice)
+          : ticket.totalCost
+          ? String(ticket.totalCost)
+          : ''
+      );
+    } else {
+      setConfirmationCode(ticket.pnrTicketNumber || '');
+    }
+  };
+
   const submitIssueConfirmation = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!pendingIssueTicket || !confirmationCode.trim()) return;
+    if (!pendingIssueTicket) return;
 
-    statusMutation.mutate({
-      ticketId: pendingIssueTicket.id,
-      newStatus: 'ISSUED',
-      outputConfirmation: confirmationCode.trim(),
-    });
-    setPendingIssueTicket(null);
-    setConfirmationCode('');
+    if (pendingIssueTicket.type === 'HOTEL') {
+      const resNum = hotelReservationNumber.trim();
+      const confNum = hotelConfirmationNumber.trim();
+      if (!resNum && !confNum) {
+        toast.error('Please enter at least a Hotel Reservation Number or Confirmation Number.');
+        return;
+      }
+
+      statusMutation.mutate({
+        ticketId: pendingIssueTicket.id,
+        newStatus: 'ISSUED',
+        outputConfirmation: confNum || resNum,
+        reservationNumber: resNum || undefined,
+        confirmationNumber: confNum || undefined,
+        vendorId: hotelVendorId || undefined,
+        bookedPrice: hotelBookedPrice !== '' && !isNaN(Number(hotelBookedPrice)) ? Number(hotelBookedPrice) : undefined,
+      });
+      setPendingIssueTicket(null);
+    } else {
+      if (!confirmationCode.trim()) {
+        toast.error('Please enter the Airline PNR / Ticket Number.');
+        return;
+      }
+      statusMutation.mutate({
+        ticketId: pendingIssueTicket.id,
+        newStatus: 'ISSUED',
+        outputConfirmation: confirmationCode.trim(),
+      });
+      setPendingIssueTicket(null);
+      setConfirmationCode('');
+    }
   };
 
   const submitHoldReason = (e: React.FormEvent) => {
@@ -510,10 +579,10 @@ export default function IssuancePage() {
               </div>
 
               {/* Cards Container */}
-              <div className="flex-1 space-y-3 min-h-[500px]">
+              <div className="flex-1 space-y-2 min-h-[450px]">
                 {colTickets.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-48 border border-dashed border-border rounded-xl text-center p-4">
-                    <FileText className="w-7 h-7 text-muted-foreground/40 mb-2" />
+                  <div className="flex flex-col items-center justify-center h-44 border border-dashed border-border rounded-xl text-center p-3">
+                    <FileText className="w-6 h-6 text-muted-foreground/40 mb-1.5" />
                     <p className="text-xs text-muted-foreground font-medium">
                       No {filterType === 'HOTEL' ? 'hotel reservations' : filterType === 'FLIGHT' ? 'flight tickets' : 'requests'} in this column
                     </p>
@@ -530,36 +599,49 @@ export default function IssuancePage() {
                         draggable={isSystemAdmin}
                         onDragStart={(e) => handleDragStart(e, ticket.id)}
                         onClick={() => setViewTicket(ticket)}
-                        className={`group relative bg-card rounded-xl p-3.5 border border-border transition-all duration-150 select-none hover:shadow-xs hover:border-border/80 ${
+                        className={`group relative bg-card rounded-xl p-2.5 border border-border transition-all duration-150 select-none hover:shadow-xs hover:border-border/80 ${
                           isSystemAdmin ? 'cursor-grab active:cursor-grabbing hover:shadow-md' : 'cursor-pointer hover:border-primary/50'
                         }`}
                       >
-                        {/* Type Badge & Lock Badge */}
-                        <div className="flex items-center justify-between mb-2">
+                        {/* Type Badge & Actions */}
+                        <div className="flex items-center justify-between mb-1.5">
                           <div className="flex items-center gap-1.5">
                             {isFlight ? (
-                              <span className="flex items-center gap-1 text-[10px] font-bold bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800 px-2 py-0.5 rounded-md">
-                                <Plane className="w-3 h-3 text-sky-600 dark:text-sky-400" />
+                              <span className="flex items-center gap-1 text-[9.5px] font-bold bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800 px-1.5 py-0.5 rounded">
+                                <Plane className="w-2.5 h-2.5 text-sky-600 dark:text-sky-400" />
                                 Flight
                               </span>
                             ) : (
-                              <span className="flex items-center gap-1 text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-md">
-                                <Building2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                              <span className="flex items-center gap-1 text-[9.5px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded">
+                                <Building2 className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-400" />
                                 Hotel
                               </span>
                             )}
-                            <span className="text-[10px] font-mono text-muted-foreground font-semibold">
+                            <span className="text-[9.5px] font-mono text-muted-foreground font-semibold">
                               {ticket.ticketNumber}
                             </span>
                           </div>
 
-                          {/* Status Flags & Action */}
-                          <div className="flex items-center gap-1.5">
+                          {/* Quick Actions & Status */}
+                          <div className="flex items-center gap-1">
                             {ticket.isLocked && (
-                              <span className="flex items-center gap-1 text-[10px] font-medium bg-secondary text-muted-foreground px-2 py-0.5 rounded-md border border-border">
-                                <Lock className="w-3 h-3 text-muted-foreground" />
+                              <span className="flex items-center gap-0.5 text-[9px] font-medium bg-secondary text-muted-foreground px-1.5 py-0.5 rounded border border-border">
+                                <Lock className="w-2.5 h-2.5 text-muted-foreground" />
                                 Locked
                               </span>
+                            )}
+                            {isSystemAdmin && ticket.status !== 'ISSUED' && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openIssueModal(ticket);
+                                }}
+                                className="p-1 rounded text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 opacity-70 hover:opacity-100 transition-all cursor-pointer"
+                                title={ticket.type === 'HOTEL' ? 'Confirm & Finalize Reservation' : 'Issue Ticket'}
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                              </button>
                             )}
                             <button
                               type="button"
@@ -583,51 +665,67 @@ export default function IssuancePage() {
                         </div>
 
                         {/* Lead Guest */}
-                        <div className="font-bold text-sm text-foreground tracking-tight line-clamp-1 mb-1.5">
+                        <div className="font-bold text-xs text-foreground tracking-tight line-clamp-1 mb-0.5">
                           {ticket.leadGuestName}
                         </div>
 
-                        {/* Booking Link if present */}
+                        {/* Booking Link & Payment Status */}
                         {ticket.bookingReference && (
-                          <div className="text-[10px] text-primary font-semibold mb-2">
-                            Booking: {ticket.bookingReference}
+                          <div className="text-[9.5px] text-primary font-semibold mb-1.5 flex items-center justify-between">
+                            <span>Booking: {ticket.bookingReference}</span>
+                            {ticket.paymentStatus && (
+                              <span className={`text-[8.5px] uppercase font-bold px-1.5 py-0.2 rounded border ${
+                                ticket.paymentStatus === 'PAID'
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800'
+                                  : 'bg-secondary text-muted-foreground border-border'
+                              }`}>
+                                {ticket.paymentStatus}
+                              </span>
+                            )}
                           </div>
                         )}
 
-                        {/* Dynamic Flight / Hotel Specific Details */}
+                        {/* Compact Service Details */}
                         {isFlight ? (
-                          <div className="text-xs bg-secondary/50 rounded-lg p-2.5 border border-border/50 space-y-1">
+                          <div className="text-[11px] bg-secondary/40 rounded-lg p-2 border border-border/40 space-y-0.5">
                             <div className="flex items-center justify-between font-semibold text-foreground">
                               <span>{ticket.airline || 'Airline'}</span>
-                              <span className="text-[11px] font-mono text-muted-foreground">
+                              <span className="font-mono text-[10px] text-muted-foreground">
                                 {ticket.flightNumbers || '—'}
                               </span>
                             </div>
-                            <div className="text-[11px] text-muted-foreground truncate">
+                            <div className="text-[10px] text-muted-foreground truncate">
                               Route: <strong className="text-foreground">{ticket.routing || 'N/A'}</strong>
                             </div>
                             {ticket.pnrTicketNumber && (
-                              <div className="text-[11px] font-bold text-sky-600 dark:text-sky-400 pt-1 border-t border-border/60 flex items-center justify-between">
-                                <span>PNR / Ticket:</span>
+                              <div className="text-[10px] font-bold text-sky-600 dark:text-sky-400 pt-0.5 border-t border-border/50 flex items-center justify-between">
+                                <span>PNR/Ticket:</span>
                                 <span className="font-mono">{ticket.pnrTicketNumber}</span>
                               </div>
                             )}
                           </div>
                         ) : (
-                          <div className="text-xs bg-secondary/50 rounded-lg p-2.5 border border-border/50 space-y-1">
+                          <div className="text-[11px] bg-secondary/40 rounded-lg p-2 border border-border/40 space-y-0.5">
                             <div className="font-semibold text-foreground truncate">
                               {ticket.hotelName || 'Hotel'}
                             </div>
-                            <div className="text-[11px] text-muted-foreground flex items-center justify-between">
-                              <span>{ticket.destination || 'Destination'}</span>
+                            <div className="text-[10px] text-muted-foreground flex items-center justify-between">
+                              <span className="truncate max-w-[120px]">{ticket.destination || 'Destination'}</span>
                               <span>
                                 {ticket.roomCategory || 'Standard'} ({ticket.boardBasis || 'RO'})
                               </span>
                             </div>
-                            {ticket.hotelReservationNo && (
-                              <div className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 pt-1 border-t border-border/60 flex items-center justify-between">
-                                <span>Res No:</span>
-                                <span className="font-mono">{ticket.hotelReservationNo}</span>
+                            {ticket.vendorName && (
+                              <div className="text-[10px] text-muted-foreground truncate">
+                                <span className="font-medium text-foreground">Vendor:</span> {ticket.vendorName}
+                              </div>
+                            )}
+                            {(ticket.hotelReservationNo || ticket.reservationNumber || ticket.hotelConfirmationNumber) && (
+                              <div className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 pt-0.5 border-t border-border/50 flex items-center justify-between">
+                                <span>Res/Conf:</span>
+                                <span className="font-mono text-[9.5px] truncate max-w-[140px]">
+                                  {ticket.hotelConfirmationNumber || ticket.reservationNumber || ticket.hotelReservationNo}
+                                </span>
                               </div>
                             )}
                           </div>
@@ -635,16 +733,16 @@ export default function IssuancePage() {
 
                         {/* On-Hold Clarification Notice */}
                         {ticket.status === 'ON_HOLD' && ticket.holdReason && (
-                          <div className="mt-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 text-amber-900 dark:text-amber-200 p-2 rounded-lg text-[11px] flex items-start gap-1.5">
-                            <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                          <div className="mt-1.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 text-amber-900 dark:text-amber-200 p-1.5 rounded-lg text-[10px] flex items-start gap-1">
+                            <AlertCircle className="w-3 h-3 text-amber-600 shrink-0 mt-0.5" />
                             <div className="line-clamp-2">
                               <strong>Clarification:</strong> {ticket.holdReason}
                             </div>
                           </div>
                         )}
 
-                        {/* Footer Details: Date, Cost, Originating Agent */}
-                        <div className="mt-3 pt-2.5 border-t border-border flex items-center justify-between text-[11px] text-muted-foreground">
+                        {/* Footer Details: Date, Cost */}
+                        <div className="mt-2 pt-1.5 border-t border-border flex items-center justify-between text-[10px] text-muted-foreground">
                           <div className="flex items-center gap-1">
                             <Calendar className={`w-3 h-3 ${ticket.type === 'HOTEL' ? 'text-emerald-600 dark:text-emerald-400' : 'text-sky-600 dark:text-sky-400'}`} />
                             {ticket.type === 'HOTEL' ? (
@@ -656,21 +754,36 @@ export default function IssuancePage() {
                               <span>{new Date(ticket.travelStartDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
                             )}
                           </div>
-                          <div className="font-bold text-foreground">
-                            {ticket.type === 'HOTEL' && <span className="text-[10px] font-normal text-muted-foreground mr-1">Quoted:</span>}
-                            {ticket.currency} {Number(ticket.totalCost).toFixed(2)}
+                          <div className="text-right">
+                            {ticket.type === 'HOTEL' ? (
+                              <>
+                                {ticket.bookedPrice !== undefined && ticket.bookedPrice !== null && (
+                                  <div className="font-bold text-emerald-600 dark:text-emerald-400 text-[10.5px]">
+                                    Cost: {ticket.currency} {Number(ticket.bookedPrice).toFixed(2)}
+                                  </div>
+                                )}
+                                <div className="text-[9px] text-muted-foreground">
+                                  Quoted: {ticket.currency} {Number(ticket.totalCost).toFixed(2)}
+                                </div>
+                              </>
+                            ) : (
+                              <div className="font-bold text-foreground text-[11px]">
+                                {ticket.currency} {Number(ticket.totalCost).toFixed(2)}
+                              </div>
+                            )}
                           </div>
                         </div>
 
-                        <div className="mt-1 flex items-center justify-between text-[10px] text-muted-foreground">
-                          <span>Agent: {ticket.creatorName || 'Agent'}</span>
+                        {/* Sub-footer: Agent details */}
+                        <div className="mt-1 flex items-center justify-between text-[9px] text-muted-foreground">
+                          <span>By: {ticket.creatorName || 'Agent'}</span>
                           {ticket.assigneeName ? (
                             <span className="flex items-center gap-1 text-primary font-medium">
-                              <UserCheck className="w-3 h-3" />
+                              <UserCheck className="w-2.5 h-2.5" />
                               {ticket.assigneeName}
                             </span>
                           ) : (
-                            <span className="text-muted-foreground italic">Unassigned</span>
+                            <span className="italic">Unassigned</span>
                           )}
                         </div>
                       </div>
@@ -686,7 +799,7 @@ export default function IssuancePage() {
       {/* MANDATORY VALIDATION MODAL FOR MOVING TO "ISSUED" */}
       {pendingIssueTicket && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-card rounded-2xl max-w-md w-full p-6 shadow-2xl border border-border">
+          <div className="bg-card rounded-2xl max-w-lg w-full p-5 shadow-2xl border border-border">
             <div className="flex items-center justify-between pb-3 border-b border-border">
               <h3 className="text-base font-bold text-foreground flex items-center gap-2">
                 <CheckCircle2 className="w-5 h-5 text-emerald-600" />
@@ -702,68 +815,145 @@ export default function IssuancePage() {
               </button>
             </div>
 
-            <form onSubmit={submitIssueConfirmation} className="mt-4 space-y-4">
-              <div className="bg-secondary/60 p-3 rounded-xl border border-border text-xs text-muted-foreground space-y-1">
-                <p>
-                  <strong>Guest:</strong> {pendingIssueTicket.leadGuestName}
-                </p>
-                <p>
-                  <strong>Reference:</strong> {pendingIssueTicket.ticketNumber}
-                </p>
-                <p>
+            <form onSubmit={submitIssueConfirmation} className="mt-4 space-y-3.5">
+              {/* Summary Card */}
+              <div className="bg-secondary/50 p-3 rounded-xl border border-border text-xs text-muted-foreground space-y-1">
+                <div className="flex justify-between items-center">
+                  <span><strong>Guest:</strong> {pendingIssueTicket.leadGuestName}</span>
+                  <span className="font-mono font-bold text-foreground">Ref: {pendingIssueTicket.ticketNumber}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span><strong>Booking:</strong> {pendingIssueTicket.bookingReference || 'N/A'}</span>
+                  <span className="text-foreground font-semibold">
+                    Quoted to Client: <strong>{pendingIssueTicket.currency} {Number(pendingIssueTicket.totalCost).toFixed(2)}</strong>
+                  </span>
+                </div>
+                <div>
                   <strong>Service:</strong>{' '}
                   {pendingIssueTicket.type === 'FLIGHT'
-                    ? `${pendingIssueTicket.airline || ''} (${pendingIssueTicket.flightNumbers || ''})`
-                    : pendingIssueTicket.hotelName}
-                </p>
+                    ? `${pendingIssueTicket.airline || ''} (${pendingIssueTicket.flightNumbers || ''}) - ${pendingIssueTicket.routing || ''}`
+                    : `${pendingIssueTicket.hotelName || ''} (${pendingIssueTicket.destination || ''})`}
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-foreground mb-1.5">
-                  {pendingIssueTicket.type === 'FLIGHT'
-                    ? 'Airline PNR / Ticket Number *'
-                    : 'Hotel Confirmation / Reservation Number *'}
-                </label>
-                <input
-                  required
-                  autoFocus
-                  type="text"
-                  placeholder={
-                    pendingIssueTicket.type === 'FLIGHT'
-                      ? 'e.g. 7X9KLP or 006-2349817290'
-                      : 'e.g. HTL-RES-984210'
-                  }
-                  value={confirmationCode}
-                  onChange={(e) => setConfirmationCode(e.target.value)}
-                  className="w-full text-sm font-semibold tracking-wide py-2.5 px-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 uppercase placeholder:normal-case text-foreground"
-                />
-                <p className="text-[11px] text-muted-foreground mt-1.5">
-                  Submitting this code will finalize the{' '}
-                  {pendingIssueTicket.type === 'FLIGHT'
-                    ? 'flight ticket'
-                    : 'hotel reservation'}
-                  , lock the financial and travel date records, and automatically email the confirmation to the client and agent.
-                </p>
-              </div>
+              {pendingIssueTicket.type === 'HOTEL' ? (
+                <div className="space-y-3">
+                  {/* Reservation & Confirmation Numbers */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-foreground mb-1">
+                        Hotel Reservation No. *
+                      </label>
+                      <input
+                        type="text"
+                        autoFocus
+                        placeholder="e.g. HTL-RES-10492"
+                        value={hotelReservationNumber}
+                        onChange={(e) => setHotelReservationNumber(e.target.value)}
+                        className="w-full text-xs font-semibold py-2 px-3 bg-background border border-border rounded-xl uppercase placeholder:normal-case text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
+                      />
+                      <span className="text-[10px] text-muted-foreground mt-0.5 block">Supplier / internal reservation ID</span>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-foreground mb-1">
+                        Confirmation Number *
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. CNF-892341"
+                        value={hotelConfirmationNumber}
+                        onChange={(e) => setHotelConfirmationNumber(e.target.value)}
+                        className="w-full text-xs font-semibold py-2 px-3 bg-background border border-border rounded-xl uppercase placeholder:normal-case text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
+                      />
+                      <span className="text-[10px] text-muted-foreground mt-0.5 block">Official hotel confirmation code</span>
+                    </div>
+                  </div>
+
+                  {/* Vendor Details & Booked Price */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-foreground mb-1">
+                        Vendor / Supplier Details
+                      </label>
+                      <select
+                        value={hotelVendorId}
+                        onChange={(e) => setHotelVendorId(e.target.value)}
+                        className="w-full text-xs py-2 px-3 bg-background border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      >
+                        <option value="">-- Direct Hotel / No Vendor --</option>
+                        {vendors.map((v: any) => (
+                          <option key={v.id} value={v.id}>
+                            {v.name} ({v.vendorType || 'Supplier'})
+                          </option>
+                        ))}
+                      </select>
+                      <span className="text-[10px] text-muted-foreground mt-0.5 block">Supplier used to book the hotel</span>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-foreground mb-1">
+                        Booked Price ({pendingIssueTicket.currency || 'GBP'})
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={hotelBookedPrice}
+                        onChange={(e) => setHotelBookedPrice(e.target.value)}
+                        className="w-full text-xs font-bold py-2 px-3 bg-background border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                      <span className="text-[10px] text-muted-foreground mt-0.5 block">Actual cost price paid to vendor</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 p-2.5 rounded-xl text-[11px] text-emerald-800 dark:text-emerald-300">
+                    <strong>Auto-Sync:</strong> Finalizing will automatically update the hotel reservation number, confirmation number, vendor, and booked price in the booking details, and send confirmation emails to <strong>hotels@terrifictravel.co.uk</strong>.
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-foreground mb-1.5">
+                    Airline PNR / Ticket Number *
+                  </label>
+                  <input
+                    required
+                    autoFocus
+                    type="text"
+                    placeholder="e.g. 7X9KLP or 006-2349817290"
+                    value={confirmationCode}
+                    onChange={(e) => setConfirmationCode(e.target.value)}
+                    className="w-full text-sm font-semibold tracking-wide py-2.5 px-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 uppercase placeholder:normal-case text-foreground font-mono"
+                  />
+                  <p className="text-[11px] text-muted-foreground mt-1.5">
+                    Submitting this code will finalize the flight ticket, lock the record, and automatically send issuance notification emails.
+                  </p>
+                </div>
+              )}
 
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
                 <button
                   type="button"
                   onClick={() => setPendingIssueTicket(null)}
-                  className="px-4 py-2 text-xs font-semibold text-muted-foreground hover:bg-secondary rounded-xl transition-colors"
+                  className="px-4 py-2 text-xs font-semibold text-muted-foreground hover:bg-secondary rounded-xl transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={!confirmationCode.trim() || statusMutation.isPending}
-                  className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 rounded-xl shadow-xs transition-colors"
+                  disabled={
+                    statusMutation.isPending ||
+                    (pendingIssueTicket.type === 'FLIGHT'
+                      ? !confirmationCode.trim()
+                      : !hotelReservationNumber.trim() && !hotelConfirmationNumber.trim())
+                  }
+                  className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 rounded-xl shadow-xs transition-colors cursor-pointer"
                 >
                   {statusMutation.isPending
                     ? 'Finalizing...'
                     : pendingIssueTicket.type === 'FLIGHT'
-                      ? 'Confirm & Issue Ticket'
-                      : 'Confirm & Finalize Reservation'}
+                    ? 'Confirm & Issue Ticket'
+                    : 'Confirm & Finalize Reservation'}
                 </button>
               </div>
             </form>
@@ -1160,6 +1350,9 @@ export default function IssuancePage() {
                 <div className="p-3 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900 rounded-xl space-y-1.5">
                   <p><strong>Hotel:</strong> {viewTicket.hotelName || 'N/A'}</p>
                   <p><strong>Destination:</strong> {viewTicket.destination || 'N/A'}</p>
+                  {viewTicket.vendorName && (
+                    <p><strong>Vendor / Supplier:</strong> {viewTicket.vendorName}</p>
+                  )}
                   <p>
                     <strong>Check-In Date:</strong>{' '}
                     <span className="font-semibold text-emerald-700 dark:text-emerald-400">
@@ -1175,12 +1368,31 @@ export default function IssuancePage() {
                     </p>
                   )}
                   <p><strong>Room Category:</strong> {viewTicket.roomCategory || 'N/A'} ({viewTicket.boardBasis || 'RO'})</p>
+                  {viewTicket.reservationNumber && (
+                    <p>
+                      <strong>Reservation No:</strong>{' '}
+                      <span className="font-mono font-bold text-foreground">
+                        {viewTicket.reservationNumber}
+                      </span>
+                    </p>
+                  )}
                   <p>
                     <strong>Confirmation No:</strong>{' '}
-                    <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                      {viewTicket.hotelReservationNo || 'Not yet issued'}
+                    <span className="font-bold text-emerald-600 dark:text-emerald-400 font-mono">
+                      {viewTicket.hotelConfirmationNumber || viewTicket.hotelReservationNo || 'Not yet issued'}
                     </span>
                   </p>
+                  <div className="pt-1.5 border-t border-emerald-200/60 dark:border-emerald-800/60 flex items-center justify-between text-xs">
+                    <span>
+                      Cost Price:{' '}
+                      <strong className="text-emerald-700 dark:text-emerald-300">
+                        {viewTicket.currency} {viewTicket.bookedPrice !== undefined && viewTicket.bookedPrice !== null ? Number(viewTicket.bookedPrice).toFixed(2) : 'N/A'}
+                      </strong>
+                    </span>
+                    <span>
+                      Quoted Price: <strong>{viewTicket.currency} {Number(viewTicket.totalCost).toFixed(2)}</strong>
+                    </span>
+                  </div>
                 </div>
               )}
 
@@ -1196,7 +1408,7 @@ export default function IssuancePage() {
               </div>
             </div>
 
-            <div className="mt-5 flex items-center justify-between">
+            <div className="mt-5 flex items-center justify-between gap-2">
               <button
                 type="button"
                 onClick={() => {
@@ -1212,15 +1424,31 @@ export default function IssuancePage() {
                 className="px-3.5 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                {deleteMutation.isPending ? 'Removing...' : 'Remove from Board'}
+                {deleteMutation.isPending ? 'Removing...' : 'Remove'}
               </button>
 
-              <button
-                onClick={() => setViewTicket(null)}
-                className="px-4 py-2 text-xs font-semibold bg-secondary text-foreground hover:bg-secondary/80 rounded-xl cursor-pointer"
-              >
-                Close
-              </button>
+              <div className="flex items-center gap-2">
+                {isSystemAdmin && viewTicket.status !== 'ISSUED' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const t = viewTicket;
+                      setViewTicket(null);
+                      openIssueModal(t);
+                    }}
+                    className="px-3.5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    {viewTicket.type === 'HOTEL' ? 'Finalize Reservation' : 'Issue Ticket'}
+                  </button>
+                )}
+                <button
+                  onClick={() => setViewTicket(null)}
+                  className="px-4 py-2 text-xs font-semibold bg-secondary text-foreground hover:bg-secondary/80 rounded-xl cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>

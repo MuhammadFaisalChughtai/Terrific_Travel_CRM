@@ -53,6 +53,17 @@ export class IssuanceService {
             bookingReference: true,
             totalPrice: true,
             paymentStatus: true,
+            accommodations: {
+              select: {
+                id: true,
+                hotelName: true,
+                reservationNumber: true,
+                hotelConfirmationNumber: true,
+                price: true,
+                vendorId: true,
+                vendor: { select: { id: true, name: true, vendorType: true } },
+              },
+            },
           },
         },
       },
@@ -67,11 +78,26 @@ export class IssuanceService {
         ? `${t.assignedTo.firstName} ${t.assignedTo.lastName}`.trim()
         : null;
 
+      let accommodation: any = null;
+      if (t.type === IssuanceType.HOTEL && (t.booking as any)?.accommodations) {
+        const accs = (t.booking as any).accommodations;
+        accommodation =
+          accs.find((a: any) => a.id === t.serviceId) ||
+          accs.find((a: any) => t.hotelName && a.hotelName?.toLowerCase() === t.hotelName.toLowerCase()) ||
+          accs[0] ||
+          null;
+      }
+
       return {
         ...t,
         isLocked: t.status === IssuanceStatus.ISSUED && t.isLocked,
         creatorName,
         assigneeName,
+        vendorId: accommodation?.vendorId || null,
+        vendorName: accommodation?.vendor?.name || null,
+        reservationNumber: accommodation?.reservationNumber || t.hotelReservationNo || null,
+        hotelConfirmationNumber: accommodation?.hotelConfirmationNumber || null,
+        bookedPrice: accommodation?.price !== undefined && accommodation?.price !== null ? accommodation.price : t.totalCost,
       };
     });
   }
@@ -276,6 +302,10 @@ export class IssuanceService {
       newStatus: IssuanceStatus;
       outputConfirmation?: string;
       holdReason?: string;
+      vendorId?: string;
+      reservationNumber?: string;
+      confirmationNumber?: string;
+      bookedPrice?: number;
     }
   ) {
     const ticket = await prisma.issuanceTicket.findUnique({
@@ -290,7 +320,15 @@ export class IssuanceService {
       throw new Error('Issuance ticket not found');
     }
 
-    const { newStatus, outputConfirmation, holdReason } = payload;
+    const {
+      newStatus,
+      outputConfirmation,
+      holdReason,
+      vendorId,
+      reservationNumber,
+      confirmationNumber,
+      bookedPrice,
+    } = payload;
 
     // STRICT RULE: Only System Administrators can move cards or change status on the Issuance Board
     if (!this.isSystemAdmin(user)) {
@@ -300,11 +338,13 @@ export class IssuanceService {
     // RULE 2: Mandatory Output Validation for ISSUED status
     const confirmation: string =
       (outputConfirmation?.trim() ||
+        confirmationNumber?.trim() ||
+        reservationNumber?.trim() ||
         (ticket.type === IssuanceType.FLIGHT ? ticket.pnrTicketNumber : ticket.hotelReservationNo) ||
         '').trim();
 
     if (newStatus === IssuanceStatus.ISSUED && !confirmation) {
-      const missingField = ticket.type === IssuanceType.FLIGHT ? 'Airline PNR / Ticket Number' : 'Hotel Reservation Number';
+      const missingField = ticket.type === IssuanceType.FLIGHT ? 'Airline PNR / Ticket Number' : 'Hotel Reservation / Confirmation Number';
       throw new Error(`Validation Error: ${missingField} is mandatory before moving card to Issued.`);
     }
 
@@ -334,7 +374,12 @@ export class IssuanceService {
       if (ticket.type === IssuanceType.FLIGHT) {
         updateData.pnrTicketNumber = confirmation.toUpperCase();
       } else {
-        updateData.hotelReservationNo = confirmation.toUpperCase();
+        const resNum = (reservationNumber || outputConfirmation || '').trim().toUpperCase();
+        const confNum = (confirmationNumber || outputConfirmation || '').trim().toUpperCase();
+        updateData.hotelReservationNo = confNum || resNum || confirmation.toUpperCase();
+        if (bookedPrice !== undefined && bookedPrice !== null && !isNaN(Number(bookedPrice))) {
+          updateData.totalCost = Number(bookedPrice);
+        }
       }
       updateData.isLocked = true;
       updateData.lockedAt = new Date();
@@ -364,22 +409,46 @@ export class IssuanceService {
               });
             }
           } else if (ticket.type === IssuanceType.HOTEL) {
+            const resNum = (reservationNumber || '').trim().toUpperCase();
+            const confNum = (confirmationNumber || outputConfirmation || '').trim().toUpperCase();
+
+            const accData: any = {};
+            if (resNum) accData.reservationNumber = resNum;
+            if (confNum) {
+              accData.hotelConfirmationNumber = confNum;
+              accData.confirmationNumber = confNum;
+            }
+            if (!resNum && !confNum && confirmation) {
+              accData.reservationNumber = confirmation.toUpperCase();
+              accData.hotelConfirmationNumber = confirmation.toUpperCase();
+              accData.confirmationNumber = confirmation.toUpperCase();
+            }
+            if (vendorId) accData.vendorId = vendorId;
+            if (bookedPrice !== undefined && bookedPrice !== null && !isNaN(Number(bookedPrice))) {
+              accData.price = Number(bookedPrice);
+            }
+
             if (ticket.serviceId) {
               await prisma.accommodationService.update({
                 where: { id: ticket.serviceId },
-                data: {
-                  reservationNumber: confirmation.toUpperCase(),
-                  hotelConfirmationNumber: confirmation.toUpperCase(),
-                },
+                data: accData,
               });
             } else {
               await prisma.accommodationService.updateMany({
-                where: { bookingId: ticket.bookingId },
-                data: {
-                  reservationNumber: confirmation.toUpperCase(),
-                  hotelConfirmationNumber: confirmation.toUpperCase(),
+                where: {
+                  bookingId: ticket.bookingId,
+                  ...(ticket.hotelName ? { hotelName: ticket.hotelName } : {}),
                 },
+                data: accData,
               });
+            }
+
+            // Sync vendor payments and ledger for this booking
+            try {
+              const { vendorsService } = await import('./vendors.service');
+              await vendorsService.syncBookingVendorPayments(ticket.bookingId);
+            } catch (vErr) {
+              logger.error('Failed to sync booking vendor payments on hotel issuance', vErr);
             }
           }
         } catch (syncErr) {
@@ -519,6 +588,7 @@ export class IssuanceService {
 
     const isHotel = fullTicket.type === IssuanceType.HOTEL || String(fullTicket.type).toUpperCase() === 'HOTEL';
     const adminEmail = 'office@terrifictravel.co.uk';
+    const hotelsEmail = 'hotels@terrifictravel.co.uk';
 
     const formatEmailDate = (d: any) => {
       if (!d) return 'N/A';
@@ -545,10 +615,10 @@ export class IssuanceService {
     let hotelEmail: string | null = null;
     let guestNamesList = '';
     let guestCount = 1;
+    let matchingAcc: any = null;
 
     if (isHotel) {
       // Find matching accommodation service
-      let matchingAcc: any = null;
       if (fullTicket.serviceId && fullTicket.booking?.accommodations) {
         matchingAcc = fullTicket.booking.accommodations.find((a: any) => a.id === fullTicket.serviceId);
       }
@@ -643,11 +713,14 @@ export class IssuanceService {
 
     // Determine Recipients:
     // STRICT REQUIREMENT: Never send internal issuance emails to customer/passenger!
-    // For HOTEL requests: send strictly to hotels email and admin email only.
+    // For HOTEL requests: send strictly to hotels@terrifictravel.co.uk, office admin, and vendor support email.
     let toEmails: string[] = [];
     if (isHotel) {
-      const recipients: string[] = [adminEmail];
-      if (hotelEmail && hotelEmail.toLowerCase().trim() !== adminEmail.toLowerCase().trim()) {
+      const recipients: string[] = [hotelsEmail];
+      if (adminEmail && adminEmail.toLowerCase().trim() !== hotelsEmail.toLowerCase().trim()) {
+        recipients.push(adminEmail);
+      }
+      if (hotelEmail && hotelEmail.toLowerCase().trim() !== hotelsEmail.toLowerCase().trim()) {
         recipients.push(hotelEmail.trim());
       }
       toEmails = Array.from(new Set(recipients));
@@ -736,9 +809,31 @@ export class IssuanceService {
             <td style="padding: 10px 16px; border-bottom: 1px solid #F1F5F9; color: #64748B; font-weight: 600;">Board Basis / Meal Plan:</td>
             <td style="padding: 10px 16px; border-bottom: 1px solid #F1F5F9; color: #0F172A;">${boardBasis}</td>
           </tr>` : ''}
+          ${matchingAcc?.vendor?.name ? `
+          <tr>
+            <td style="padding: 10px 16px; border-bottom: 1px solid #F1F5F9; color: #64748B; font-weight: 600;">Supplier / Vendor:</td>
+            <td style="padding: 10px 16px; border-bottom: 1px solid #F1F5F9; color: #0F172A; font-weight: 700;">${matchingAcc.vendor.name}</td>
+          </tr>` : ''}
+          ${matchingAcc?.reservationNumber ? `
+          <tr>
+            <td style="padding: 10px 16px; border-bottom: 1px solid #F1F5F9; color: #64748B; font-weight: 600;">Reservation Number:</td>
+            <td style="padding: 10px 16px; border-bottom: 1px solid #F1F5F9; color: #0F172A; font-weight: 700; font-family: monospace;">${matchingAcc.reservationNumber}</td>
+          </tr>` : ''}
+          ${(matchingAcc?.hotelConfirmationNumber || matchingAcc?.confirmationNumber) ? `
+          <tr>
+            <td style="padding: 10px 16px; border-bottom: 1px solid #F1F5F9; color: #64748B; font-weight: 600;">Confirmation Number:</td>
+            <td style="padding: 10px 16px; border-bottom: 1px solid #F1F5F9; color: #059669; font-weight: 700; font-family: monospace;">${matchingAcc.hotelConfirmationNumber || matchingAcc.confirmationNumber}</td>
+          </tr>` : ''}
+          ${matchingAcc?.price !== undefined && matchingAcc?.price !== null ? `
+          <tr>
+            <td style="padding: 10px 16px; border-bottom: 1px solid #F1F5F9; color: #64748B; font-weight: 600;">Booked Cost Price:</td>
+            <td style="padding: 10px 16px; border-bottom: 1px solid #F1F5F9; color: #059669; font-weight: 800; font-size: 14px;">
+              ${fullTicket.currency || 'GBP'} ${Number(matchingAcc.price).toFixed(2)}
+            </td>
+          </tr>` : ''}
           <tr>
             <td style="padding: 10px 16px; border-bottom: 1px solid #F1F5F9; color: #64748B; font-weight: 600;">Agent Quoted Price:</td>
-            <td style="padding: 10px 16px; border-bottom: 1px solid #F1F5F9; color: #059669; font-weight: 800; font-size: 14px;">
+            <td style="padding: 10px 16px; border-bottom: 1px solid #F1F5F9; color: #0F172A; font-weight: 700; font-size: 13px;">
               ${fullTicket.currency || 'GBP'} ${Number(fullTicket.totalCost).toFixed(2)}
             </td>
           </tr>
@@ -884,19 +979,27 @@ export class IssuanceService {
               The operations desk has finalized the ${fullTicket.type} reservation for <strong>${fullTicket.leadGuestName}</strong>:
             </p>
             <div style="background: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 6px; padding: 14px 16px; margin: 14px 0;">
-              <p style="font-size: 15px; font-weight: bold; color: #065F46; margin: 0 0 4px 0;">
+              <p style="font-size: 15px; font-weight: bold; color: #065F46; margin: 0 0 6px 0;">
                 ${isHotel ? 'Hotel Confirmation / Res No:' : 'PNR / Ticket Number:'} ${confirmationText}
               </p>
+              ${isHotel && matchingAcc?.vendor?.name ? `
+              <p style="margin: 0 0 4px 0; font-size: 12px; color: #065F46;">
+                Supplier / Vendor: <strong>${matchingAcc.vendor.name}</strong>
+              </p>` : ''}
+              ${isHotel && matchingAcc?.price !== undefined && matchingAcc?.price !== null ? `
+              <p style="margin: 0; font-size: 12px; color: #047857;">
+                Booked Cost Price: <strong>${fullTicket.currency || 'GBP'} ${Number(matchingAcc.price).toFixed(2)}</strong> | Quoted: <strong>${fullTicket.currency || 'GBP'} ${Number(fullTicket.totalCost).toFixed(2)}</strong> | Status: Finalized &amp; Locked
+              </p>` : `
               <p style="margin: 0; font-size: 12px; color: #047857;">
                 ${isHotel ? 'Agent Quoted Price' : 'Total Cost'}: <strong>${fullTicket.currency || 'GBP'} ${Number(fullTicket.totalCost).toFixed(2)}</strong> | Status: Finalized &amp; Locked
-              </p>
+              </p>`}
             </div>
             ${detailsBlock}
             <p style="font-size: 12px; color: #64748B; margin-top: 14px;">
               This reservation record is now locked in the TMS system.
             </p>
             <p style="font-size: 11px; color: #94A3B8; margin: 20px 0 0 0; text-align: center; border-top: 1px solid #E2E8F0; padding-top: 12px;">
-              Terrific Travel Ltd &bull; Office: office@terrifictravel.co.uk &bull; Direct: 01215 291 670
+              Terrific Travel Ltd &bull; Hotels: hotels@terrifictravel.co.uk &bull; Office: office@terrifictravel.co.uk &bull; Direct: 01215 291 670
             </p>
           </div>
         </div>

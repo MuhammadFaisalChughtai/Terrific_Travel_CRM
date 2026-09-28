@@ -4,6 +4,21 @@ import { vendorsService } from '../services/vendors.service';
 import { asyncHandler } from '../middleware/async.middleware';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
 import { minioService } from '../services/minio.service';
+import { BookingsPolicy } from '../policies/bookings.policy';
+
+class ForbiddenException extends Error {
+  status = 403;
+  constructor(message: string) { super(message); this.name = 'ForbiddenException'; }
+}
+
+/** Helper: enforce canEdit or throw 403 */
+async function requireCanEdit(bookingId: string, user: any): Promise<void> {
+  const booking = await bookingsService.findOne(bookingId);
+  if (!BookingsPolicy.canEdit(user, booking)) {
+    const err = new ForbiddenException('Forbidden: You have view-only access to this booking.');
+    throw err;
+  }
+}
 
 export const create = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const result = await bookingsService.create(req.user!.id, req.body);
@@ -41,6 +56,7 @@ export const findOne = asyncHandler(async (req: AuthenticatedRequest, res: Respo
 export const updateStatus = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
   const { status } = req.body;
+  await requireCanEdit(id, req.user);
   const result = await bookingsService.updateStatus(id, status, req.user!.id);
   res.status(200).json({
     success: true,
@@ -50,6 +66,10 @@ export const updateStatus = asyncHandler(async (req: AuthenticatedRequest, res: 
 
 export const toggleLock = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
+  // Only admins can lock/unlock — use canFinalizeMargin-level check
+  if (!BookingsPolicy.isAdmin(req.user)) {
+    throw new ForbiddenException('Forbidden: Only admins can lock or unlock bookings.');
+  }
   const result = await bookingsService.toggleLock(id, req.user!.id);
   res.status(200).json({
     success: true,
@@ -59,6 +79,7 @@ export const toggleLock = asyncHandler(async (req: AuthenticatedRequest, res: Re
 
 export const cancel = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
+  await requireCanEdit(id, req.user);
   const result = await bookingsService.delete(id, req.user!.id);
   res.status(200).json({
     success: true,
@@ -69,6 +90,9 @@ export const cancel = asyncHandler(async (req: AuthenticatedRequest, res: Respon
 export const finalizeMargin = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
   const { agentId } = req.body;
+  if (!BookingsPolicy.canFinalizeMargin(req.user)) {
+    throw new ForbiddenException('Forbidden: Only admins can finalize margin.');
+  }
   const result = await bookingsService.finalizeMargin(id, agentId);
   res.status(200).json({
     success: true,
@@ -79,6 +103,7 @@ export const finalizeMargin = asyncHandler(async (req: AuthenticatedRequest, res
 export const updateBookingDetails = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
   const { totalPrice, agentId, departureDate, bookingDate, paidAmount, remainingAmount, leadPassengerName } = req.body;
+  await requireCanEdit(id, req.user);
   const result = await bookingsService.updateBookingDetails(
     id,
     { totalPrice, agentId, departureDate, bookingDate, paidAmount, remainingAmount, leadPassengerName },
@@ -92,6 +117,7 @@ export const updateBookingDetails = asyncHandler(async (req: AuthenticatedReques
 
 export const addFlightService = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
+  await requireCanEdit(id, req.user);
   const result = await bookingsService.addFlightService(id, req.body);
   res.status(201).json({
     success: true,
@@ -106,6 +132,7 @@ const isUserAdmin = (user?: any) => {
 
 export const updateFlightService = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id, flightServiceId } = req.params;
+  await requireCanEdit(id, req.user);
   if (!isUserAdmin(req.user) && req.body) {
     delete req.body.price;
   }
@@ -118,6 +145,7 @@ export const updateFlightService = asyncHandler(async (req: AuthenticatedRequest
 
 export const deleteFlightService = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id, flightServiceId } = req.params;
+  await requireCanEdit(id, req.user);
   const result = await bookingsService.deleteFlightService(id, flightServiceId);
   res.status(200).json({
     success: true,
@@ -127,6 +155,7 @@ export const deleteFlightService = asyncHandler(async (req: AuthenticatedRequest
 
 export const updateFlightsStatus = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
+  await requireCanEdit(id, req.user);
   const result = await bookingsService.updateFlightsStatus(id, req.body, req.user);
   res.status(200).json({
     success: true,
@@ -136,6 +165,7 @@ export const updateFlightsStatus = asyncHandler(async (req: AuthenticatedRequest
 
 export const addAccommodationService = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
+  await requireCanEdit(id, req.user);
   const result = await bookingsService.addAccommodationService(id, req.body);
   res.status(201).json({
     success: true,
@@ -145,6 +175,7 @@ export const addAccommodationService = asyncHandler(async (req: AuthenticatedReq
 
 export const updateAccommodationService = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id, accommodationId } = req.params;
+  await requireCanEdit(id, req.user);
   if (!isUserAdmin(req.user) && req.body) {
     delete req.body.price;
   }
@@ -157,6 +188,7 @@ export const updateAccommodationService = asyncHandler(async (req: Authenticated
 
 export const deleteAccommodationService = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id, accommodationId } = req.params;
+  await requireCanEdit(id, req.user);
   const result = await bookingsService.deleteAccommodationService(id, accommodationId);
   res.status(200).json({
     success: true,
@@ -166,6 +198,7 @@ export const deleteAccommodationService = asyncHandler(async (req: Authenticated
 
 export const addTransportService = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
+  await requireCanEdit(id, req.user);
   const result = await bookingsService.addTransportService(id, req.body);
   res.status(201).json({
     success: true,
@@ -175,6 +208,7 @@ export const addTransportService = asyncHandler(async (req: AuthenticatedRequest
 
 export const updateTransportService = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id, transportServiceId } = req.params;
+  await requireCanEdit(id, req.user);
   if (!isUserAdmin(req.user) && req.body) {
     delete req.body.price;
   }
@@ -187,6 +221,7 @@ export const updateTransportService = asyncHandler(async (req: AuthenticatedRequ
 
 export const deleteTransportService = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id, transportServiceId } = req.params;
+  await requireCanEdit(id, req.user);
   const result = await bookingsService.deleteTransportService(id, transportServiceId);
   res.status(200).json({
     success: true,
@@ -198,18 +233,21 @@ export const deleteTransportService = asyncHandler(async (req: AuthenticatedRequ
 
 export const addPassenger = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
+  await requireCanEdit(id, req.user);
   const result = await bookingsService.addPassenger(id, req.body);
   res.status(201).json({ success: true, data: result });
 });
 
 export const updatePassenger = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id, passengerId } = req.params;
+  await requireCanEdit(id, req.user);
   const result = await bookingsService.updatePassenger(id, passengerId, req.body);
   res.status(200).json({ success: true, data: result });
 });
 
 export const deletePassenger = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id, passengerId } = req.params;
+  await requireCanEdit(id, req.user);
   const result = await bookingsService.deletePassenger(id, passengerId);
   res.status(200).json({ success: true, data: result });
 });
@@ -371,6 +409,7 @@ export const deleteTransaction = asyncHandler(async (req: AuthenticatedRequest, 
 
 export const addVisaService = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
+  await requireCanEdit(id, req.user);
   const result = await bookingsService.addVisaService(id, req.body);
   res.status(201).json({
     success: true,
@@ -380,6 +419,7 @@ export const addVisaService = asyncHandler(async (req: AuthenticatedRequest, res
 
 export const updateVisaService = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id, visaServiceId } = req.params;
+  await requireCanEdit(id, req.user);
   if (!isUserAdmin(req.user) && req.body) {
     delete req.body.price;
   }
@@ -392,6 +432,7 @@ export const updateVisaService = asyncHandler(async (req: AuthenticatedRequest, 
 
 export const deleteVisaService = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id, visaServiceId } = req.params;
+  await requireCanEdit(id, req.user);
   const result = await bookingsService.deleteVisaService(id, visaServiceId);
   res.status(200).json({
     success: true,
@@ -407,6 +448,7 @@ export const searchAllPassengers = asyncHandler(async (req: AuthenticatedRequest
 
 export const addAdditionalService = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
+  await requireCanEdit(id, req.user);
   const result = await bookingsService.addAdditionalService(id, req.body);
   res.status(201).json({
     success: true,
@@ -416,6 +458,7 @@ export const addAdditionalService = asyncHandler(async (req: AuthenticatedReques
 
 export const updateAdditionalService = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id, serviceId } = req.params;
+  await requireCanEdit(id, req.user);
   if (!isUserAdmin(req.user) && req.body) {
     delete req.body.price;
     delete req.body.servicePrice;
@@ -429,6 +472,7 @@ export const updateAdditionalService = asyncHandler(async (req: AuthenticatedReq
 
 export const deleteAdditionalService = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id, serviceId } = req.params;
+  await requireCanEdit(id, req.user);
   const result = await bookingsService.deleteAdditionalService(id, serviceId);
   res.status(200).json({
     success: true,

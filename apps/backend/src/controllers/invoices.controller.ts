@@ -31,11 +31,13 @@ export const findOne = asyncHandler(async (req: AuthenticatedRequest, res: Respo
 });
 
 export const update = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  if (!InvoicesPolicy.canEdit(req.user)) {
-    throw new ForbiddenException('Forbidden: You do not have permissions to edit invoices.');
+  const { id } = req.params;
+  const existingInvoice = await invoicesService.findOne(id);
+
+  if (!InvoicesPolicy.canEdit(req.user, existingInvoice)) {
+    throw new ForbiddenException('Forbidden: You have view-only access to this invoice.');
   }
 
-  const { id } = req.params;
   const result = await invoicesService.update(id, req.body, req.user!.id);
   res.status(200).json({
     success: true,

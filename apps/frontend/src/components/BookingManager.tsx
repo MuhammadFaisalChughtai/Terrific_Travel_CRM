@@ -45,6 +45,8 @@ import {
   Mail,
   AlertTriangle,
   Ticket,
+  Eye,
+  Lock,
 } from "lucide-react";
 // @ts-ignore
 import html2pdf from "html2pdf.js";
@@ -888,28 +890,44 @@ export default function BookingManager({
   const userFullName = [user?.firstName, user?.lastName]
     .filter(Boolean)
     .join(" ");
-  const isOwner =
+  const isAdminUser =
     isAdmin ||
     user?.roles?.some((r: string) => {
       const normalized = String(r).toUpperCase().replace(/[\s_-]+/g, "");
-      return ["ADMIN", "SUPERADMIN", "MANAGER", "BRANCHMANAGER", "ADMINISTRATOR", "AGENT", "TRAVELAGENT"].includes(normalized);
-    }) ||
+      return ["ADMIN", "SUPERADMIN", "ADMINISTRATOR", "ROOT"].includes(normalized);
+    });
+
+  const isManagerUser = !isAdminUser && user?.roles?.some((r: string) => {
+    const normalized = String(r).toUpperCase().replace(/[\s_-]+/g, "");
+    return ["MANAGER", "BRANCHMANAGER"].includes(normalized);
+  });
+
+  const isBookingOwner =
     booking?.createdById === user?.id ||
+    booking?.assignedToId === user?.id ||
     booking?.userId === user?.id ||
-    (!!user?.agentId && booking?.agentId === user?.agentId) ||
+    (!!user?.agentId && !!booking?.agentId && booking?.agentId === user?.agentId) ||
     (!user?.agentId &&
       !!userFullName &&
       !!booking?.agent?.name &&
-      booking.agent.name.trim().toLowerCase() ===
-        userFullName.trim().toLowerCase());
+      booking.agent.name.trim().toLowerCase() === userFullName.trim().toLowerCase());
 
-  // True when the logged-in user is an agent/manager (not admin) — used to hide financial internals
+  const isLocked = booking?.lockedStatus === "LOCKED" || booking?.isLocked === true;
+
+  // canEdit: admins always can; non-admins only if they own the booking AND it's not locked
+  const isOwner = isAdminUser || (!isLocked && isBookingOwner);
+  // Alias for explicit intent
+  const canEdit = isOwner;
+
+  // Hide margin/profit from agents viewing OTHER agents' bookings
+  // Admins and Managers always see financials; owner agents also see their own
   const isAgent =
     !!user?.roles?.length &&
     !user?.roles?.some((r: string) => {
       const normalized = String(r).toUpperCase().replace(/[\s_-]+/g, "");
-      return ["ADMIN", "SUPERADMIN", "SUPER_ADMIN", "ADMINISTRATOR"].includes(normalized);
+      return ["ADMIN", "SUPERADMIN", "SUPER_ADMIN", "ADMINISTRATOR", "MANAGER", "BRANCHMANAGER"].includes(normalized);
     });
+  const canViewMarginProfit = isAdminUser || isManagerUser || isBookingOwner;
 
   const disableAgentField =
     isAgent ||
@@ -1239,6 +1257,23 @@ export default function BookingManager({
         </div> */}
 
         <div className="px-5 mt-4 space-y-4 w-full">
+          {/* View-Only / Locked Banner */}
+          {!canEdit && (
+            <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-lg border text-xs font-medium bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300">
+              {isLocked ? (
+                <>
+                  <Lock size={13} className="shrink-0" />
+                  <span><strong>Locked Booking</strong> — This booking is locked. View-only access — no changes can be made.</span>
+                </>
+              ) : (
+                <>
+                  <Eye size={13} className="shrink-0" />
+                  <span><strong>View-Only Access</strong> — You are viewing a booking belonging to {booking?.agent?.name || "another agent"}. No changes can be made.</span>
+                </>
+              )}
+            </div>
+          )}
+
           {/* 0. Booking Details — view / edit */}
           <section>
             <div className="relative overflow-hidden rounded-xl border border-border bg-card shadow-sm">
@@ -1629,7 +1664,7 @@ export default function BookingManager({
                   </div>
 
                   {/* Total Spent — Admin/Manager only */}
-                  {isOwner && !isAgent && (
+                  {canViewMarginProfit && !isAgent && (
                     <div className="bg-card p-3.5 rounded-lg shadow-sm border border-border flex flex-col justify-between">
                       <div className="flex items-center gap-1 text-red-500 mb-1">
                         <ArrowUpRight size={12} />
@@ -1644,7 +1679,7 @@ export default function BookingManager({
                   )}
 
                   {/* Agent Margin */}
-                  {isOwner && (
+                  {canViewMarginProfit && (
                     <div className="bg-card p-3.5 rounded-lg shadow-sm border border-border flex flex-col justify-between">
                       <div className="flex items-center gap-1 text-blue-500 mb-1">
                         <BadgePercent size={12} />
@@ -1673,7 +1708,7 @@ export default function BookingManager({
                             Voided / Not Qualify
                           </span>
                         )}
-                        {isOwner && !isAgent && !hasAgentPayout && (
+                        {isAdminUser && !isAgent && !hasAgentPayout && (
                           <button
                             type="button"
                             onClick={() => {
@@ -1716,7 +1751,7 @@ export default function BookingManager({
                   )}
 
                   {/* Total Profit */}
-                  {isOwner && (
+                  {canViewMarginProfit && (
                     <div className="bg-card p-3.5 rounded-lg shadow-sm border border-border flex flex-col justify-between">
                       <div className="flex items-center gap-1 text-emerald-600 mb-1">
                         <TrendingUp size={12} />
@@ -1731,7 +1766,7 @@ export default function BookingManager({
                   )}
 
                   {/* Refund from Vendors — Admin/Manager only */}
-                  {isOwner && !isAgent && (
+                  {canViewMarginProfit && !isAgent && (
                     <div className="bg-card p-3.5 rounded-lg shadow-sm border border-border flex flex-col justify-between">
                       <div className="flex items-center gap-1 text-violet-500 mb-1">
                         <RotateCcw size={12} />
@@ -1760,7 +1795,7 @@ export default function BookingManager({
                 </div>
 
                 {/* Expected Margin Warning Banner — Admin/Manager only */}
-                {isOwner &&
+                {canViewMarginProfit &&
                   !isAgent &&
                   booking.agentId &&
                   booking.agent &&
@@ -3108,8 +3143,18 @@ export default function BookingManager({
                         key={acc.id}
                         className="border border-border rounded-lg p-2.5 relative text-[12px]"
                       >
-                        <span className="absolute -top-2.5 left-2 bg-card px-1 text-[8px] font-bold text-emerald-600 border border-emerald-200 rounded uppercase">
-                          Confirmed
+                        <span className={`absolute -top-2.5 left-2 bg-card px-1.5 py-0.2 text-[8px] font-bold rounded uppercase border ${
+                          acc.hotelConfirmationNumber || acc.confirmationNumber
+                            ? 'text-emerald-600 border-emerald-300 dark:border-emerald-800'
+                            : acc.reservationNumber
+                            ? 'text-sky-600 border-sky-300 dark:border-sky-800'
+                            : 'text-amber-600 border-amber-300 dark:border-amber-800'
+                        }`}>
+                          {acc.hotelConfirmationNumber || acc.confirmationNumber
+                            ? 'Confirmed'
+                            : acc.reservationNumber
+                            ? 'Reserved'
+                            : 'Pending'}
                         </span>
 
                         <div className="flex justify-between items-start mt-0.5">
@@ -3226,9 +3271,39 @@ export default function BookingManager({
                               {acc.mealType || "Room Only"})
                             </span>
                           </div>
-                          <div className="flex justify-between">
+                          {acc.vendor?.name && (
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground text-[12px]">
+                                Vendor / Supplier:
+                              </span>
+                              <span className="font-semibold text-foreground text-[12px]">
+                                {acc.vendor.name}
+                              </span>
+                            </div>
+                          )}
+                          {acc.reservationNumber && (
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground text-[12px]">
+                                Reservation No:
+                              </span>
+                              <span className="font-mono font-medium text-foreground text-[12px]">
+                                {acc.reservationNumber}
+                              </span>
+                            </div>
+                          )}
+                          {(acc.hotelConfirmationNumber || acc.confirmationNumber) && (
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground text-[12px]">
+                                Confirmation No:
+                              </span>
+                              <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-[12px]">
+                                {acc.hotelConfirmationNumber || acc.confirmationNumber}
+                              </span>
+                            </div>
+                          )}
+                          <div className="flex justify-between pt-0.5 border-t border-border/40">
                             <span className="text-muted-foreground font-bold text-[12px]">
-                              Price:
+                              Booked Price:
                             </span>
                             <span className="font-bold text-foreground text-[12px]">
                               {formatCurrency(acc.price)}
@@ -3241,16 +3316,6 @@ export default function BookingManager({
                               </span>
                               <span className="font-semibold text-muted-foreground text-[12px]">
                                 {formatCurrency(acc.agentQuotedPrice)}
-                              </span>
-                            </div>
-                          )}
-                          {acc.confirmationNumber && (
-                            <div className="flex justify-between">
-                              <span className="text-muted-foreground text-[12px]">
-                                Confirmation No:
-                              </span>
-                              <span className="font-medium text-foreground text-[12px]">
-                                {acc.confirmationNumber}
                               </span>
                             </div>
                           )}
