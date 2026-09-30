@@ -174,17 +174,13 @@ export default function Bookings() {
         params.append("bookingReferenceOp", "contains");
       }
 
-      // For agents: if "mine" mode, force filter to their own agentId
-      // If "all" mode, no agentId filter (shows all agents' bookings)
-      if (isAgent && agentViewMode === "mine" && user?.agentId) {
-        params.append("agentId", user.agentId);
-      } else if (
-        !isAgent &&
-        appliedFilters.agentId &&
-        appliedFilters.agentId !== "Any"
-      ) {
-        // Admins/managers use the filter dropdown
+      // Agent filter logic:
+      // If a specific agent is selected in the filter modal (appliedFilters.agentId !== "Any"), apply it for all roles (Admin, Manager, Agent)
+      // Otherwise, for agents in "mine" view mode, default to their own agentId
+      if (appliedFilters.agentId && appliedFilters.agentId !== "Any") {
         params.append("agentId", appliedFilters.agentId);
+      } else if (isAgent && agentViewMode === "mine" && user?.agentId) {
+        params.append("agentId", user.agentId);
       }
 
       if (appliedFilters.customerName)
@@ -1426,26 +1422,24 @@ export default function Bookings() {
               />
             </div>
 
-            {/* AGENT filter — only shown to Admin/Manager; agents use the toggle in the header instead */}
-            {!isAgent && (
-              <div className="space-y-1">
-                <label className="font-bold text-muted-foreground uppercase tracking-wider block">
-                  AGENT
-                </label>
-                <select
-                  value={filterAgentId}
-                  onChange={(e) => setFilterAgentId(e.target.value)}
-                  className="w-full bg-secondary/20 border border-border/80 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary text-foreground transition-all focus:bg-background"
-                >
-                  <option value="Any">Any</option>
-                  {agents?.map((a: any) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
+            {/* AGENT filter — available to Admin, Manager, and Agent */}
+            <div className="space-y-1">
+              <label className="font-bold text-muted-foreground uppercase tracking-wider block">
+                AGENT
+              </label>
+              <select
+                value={filterAgentId}
+                onChange={(e) => setFilterAgentId(e.target.value)}
+                className="w-full bg-secondary/20 border border-border/80 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary text-foreground transition-all focus:bg-background"
+              >
+                <option value="Any">Any</option>
+                {agents?.map((a: any) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
             {/* STATUS */}
             <div className="space-y-1">

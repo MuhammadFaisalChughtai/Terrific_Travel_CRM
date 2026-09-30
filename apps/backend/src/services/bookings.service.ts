@@ -311,25 +311,10 @@ export class BookingsService {
 
     if (query.upcoming === 'true') {
       where.lockedStatus = { not: 'LOCKED' };
-      if (isAdmin) {
-        // Admins see all, no restriction
-      } else if (isManager) {
-        // Managers see their own + sub-agents' bookings
-        if (user.agentId) {
-          where.OR = [
-            { agentId: user.agentId },
-            { createdById: user.id },
-            { assignedToId: user.id },
-          ];
-        } else {
-          where.OR = [
-            { createdById: user.id },
-            { assignedToId: user.id },
-          ];
+      if (isAdmin || isManager || isAgent) {
+        if (query.agentId && query.agentId !== 'Any') {
+          where.agentId = query.agentId;
         }
-      } else if (isAgent) {
-        // Agents can view ALL bookings (view-only enforced at controller/frontend layer)
-        // No where filter — agents see all bookings
       } else {
         // Customers/others see their own bookings
         where.userId = user.id;
@@ -491,30 +476,11 @@ export class BookingsService {
     }
 
     // Apply role-based visibility boundaries
-    if (isAdmin) {
-      // Admins see all bookings; can filter by specific agent
+    if (isAdmin || isManager || isAgent) {
+      // Admins, Managers, and Agents can view bookings and filter by specific agent
       if (query.agentId && query.agentId !== 'Any') {
         where.agentId = query.agentId;
       }
-    } else if (isManager) {
-      if (user.agentId) {
-        where.OR = [
-          { agentId: user.agentId },
-          { createdById: user.id },
-          { assignedToId: user.id },
-        ];
-      } else {
-        where.OR = [
-          { createdById: user.id },
-          { assignedToId: user.id },
-        ];
-      }
-      if (query.agentId && query.agentId !== 'Any') {
-        where.agentId = query.agentId;
-      }
-    } else if (isAgent) {
-      // Agents can view ALL bookings (view-only enforced at controller/frontend layer)
-      // No where filter — agents see all bookings
     } else {
       where.userId = user.id;
     }
@@ -572,8 +538,8 @@ export class BookingsService {
       }
     }
 
-    // 5. Agent Filter (Admin / Manager override)
-    if ((isAdmin || isManager) && query.agentId && query.agentId !== 'Any') {
+    // 5. Agent Filter (Admin / Manager / Agent)
+    if ((isAdmin || isManager || isAgent) && query.agentId && query.agentId !== 'Any') {
       where.agentId = query.agentId;
     }
 
