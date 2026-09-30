@@ -178,6 +178,7 @@ export default function Attendance() {
       return res.data.data as AttendanceRecord | null;
     },
     enabled: true,
+    refetchInterval: 15000,
   });
 
   // Agent: My Fines

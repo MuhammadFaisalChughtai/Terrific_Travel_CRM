@@ -183,7 +183,7 @@ export class AttendanceService {
     const today = new Date();
     today.setUTCHours(0, 0, 0, 0);
 
-    const record = user.agentId
+    let record = user.agentId
       ? await prisma.attendance.findUnique({
           where: {
             agentId_date: {
@@ -193,6 +193,22 @@ export class AttendanceService {
           },
         })
       : null;
+
+    if (!record || !record.isOnBreak) {
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const openYesterday = await prisma.attendance.findUnique({
+        where: {
+          agentId_date: {
+            agentId: user.agentId!,
+            date: yesterday,
+          },
+        },
+      });
+      if (openYesterday && openYesterday.isOnBreak) {
+        record = openYesterday;
+      }
+    }
 
     if (!record || !record.isOnBreak || !record.breakStartTime) {
       throw new BadRequestException('You are not currently on a break');
@@ -219,7 +235,7 @@ export class AttendanceService {
     const today = new Date();
     today.setUTCHours(0, 0, 0, 0);
 
-    const existingRecord = await prisma.attendance.findUnique({
+    let existingRecord = await prisma.attendance.findUnique({
       where: {
         agentId_date: {
           agentId: user.agentId!,
@@ -227,6 +243,24 @@ export class AttendanceService {
         }
       }
     });
+
+    // Support night shifts ending past midnight UTC:
+    // If no active shift found for today, check if there's an open shift from yesterday
+    if (!existingRecord || !existingRecord.checkInTime || existingRecord.checkOutTime) {
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const openYesterday = await prisma.attendance.findUnique({
+        where: {
+          agentId_date: {
+            agentId: user.agentId!,
+            date: yesterday,
+          }
+        }
+      });
+      if (openYesterday && openYesterday.checkInTime && !openYesterday.checkOutTime) {
+        existingRecord = openYesterday;
+      }
+    }
 
     if (!existingRecord || !existingRecord.checkInTime) {
       throw new BadRequestException('You must check in first');
@@ -260,7 +294,7 @@ export class AttendanceService {
     const today = new Date();
     today.setUTCHours(0, 0, 0, 0);
 
-    const record = await prisma.attendance.findUnique({
+    let record = await prisma.attendance.findUnique({
       where: {
         agentId_date: {
           agentId: user.agentId,
@@ -268,6 +302,23 @@ export class AttendanceService {
         }
       }
     });
+
+    // If no active shift today, check if there's an open shift from yesterday (e.g. night shift ending past midnight)
+    if (!record || (!record.checkInTime && !record.checkOutTime)) {
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const openYesterday = await prisma.attendance.findUnique({
+        where: {
+          agentId_date: {
+            agentId: user.agentId,
+            date: yesterday,
+          }
+        }
+      });
+      if (openYesterday && openYesterday.checkInTime && !openYesterday.checkOutTime) {
+        record = openYesterday;
+      }
+    }
 
     return record;
   }

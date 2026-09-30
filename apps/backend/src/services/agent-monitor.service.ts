@@ -230,7 +230,7 @@ export class AgentMonitorService {
       const today = new Date();
       today.setUTCHours(0, 0, 0, 0);
 
-      let attendanceRecord = await prisma.attendance.findUnique({
+      const attendanceRecord = await prisma.attendance.findUnique({
         where: {
           agentId_date: {
             agentId,
@@ -239,50 +239,38 @@ export class AgentMonitorService {
         },
       });
 
-      if (!attendanceRecord) {
-        // Automatically start active shift for manager/agent working on companion workstation for TODAY
-        attendanceRecord = await prisma.attendance.create({
-          data: {
-            agentId,
-            date: today,
-            checkInTime: new Date(),
-            status: 'PRESENT',
-            activeMinutes: Math.floor((heartbeat.activeSeconds || 0) / 60),
-            idleMinutes: Math.floor((heartbeat.idleSeconds || 0) / 60),
-          },
-        });
-      }
+      if (attendanceRecord) {
+        checkInTime = attendanceRecord.checkInTime;
+        checkOutTime = attendanceRecord.checkOutTime;
+        // Shift is active if checked in and not checked out
+        isCheckedIn = Boolean(attendanceRecord.checkInTime && !attendanceRecord.checkOutTime);
 
-      checkInTime = attendanceRecord.checkInTime;
-      checkOutTime = attendanceRecord.checkOutTime;
-      // Shift is active if checked in and not checked out
-      isCheckedIn = Boolean(attendanceRecord.checkInTime && !attendanceRecord.checkOutTime);
+        // Accumulate activeMinutes / idleMinutes accurately for today's shift
+        if (isCheckedIn) {
+          let totalActiveMins = Math.floor((heartbeat.activeSeconds || 0) / 60);
+          let totalIdleMins = Math.floor((heartbeat.idleSeconds || 0) / 60);
 
-      // Accumulate activeMinutes / idleMinutes accurately for today's shift
-      if (isCheckedIn) {
-        let totalActiveMins = Math.floor((heartbeat.activeSeconds || 0) / 60);
-        let totalIdleMins = Math.floor((heartbeat.idleSeconds || 0) / 60);
-
-        // Cap to elapsed shift minutes so active PC time never exceeds actual shift duration
-        if (checkInTime) {
-          const shiftEnd = checkOutTime ? new Date(checkOutTime) : new Date();
-          const elapsedMins = Math.max(0, Math.floor((shiftEnd.getTime() - new Date(checkInTime).getTime()) / 60000));
-          const breakMins = attendanceRecord.breakMinutes || 0;
-          if (elapsedMins > 0) {
-            // Active time cannot exceed shift duration minus break time
-            totalActiveMins = Math.min(totalActiveMins, Math.max(0, elapsedMins - breakMins));
-            // Idle time accurately covers all elapsed shift time not actively working and not on break
-            totalIdleMins = Math.max(totalIdleMins, Math.max(0, elapsedMins - totalActiveMins - breakMins));
+          // Cap to elapsed shift minutes so active PC time never exceeds actual shift duration
+          if (checkInTime) {
+            const shiftEnd = checkOutTime ? new Date(checkOutTime) : new Date();
+            const elapsedMins = Math.max(0, Math.floor((shiftEnd.getTime() - new Date(checkInTime).getTime()) / 60000));
+            const breakMins = attendanceRecord.breakMinutes || 0;
+            if (elapsedMins > 0) {
+              // Active time cannot exceed shift duration minus break time
+              totalActiveMins = Math.min(totalActiveMins, Math.max(0, elapsedMins - breakMins));
+              // Idle time accurately covers all elapsed shift time not actively working and not on break
+              totalIdleMins = Math.max(totalIdleMins, Math.max(0, elapsedMins - totalActiveMins - breakMins));
+            }
           }
-        }
 
-        await prisma.attendance.update({
-          where: { id: attendanceRecord.id },
-          data: {
-            activeMinutes: totalActiveMins,
-            idleMinutes: totalIdleMins,
-          },
-        });
+          await prisma.attendance.update({
+            where: { id: attendanceRecord.id },
+            data: {
+              activeMinutes: totalActiveMins,
+              idleMinutes: totalIdleMins,
+            },
+          });
+        }
       }
     }
 
