@@ -54,8 +54,8 @@ export default function AddCRMBookingModal({
   const { data: vendors } = useQuery({
     queryKey: ["vendors"],
     queryFn: async () => {
-      const res = await apiClient.get("/vendors");
-      return res.data.data || [];
+      const res = await apiClient.get("/vendors?limit=1000");
+      return res.data.data?.items || res.data.data || [];
     },
   });
 

@@ -159,14 +159,41 @@ export default function IssuancePage() {
   }, [user]);
 
   // Fetch Vendors for Hotel Supplier Selection
-  const { data: vendorsData } = useQuery<any>({
+  const { data: vendorsData, isLoading: isLoadingVendors } = useQuery<any>({
     queryKey: ['vendors-list-issuance'],
     queryFn: async () => {
-      const res = await apiClient.get('/vendors?limit=100');
-      return res.data?.data || res.data || [];
+      const res = await apiClient.get('/vendors?limit=1000');
+      const d = res.data?.data;
+      if (d && Array.isArray(d.items)) return d.items;
+      if (Array.isArray(d)) return d;
+      if (res.data && Array.isArray(res.data.items)) return res.data.items;
+      if (Array.isArray(res.data)) return res.data;
+      return [];
     },
   });
-  const vendors = Array.isArray(vendorsData) ? vendorsData : [];
+
+  const vendors: any[] = useMemo(() => {
+    return Array.isArray(vendorsData) ? vendorsData : [];
+  }, [vendorsData]);
+
+  // Separate hotel/accommodation vendors from other suppliers
+  const hotelVendors = useMemo(() => {
+    return vendors
+      .filter((v: any) => {
+        const t = (v.vendorType || '').toLowerCase().trim();
+        return t === 'accommodation' || t === 'hotel' || t.includes('hotel') || t.includes('accommodat');
+      })
+      .sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
+  }, [vendors]);
+
+  const otherVendors = useMemo(() => {
+    return vendors
+      .filter((v: any) => {
+        const t = (v.vendorType || '').toLowerCase().trim();
+        return !(t === 'accommodation' || t === 'hotel' || t.includes('hotel') || t.includes('accommodat'));
+      })
+      .sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
+  }, [vendors]);
 
   // Fetch Tickets
   const { data: tickets = [], isLoading, refetch } = useQuery<IssuanceTicket[]>({
@@ -326,7 +353,16 @@ export default function IssuancePage() {
     if (ticket.type === 'HOTEL') {
       setHotelReservationNumber(ticket.reservationNumber || ticket.hotelReservationNo || '');
       setHotelConfirmationNumber(ticket.hotelConfirmationNumber || '');
-      setHotelVendorId(ticket.vendorId || '');
+
+      let matchedVendorId = ticket.vendorId || '';
+      if (!matchedVendorId && ticket.vendorName && vendors.length > 0) {
+        const found = vendors.find(
+          (v: any) => v.name?.toLowerCase().trim() === ticket.vendorName?.toLowerCase().trim()
+        );
+        if (found) matchedVendorId = found.id;
+      }
+      setHotelVendorId(matchedVendorId);
+
       setHotelBookedPrice(
         ticket.bookedPrice !== undefined && ticket.bookedPrice !== null
           ? String(ticket.bookedPrice)
@@ -338,6 +374,24 @@ export default function IssuancePage() {
       setConfirmationCode(ticket.pnrTicketNumber || '');
     }
   };
+
+  // Auto-link vendor by name if vendors load after modal is already opened
+  useEffect(() => {
+    if (
+      pendingIssueTicket &&
+      pendingIssueTicket.type === 'HOTEL' &&
+      !hotelVendorId &&
+      pendingIssueTicket.vendorName &&
+      vendors.length > 0
+    ) {
+      const found = vendors.find(
+        (v: any) => v.name?.toLowerCase().trim() === pendingIssueTicket.vendorName?.toLowerCase().trim()
+      );
+      if (found) {
+        setHotelVendorId(found.id);
+      }
+    }
+  }, [pendingIssueTicket, hotelVendorId, vendors]);
 
   const submitIssueConfirmation = (e: React.FormEvent) => {
     e.preventDefault();
@@ -874,7 +928,7 @@ export default function IssuancePage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-[11px] font-bold uppercase tracking-wider text-foreground mb-1">
-                        Vendor / Supplier Details
+                        Vendor / Supplier Details {isLoadingVendors && <span className="text-[10px] lowercase text-muted-foreground font-normal">(loading...)</span>}
                       </label>
                       <select
                         value={hotelVendorId}
@@ -882,13 +936,44 @@ export default function IssuancePage() {
                         className="w-full text-xs py-2 px-3 bg-background border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       >
                         <option value="">-- Direct Hotel / No Vendor --</option>
-                        {vendors.map((v: any) => (
+                        {hotelVendorId && !vendors.some((v: any) => v.id === hotelVendorId) && pendingIssueTicket.vendorName && (
+                          <option value={hotelVendorId}>
+                            {pendingIssueTicket.vendorName} (Current)
+                          </option>
+                        )}
+                        {hotelVendors.length > 0 && (
+                          <optgroup label="Hotel & Accommodation Vendors">
+                            {hotelVendors.map((v: any) => (
+                              <option key={v.id} value={v.id}>
+                                {v.name} ({v.vendorType || 'Hotel'})
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
+                        {otherVendors.length > 0 && (
+                          <optgroup label="Other Suppliers & Vendors">
+                            {otherVendors.map((v: any) => (
+                              <option key={v.id} value={v.id}>
+                                {v.name} ({v.vendorType || 'Supplier'})
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
+                        {hotelVendors.length === 0 && otherVendors.length === 0 && vendors.map((v: any) => (
                           <option key={v.id} value={v.id}>
                             {v.name} ({v.vendorType || 'Supplier'})
                           </option>
                         ))}
                       </select>
-                      <span className="text-[10px] text-muted-foreground mt-0.5 block">Supplier used to book the hotel</span>
+                      <span className="text-[10px] text-muted-foreground mt-0.5 block">
+                        {isLoadingVendors
+                          ? 'Loading vendors list...'
+                          : hotelVendors.length > 0
+                          ? `${hotelVendors.length} hotel vendor${hotelVendors.length === 1 ? '' : 's'} available`
+                          : vendors.length > 0
+                          ? `${vendors.length} supplier${vendors.length === 1 ? '' : 's'} available`
+                          : 'Supplier used to book the hotel'}
+                      </span>
                     </div>
 
                     <div>
