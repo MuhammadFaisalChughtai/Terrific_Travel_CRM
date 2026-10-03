@@ -50,7 +50,8 @@ export default function Bookings() {
   const isAdmin = cleanRoles.some((r) =>
     ["ADMIN", "SUPERADMIN", "ADMINISTRATOR", "ROOT"].includes(r)
   );
-  const isAgent = !isAdmin && cleanRoles.some((r) => r.includes("AGENT"));
+  const isManager = cleanRoles.some((r) => r.includes("MANAGER"));
+  const isAgent = !isAdmin && (cleanRoles.some((r) => r.includes("AGENT")) || isManager);
 
   // Checkout cart Zustand state
   const { flight, hotel, room, tour, clearCart } = useBookingStore();
@@ -583,7 +584,7 @@ export default function Bookings() {
                       <th className="px-4 py-3 text-right">Remaining</th>
                       <th className="px-4 py-3 text-right">{isAgent ? "My Profit" : "Profit"}</th>
                       <th className="px-4 py-3 text-right">{isAgent ? "My Margin" : "Agent Margin"}</th>
-                      {!isAgent && (
+                      {(!isAgent || isManager) && (
                         <th className="px-4 py-3 text-right">Vendor Due</th>
                       )}
                       <th className="px-4 py-3 text-center">Lock</th>
@@ -812,7 +813,7 @@ export default function Bookings() {
                       // Can edit this row: admins always, non-admins only if they own it and it's not locked
                       const canEditRow = isAdmin || (!isRowLocked && isOwner);
                       // Can see margin/profit: admins, managers, or the booking owner
-                      const canViewRowMarginProfit = isAdmin || !isAgent || isOwner;
+                      const canViewRowMarginProfit = isAdmin || isManager || !isAgent || isOwner;
                       return (
                         <tr
                           key={booking.id}
@@ -903,7 +904,7 @@ export default function Bookings() {
                               </div>
                             )}
                           </td>
-                          {!isAgent && (
+                          {(!isAgent || isManager) && (
                             <td className="px-4 py-3.5 whitespace-nowrap text-right font-semibold text-rose-600 dark:text-rose-400 align-middle">
                               {isOwner ? formatCurrency(vendorRemaining) : "—"}
                             </td>
@@ -932,7 +933,7 @@ export default function Bookings() {
                           <td className="px-4 py-3.5 whitespace-nowrap text-right align-middle pr-6">
                             <div className="inline-flex items-center gap-2 justify-end w-full">
                               {/* Locked booking — agents cannot open at all, show lock icon */}
-                              {isAgent && booking.lockedStatus === "LOCKED" ? (
+                              {isAgent && !isManager && booking.lockedStatus === "LOCKED" ? (
                                 <div className="inline-flex items-center gap-1.5">
                                   <button
                                     onClick={() =>
@@ -1013,7 +1014,7 @@ export default function Bookings() {
                                   )}
 
                                   {/* Lock/Unlock toggle — Admin/Manager only */}
-                                  {!isAgent && isOwner && (
+                                  {(isAdmin || isManager) && (
                                     <>
                                       <span className="text-muted-foreground/30">
                                         |

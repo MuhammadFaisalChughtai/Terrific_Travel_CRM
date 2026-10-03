@@ -351,16 +351,14 @@ export class LeadsService {
       throw new NotFoundException(`Lead with ID "${id}" was not found.`);
     }
 
-    // Role check: Only ADMIN / SUPER_ADMIN can delete leads
-    const isAdmin = userRoles.some(
-      (r) =>
-        r.toUpperCase() === 'ADMIN' ||
-        r.toUpperCase() === 'SUPER_ADMIN' ||
-        r.toUpperCase() === 'SUPERADMIN'
-    );
+    // Role check: Only ADMIN / SUPER_ADMIN / MANAGER can delete leads
+    const canDelete = userRoles.some((r) => {
+      const up = (r || '').toUpperCase().replace(/[\s_-]+/g, '');
+      return ['ADMIN', 'SUPERADMIN', 'ROOT', 'ADMINISTRATOR', 'MANAGER', 'BRANCHMANAGER'].includes(up);
+    });
 
-    if (!isAdmin) {
-      throw new ForbiddenException('Only Administrators are authorized to delete leads.');
+    if (!canDelete) {
+      throw new ForbiddenException('Only Administrators and Managers are authorized to delete leads.');
     }
 
     await prisma.lead.delete({

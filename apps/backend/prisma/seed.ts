@@ -97,6 +97,10 @@ async function main() {
     // Ledger
     { name: 'ledger:read', description: 'View financial ledger records' },
     { name: 'ledger:manage', description: 'Create and edit financial ledger records' },
+    // Leads
+    { name: 'leads:read', description: 'View and search leads log book' },
+    { name: 'leads:create', description: 'Create and log new leads' },
+    { name: 'leads:manage', description: 'Manage, assign, update, and delete leads' },
   ];
 
   // Map permissions to roles
@@ -110,7 +114,8 @@ async function main() {
     'settings:read', 'settings:manage',
     'attendance:read', 'attendance:log', 'attendance:manage',
     'vendors:read', 'vendors:manage',
-    'ledger:read', 'ledger:manage'
+    'ledger:read', 'ledger:manage',
+    'leads:read', 'leads:create', 'leads:manage'
   ];
 
   const managerPermissions = [
@@ -123,10 +128,23 @@ async function main() {
     'settings:read',
     'attendance:read', 'attendance:log', 'attendance:manage',
     'vendors:read', 'vendors:manage',
-    'ledger:read', 'ledger:manage'
+    'ledger:read', 'ledger:manage',
+    'leads:read', 'leads:create', 'leads:manage'
   ];
 
-  const agentPermissions = [...managerPermissions];
+  const agentPermissions = [
+    'bookings:read', 'bookings:create', 'bookings:edit_any', 'bookings:edit_own',
+    'invoices:read', 'invoices:edit', 'invoices:download', 'invoices:print',
+    'customers:read', 'customers:create', 'customers:edit',
+    'reports:read_all', 'reports:read_own',
+    'users:read',
+    'roles:read',
+    'settings:read',
+    'attendance:read', 'attendance:log', 'attendance:manage',
+    'vendors:read', 'vendors:manage',
+    'ledger:read', 'ledger:manage',
+    'leads:read'
+  ];
 
   // Clean up existing permissions for Manager, Agent, legacyAgent so we don't have dangling/stale mappings
   await prisma.rolePermission.deleteMany({

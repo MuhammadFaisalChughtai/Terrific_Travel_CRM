@@ -19,7 +19,7 @@ async function resolveUserFilter(user?: AuthenticatedRequest['user']) {
     ['ADMIN', 'SUPERADMIN', 'ADMINISTRATOR', 'ROOT'].includes(r)
   );
 
-  const isAgent = !isAdmin && cleanRoles.some((r: string) => r.includes('AGENT'));
+  const isAgent = !isAdmin && cleanRoles.some((r: string) => r.includes('AGENT') || r.includes('MANAGER'));
 
   let agentId: string | undefined = user.agentId || undefined;
 

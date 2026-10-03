@@ -218,6 +218,22 @@ export default function LeadsPage() {
     return false;
   }, [currentUser]);
 
+  // Check manager privileges
+  const isManager = useMemo(() => {
+    if (!currentUser) return false;
+    const checkRole = (r: any) => {
+      const up = String(typeof r === "string" ? r : r?.name || "").toUpperCase().replace(/[\s_-]+/g, "");
+      return up === "MANAGER" || up === "BRANCHMANAGER";
+    };
+    if (Array.isArray((currentUser as any).roles)) {
+      return (currentUser as any).roles.some(checkRole);
+    }
+    if ((currentUser as any).role) {
+      return checkRole((currentUser as any).role);
+    }
+    return false;
+  }, [currentUser]);
+
   // Check if current user is an Agent (and therefore cannot assign leads)
   const isAgent = useMemo(() => {
     if (!currentUser) return false;
@@ -237,10 +253,10 @@ export default function LeadsPage() {
     return false;
   }, [currentUser]);
 
-  // Managers and Admins can assign leads; Agents cannot
+  // Managers and Admins can add and assign leads; Agents cannot
   const canAssignLeads = useMemo(() => {
-    return isAdmin || !isAgent;
-  }, [isAdmin, isAgent]);
+    return isAdmin || isManager;
+  }, [isAdmin, isManager]);
 
   // Filters, Pagination, Search & Sorting States
   const [searchInput, setSearchInput] = useState("");
@@ -408,8 +424,8 @@ export default function LeadsPage() {
   };
 
   const handleOpenDeleteModal = (lead: Lead) => {
-    if (!isAdmin) {
-      toast.error("Only Administrators are permitted to delete leads.");
+    if (!isAdmin && !isManager) {
+      toast.error("Only Administrators and Managers are permitted to delete leads.");
       return;
     }
     setSelectedLead(lead);
@@ -964,11 +980,11 @@ export default function LeadsPage() {
                           >
                             <Pencil className="w-4 h-4" />
                           </button>
-                          {isAdmin && (
+                          {(isAdmin || isManager) && (
                             <button
                               onClick={() => handleOpenDeleteModal(lead)}
                               className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                              title="Delete Lead (Admin Only)"
+                              title="Delete Lead"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>

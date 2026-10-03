@@ -66,9 +66,13 @@ export default function Dashboard() {
     );
   }, [cleanRoles]);
 
+  const isManager = useMemo(() => {
+    return cleanRoles.some((r) => r.includes("MANAGER"));
+  }, [cleanRoles]);
+
   const isAgent = useMemo(() => {
-    return !isAdmin && cleanRoles.some((r) => r.includes("AGENT"));
-  }, [cleanRoles, isAdmin]);
+    return !isAdmin && (cleanRoles.some((r) => r.includes("AGENT")) || isManager);
+  }, [cleanRoles, isAdmin, isManager]);
 
   // Fetch dashboard summary stats (all-time, for category breakdowns + agent leaderboard)
   const { data: statsData, isLoading: statsLoading } = useQuery({

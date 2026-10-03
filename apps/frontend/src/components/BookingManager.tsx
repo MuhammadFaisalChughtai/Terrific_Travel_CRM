@@ -929,11 +929,7 @@ export default function BookingManager({
     });
   const canViewMarginProfit = isAdminUser || isManagerUser || isBookingOwner;
 
-  const disableAgentField =
-    isAgent ||
-    !!user?.roles?.some((r) =>
-      ["Manager", "BRANCH_MANAGER"].includes(r)
-    );
+  const disableAgentField = !isAdminUser && !isManagerUser;
 
   // Sync edit state when booking loads
   useEffect(() => {

@@ -35,12 +35,21 @@ export default function CreateBookingInitModal({
 
   const queryClient = useQueryClient();
 
-  // Determine if the logged-in user is an agent/manager (not admin)
-  const isAgent =
-    !!user?.roles?.length &&
-    !["Admin", "SUPER_ADMIN", "SUPERADMIN"].some((r) =>
-      user?.roles?.includes(r),
-    );
+  // Determine user role capabilities
+  const isManager =
+    !!user?.roles?.some((r: any) => {
+      const clean = (typeof r === "string" ? r : r?.name || "").toUpperCase().replace(/[\s_-]+/g, "");
+      return ["MANAGER", "BRANCHMANAGER"].includes(clean);
+    });
+
+  const isAdmin =
+    !!user?.roles?.some((r: any) => {
+      const clean = (typeof r === "string" ? r : r?.name || "").toUpperCase().replace(/[\s_-]+/g, "");
+      return ["ADMIN", "SUPERADMIN", "SUPER_ADMIN", "ADMINISTRATOR"].includes(clean);
+    });
+
+  // Standard agents have agent locked; Admins and Managers have dropdown access
+  const isAgent = !isAdmin && !isManager;
 
   // The agent profile linked to this user (by agentId or name match)
   const linkedAgent = React.useMemo(() => {

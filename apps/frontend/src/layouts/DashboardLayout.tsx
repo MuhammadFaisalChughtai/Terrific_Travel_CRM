@@ -245,7 +245,12 @@ export default function DashboardLayout() {
         return allowed.includes("Agent") || allowed.includes("AGENT");
       }
       if (clean === "MANAGER" || clean === "BRANCHMANAGER") {
-        return allowed.includes("Manager") || allowed.includes("MANAGER");
+        return (
+          allowed.includes("Manager") ||
+          allowed.includes("MANAGER") ||
+          allowed.includes("Agent") ||
+          allowed.includes("AGENT")
+        );
       }
       return allowed.some(
         (a) => a.toUpperCase().replace(/[\s_-]+/g, "") === clean

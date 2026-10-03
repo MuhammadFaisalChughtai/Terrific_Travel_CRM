@@ -9,20 +9,29 @@ export function requireRoles(...allowedRoles: string[]) {
       return next(new UnauthorizedException('Unauthorized.'));
     }
 
-    // Normalize roles for backward compatibility with legacy routes
-    const normalizeRole = (role: string) => {
-      const r = role.toUpperCase();
-      if (r === 'SUPER_ADMIN' || r === 'ADMIN') return 'ADMIN';
-      if (r === 'TRAVEL_AGENT' || r === 'AGENT' || r === 'MANAGER') return 'AGENT';
-      if (r === 'CUSTOMER') return 'CUSTOMER';
-      return r;
-    };
+    const clean = (r: string) => (r || '').toUpperCase().replace(/[\s_-]+/g, '');
+    const userRoles = (req.user.roles || []).map(clean);
+    const allowed = allowedRoles.map(clean);
 
-    const normalizedAllowed = allowedRoles.map(normalizeRole);
-    const hasRole = req.user.roles.some((role) => 
-      normalizedAllowed.includes(normalizeRole(role))
-    );
+    // Admins always have access
+    const isAdmin = userRoles.some((r) => ['ADMIN', 'SUPERADMIN', 'ROOT', 'ADMINISTRATOR'].includes(r));
+    if (isAdmin) return next();
 
+    const isManager = userRoles.some((r) => ['MANAGER', 'BRANCHMANAGER'].includes(r));
+    const isAgent = userRoles.some((r) => ['AGENT', 'TRAVELAGENT'].includes(r));
+
+    // If resource allows Manager, allow Managers
+    if (isManager && allowed.some((a) => ['MANAGER', 'BRANCHMANAGER'].includes(a))) {
+      return next();
+    }
+
+    // Managers have same access as agents: if resource allows Agent, allow both Agents and Managers
+    if ((isAgent || isManager) && allowed.some((a) => ['AGENT', 'TRAVELAGENT'].includes(a))) {
+      return next();
+    }
+
+    // Direct match
+    const hasRole = userRoles.some((role) => allowed.includes(role));
     if (!hasRole) {
       return next(new ForbiddenException('You do not have the required role to access this resource.'));
     }
