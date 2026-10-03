@@ -229,9 +229,11 @@ export class DashboardService {
       }
     });
 
-    // Calculate agent leaderboard using ALL global bookings
+    // Calculate agent leaderboard using ALL global bookings where payment > 0
     globalBookings.forEach((b: any) => {
       const { netProfit } = calculateBookingFinancials(b);
+      const { clientPaid } = calculateCustomerPending(b);
+      const hasPayment = clientPaid > 0 || (b.paidAmount && b.paidAmount > 0);
 
       if (b.agent) {
         if (!agentMap[b.agent.id]) {
@@ -242,8 +244,10 @@ export class DashboardService {
             bookingsCount: 0,
           };
         }
-        agentMap[b.agent.id].profit += netProfit;
-        agentMap[b.agent.id].bookingsCount += 1;
+        if (b.status !== 'CANCELLED' && hasPayment) {
+          agentMap[b.agent.id].profit += netProfit;
+          agentMap[b.agent.id].bookingsCount += 1;
+        }
       }
     });
 
@@ -403,6 +407,9 @@ export class DashboardService {
 
     performanceBookings.forEach((b: any) => {
       const financials = calculateBookingFinancials(b);
+      const { clientPaid } = calculateCustomerPending(b);
+      const hasPayment = clientPaid > 0 || (b.paidAmount && b.paidAmount > 0);
+
       if (b.agent) {
         if (!agentMap[b.agent.id]) {
           agentMap[b.agent.id] = {
@@ -412,8 +419,11 @@ export class DashboardService {
             bookingsCount: 0,
           };
         }
-        agentMap[b.agent.id].profit += financials.netProfit;
-        agentMap[b.agent.id].bookingsCount += 1;
+        // Only count booking and profit towards agent performance when payment is greater than 0
+        if (hasPayment) {
+          agentMap[b.agent.id].profit += financials.netProfit;
+          agentMap[b.agent.id].bookingsCount += 1;
+        }
       }
     });
 

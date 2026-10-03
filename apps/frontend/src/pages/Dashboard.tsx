@@ -728,6 +728,7 @@ export default function Dashboard() {
                         dataKey="bookingsCount"
                         position="top"
                         className="fill-foreground text-[10px] font-bold"
+                        formatter={(val: any) => (Number(val) > 0 ? val : "")}
                       />
                     </Bar>
                   </BarChart>
