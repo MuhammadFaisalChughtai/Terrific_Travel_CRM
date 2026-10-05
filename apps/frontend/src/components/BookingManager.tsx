@@ -2415,9 +2415,9 @@ export default function BookingManager({
                         setPnrModalStep("form");
                         setIsPnrModalOpen(true);
                       }}
-                      className="flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary hover:bg-primary/20 font-bold rounded text-[12px] transition-colors"
+                      className="flex items-center gap-1.5 px-2.5 py-1 bg-primary/10 hover:bg-primary/20 text-primary font-bold rounded-lg text-xs transition-colors cursor-pointer border border-primary/20 shadow-2xs"
                     >
-                      <Plus size={12} /> Add Flight
+                      <Plus size={13} /> Add Flight
                     </button>
                     <button
                       type="button"
@@ -2427,9 +2427,9 @@ export default function BookingManager({
                         setPnrModalStep("pnr");
                         setIsPnrModalOpen(true);
                       }}
-                      className="flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary hover:bg-primary/20 font-bold rounded text-[12px] transition-colors"
+                      className="flex items-center gap-1.5 px-2.5 py-1 bg-primary/10 hover:bg-primary/20 text-primary font-bold rounded-lg text-xs transition-colors cursor-pointer border border-primary/20 shadow-2xs"
                     >
-                      <Plus size={12} /> PNR Converter
+                      <Plus size={13} /> PNR Converter
                     </button>
                     <button
                       type="button"
@@ -2439,24 +2439,12 @@ export default function BookingManager({
                         setPnrModalStep("search");
                         setIsPnrModalOpen(true);
                       }}
-                      className="flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary hover:bg-primary/20 font-bold rounded text-[12px] transition-colors"
+                      className="flex items-center gap-1.5 px-2.5 py-1 bg-primary/10 hover:bg-primary/20 text-primary font-bold rounded-lg text-xs transition-colors cursor-pointer border border-primary/20 shadow-2xs"
                     >
-                      <Search size={12} /> Add Existing Flight
+                      <Search size={13} /> Add Existing Flight
                     </button>
                   </>
                 )}
-                {/* <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (booking) {
-                      printDocument(generateBookingInvoiceHtml(booking), `Invoice_${booking.bookingReference || booking.id}`);
-                    }
-                  }}
-                  className="flex items-center gap-1 px-2 py-0.5 bg-emerald-600/10 text-emerald-600 hover:bg-emerald-600/20 font-bold rounded text-[12px] transition-colors"
-                >
-                  <FileText size={12} /> Print Invoice
-                </button> */}
                 <button
                   type="button"
                   onClick={(e) => {
@@ -2475,9 +2463,9 @@ export default function BookingManager({
                       );
                     }
                   }}
-                  className="flex items-center gap-1 px-2 py-0.5 bg-sky-600/10 text-sky-600 hover:bg-sky-600/20 font-bold rounded text-[12px] transition-colors cursor-pointer"
+                  className="flex items-center gap-1.5 px-2.5 py-1 bg-sky-500/10 hover:bg-sky-500/20 text-sky-600 dark:text-sky-400 font-bold rounded-lg text-xs transition-colors cursor-pointer border border-sky-500/20 shadow-2xs"
                 >
-                  <Printer size={12} /> Print Tickets
+                  <Printer size={13} /> Print Tickets
                 </button>
                 <button
                   type="button"
@@ -2496,16 +2484,16 @@ export default function BookingManager({
 
                     openTicketOrderModal("ALL");
                   }}
-                  className="flex items-center gap-1 px-2 py-0.5 bg-orange-500/10 text-orange-600 hover:bg-orange-500/20 font-bold rounded text-[12px] transition-colors cursor-pointer border border-orange-500/20 shadow-xs active:scale-95"
+                  className="flex items-center gap-1.5 px-2.5 py-1 bg-orange-500/10 hover:bg-orange-500/20 text-orange-600 dark:text-orange-400 font-bold rounded-lg text-xs transition-all cursor-pointer border border-orange-500/20 shadow-2xs active:scale-95"
                   title="Send Flight Ticket Order directly to office@terrifictravel.co.uk and ticketing@terrifictravel.co.uk"
                 >
-                  <Send size={12} /> Send Ticket Order
+                  <Send size={13} /> Send Ticket Order
                 </button>
-                <button className="text-muted-foreground">
+                <button className="text-muted-foreground p-1 hover:text-foreground transition-colors">
                   {openSections.flights ? (
-                    <ChevronUp size={14} />
+                    <ChevronUp size={16} />
                   ) : (
-                    <ChevronDown size={14} />
+                    <ChevronDown size={16} />
                   )}
                 </button>
               </div>
@@ -2574,142 +2562,161 @@ export default function BookingManager({
                         return dateA - dateB;
                       });
 
+                      // Helper to parse airport strings like "DUBAI INTERNATIONAL AIRPORT AL (DXB)"
+                      const parseAirportInfo = (rawStr: string) => {
+                        if (!rawStr) return { code: "", name: "" };
+                        const match = rawStr.match(/\(([^)]+)\)/);
+                        const code = match ? match[1].trim().toUpperCase() : "";
+                        let name = rawStr.replace(/\([^)]+\)/g, "").trim().replace(/\s+/g, " ");
+                        const titleCase = (s: string) =>
+                          s
+                            .toLowerCase()
+                            .split(" ")
+                            .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                            .join(" ");
+                        return {
+                          code: code || (rawStr.length <= 4 ? rawStr.toUpperCase() : rawStr.slice(0, 3).toUpperCase()),
+                          name: titleCase(name),
+                        };
+                      };
+
                       // 4. Render the groups
                       return sortedPnrKeys.map((pnrKey) => {
                         const sortedFlights = sortedGroups[pnrKey];
                         return (
-                          <div key={pnrKey} className="space-y-2 border-b border-border/40 pb-3 last:border-0 last:pb-0">
+                          <div key={pnrKey} className="space-y-2.5 border-b border-border/40 pb-4 last:border-0 last:pb-0">
                             {/* PNR Header */}
                             {(() => {
-                              const extractCode = (str: string) => {
-                                if (!str) return "";
-                                const match = str.match(/\(([^)]+)\)/);
-                                return match ? match[1].toUpperCase() : str.trim().toUpperCase();
-                              };
                               let groupRouteSummary = "";
                               if (sortedFlights.length === 1) {
-                                const dep = extractCode(sortedFlights[0].departedFrom);
-                                const arr = extractCode(sortedFlights[0].arrivedAt);
+                                const dep = parseAirportInfo(sortedFlights[0].departedFrom).code;
+                                const arr = parseAirportInfo(sortedFlights[0].arrivedAt).code;
                                 groupRouteSummary = dep && arr ? `${dep} → ${arr}` : "";
                               } else if (sortedFlights.length > 1) {
                                 const points: string[] = [];
                                 sortedFlights.forEach((f: any, i: number) => {
-                                  const dep = extractCode(f.departedFrom);
-                                  const arr = extractCode(f.arrivedAt);
+                                  const dep = parseAirportInfo(f.departedFrom).code;
+                                  const arr = parseAirportInfo(f.arrivedAt).code;
                                   if (i === 0 && dep) points.push(dep);
                                   if (arr) points.push(arr);
                                 });
                                 groupRouteSummary = points.join(" → ");
                               }
 
+                              const statuses = sortedFlights.map((f: any) => (f.status || "CONFIRMED").toUpperCase());
+                              const allIssued = statuses.length > 0 && statuses.every((s: string) => s === "TICKET_ISSUED");
+                              const anySent = statuses.some((s: string) => s === "ORDER_SENT");
+                              const allCancelled = statuses.length > 0 && statuses.every((s: string) => s === "CANCELLED");
+
+                              let pnrBadgeClass = "bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30";
+                              let pnrIcon = <Check size={11} />;
+                              let pnrLabel = "Confirmed";
+
+                              if (allIssued) {
+                                pnrBadgeClass = "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30";
+                                pnrIcon = <CheckCircle2 size={11} />;
+                                pnrLabel = "Tickets Issued";
+                              } else if (anySent) {
+                                pnrBadgeClass = "bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/30";
+                                pnrIcon = <Mail size={11} />;
+                                pnrLabel = "Order Sent";
+                              } else if (allCancelled) {
+                                pnrBadgeClass = "bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-500/30";
+                                pnrIcon = <XCircle size={11} />;
+                                pnrLabel = "Cancelled";
+                              }
+
                               return (
-                                <div className="flex flex-wrap items-center justify-between bg-secondary/30 px-3 py-1.5 rounded-lg border border-border/50 gap-2">
-                                  <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1.5 flex-wrap">
-                                    <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse flex-shrink-0"></span>
+                                <div className="flex flex-wrap items-center justify-between bg-secondary/40 dark:bg-secondary/20 px-3.5 py-2 rounded-xl border border-border/60 gap-2">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="w-2 h-2 bg-primary rounded-full animate-pulse flex-shrink-0" />
+                                      <span className="text-[11px] font-black uppercase tracking-wider text-muted-foreground">
+                                        PNR Journey
+                                      </span>
+                                    </div>
                                     {pnrKey === "No PNR Assigned" ? (
-                                      <span>No PNR Assigned {groupRouteSummary && `(${groupRouteSummary})`}</span>
+                                      <span className="text-xs font-semibold text-muted-foreground">
+                                        No PNR Assigned {groupRouteSummary && `(${groupRouteSummary})`}
+                                      </span>
                                     ) : (
-                                      <span className="flex flex-wrap items-center gap-1">
-                                        <span>PNR Journey:</span>
+                                      <div className="flex items-center gap-1.5 flex-wrap">
                                         {pnrKey.split(/[,;\s]+/).map((pnrItem: string) => (
-                                          <strong key={pnrItem} className="text-foreground bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded font-mono font-bold text-[10px]">
+                                          <strong
+                                            key={pnrItem}
+                                            className="text-primary bg-primary/10 border border-primary/25 px-2 py-0.5 rounded font-mono font-bold text-xs shadow-2xs"
+                                          >
                                             {pnrItem}
                                           </strong>
                                         ))}
                                         {groupRouteSummary && (
-                                          <span className="text-muted-foreground font-semibold text-[10px] ml-1">
-                                            ({groupRouteSummary})
+                                          <span className="text-xs font-bold text-foreground/85 flex items-center gap-1 ml-1">
+                                            <span className="text-primary font-bold">✈</span> {groupRouteSummary}
                                           </span>
                                         )}
-                                      </span>
+                                      </div>
                                     )}
-                                  </span>
-                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                  </div>
+
+                                  <div className="flex items-center gap-2 flex-wrap">
                                     {/* PNR Status Badge & Quick Dropdown */}
-                                    {(() => {
-                                      const statuses = sortedFlights.map((f: any) => (f.status || "CONFIRMED").toUpperCase());
-                                      const allIssued = statuses.length > 0 && statuses.every((s: string) => s === "TICKET_ISSUED");
-                                      const anySent = statuses.some((s: string) => s === "ORDER_SENT");
-                                      const allCancelled = statuses.length > 0 && statuses.every((s: string) => s === "CANCELLED");
-
-                                      let pnrBadgeClass = "bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30";
-                                      let pnrIcon = <Check size={10} />;
-                                      let pnrLabel = "Confirmed";
-
-                                      if (allIssued) {
-                                        pnrBadgeClass = "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30";
-                                        pnrIcon = <CheckCircle2 size={10} />;
-                                        pnrLabel = "Tickets Issued";
-                                      } else if (anySent) {
-                                        pnrBadgeClass = "bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/30";
-                                        pnrIcon = <Mail size={10} />;
-                                        pnrLabel = "Order Sent";
-                                      } else if (allCancelled) {
-                                        pnrBadgeClass = "bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-500/30";
-                                        pnrIcon = <XCircle size={10} />;
-                                        pnrLabel = "Cancelled";
-                                      }
-
-                                      return (
-                                        <div className="relative group/pnrstatus">
-                                          <button
-                                            type="button"
-                                            onClick={(e) => e.stopPropagation()}
-                                            className={`inline-flex items-center gap-1 text-[10px] font-black uppercase px-2 py-0.5 rounded-md border shadow-2xs transition-all cursor-pointer select-none ${pnrBadgeClass}`}
-                                            title="Click to update status for all segments in this PNR"
-                                          >
-                                            {pnrIcon}
-                                            <span>{pnrLabel}</span>
-                                            <ChevronDown size={9} className="opacity-70 group-hover/pnrstatus:rotate-180 transition-transform" />
-                                          </button>
-                                          <div className="absolute right-0 top-full mt-1 z-30 hidden group-hover/pnrstatus:flex flex-col bg-popover border border-border rounded-lg shadow-xl py-1 min-w-[155px]">
-                                            <div className="px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-wider text-muted-foreground border-b border-border/60">
-                                              Update PNR Status
-                                            </div>
-                                            <button
-                                              type="button"
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleUpdatePnrStatus(pnrKey, "CONFIRMED");
-                                              }}
-                                              className="px-2.5 py-1.5 text-left text-[11px] font-bold hover:bg-secondary/60 flex items-center gap-1.5 cursor-pointer text-foreground"
-                                            >
-                                              <Check size={12} className="text-sky-500" /> Confirmed
-                                            </button>
-                                            <button
-                                              type="button"
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleUpdatePnrStatus(pnrKey, "ORDER_SENT");
-                                              }}
-                                              className="px-2.5 py-1.5 text-left text-[11px] font-bold hover:bg-secondary/60 flex items-center gap-1.5 cursor-pointer text-foreground"
-                                            >
-                                              <Mail size={12} className="text-indigo-500" /> Order Sent
-                                            </button>
-                                            <button
-                                              type="button"
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleUpdatePnrStatus(pnrKey, "TICKET_ISSUED");
-                                              }}
-                                              className="px-2.5 py-1.5 text-left text-[11px] font-bold hover:bg-secondary/60 flex items-center gap-1.5 cursor-pointer text-foreground"
-                                            >
-                                              <CheckCircle2 size={12} className="text-emerald-500" /> Tickets Issued
-                                            </button>
-                                            <button
-                                              type="button"
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleUpdatePnrStatus(pnrKey, "CANCELLED");
-                                              }}
-                                              className="px-2.5 py-1.5 text-left text-[11px] font-bold hover:bg-secondary/60 flex items-center gap-1.5 cursor-pointer text-rose-600"
-                                            >
-                                              <XCircle size={12} className="text-rose-500" /> Cancelled
-                                            </button>
-                                          </div>
+                                    <div className="relative group/pnrstatus">
+                                      <button
+                                        type="button"
+                                        onClick={(e) => e.stopPropagation()}
+                                        className={`inline-flex items-center gap-1 text-[10.5px] font-bold uppercase px-2.5 py-0.5 rounded-lg border shadow-2xs transition-all cursor-pointer select-none ${pnrBadgeClass}`}
+                                        title="Click to update status for all segments in this PNR"
+                                      >
+                                        {pnrIcon}
+                                        <span>{pnrLabel}</span>
+                                        <ChevronDown size={10} className="opacity-70 group-hover/pnrstatus:rotate-180 transition-transform" />
+                                      </button>
+                                      <div className="absolute right-0 top-full mt-1 z-30 hidden group-hover/pnrstatus:flex flex-col bg-popover border border-border rounded-xl shadow-xl py-1 min-w-[160px]">
+                                        <div className="px-3 py-1 text-[9px] font-extrabold uppercase tracking-wider text-muted-foreground border-b border-border/60">
+                                          Update PNR Status
                                         </div>
-                                      );
-                                    })()}
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleUpdatePnrStatus(pnrKey, "CONFIRMED");
+                                          }}
+                                          className="px-3 py-1.5 text-left text-xs font-bold hover:bg-secondary/60 flex items-center gap-2 cursor-pointer text-foreground"
+                                        >
+                                          <Check size={13} className="text-sky-500" /> Confirmed
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleUpdatePnrStatus(pnrKey, "ORDER_SENT");
+                                          }}
+                                          className="px-3 py-1.5 text-left text-xs font-bold hover:bg-secondary/60 flex items-center gap-2 cursor-pointer text-foreground"
+                                        >
+                                          <Mail size={13} className="text-indigo-500" /> Order Sent
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleUpdatePnrStatus(pnrKey, "TICKET_ISSUED");
+                                          }}
+                                          className="px-3 py-1.5 text-left text-xs font-bold hover:bg-secondary/60 flex items-center gap-2 cursor-pointer text-foreground"
+                                        >
+                                          <CheckCircle2 size={13} className="text-emerald-500" /> Tickets Issued
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleUpdatePnrStatus(pnrKey, "CANCELLED");
+                                          }}
+                                          className="px-3 py-1.5 text-left text-xs font-bold hover:bg-secondary/60 flex items-center gap-2 cursor-pointer text-rose-600"
+                                        >
+                                          <XCircle size={13} className="text-rose-500" /> Cancelled
+                                        </button>
+                                      </div>
+                                    </div>
 
                                     <button
                                       type="button"
@@ -2717,12 +2724,12 @@ export default function BookingManager({
                                         e.stopPropagation();
                                         openTicketOrderModal(pnrKey);
                                       }}
-                                      className="flex items-center gap-1 px-2 py-0.5 bg-orange-500/10 text-orange-600 hover:bg-orange-500/20 font-bold rounded text-[11px] transition-colors cursor-pointer border border-orange-500/20 shadow-2xs active:scale-95"
+                                      className="flex items-center gap-1.5 px-2.5 py-1 bg-orange-500/10 hover:bg-orange-500/20 text-orange-600 dark:text-orange-400 font-bold rounded-lg text-xs transition-all cursor-pointer border border-orange-500/20 shadow-2xs active:scale-95"
                                       title={`Send Ticket Order specifically for PNR ${pnrKey}`}
                                     >
-                                      <Send size={10} /> Send PNR Order
+                                      <Send size={11} /> Send PNR Order
                                     </button>
-                                    <span className="text-[9px] bg-primary/10 text-primary px-2 py-0.5 rounded-md font-extrabold uppercase">
+                                    <span className="text-[10px] bg-secondary text-muted-foreground border border-border/50 px-2 py-0.5 rounded-md font-bold uppercase tracking-wider">
                                       {sortedFlights.length} {sortedFlights.length === 1 ? "segment" : "segments"}
                                     </span>
                                   </div>
@@ -2731,105 +2738,106 @@ export default function BookingManager({
                             })()}
 
                             {/* Group Segment Cards */}
-                            <div className="space-y-2 pl-1">
+                            <div className="space-y-2.5">
                               {sortedFlights.map((fs: any, idx: number) => {
                                 const nextFlight = sortedFlights[idx + 1];
                                 const isConnecting = getIsConnectingFlight(fs, nextFlight);
                                 const layoverTime = isConnecting ? calculateLayoverTime(fs, nextFlight) : "";
 
-                                const extractCode = (str: string) => {
-                                  const match = str.match(/\(([^)]+)\)/);
-                                  return match ? match[1].toUpperCase() : str.toUpperCase();
-                                };
-                                const transitHub = extractCode(fs.arrivedAt || "");
+                                const depInfo = parseAirportInfo(fs.departedFrom || "");
+                                const arrInfo = parseAirportInfo(fs.arrivedAt || "");
+                                const transitHub = arrInfo.code || arrInfo.name;
+
+                                let parsedNotes: any = null;
+                                if (fs.notes) {
+                                  try {
+                                    parsedNotes = JSON.parse(fs.notes);
+                                  } catch (e) {}
+                                }
+                                const depTerminal = parsedNotes?.depTerminal;
+                                const arrTerminal = parsedNotes?.arrTerminal;
+                                const nationalityOnly =
+                                  parsedNotes?.associatedNationality &&
+                                  parsedNotes.associatedNationality !== "ALL"
+                                    ? parsedNotes.associatedNationality
+                                    : null;
+                                const airlineName = getAirlineKey(fs);
 
                                 return (
                                   <React.Fragment key={fs.id}>
-                                    <div className="w-full pb-1">
-                                      <div className={`border border-border bg-gradient-to-r from-card via-card to-secondary/10 rounded-xl p-4 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 hover:border-primary/40 transition-all text-[12px] shadow-sm relative overflow-hidden group w-full ${fs.status === 'CANCELLED' ? 'line-through opacity-60' : ''}`}>
+                                    <div className="w-full pb-0.5">
+                                      <div className={`border border-border/70 bg-card hover:bg-card/95 rounded-2xl p-4 sm:p-5 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 hover:border-primary/40 hover:shadow-md transition-all text-xs shadow-2xs relative overflow-hidden group w-full ${fs.status === 'CANCELLED' ? 'opacity-60 saturate-50' : ''}`}>
                                         {isConnecting && (
-                                          <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-500"></div>
+                                          <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-amber-500"></div>
                                         )}
                                         {idx > 0 && getIsConnectingFlight(sortedFlights[idx - 1], fs) && (
-                                          <div className="absolute left-0 top-0 bottom-0 w-1 bg-sky-500"></div>
+                                          <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-sky-500"></div>
                                         )}
 
                                         {/* Left: Flight & PNR Info */}
-                                        <div className="flex items-start gap-3 w-full xl:w-auto xl:max-w-[260px] flex-shrink-0">
-                                          <div className="w-10 h-10 bg-primary/10 text-primary border border-primary/20 rounded-xl flex items-center justify-center font-bold text-[12px] shadow-sm flex-shrink-0 mt-0.5">
-                                            <Plane size={16} className="text-primary group-hover:rotate-12 transition-transform" />
+                                        <div className="flex items-start gap-3 w-full xl:w-auto xl:max-w-[280px] flex-shrink-0">
+                                          <div className="w-11 h-11 bg-primary/10 text-primary border border-primary/20 rounded-xl flex items-center justify-center font-bold text-sm shadow-2xs flex-shrink-0 mt-0.5">
+                                            <Plane size={18} className="text-primary group-hover:rotate-12 transition-transform" />
                                           </div>
                                           <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2">
-                                              <h4 className="font-extrabold text-foreground text-[15px] tracking-tight">
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                              <h4 className="font-black text-foreground text-base tracking-tight">
                                                 {fs.flightNo}
                                               </h4>
-                                              <span className="text-[9px] bg-secondary/80 text-foreground/80 border-border px-1.5 py-0.5 rounded font-extrabold uppercase border">
-                                                {fs.flightClass || "Y"}
+                                              <span className="text-[10px] bg-secondary text-foreground/80 border border-border/70 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                                                {fs.flightClass || "Economy (Y)"}
                                               </span>
                                             </div>
 
-                                            {/* PNR Micro-Pills */}
-                                            {(() => {
-                                              const pnrs = (fs.pnr || "").split(/[,;\s]+/).map((s: string) => s.trim()).filter(Boolean);
-                                              if (pnrs.length === 0) {
-                                                return (
-                                                  <p className="text-[11px] text-muted-foreground mt-0.5 font-mono flex items-center gap-1">
-                                                    <span>PNR:</span>
-                                                    <strong className="text-foreground font-bold bg-secondary/50 px-1.5 py-0.5 rounded border border-border/50">—</strong>
-                                                  </p>
-                                                );
-                                              }
-                                              if (pnrs.length === 1) {
-                                                return (
-                                                  <p className="text-[11px] text-muted-foreground mt-0.5 font-mono flex items-center gap-1">
-                                                    <span>PNR:</span>
-                                                    <strong className="text-foreground font-bold bg-secondary/50 px-1.5 py-0.5 rounded border border-border/50">{pnrs[0]}</strong>
-                                                  </p>
-                                                );
-                                              }
-                                              return (
-                                                <div className="flex flex-wrap items-center gap-1 mt-1 max-w-[240px]">
-                                                  <span className="text-[10px] font-bold text-muted-foreground font-mono">PNRs ({pnrs.length}):</span>
-                                                  {pnrs.map((pnrItem: string) => (
-                                                    <span key={pnrItem} className="bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800 px-1.5 py-0.5 rounded font-mono font-bold text-[10px]">
-                                                      {pnrItem}
-                                                    </span>
-                                                  ))}
-                                                </div>
-                                              );
-                                            })()}
-
-                                            {fs.date && (
-                                              <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1 font-medium">
-                                                <span>Date:</span>
-                                                <strong className="text-foreground">
-                                                  {new Date(fs.date).toLocaleDateString("en-US", {
-                                                    month: "short",
-                                                    day: "2-digit",
-                                                    year: "numeric",
-                                                  })}
-                                                </strong>
+                                            {airlineName && (
+                                              <p className="text-[11px] font-semibold text-muted-foreground truncate max-w-[200px] mt-0.5" title={airlineName}>
+                                                {airlineName}
                                               </p>
                                             )}
-                                            <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+
+                                            {fs.date && (
+                                              <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground font-medium mt-1">
+                                                <Calendar size={11} className="text-primary/70 flex-shrink-0" />
+                                                <span className="text-foreground/90 font-semibold">
+                                                  {new Date(fs.date).toLocaleDateString("en-GB", {
+                                                    weekday: "short",
+                                                    day: "2-digit",
+                                                    month: "short",
+                                                    year: "numeric",
+                                                  })}
+                                                </span>
+                                              </div>
+                                            )}
+
+                                            <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                                              {/* PNR Micro-Pill */}
+                                              {(() => {
+                                                const pnrs = (fs.pnr || "").split(/[,;\s]+/).map((s: string) => s.trim()).filter(Boolean);
+                                                if (pnrs.length === 0) return null;
+                                                return pnrs.map((pnrItem: string) => (
+                                                  <span key={pnrItem} className="bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded font-mono font-bold text-[10px] tracking-wide">
+                                                    {pnrItem}
+                                                  </span>
+                                                ));
+                                              })()}
+
                                               {/* Interactive Flight Status Badge */}
                                               {(() => {
                                                 const s = (fs.status || "CONFIRMED").toUpperCase();
-                                                let badgeCls = "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800";
+                                                let badgeCls = "bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30";
                                                 let ic = <Check size={10} />;
                                                 let txt = "Confirmed";
 
                                                 if (s === "ORDER_SENT") {
-                                                  badgeCls = "bg-indigo-50 text-indigo-700 border-indigo-300 dark:bg-indigo-950/50 dark:text-indigo-300 dark:border-indigo-700";
+                                                  badgeCls = "bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/30";
                                                   ic = <Mail size={10} />;
                                                   txt = "Order Sent";
                                                 } else if (s === "TICKET_ISSUED") {
-                                                  badgeCls = "bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-700";
+                                                  badgeCls = "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30";
                                                   ic = <CheckCircle2 size={10} />;
                                                   txt = "Ticket Issued";
                                                 } else if (s === "CANCELLED") {
-                                                  badgeCls = "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-900/50";
+                                                  badgeCls = "bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-500/30";
                                                   ic = <XCircle size={10} />;
                                                   txt = "Cancelled";
                                                 }
@@ -2839,44 +2847,44 @@ export default function BookingManager({
                                                     <button
                                                       type="button"
                                                       onClick={(e) => e.stopPropagation()}
-                                                      className={`inline-flex items-center gap-1 text-[9px] font-black uppercase px-2 py-0.5 rounded border shadow-2xs cursor-pointer select-none transition-all ${badgeCls}`}
+                                                      className={`inline-flex items-center gap-1 text-[9.5px] font-bold uppercase px-2 py-0.5 rounded-md border shadow-2xs cursor-pointer select-none transition-all ${badgeCls}`}
                                                       title="Click to change flight status"
                                                     >
                                                       {ic}
                                                       <span>{txt}</span>
                                                       <ChevronDown size={8} className="opacity-70 group-hover/fsstatus:rotate-180 transition-transform" />
                                                     </button>
-                                                    <div className="absolute left-0 top-full mt-1 z-30 hidden group-hover/fsstatus:flex flex-col bg-popover border border-border rounded-lg shadow-xl py-1 min-w-[145px]">
-                                                      <div className="px-2 py-0.5 text-[8.5px] font-extrabold uppercase tracking-wider text-muted-foreground border-b border-border/60">
+                                                    <div className="absolute left-0 top-full mt-1 z-30 hidden group-hover/fsstatus:flex flex-col bg-popover border border-border rounded-xl shadow-xl py-1 min-w-[150px]">
+                                                      <div className="px-2.5 py-1 text-[8.5px] font-extrabold uppercase tracking-wider text-muted-foreground border-b border-border/60">
                                                         Update Flight Status
                                                       </div>
                                                       <button
                                                         type="button"
                                                         onClick={(e) => { e.stopPropagation(); handleUpdateFlightStatus(fs.id, "CONFIRMED"); }}
-                                                        className={`px-2.5 py-1 text-left text-[11px] font-bold hover:bg-secondary/60 flex items-center gap-1.5 cursor-pointer ${s === "CONFIRMED" ? "text-primary" : "text-foreground"}`}
+                                                        className={`px-3 py-1.5 text-left text-xs font-bold hover:bg-secondary/60 flex items-center gap-2 cursor-pointer ${s === "CONFIRMED" ? "text-primary" : "text-foreground"}`}
                                                       >
-                                                        <Check size={11} className="text-sky-500" /> Confirmed
+                                                        <Check size={12} className="text-sky-500" /> Confirmed
                                                       </button>
                                                       <button
                                                         type="button"
                                                         onClick={(e) => { e.stopPropagation(); handleUpdateFlightStatus(fs.id, "ORDER_SENT"); }}
-                                                        className={`px-2.5 py-1 text-left text-[11px] font-bold hover:bg-secondary/60 flex items-center gap-1.5 cursor-pointer ${s === "ORDER_SENT" ? "text-primary" : "text-foreground"}`}
+                                                        className={`px-3 py-1.5 text-left text-xs font-bold hover:bg-secondary/60 flex items-center gap-2 cursor-pointer ${s === "ORDER_SENT" ? "text-primary" : "text-foreground"}`}
                                                       >
-                                                        <Mail size={11} className="text-indigo-500" /> Order Sent
+                                                        <Mail size={12} className="text-indigo-500" /> Order Sent
                                                       </button>
                                                       <button
                                                         type="button"
                                                         onClick={(e) => { e.stopPropagation(); handleUpdateFlightStatus(fs.id, "TICKET_ISSUED"); }}
-                                                        className={`px-2.5 py-1 text-left text-[11px] font-bold hover:bg-secondary/60 flex items-center gap-1.5 cursor-pointer ${s === "TICKET_ISSUED" ? "text-primary" : "text-foreground"}`}
+                                                        className={`px-3 py-1.5 text-left text-xs font-bold hover:bg-secondary/60 flex items-center gap-2 cursor-pointer ${s === "TICKET_ISSUED" ? "text-primary" : "text-foreground"}`}
                                                       >
-                                                        <CheckCircle2 size={11} className="text-emerald-500" /> Ticket Issued
+                                                        <CheckCircle2 size={12} className="text-emerald-500" /> Ticket Issued
                                                       </button>
                                                       <button
                                                         type="button"
                                                         onClick={(e) => { e.stopPropagation(); handleUpdateFlightStatus(fs.id, "CANCELLED"); }}
-                                                        className={`px-2.5 py-1 text-left text-[11px] font-bold hover:bg-secondary/60 flex items-center gap-1.5 cursor-pointer ${s === "CANCELLED" ? "text-primary" : "text-rose-600"}`}
+                                                        className={`px-3 py-1.5 text-left text-xs font-bold hover:bg-secondary/60 flex items-center gap-2 cursor-pointer ${s === "CANCELLED" ? "text-primary" : "text-rose-600"}`}
                                                       >
-                                                        <XCircle size={11} className="text-rose-500" /> Cancelled
+                                                        <XCircle size={12} className="text-rose-500" /> Cancelled
                                                       </button>
                                                     </div>
                                                   </div>
@@ -2885,107 +2893,100 @@ export default function BookingManager({
 
                                               {/* Issue Date Pill if Ticket Issued */}
                                               {fs.issueDate && fs.status === "TICKET_ISSUED" && (
-                                                <span className="text-[9px] bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 px-1.5 py-0.5 rounded font-bold inline-flex items-center gap-1">
+                                                <span className="text-[9.5px] bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-md font-bold inline-flex items-center gap-1">
                                                   Issued: {new Date(fs.issueDate).toLocaleDateString("en-GB")}
                                                 </span>
                                               )}
 
                                               {isConnecting && (
-                                                <span className="text-[9px] bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded font-black uppercase">
+                                                <span className="text-[9.5px] bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-md font-bold uppercase">
                                                   Connecting
                                                 </span>
                                               )}
-                                              {(() => {
-                                                if (fs.notes) {
-                                                  try {
-                                                    const parsed = JSON.parse(fs.notes);
-                                                    if (parsed.associatedNationality && parsed.associatedNationality !== "ALL") {
-                                                      return (
-                                                        <span className="text-[9px] bg-sky-50 text-sky-800 dark:bg-sky-950 dark:text-sky-300 border border-sky-300 dark:border-sky-800 px-1.5 py-0.5 rounded font-black uppercase inline-flex items-center gap-1">
-                                                          🌐 {parsed.associatedNationality} Only
-                                                        </span>
-                                                      );
-                                                    }
-                                                  } catch (e) {}
-                                                }
-                                                return null;
-                                              })()}
+
+                                              {nationalityOnly && (
+                                                <span className="text-[9.5px] bg-sky-500/15 text-sky-700 dark:text-sky-300 border border-sky-500/30 px-2 py-0.5 rounded-md font-bold uppercase inline-flex items-center gap-1">
+                                                  🌐 {nationalityOnly} Only
+                                                </span>
+                                              )}
                                             </div>
                                           </div>
                                         </div>
 
-                                        {/* Middle: Route & Times */}
-                                        <div className="flex-1 w-full min-w-0 px-3 py-2 bg-secondary/15 rounded-xl border border-border/40">
-                                          <div className="flex items-center gap-3 justify-between">
+                                        {/* Middle: Route & Times & Baggage */}
+                                        <div className="flex-1 w-full min-w-0 bg-secondary/20 dark:bg-secondary/15 rounded-xl p-3 sm:p-3.5 border border-border/50">
+                                          <div className="flex items-center justify-between gap-2 sm:gap-4">
                                             {/* Departure */}
-                                            <div className="text-left flex-1 min-w-0">
-                                              <p className="font-black text-foreground text-[16px] leading-tight">{fs.departTime || "—"}</p>
-                                              <p className="text-[11px] text-foreground/80 font-bold tracking-wide uppercase mt-0.5 leading-snug whitespace-normal break-normal" title={fs.departedFrom}>
-                                                {fs.departedFrom}
-                                                {(() => {
-                                                  if (fs.notes) {
-                                                    try {
-                                                      const parsed = JSON.parse(fs.notes);
-                                                      if (parsed.depTerminal) {
-                                                        return (
-                                                          <span className="text-[8px] bg-rose-50 text-rose-600 px-1 py-0.5 rounded font-black ml-1 uppercase border border-rose-200 inline-block">
-                                                            T{parsed.depTerminal}
-                                                          </span>
-                                                        );
-                                                      }
-                                                    } catch (e) {}
-                                                  }
-                                                  return null;
-                                                })()}
+                                            <div className="flex-1 min-w-0 text-left">
+                                              <div className="flex items-baseline gap-1.5 sm:gap-2 flex-wrap">
+                                                <span className="font-black text-foreground text-lg sm:text-xl tracking-tight leading-none">
+                                                  {fs.departTime || "—"}
+                                                </span>
+                                                <span className="font-mono font-bold text-xs px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+                                                  {depInfo.code}
+                                                </span>
+                                                {depTerminal && (
+                                                  <span className="text-[9px] bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 px-1.5 py-0.5 rounded font-black uppercase">
+                                                    T{depTerminal}
+                                                  </span>
+                                                )}
+                                              </div>
+                                              <p className="text-[11px] text-muted-foreground font-medium mt-1 truncate" title={fs.departedFrom}>
+                                                {depInfo.name || fs.departedFrom}
                                               </p>
                                             </div>
 
-                                            {/* Plane Path Icon */}
-                                            <div className="flex flex-col items-center px-2 relative flex-shrink-0 min-w-[60px]">
-                                              <div className="h-[2px] w-full bg-gradient-to-r from-primary/20 via-primary/60 to-primary/20 absolute top-1/2 -translate-y-1/2"></div>
-                                              <PlaneTakeoff size={14} className="text-primary relative bg-card p-1 rounded-full border border-border shadow-sm group-hover:translate-x-1 transition-transform" />
+                                            {/* Flight Path Graphic */}
+                                            <div className="flex flex-col items-center justify-center px-2 sm:px-4 flex-shrink-0 min-w-[70px] sm:min-w-[120px]">
+                                              <span className="text-[9.5px] font-bold text-muted-foreground/70 uppercase tracking-widest mb-1.5">
+                                                Direct
+                                              </span>
+                                              <div className="w-full flex items-center relative">
+                                                <div className="w-2 h-2 rounded-full border-2 border-primary bg-card flex-shrink-0" />
+                                                <div className="h-[2px] flex-1 bg-gradient-to-r from-primary/30 via-primary to-primary/30 relative">
+                                                  <Plane className="w-3.5 h-3.5 text-primary absolute left-1/2 -top-[7px] -translate-x-1/2 transform transition-transform group-hover:translate-x-1" />
+                                                </div>
+                                                <div className="w-2 h-2 rounded-full bg-primary flex-shrink-0" />
+                                              </div>
                                             </div>
 
                                             {/* Arrival */}
-                                            <div className="text-right flex-1 min-w-0">
-                                              <p className="font-black text-foreground text-[16px] leading-tight">{fs.arrivalTime || "—"}</p>
-                                              <p className="text-[11px] text-foreground/80 font-bold tracking-wide uppercase mt-0.5 leading-snug whitespace-normal break-normal" title={fs.arrivedAt}>
-                                                {fs.arrivedAt}
-                                                {(() => {
-                                                  if (fs.notes) {
-                                                    try {
-                                                      const parsed = JSON.parse(fs.notes);
-                                                      if (parsed.arrTerminal) {
-                                                        return (
-                                                          <span className="text-[8px] bg-rose-50 text-rose-600 px-1 py-0.5 rounded font-black ml-1 uppercase border border-rose-200 inline-block">
-                                                            T{parsed.arrTerminal}
-                                                          </span>
-                                                        );
-                                                      }
-                                                    } catch (e) {}
-                                                  }
-                                                  return null;
-                                                })()}
+                                            <div className="flex-1 min-w-0 text-right">
+                                              <div className="flex items-baseline justify-end gap-1.5 sm:gap-2 flex-wrap">
+                                                {arrTerminal && (
+                                                  <span className="text-[9px] bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 px-1.5 py-0.5 rounded font-black uppercase">
+                                                    T{arrTerminal}
+                                                  </span>
+                                                )}
+                                                <span className="font-mono font-bold text-xs px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+                                                  {arrInfo.code}
+                                                </span>
+                                                <span className="font-black text-foreground text-lg sm:text-xl tracking-tight leading-none">
+                                                  {fs.arrivalTime || "—"}
+                                                </span>
+                                              </div>
+                                              <p className="text-[11px] text-muted-foreground font-medium mt-1 truncate" title={fs.arrivedAt}>
+                                                {arrInfo.name || fs.arrivedAt}
                                               </p>
                                             </div>
                                           </div>
 
                                           {/* Baggage Micro-Pills */}
                                           {(fs.baggage || fs.carryOnBaggage || fs.personalItem) && (
-                                            <div className="flex flex-wrap items-center justify-start md:justify-center gap-1.5 mt-2.5 pt-2 border-t border-border/40">
+                                            <div className="flex flex-wrap items-center justify-start sm:justify-center gap-2 mt-3 pt-2.5 border-t border-border/40">
                                               {fs.baggage && (
-                                                <span className="inline-flex items-center gap-1 bg-background text-foreground/90 border border-border px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider shadow-2xs">
-                                                  🧳 Checked: {fs.baggage}
+                                                <span className="inline-flex items-center gap-1.5 bg-background text-foreground/80 border border-border/60 px-2.5 py-0.5 rounded-full text-[10.5px] font-medium shadow-2xs">
+                                                  <span>🧳</span> Checked: <strong className="font-bold text-foreground">{fs.baggage}</strong>
                                                 </span>
                                               )}
                                               {fs.carryOnBaggage && (
-                                                <span className="inline-flex items-center gap-1 bg-background text-foreground/90 border border-border px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider shadow-2xs">
-                                                  🛍️ Hand Carry: {fs.carryOnBaggage}
+                                                <span className="inline-flex items-center gap-1.5 bg-background text-foreground/80 border border-border/60 px-2.5 py-0.5 rounded-full text-[10.5px] font-medium shadow-2xs">
+                                                  <span>🛍️</span> Hand Carry: <strong className="font-bold text-foreground">{fs.carryOnBaggage}</strong>
                                                 </span>
                                               )}
                                               {fs.personalItem && (
-                                                <span className="inline-flex items-center gap-1 bg-background text-foreground/90 border border-border px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider shadow-2xs">
-                                                  👛 Personal Item: {fs.personalItem}
+                                                <span className="inline-flex items-center gap-1.5 bg-background text-foreground/80 border border-border/60 px-2.5 py-0.5 rounded-full text-[10.5px] font-medium shadow-2xs">
+                                                  <span>🎒</span> Personal Item: <strong className="font-bold text-foreground">{fs.personalItem}</strong>
                                                 </span>
                                               )}
                                             </div>
@@ -2993,14 +2994,23 @@ export default function BookingManager({
                                         </div>
 
                                         {/* Right: Price & Actions */}
-                                        <div className="flex items-center justify-between xl:justify-end w-full xl:w-auto gap-4 flex-shrink-0 self-start xl:self-center border-t xl:border-t-0 border-border/40 pt-2 xl:pt-0 mt-1 xl:mt-0">
+                                        <div className="flex items-center justify-between xl:justify-end w-full xl:w-auto gap-4 flex-shrink-0 self-start xl:self-center border-t xl:border-t-0 border-border/50 pt-2.5 xl:pt-0">
                                           <div className="text-left xl:text-right">
-                                            <p className="font-black text-primary text-[17px] tracking-tight">{formatCurrency(fs.price)}</p>
+                                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
+                                              Total Fare
+                                            </span>
+                                            <p className="font-black text-primary text-xl tracking-tight leading-tight">
+                                              {formatCurrency(fs.price)}
+                                            </p>
                                             {fs.agentQuotedPrice !== undefined && fs.agentQuotedPrice !== null && (
-                                              <p className="text-[10px] text-muted-foreground font-semibold mt-0.5">Quoted: {formatCurrency(fs.agentQuotedPrice)}</p>
+                                              <p className="text-[10.5px] text-muted-foreground font-medium mt-0.5">
+                                                Quoted: <span className="font-semibold text-foreground/80">{formatCurrency(fs.agentQuotedPrice)}</span>
+                                              </p>
                                             )}
                                           </div>
-                                          <div className="flex items-center gap-1 border-l border-border/80 pl-3">
+
+                                          {/* Grouped Action Toolbar */}
+                                          <div className="flex items-center gap-1 bg-secondary/50 dark:bg-secondary/30 border border-border/60 rounded-xl p-1 shadow-2xs">
                                             <button
                                               type="button"
                                               onClick={async (e) => {
@@ -3015,7 +3025,7 @@ export default function BookingManager({
                                                   toast.error(err.response?.data?.error || "Failed to create issuance request");
                                                 }
                                               }}
-                                              className="p-2 hover:bg-sky-50 dark:hover:bg-sky-950/30 rounded-lg text-muted-foreground hover:text-sky-600 border border-transparent hover:border-sky-200 transition-all cursor-pointer"
+                                              className="p-2 hover:bg-sky-500/15 text-muted-foreground hover:text-sky-600 dark:hover:text-sky-400 rounded-lg transition-colors cursor-pointer"
                                               title="Request Flight Issuance (Send to Issuance Board)"
                                             >
                                               <Ticket size={15} />
@@ -3028,7 +3038,7 @@ export default function BookingManager({
                                                 setPrintTicketSelectedPassenger("all");
                                                 setIsPrintTicketModalOpen(true);
                                               }}
-                                              className="p-2 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 rounded-lg text-muted-foreground hover:text-emerald-600 border border-transparent hover:border-emerald-200 transition-all cursor-pointer"
+                                              className="p-2 hover:bg-emerald-500/15 text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400 rounded-lg transition-colors cursor-pointer"
                                               title="Print E-Ticket"
                                             >
                                               <Printer size={15} />
@@ -3043,7 +3053,7 @@ export default function BookingManager({
                                                     setPnrModalStep("form");
                                                     setIsPnrModalOpen(true);
                                                   }}
-                                                  className="p-2 hover:bg-primary/10 rounded-lg text-muted-foreground hover:text-primary border border-transparent hover:border-primary/20 transition-all cursor-pointer"
+                                                  className="p-2 hover:bg-primary/15 text-muted-foreground hover:text-primary rounded-lg transition-colors cursor-pointer"
                                                   title="Edit Flight"
                                                 >
                                                   <Pencil size={15} />
@@ -3054,7 +3064,7 @@ export default function BookingManager({
                                                     e.stopPropagation();
                                                     handleDeleteFlight(fs.id);
                                                   }}
-                                                  className="p-2 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg text-muted-foreground hover:text-rose-600 border border-transparent hover:border-rose-200 transition-all cursor-pointer"
+                                                  className="p-2 hover:bg-rose-500/15 text-muted-foreground hover:text-rose-600 dark:hover:text-rose-400 rounded-lg transition-colors cursor-pointer"
                                                   title="Delete Flight"
                                                 >
                                                   <Trash2 size={15} />
@@ -3069,10 +3079,10 @@ export default function BookingManager({
                                     {isConnecting && (
                                       <div className="flex items-center justify-center py-2 relative my-1">
                                         <div className="absolute left-1/2 -translate-x-1/2 top-0 bottom-0 w-[2px] bg-gradient-to-b from-amber-500 to-sky-500 opacity-30 z-0"></div>
-                                        <div className="flex items-center gap-1.5 px-4 py-1.5 bg-amber-50/90 border border-amber-200/80 rounded-full text-amber-800 text-[10.5px] font-bold shadow-sm relative z-10 hover:scale-[1.02] transition-transform backdrop-blur-sm">
-                                          <Clock size={12} className="text-amber-600 animate-pulse" />
+                                        <div className="flex items-center gap-1.5 px-4 py-1.5 bg-amber-500/15 border border-amber-500/30 rounded-full text-amber-800 dark:text-amber-200 text-[10.5px] font-bold shadow-2xs relative z-10 hover:scale-[1.02] transition-transform backdrop-blur-sm">
+                                          <Clock size={12} className="text-amber-600 dark:text-amber-400 animate-pulse" />
                                           <span>
-                                            Transit Time: <strong className="text-amber-950 font-black">{layoverTime}</strong> in transit at <strong className="text-amber-950 font-black">{transitHub}</strong>
+                                            Transit Time: <strong className="text-amber-950 dark:text-amber-100 font-black">{layoverTime}</strong> in transit at <strong className="text-amber-950 dark:text-amber-100 font-black">{transitHub}</strong>
                                           </span>
                                         </div>
                                       </div>
