@@ -130,44 +130,104 @@ export class IssuanceService {
   }
 
   /**
+   * Generates a guaranteed unique ticket number (e.g. ISS-2026-0001).
+   * Finds the maximum existing sequence number for the current year and increments,
+   * checking for uniqueness in case of gaps or concurrency.
+   */
+  async generateUniqueTicketNumber(): Promise<string> {
+    const year = new Date().getFullYear();
+    const prefix = `ISS-${year}-`;
+
+    const highestTicket = await prisma.issuanceTicket.findFirst({
+      where: {
+        ticketNumber: {
+          startsWith: prefix,
+        },
+      },
+      orderBy: {
+        ticketNumber: 'desc',
+      },
+      select: {
+        ticketNumber: true,
+      },
+    });
+
+    let nextNumber = 1;
+    if (highestTicket?.ticketNumber) {
+      const match = highestTicket.ticketNumber.match(/ISS-\d{4}-(\d+)/);
+      if (match && match[1]) {
+        nextNumber = parseInt(match[1], 10) + 1;
+      }
+    }
+
+    // Safety loop to ensure candidate ticket number does not already exist
+    while (true) {
+      const candidate = `${prefix}${String(nextNumber).padStart(4, '0')}`;
+      const existing = await prisma.issuanceTicket.findUnique({
+        where: { ticketNumber: candidate },
+        select: { id: true },
+      });
+
+      if (!existing) {
+        return candidate;
+      }
+      nextNumber++;
+    }
+  }
+
+  /**
    * Create an issuance ticket manually
    */
   async create(userId: string, data: any) {
-    const count = await prisma.issuanceTicket.count();
-    const year = new Date().getFullYear();
-    const ticketNumber = `ISS-${year}-${String(count + 1).padStart(4, '0')}`;
+    let newTicket: any;
+    let attempts = 0;
 
-    const newTicket = await prisma.issuanceTicket.create({
-      data: {
-        ticketNumber,
-        type: data.type as IssuanceType,
-        status: IssuanceStatus.TO_DO,
-        paymentStatus: data.paymentStatus || 'PENDING',
-        leadGuestName: data.leadGuestName,
-        guestEmail: data.guestEmail,
-        guestPhone: data.guestPhone,
-        travelStartDate: new Date(data.travelStartDate),
-        travelEndDate: data.travelEndDate ? new Date(data.travelEndDate) : null,
-        totalCost: Number(data.totalCost) || 0.0,
-        currency: data.currency || 'GBP',
-        airline: data.airline,
-        flightNumbers: data.flightNumbers,
-        routing: data.routing,
-        pnrTicketNumber: data.pnrTicketNumber,
-        hotelName: data.hotelName,
-        destination: data.destination,
-        roomCategory: data.roomCategory,
-        boardBasis: data.boardBasis,
-        hotelReservationNo: data.hotelReservationNo,
-        bookingId: data.bookingId,
-        bookingReference: data.bookingReference,
-        serviceId: data.serviceId,
-        createdById: userId,
-      },
-      include: {
-        createdBy: { select: { id: true, firstName: true, lastName: true, email: true } },
-      },
-    });
+    while (attempts < 5) {
+      try {
+        const ticketNumber = await this.generateUniqueTicketNumber();
+        newTicket = await prisma.issuanceTicket.create({
+          data: {
+            ticketNumber,
+            type: data.type as IssuanceType,
+            status: IssuanceStatus.TO_DO,
+            paymentStatus: data.paymentStatus || 'PENDING',
+            leadGuestName: data.leadGuestName,
+            guestEmail: data.guestEmail,
+            guestPhone: data.guestPhone,
+            travelStartDate: new Date(data.travelStartDate),
+            travelEndDate: data.travelEndDate ? new Date(data.travelEndDate) : null,
+            totalCost: Number(data.totalCost) || 0.0,
+            currency: data.currency || 'GBP',
+            airline: data.airline,
+            flightNumbers: data.flightNumbers,
+            routing: data.routing,
+            pnrTicketNumber: data.pnrTicketNumber,
+            hotelName: data.hotelName,
+            destination: data.destination,
+            roomCategory: data.roomCategory,
+            boardBasis: data.boardBasis,
+            hotelReservationNo: data.hotelReservationNo,
+            bookingId: data.bookingId,
+            bookingReference: data.bookingReference,
+            serviceId: data.serviceId,
+            createdById: userId,
+          },
+          include: {
+            createdBy: { select: { id: true, firstName: true, lastName: true, email: true } },
+          },
+        });
+        break;
+      } catch (err: any) {
+        if (err.code === 'P2002' && (err.meta?.target?.includes('ticketNumber') || String(err.message).includes('ticketNumber'))) {
+          attempts++;
+          logger.warn(`Collision detected on ticketNumber, retrying attempt ${attempts}...`);
+          if (attempts >= 5) throw err;
+          await new Promise((res) => setTimeout(res, 50));
+          continue;
+        }
+        throw err;
+      }
+    }
 
     // Record initial audit log
     await prisma.issuanceTicketAuditLog.create({
@@ -214,12 +274,25 @@ export class IssuanceService {
       ? `${leadPassenger.title ? leadPassenger.title + ' ' : ''}${leadPassenger.firstName} ${leadPassenger.lastName}`.trim()
       : 'Valued Guest';
 
-    const count = await prisma.issuanceTicket.count();
-    const year = new Date().getFullYear();
-    const ticketNumber = `ISS-${year}-${String(count + 1).padStart(4, '0')}`;
+    // Prevent duplicate active issuance tickets for the same service in the same booking
+    if (payload.serviceId) {
+      const existingActive = await prisma.issuanceTicket.findFirst({
+        where: {
+          bookingId: booking.id,
+          serviceId: payload.serviceId,
+          status: { in: [IssuanceStatus.TO_DO, IssuanceStatus.PENDING, IssuanceStatus.ON_HOLD] },
+        },
+        select: { id: true, ticketNumber: true, status: true },
+      });
+
+      if (existingActive) {
+        throw new Error(
+          `An active issuance ticket (${existingActive.ticketNumber}) already exists for this service with status ${existingActive.status}.`
+        );
+      }
+    }
 
     let ticketData: any = {
-      ticketNumber,
       type: payload.type,
       status: IssuanceStatus.TO_DO,
       paymentStatus: booking.paymentStatus || 'PENDING',
@@ -268,12 +341,29 @@ export class IssuanceService {
       }
     }
 
-    const ticket = await prisma.issuanceTicket.create({
-      data: ticketData,
-      include: {
-        createdBy: { select: { id: true, firstName: true, lastName: true, email: true } },
-      },
-    });
+    let ticket: any;
+    let attempts = 0;
+    while (attempts < 5) {
+      try {
+        ticketData.ticketNumber = await this.generateUniqueTicketNumber();
+        ticket = await prisma.issuanceTicket.create({
+          data: ticketData,
+          include: {
+            createdBy: { select: { id: true, firstName: true, lastName: true, email: true } },
+          },
+        });
+        break;
+      } catch (err: any) {
+        if (err.code === 'P2002' && (err.meta?.target?.includes('ticketNumber') || String(err.message).includes('ticketNumber'))) {
+          attempts++;
+          logger.warn(`Collision detected on ticketNumber, retrying attempt ${attempts}...`);
+          if (attempts >= 5) throw err;
+          await new Promise((res) => setTimeout(res, 50));
+          continue;
+        }
+        throw err;
+      }
+    }
 
     await prisma.issuanceTicketAuditLog.create({
       data: {
