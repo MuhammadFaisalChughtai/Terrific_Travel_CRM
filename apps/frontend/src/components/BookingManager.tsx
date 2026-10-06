@@ -1232,7 +1232,7 @@ export default function BookingManager({
       isOpen={isOpen}
       onClose={onClose}
       title={`Booking #${booking.bookingReference || bookingReference || "Details"}`}
-      maxWidth="4xl"
+      maxWidth="6xl"
     >
       <div className="bg-secondary/15 text-foreground pb-6 font-sans -mx-5 -mb-5 -mt-5">
         {/* Header Actions */}
@@ -2914,11 +2914,11 @@ export default function BookingManager({
                                         </div>
 
                                         {/* Middle: Route & Times & Baggage */}
-                                        <div className="flex-1 w-full min-w-0 bg-secondary/30 dark:bg-secondary/20 rounded-xl p-3 sm:p-3.5 border border-border/60">
-                                          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-4">
+                                        <div className="flex-1 w-full min-w-0 bg-secondary/30 dark:bg-secondary/20 rounded-xl p-3 sm:p-4 border border-border/60">
+                                          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 sm:gap-5">
                                             {/* Departure */}
                                             <div className="flex flex-col items-start min-w-0">
-                                              <div className="flex items-center gap-1.5">
+                                              <div className="flex items-center gap-1.5 flex-wrap">
                                                 <span className="font-black text-foreground text-lg sm:text-xl tracking-tight leading-none whitespace-nowrap">
                                                   {fs.departTime || "—"}
                                                 </span>
@@ -2931,13 +2931,13 @@ export default function BookingManager({
                                                   </span>
                                                 )}
                                               </div>
-                                              <p className="text-[11px] text-muted-foreground font-medium mt-1 truncate max-w-full" title={fs.departedFrom}>
+                                              <p className="text-[11.5px] text-muted-foreground font-semibold mt-1 leading-snug break-words" title={fs.departedFrom}>
                                                 {depInfo.name || fs.departedFrom}
                                               </p>
                                             </div>
 
                                             {/* Flight Path Graphic */}
-                                            <div className="flex flex-col items-center justify-center px-2 sm:px-4 shrink-0 min-w-[70px] sm:min-w-[110px]">
+                                            <div className="flex flex-col items-center justify-center px-2 sm:px-4 shrink-0 min-w-[70px] sm:min-w-[100px]">
                                               <span className="text-[9px] font-bold text-muted-foreground/70 uppercase tracking-widest mb-1">
                                                 Direct
                                               </span>
@@ -2952,7 +2952,7 @@ export default function BookingManager({
 
                                             {/* Arrival */}
                                             <div className="flex flex-col items-end min-w-0 text-right">
-                                              <div className="flex items-center justify-end gap-1.5">
+                                              <div className="flex items-center justify-end gap-1.5 flex-wrap">
                                                 {arrTerminal && (
                                                   <span className="text-[9px] bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 px-1 py-0.5 rounded font-black uppercase shrink-0">
                                                     T{arrTerminal}
@@ -2965,7 +2965,7 @@ export default function BookingManager({
                                                   {fs.arrivalTime || "—"}
                                                 </span>
                                               </div>
-                                              <p className="text-[11px] text-muted-foreground font-medium mt-1 truncate max-w-full" title={fs.arrivedAt}>
+                                              <p className="text-[11.5px] text-muted-foreground font-semibold mt-1 leading-snug break-words text-right" title={fs.arrivedAt}>
                                                 {arrInfo.name || fs.arrivedAt}
                                               </p>
                                             </div>
@@ -2973,7 +2973,7 @@ export default function BookingManager({
 
                                           {/* Baggage Micro-Pills */}
                                           {(fs.baggage || fs.carryOnBaggage || fs.personalItem) && (
-                                            <div className="flex flex-wrap items-center justify-start sm:justify-center gap-1.5 mt-2.5 pt-2 border-t border-border/40">
+                                            <div className="flex flex-wrap items-center justify-start sm:justify-center gap-1.5 mt-3 pt-2.5 border-t border-border/40">
                                               {fs.baggage && (
                                                 <span className="inline-flex items-center gap-1 bg-background text-foreground/85 border border-border/70 px-2 py-0.5 rounded-md text-[10px] font-medium shadow-2xs">
                                                   <span>🧳</span> Checked: <strong className="font-bold text-foreground">{fs.baggage}</strong>
@@ -2993,9 +2993,9 @@ export default function BookingManager({
                                           )}
                                         </div>
 
-                                        {/* Right: Price & Actions */}
-                                        <div className="flex items-center justify-between lg:justify-end w-full lg:w-auto gap-4 flex-shrink-0 self-start lg:self-center border-t lg:border-t-0 border-border/50 pt-2.5 lg:pt-0">
-                                          <div className="text-left lg:text-right">
+                                        {/* Right: Price & Vertical Action Icons */}
+                                        <div className="flex items-center lg:items-center justify-between lg:justify-end w-full lg:w-auto gap-3.5 flex-shrink-0 self-stretch lg:self-center border-t lg:border-t-0 border-border/50 pt-3 lg:pt-0">
+                                          <div className="text-left lg:text-right flex-shrink-0">
                                             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
                                               Total Fare
                                             </span>
@@ -3009,8 +3009,8 @@ export default function BookingManager({
                                             )}
                                           </div>
 
-                                          {/* Grouped Action Toolbar */}
-                                          <div className="flex items-center gap-1 bg-secondary/50 dark:bg-secondary/30 border border-border/60 rounded-xl p-1 shadow-2xs">
+                                          {/* Grouped Action Toolbar (Vertical layout on desktop) */}
+                                          <div className="flex flex-row lg:flex-col items-center gap-1 bg-secondary/50 dark:bg-secondary/30 border border-border/60 rounded-xl p-1 shadow-2xs shrink-0">
                                             <button
                                               type="button"
                                               onClick={async (e) => {
@@ -3025,7 +3025,7 @@ export default function BookingManager({
                                                   toast.error(err.response?.data?.error || "Failed to create issuance request");
                                                 }
                                               }}
-                                              className="p-2 hover:bg-sky-500/15 text-muted-foreground hover:text-sky-600 dark:hover:text-sky-400 rounded-lg transition-colors cursor-pointer"
+                                              className="p-1.5 hover:bg-sky-500/15 text-muted-foreground hover:text-sky-600 dark:hover:text-sky-400 rounded-lg transition-colors cursor-pointer"
                                               title="Request Flight Issuance (Send to Issuance Board)"
                                             >
                                               <Ticket size={15} />
@@ -3038,7 +3038,7 @@ export default function BookingManager({
                                                 setPrintTicketSelectedPassenger("all");
                                                 setIsPrintTicketModalOpen(true);
                                               }}
-                                              className="p-2 hover:bg-emerald-500/15 text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400 rounded-lg transition-colors cursor-pointer"
+                                              className="p-1.5 hover:bg-emerald-500/15 text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400 rounded-lg transition-colors cursor-pointer"
                                               title="Print E-Ticket"
                                             >
                                               <Printer size={15} />
@@ -3053,7 +3053,7 @@ export default function BookingManager({
                                                     setPnrModalStep("form");
                                                     setIsPnrModalOpen(true);
                                                   }}
-                                                  className="p-2 hover:bg-primary/15 text-muted-foreground hover:text-primary rounded-lg transition-colors cursor-pointer"
+                                                  className="p-1.5 hover:bg-primary/15 text-muted-foreground hover:text-primary rounded-lg transition-colors cursor-pointer"
                                                   title="Edit Flight"
                                                 >
                                                   <Pencil size={15} />
@@ -3064,7 +3064,7 @@ export default function BookingManager({
                                                     e.stopPropagation();
                                                     handleDeleteFlight(fs.id);
                                                   }}
-                                                  className="p-2 hover:bg-rose-500/15 text-muted-foreground hover:text-rose-600 dark:hover:text-rose-400 rounded-lg transition-colors cursor-pointer"
+                                                  className="p-1.5 hover:bg-rose-500/15 text-muted-foreground hover:text-rose-600 dark:hover:text-rose-400 rounded-lg transition-colors cursor-pointer"
                                                   title="Delete Flight"
                                                 >
                                                   <Trash2 size={15} />
