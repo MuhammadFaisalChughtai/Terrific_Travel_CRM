@@ -2766,7 +2766,7 @@ export default function BookingManager({
                                 return (
                                   <React.Fragment key={fs.id}>
                                     <div className="w-full pb-0.5">
-                                      <div className={`border border-border/70 bg-card hover:bg-card/95 rounded-2xl p-4 sm:p-5 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 hover:border-primary/40 hover:shadow-md transition-all text-xs shadow-2xs relative overflow-hidden group w-full ${fs.status === 'CANCELLED' ? 'opacity-60 saturate-50' : ''}`}>
+                                      <div className={`border border-border/70 bg-card hover:bg-card/95 rounded-2xl p-4 sm:p-5 flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-4 hover:border-primary/40 hover:shadow-md transition-all text-xs shadow-2xs relative overflow-hidden group w-full ${fs.status === 'CANCELLED' ? 'opacity-60 saturate-50' : ''}`}>
                                         {isConnecting && (
                                           <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-amber-500"></div>
                                         )}
@@ -2775,8 +2775,8 @@ export default function BookingManager({
                                         )}
 
                                         {/* Left: Flight & PNR Info */}
-                                        <div className="flex items-start gap-3 w-full xl:w-auto xl:max-w-[280px] flex-shrink-0">
-                                          <div className="w-11 h-11 bg-primary/10 text-primary border border-primary/20 rounded-xl flex items-center justify-center font-bold text-sm shadow-2xs flex-shrink-0 mt-0.5">
+                                        <div className="flex items-start gap-3 w-full lg:w-auto lg:min-w-[200px] lg:max-w-[260px] flex-shrink-0">
+                                          <div className="w-10 h-10 bg-primary/10 text-primary border border-primary/20 rounded-xl flex items-center justify-center font-bold text-sm shadow-2xs flex-shrink-0 mt-0.5">
                                             <Plane size={18} className="text-primary group-hover:rotate-12 transition-transform" />
                                           </div>
                                           <div className="flex-1 min-w-0">
@@ -2914,58 +2914,58 @@ export default function BookingManager({
                                         </div>
 
                                         {/* Middle: Route & Times & Baggage */}
-                                        <div className="flex-1 w-full min-w-0 bg-secondary/20 dark:bg-secondary/15 rounded-xl p-3 sm:p-3.5 border border-border/50">
-                                          <div className="flex items-center justify-between gap-2 sm:gap-4">
+                                        <div className="flex-1 w-full min-w-0 bg-secondary/30 dark:bg-secondary/20 rounded-xl p-3 sm:p-3.5 border border-border/60">
+                                          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-4">
                                             {/* Departure */}
-                                            <div className="flex-1 min-w-0 text-left">
-                                              <div className="flex items-baseline gap-1.5 sm:gap-2 flex-wrap">
-                                                <span className="font-black text-foreground text-lg sm:text-xl tracking-tight leading-none">
+                                            <div className="flex flex-col items-start min-w-0">
+                                              <div className="flex items-center gap-1.5">
+                                                <span className="font-black text-foreground text-lg sm:text-xl tracking-tight leading-none whitespace-nowrap">
                                                   {fs.departTime || "—"}
                                                 </span>
-                                                <span className="font-mono font-bold text-xs px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+                                                <span className="font-mono font-bold text-xs px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 shrink-0">
                                                   {depInfo.code}
                                                 </span>
                                                 {depTerminal && (
-                                                  <span className="text-[9px] bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 px-1.5 py-0.5 rounded font-black uppercase">
+                                                  <span className="text-[9px] bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 px-1 py-0.5 rounded font-black uppercase shrink-0">
                                                     T{depTerminal}
                                                   </span>
                                                 )}
                                               </div>
-                                              <p className="text-[11px] text-muted-foreground font-medium mt-1 truncate" title={fs.departedFrom}>
+                                              <p className="text-[11px] text-muted-foreground font-medium mt-1 truncate max-w-full" title={fs.departedFrom}>
                                                 {depInfo.name || fs.departedFrom}
                                               </p>
                                             </div>
 
                                             {/* Flight Path Graphic */}
-                                            <div className="flex flex-col items-center justify-center px-2 sm:px-4 flex-shrink-0 min-w-[70px] sm:min-w-[120px]">
-                                              <span className="text-[9.5px] font-bold text-muted-foreground/70 uppercase tracking-widest mb-1.5">
+                                            <div className="flex flex-col items-center justify-center px-2 sm:px-4 shrink-0 min-w-[70px] sm:min-w-[110px]">
+                                              <span className="text-[9px] font-bold text-muted-foreground/70 uppercase tracking-widest mb-1">
                                                 Direct
                                               </span>
                                               <div className="w-full flex items-center relative">
-                                                <div className="w-2 h-2 rounded-full border-2 border-primary bg-card flex-shrink-0" />
+                                                <div className="w-2 h-2 rounded-full border-2 border-primary bg-card shrink-0" />
                                                 <div className="h-[2px] flex-1 bg-gradient-to-r from-primary/30 via-primary to-primary/30 relative">
                                                   <Plane className="w-3.5 h-3.5 text-primary absolute left-1/2 -top-[7px] -translate-x-1/2 transform transition-transform group-hover:translate-x-1" />
                                                 </div>
-                                                <div className="w-2 h-2 rounded-full bg-primary flex-shrink-0" />
+                                                <div className="w-2 h-2 rounded-full bg-primary shrink-0" />
                                               </div>
                                             </div>
 
                                             {/* Arrival */}
-                                            <div className="flex-1 min-w-0 text-right">
-                                              <div className="flex items-baseline justify-end gap-1.5 sm:gap-2 flex-wrap">
+                                            <div className="flex flex-col items-end min-w-0 text-right">
+                                              <div className="flex items-center justify-end gap-1.5">
                                                 {arrTerminal && (
-                                                  <span className="text-[9px] bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 px-1.5 py-0.5 rounded font-black uppercase">
+                                                  <span className="text-[9px] bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 px-1 py-0.5 rounded font-black uppercase shrink-0">
                                                     T{arrTerminal}
                                                   </span>
                                                 )}
-                                                <span className="font-mono font-bold text-xs px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+                                                <span className="font-mono font-bold text-xs px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 shrink-0">
                                                   {arrInfo.code}
                                                 </span>
-                                                <span className="font-black text-foreground text-lg sm:text-xl tracking-tight leading-none">
+                                                <span className="font-black text-foreground text-lg sm:text-xl tracking-tight leading-none whitespace-nowrap">
                                                   {fs.arrivalTime || "—"}
                                                 </span>
                                               </div>
-                                              <p className="text-[11px] text-muted-foreground font-medium mt-1 truncate" title={fs.arrivedAt}>
+                                              <p className="text-[11px] text-muted-foreground font-medium mt-1 truncate max-w-full" title={fs.arrivedAt}>
                                                 {arrInfo.name || fs.arrivedAt}
                                               </p>
                                             </div>
@@ -2973,19 +2973,19 @@ export default function BookingManager({
 
                                           {/* Baggage Micro-Pills */}
                                           {(fs.baggage || fs.carryOnBaggage || fs.personalItem) && (
-                                            <div className="flex flex-wrap items-center justify-start sm:justify-center gap-2 mt-3 pt-2.5 border-t border-border/40">
+                                            <div className="flex flex-wrap items-center justify-start sm:justify-center gap-1.5 mt-2.5 pt-2 border-t border-border/40">
                                               {fs.baggage && (
-                                                <span className="inline-flex items-center gap-1.5 bg-background text-foreground/80 border border-border/60 px-2.5 py-0.5 rounded-full text-[10.5px] font-medium shadow-2xs">
+                                                <span className="inline-flex items-center gap-1 bg-background text-foreground/85 border border-border/70 px-2 py-0.5 rounded-md text-[10px] font-medium shadow-2xs">
                                                   <span>🧳</span> Checked: <strong className="font-bold text-foreground">{fs.baggage}</strong>
                                                 </span>
                                               )}
                                               {fs.carryOnBaggage && (
-                                                <span className="inline-flex items-center gap-1.5 bg-background text-foreground/80 border border-border/60 px-2.5 py-0.5 rounded-full text-[10.5px] font-medium shadow-2xs">
+                                                <span className="inline-flex items-center gap-1 bg-background text-foreground/85 border border-border/70 px-2 py-0.5 rounded-md text-[10px] font-medium shadow-2xs">
                                                   <span>🛍️</span> Hand Carry: <strong className="font-bold text-foreground">{fs.carryOnBaggage}</strong>
                                                 </span>
                                               )}
                                               {fs.personalItem && (
-                                                <span className="inline-flex items-center gap-1.5 bg-background text-foreground/80 border border-border/60 px-2.5 py-0.5 rounded-full text-[10.5px] font-medium shadow-2xs">
+                                                <span className="inline-flex items-center gap-1 bg-background text-foreground/85 border border-border/70 px-2 py-0.5 rounded-md text-[10px] font-medium shadow-2xs">
                                                   <span>🎒</span> Personal Item: <strong className="font-bold text-foreground">{fs.personalItem}</strong>
                                                 </span>
                                               )}
@@ -2994,8 +2994,8 @@ export default function BookingManager({
                                         </div>
 
                                         {/* Right: Price & Actions */}
-                                        <div className="flex items-center justify-between xl:justify-end w-full xl:w-auto gap-4 flex-shrink-0 self-start xl:self-center border-t xl:border-t-0 border-border/50 pt-2.5 xl:pt-0">
-                                          <div className="text-left xl:text-right">
+                                        <div className="flex items-center justify-between lg:justify-end w-full lg:w-auto gap-4 flex-shrink-0 self-start lg:self-center border-t lg:border-t-0 border-border/50 pt-2.5 lg:pt-0">
+                                          <div className="text-left lg:text-right">
                                             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
                                               Total Fare
                                             </span>
