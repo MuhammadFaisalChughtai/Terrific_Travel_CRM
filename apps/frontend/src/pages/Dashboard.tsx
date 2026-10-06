@@ -4,6 +4,7 @@ import { formatCurrency } from "@tms/shared-utils";
 import { useAuthStore } from "../store/auth.store";
 import { useNavigate } from "react-router-dom";
 import Modal from "../components/Modal";
+import BookingManager from "../components/BookingManager";
 import {
   TrendingUp,
   Users,
@@ -15,6 +16,7 @@ import {
   Percent,
   AlertCircle,
   ExternalLink,
+  Eye,
   Search,
 } from "lucide-react";
 import {
@@ -51,6 +53,8 @@ export default function Dashboard() {
   const [isPendingModalOpen, setIsPendingModalOpen] = useState(false);
   const [pendingPeriod, setPendingPeriod] = useState<string>("all");
   const [pendingSearch, setPendingSearch] = useState("");
+  const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
+  const [selectedBookingRef, setSelectedBookingRef] = useState<string | null>(null);
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const cleanRoles = useMemo(() => {
@@ -981,12 +985,13 @@ export default function Dashboard() {
                             <button
                               type="button"
                               onClick={() => {
-                                setIsPendingModalOpen(false);
-                                navigate(`/bookings?search=${encodeURIComponent(booking.bookingReference)}`);
+                                setSelectedBookingId(booking.id);
+                                setSelectedBookingRef(booking.bookingReference);
                               }}
-                              className="px-2.5 py-1 bg-primary/10 hover:bg-primary/20 text-primary rounded text-[11px] font-semibold transition-colors inline-flex items-center gap-1"
+                              className="px-2.5 py-1 bg-primary/10 hover:bg-primary/20 text-primary rounded text-[11px] font-semibold transition-colors inline-flex items-center gap-1 cursor-pointer"
+                              title={`Open Booking #${booking.bookingReference}`}
                             >
-                              View <ExternalLink size={10} />
+                              View <Eye size={11} />
                             </button>
                           </td>
                         </tr>
@@ -1012,6 +1017,19 @@ export default function Dashboard() {
             </div>
           </div>
         </Modal>
+      )}
+
+      {/* Direct Booking Details Modal */}
+      {selectedBookingId && (
+        <BookingManager
+          isOpen={!!selectedBookingId}
+          bookingId={selectedBookingId}
+          bookingReference={selectedBookingRef || undefined}
+          onClose={() => {
+            setSelectedBookingId(null);
+            setSelectedBookingRef(null);
+          }}
+        />
       )}
     </div>
   );
