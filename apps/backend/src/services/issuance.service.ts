@@ -663,6 +663,10 @@ export class IssuanceService {
             assignedTo: { select: { id: true, firstName: true, lastName: true, email: true } },
             booking: {
               include: {
+                agent: true,
+                user: { select: { id: true, firstName: true, lastName: true, email: true } },
+                createdBy: { select: { id: true, firstName: true, lastName: true, email: true } },
+                assignedTo: { select: { id: true, firstName: true, lastName: true, email: true } },
                 passengers: true,
                 accommodations: { include: { vendor: true } },
                 flightServices: { include: { vendor: true } },
@@ -803,7 +807,7 @@ export class IssuanceService {
 
     // Determine Recipients:
     // STRICT REQUIREMENT: Never send internal issuance emails to customer/passenger!
-    // For HOTEL requests: send strictly to hotels@terrifictravel.co.uk, office admin, and vendor support email.
+    // For HOTEL requests: send to hotels@terrifictravel.co.uk, office admin, hotel vendor email, AND the agent the booking belongs to!
     let toEmails: string[] = [];
     if (isHotel) {
       const recipients: string[] = [hotelsEmail];
@@ -813,12 +817,30 @@ export class IssuanceService {
       if (hotelEmail && hotelEmail.toLowerCase().trim() !== hotelsEmail.toLowerCase().trim()) {
         recipients.push(hotelEmail.trim());
       }
-      toEmails = Array.from(new Set(recipients));
+
+      // Add the Agent which that specific booking belongs to
+      const bookingAgentEmail =
+        fullTicket.booking?.agent?.email ||
+        fullTicket.booking?.agent?.payrollEmail ||
+        fullTicket.booking?.assignedTo?.email ||
+        fullTicket.booking?.createdBy?.email ||
+        fullTicket.createdBy?.email;
+
+      if (bookingAgentEmail && bookingAgentEmail.trim()) {
+        recipients.push(bookingAgentEmail.trim());
+      }
+
+      toEmails = Array.from(new Set(recipients.filter(Boolean)));
     } else {
       // Flight request: sent strictly to admin desk and creator agent (never to customer/passenger)
       toEmails = [adminEmail];
-      if (fullTicket.createdBy?.email && fullTicket.createdBy.email.toLowerCase() !== adminEmail.toLowerCase()) {
-        toEmails.push(fullTicket.createdBy.email);
+      const agentEmail =
+        fullTicket.booking?.agent?.email ||
+        fullTicket.booking?.assignedTo?.email ||
+        fullTicket.booking?.createdBy?.email ||
+        fullTicket.createdBy?.email;
+      if (agentEmail && agentEmail.toLowerCase() !== adminEmail.toLowerCase()) {
+        toEmails.push(agentEmail);
       }
       toEmails = Array.from(new Set(toEmails.filter(Boolean)));
     }
