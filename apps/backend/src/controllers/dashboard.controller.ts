@@ -19,29 +19,35 @@ async function resolveUserFilter(user?: AuthenticatedRequest['user']) {
     ['ADMIN', 'SUPERADMIN', 'ADMINISTRATOR', 'ROOT'].includes(r)
   );
 
-  const isAgent = !isAdmin && cleanRoles.some((r: string) => r.includes('AGENT') || r.includes('MANAGER'));
+  const isAgent = !isAdmin && cleanRoles.some((r: string) => r.includes('AGENT') || r.includes('MANAGER') || r === 'FLIGHTEXECUTIVE');
 
   let agentId: string | undefined = user.agentId || undefined;
 
   if (isAgent) {
-    if (!agentId && user.email) {
+    if (!agentId) {
       try {
-        const agent = await prisma.agent.findFirst({
-          where: {
-            OR: [
-              { email: { equals: user.email, mode: 'insensitive' } },
-              { payrollEmail: { equals: user.email, mode: 'insensitive' } },
-            ],
-          },
-          select: { id: true },
-        });
-        if (agent) {
-          agentId = agent.id;
-          if (user.id) {
-            await prisma.user.update({
-              where: { id: user.id },
-              data: { agentId: agent.id },
-            }).catch(() => {});
+        const conditions: any[] = [];
+        if (user.email) {
+          conditions.push({ email: { equals: user.email, mode: 'insensitive' } });
+          conditions.push({ payrollEmail: { equals: user.email, mode: 'insensitive' } });
+        }
+        const userFullName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim();
+        if (userFullName) {
+          conditions.push({ name: { equals: userFullName, mode: 'insensitive' } });
+        }
+        if (conditions.length > 0) {
+          const agent = await prisma.agent.findFirst({
+            where: { OR: conditions },
+            select: { id: true },
+          });
+          if (agent) {
+            agentId = agent.id;
+            if (user.id) {
+              await prisma.user.update({
+                where: { id: user.id },
+                data: { agentId: agent.id },
+              }).catch(() => {});
+            }
           }
         }
       } catch (err) {

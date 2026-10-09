@@ -290,28 +290,54 @@ export class BookingsService {
     );
 
     let agentIdForUser = user.agentId;
-    if (isAgent && !agentIdForUser && user.email) {
+    if ((isAgent || isManager) && !agentIdForUser) {
       try {
-        const matchingAgent = await prisma.agent.findFirst({
-          where: {
-            OR: [
-              { email: { equals: user.email, mode: 'insensitive' } },
-              { payrollEmail: { equals: user.email, mode: 'insensitive' } },
-            ],
-          },
-          select: { id: true },
-        });
-        if (matchingAgent) {
-          agentIdForUser = matchingAgent.id;
+        const conditions: any[] = [];
+        if (user.email) {
+          conditions.push({ email: { equals: user.email, mode: 'insensitive' } });
+          conditions.push({ payrollEmail: { equals: user.email, mode: 'insensitive' } });
+        }
+        const userFullName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim();
+        if (userFullName) {
+          conditions.push({ name: { equals: userFullName, mode: 'insensitive' } });
+        }
+        if (conditions.length > 0) {
+          const matchingAgent = await prisma.agent.findFirst({
+            where: { OR: conditions },
+            select: { id: true },
+          });
+          if (matchingAgent) {
+            agentIdForUser = matchingAgent.id;
+            if (user.id) {
+              await prisma.user.update({
+                where: { id: user.id },
+                data: { agentId: matchingAgent.id },
+              }).catch(() => {});
+            }
+          }
         }
       } catch (err) {
         // Continue gracefully
       }
     }
 
+    const userOwnConditions: any[] = [
+      { createdById: user.id },
+      { assignedToId: user.id },
+      { userId: user.id },
+    ];
+    if (agentIdForUser) {
+      userOwnConditions.push({ agentId: agentIdForUser });
+    }
+    if (user.agentId && user.agentId !== agentIdForUser) {
+      userOwnConditions.push({ agentId: user.agentId });
+    }
+
     if (query.upcoming === 'true') {
       where.lockedStatus = { not: 'LOCKED' };
-      if (isAdmin || isManager || isAgent) {
+      if (query.onlyMine === 'true' || query.agentId === 'mine') {
+        where.OR = userOwnConditions;
+      } else if (isAdmin || isManager || isAgent) {
         if (query.agentId && query.agentId !== 'Any') {
           where.agentId = query.agentId;
         }
@@ -475,8 +501,12 @@ export class BookingsService {
       return { total, limit, offset, items: paginatedItems };
     }
 
-    // Apply role-based visibility boundaries
-    if (isAdmin || isManager || isAgent) {
+    const andFilters: any[] = [];
+
+    // Apply role-based visibility boundaries & ownership filtering
+    if (query.onlyMine === 'true' || query.agentId === 'mine') {
+      andFilters.push({ OR: userOwnConditions });
+    } else if (isAdmin || isManager || isAgent) {
       // Admins, Managers, and Agents can view bookings and filter by specific agent
       if (query.agentId && query.agentId !== 'Any') {
         where.agentId = query.agentId;
@@ -518,8 +548,6 @@ export class BookingsService {
       }
     }
 
-    const andFilters: any[] = [];
-
     // 4. Booking Reference Filter (supports single or multi-reference bulk search)
     if (query.bookingReference) {
       const refTokens = query.bookingReference.split(/[\s,\n\r\t]+/).map((t: string) => t.trim()).filter(Boolean);
@@ -539,7 +567,7 @@ export class BookingsService {
     }
 
     // 5. Agent Filter (Admin / Manager / Agent)
-    if ((isAdmin || isManager || isAgent) && query.agentId && query.agentId !== 'Any') {
+    if (query.onlyMine !== 'true' && query.agentId !== 'mine' && (isAdmin || isManager || isAgent) && query.agentId && query.agentId !== 'Any') {
       where.agentId = query.agentId;
     }
 

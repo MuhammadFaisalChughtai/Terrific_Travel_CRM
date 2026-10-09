@@ -36,6 +36,7 @@ export class BookingsPolicy {
     if (booking.assignedToId && booking.assignedToId === user.id) return true;
     if (booking.userId && booking.userId === user.id) return true;
     if (user.agentId && booking.agentId && booking.agentId === user.agentId) return true;
+    if (user.email && booking.agent?.email && user.email.toLowerCase() === booking.agent.email.toLowerCase()) return true;
     return false;
   }
 
@@ -66,20 +67,19 @@ export class BookingsPolicy {
   /**
    * Only Admin or the non-locked Booking Owner can edit/modify general booking details,
    * passengers, accommodations, transports, visas, and payments.
-   * Flight Executives are explicitly blocked from editing non-flight sections.
+   * If the Flight Executive or Manager registered/owns the booking, they can edit their own booking!
+   * On bookings owned by other agents, Flight Executives have flight-only edit rights.
    * Locked bookings are strictly view-only for all agents & managers.
    */
   static canEdit(user: any, booking: any): boolean {
     if (!user || !booking) return false;
     if (this.isAdmin(user)) return true;
 
-    // Flight Executive is strictly read-only for general booking sections
-    if (this.isFlightExecutive(user)) return false;
-
     // Locked bookings cannot be edited by non-admins
     if (this.isLocked(booking)) return false;
 
-    // Only booking owner can edit
+    // Both Flight Executive and Manager can edit bookings they registered / own!
+    // On other agents' bookings, Flight Executive cannot edit non-flight details.
     return this.isOwner(user, booking);
   }
 

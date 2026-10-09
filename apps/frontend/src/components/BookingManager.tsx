@@ -915,14 +915,18 @@ export default function BookingManager({
     (!user?.agentId &&
       !!userFullName &&
       !!booking?.agent?.name &&
-      booking.agent.name.trim().toLowerCase() === userFullName.trim().toLowerCase());
+      booking.agent.name.trim().toLowerCase() === userFullName.trim().toLowerCase()) ||
+    (!!user?.email &&
+      !!booking?.agent?.email &&
+      booking.agent.email.trim().toLowerCase() === user.email.trim().toLowerCase());
 
   const isLocked = booking?.lockedStatus === "LOCKED" || booking?.isLocked === true;
 
   // canEdit: admins always can; non-admins only if they own the booking AND it's not locked.
-  // Flight Executives are strictly view-only for general booking fields, passengers, hotels, transfers, visas, and payments.
-  const isOwner = isAdminUser || (!isLocked && isBookingOwner && !isFlightExecutive);
-  // canEditFlights: Admins, Flight Executives (if not locked unless admin), or non-locked Booking Owners can add/edit flights
+  // If Flight Executive or Manager is the booking owner, they have full edit access to their own registered booking!
+  // On other agents' bookings, Flight Executive has flight-only edit rights (canEditFlights).
+  const isOwner = isAdminUser || (!isLocked && isBookingOwner);
+  // canEditFlights: Admins, Flight Executives (across all bookings), or non-locked Booking Owners can add/edit flights
   const canEditFlights = isAdminUser || (!isLocked && (isBookingOwner || isFlightExecutive));
   // Alias for explicit intent
   const canEdit = isOwner;
@@ -1298,6 +1302,11 @@ export default function BookingManager({
                 <>
                   <Lock size={13} className="shrink-0" />
                   <span><strong>Locked Booking</strong> — This booking is locked. View-only access — no changes can be made.</span>
+                </>
+              ) : isFlightExecutive ? (
+                <>
+                  <Plane size={13} className="shrink-0 text-primary" />
+                  <span><strong>Flight Executive Access</strong> — You are viewing a booking registered by {booking?.agent?.name || "another agent"}. You can add, edit, and update flight services. Non-flight sections are view-only.</span>
                 </>
               ) : (
                 <>

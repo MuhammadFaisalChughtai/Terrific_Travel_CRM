@@ -130,6 +130,7 @@ function parseFilter(filter?: DashboardFilter | string): {
           { agentId },
           { createdById: userId },
           { assignedToId: userId },
+          { userId },
         ],
       },
     };
@@ -147,6 +148,7 @@ function parseFilter(filter?: DashboardFilter | string): {
         OR: [
           { createdById: userId },
           { assignedToId: userId },
+          { userId },
         ],
       },
     };

@@ -50,6 +50,7 @@ export default function Bookings() {
   const isAdmin = cleanRoles.some((r) =>
     ["ADMIN", "SUPERADMIN", "ADMINISTRATOR", "ROOT"].includes(r)
   );
+  const isFlightExecutive = cleanRoles.some((r) => r === "FLIGHTEXECUTIVE");
   const isManager = cleanRoles.some((r) => r.includes("MANAGER") || r === "FLIGHTEXECUTIVE");
   const isAgent = !isAdmin && (cleanRoles.some((r) => r.includes("AGENT")) || isManager);
 
@@ -159,6 +160,7 @@ export default function Bookings() {
       "bookings",
       JSON.stringify(appliedFilters),
       agentViewMode,
+      user?.id,
       user?.agentId,
       currentPage,
       sortBy,
@@ -175,13 +177,16 @@ export default function Bookings() {
         params.append("bookingReferenceOp", "contains");
       }
 
-      // Agent filter logic:
-      // If a specific agent is selected in the filter modal (appliedFilters.agentId !== "Any"), apply it for all roles (Admin, Manager, Agent)
-      // Otherwise, for agents in "mine" view mode, default to their own agentId
+      // Agent / Own Bookings filter logic:
+      // If a specific agent is selected in the filter modal (appliedFilters.agentId !== "Any"), apply it for all roles
+      // Otherwise, for agents/managers/flight executives in "mine" view mode, pass onlyMine=true
       if (appliedFilters.agentId && appliedFilters.agentId !== "Any") {
         params.append("agentId", appliedFilters.agentId);
-      } else if (isAgent && agentViewMode === "mine" && user?.agentId) {
-        params.append("agentId", user.agentId);
+      } else if (isAgent && agentViewMode === "mine") {
+        params.append("onlyMine", "true");
+        if (user?.agentId) {
+          params.append("agentId", user.agentId);
+        }
       }
 
       if (appliedFilters.customerName)
@@ -807,11 +812,15 @@ export default function Bookings() {
                           !!userFullName &&
                           !!booking.agent?.name &&
                           booking.agent.name.trim().toLowerCase() ===
-                            userFullName.trim().toLowerCase());
+                            userFullName.trim().toLowerCase()) ||
+                        (!!user?.email &&
+                          !!booking.agent?.email &&
+                          booking.agent.email.trim().toLowerCase() ===
+                            user.email.trim().toLowerCase());
 
                       const isRowLocked = booking.lockedStatus === "LOCKED" || booking.isLocked === true;
-                      // Can edit this row: admins always, non-admins only if they own it and it's not locked
-                      const canEditRow = isAdmin || (!isRowLocked && isOwner);
+                      // Can edit this row: admins always, non-admins if they own it, and Flight Executives for flights
+                      const canEditRow = isAdmin || (!isRowLocked && (isOwner || isFlightExecutive));
                       // Can see margin/profit: admins, managers, or the booking owner
                       const canViewRowMarginProfit = isAdmin || isManager || !isAgent || isOwner;
                       return (
@@ -982,21 +991,19 @@ export default function Bookings() {
                                 </div>
                               ) : (
                                 <>
-                                  {/* View button — available to all for non-locked bookings */}
-                                  {isOwner && (
-                                    <button
-                                      onClick={() =>
-                                        setSelectedBookingId(booking.id)
-                                      }
-                                      className="text-primary hover:text-primary-hover p-1 rounded hover:bg-secondary/35 transition-all"
-                                      title="View / Edit Booking"
-                                    >
-                                      <Eye size={15} />
-                                    </button>
-                                  )}
+                                  {/* View button — available to all who can view the booking */}
+                                  <button
+                                    onClick={() =>
+                                      setSelectedBookingId(booking.id)
+                                    }
+                                    className="text-primary hover:text-primary-hover p-1 rounded hover:bg-secondary/35 transition-all"
+                                    title={canEditRow ? "View / Edit Booking" : "View Booking (Read-Only)"}
+                                  >
+                                    <Eye size={15} />
+                                  </button>
 
-                                  {/* Edit button — only for owners */}
-                                  {isOwner && (
+                                  {/* Edit button — for owners, admins, or flight executives */}
+                                  {(isOwner || isFlightExecutive) && (
                                     <>
                                       <span className="text-muted-foreground/30">
                                         |
@@ -1006,15 +1013,19 @@ export default function Bookings() {
                                           setSelectedBookingId(booking.id)
                                         }
                                         className="text-foreground hover:text-foreground/80 p-1 rounded hover:bg-secondary/35 transition-all"
-                                        title="Edit Booking"
+                                        title={
+                                          isOwner
+                                            ? "Edit Booking"
+                                            : "Edit Flight Services"
+                                        }
                                       >
                                         <Edit size={15} />
                                       </button>
                                     </>
                                   )}
 
-                                  {/* Lock/Unlock toggle — Admin/Manager only */}
-                                  {(isAdmin || isManager) && (
+                                  {/* Lock/Unlock toggle — Admin only */}
+                                  {isAdmin && (
                                     <>
                                       <span className="text-muted-foreground/30">
                                         |
