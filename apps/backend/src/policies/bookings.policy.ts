@@ -104,10 +104,12 @@ export class BookingsPolicy {
 
   /**
    * Financial Privacy: Only Admins, Managers, and the Booking Owner can see margins/profits.
+   * Flight Executives are strictly prohibited from viewing agent margins or profits.
    * Other agents viewing this booking have margins and profits hidden.
    */
   static canViewMarginProfit(user: any, booking: any): boolean {
     if (!user || !booking) return false;
+    if (this.isFlightExecutive(user)) return false;
     if (this.isAdmin(user) || this.isManager(user)) return true;
     return this.isOwner(user, booking);
   }

@@ -70,6 +70,10 @@ export default function Dashboard() {
     );
   }, [cleanRoles]);
 
+  const isFlightExecutive = useMemo(() => {
+    return cleanRoles.some((r) => r === "FLIGHTEXECUTIVE");
+  }, [cleanRoles]);
+
   const isManager = useMemo(() => {
     return cleanRoles.some((r) => r.includes("MANAGER") || r === "FLIGHTEXECUTIVE");
   }, [cleanRoles]);
@@ -245,21 +249,24 @@ export default function Dashboard() {
         color:
           "from-blue-500/20 to-indigo-500/10 text-blue-600 dark:text-blue-400",
       },
-      {
+    ];
+
+    if (!isFlightExecutive) {
+      list.push({
         name: isAgent && !isAdmin ? "My Margin" : "Total Margin",
         value: formatCurrency(periodStats.totalMargin),
         icon: Percent,
         color:
           "from-violet-500/20 to-purple-500/10 text-violet-600 dark:text-violet-400",
-      },
-      {
+      });
+      list.push({
         name: isAgent && !isAdmin ? "My Net Profit" : "Net Profit",
         value: formatCurrency(periodStats.totalProfit),
         icon: TrendingUp,
         color:
           "from-purple-500/20 to-pink-500/10 text-purple-600 dark:text-purple-400",
-      },
-    ];
+      });
+    }
 
     if (isAdmin) {
       list.push({
@@ -593,15 +600,17 @@ export default function Dashboard() {
                   fillOpacity={1}
                   fill="url(#colorRevenue)"
                 />
-                <Area
-                  type="monotone"
-                  dataKey="profit"
-                  name="Net Profit"
-                  stroke="#10b981"
-                  strokeWidth={2}
-                  fillOpacity={1}
-                  fill="url(#colorProfit)"
-                />
+                {!isFlightExecutive && (
+                  <Area
+                    type="monotone"
+                    dataKey="profit"
+                    name="Net Profit"
+                    stroke="#10b981"
+                    strokeWidth={2}
+                    fillOpacity={1}
+                    fill="url(#colorProfit)"
+                  />
+                )}
               </AreaChart>
             </ResponsiveContainer>
           </div>

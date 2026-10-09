@@ -821,8 +821,8 @@ export default function Bookings() {
                       const isRowLocked = booking.lockedStatus === "LOCKED" || booking.isLocked === true;
                       // Can edit this row: admins always, non-admins if they own it, and Flight Executives for flights
                       const canEditRow = isAdmin || (!isRowLocked && (isOwner || isFlightExecutive));
-                      // Can see margin/profit: admins, managers, or the booking owner
-                      const canViewRowMarginProfit = isAdmin || isManager || !isAgent || isOwner;
+                      // Can see margin/profit: admins, managers, or the booking owner (Flight Executives strictly excluded)
+                      const canViewRowMarginProfit = !isFlightExecutive && (isAdmin || isManager || !isAgent || isOwner);
                       return (
                         <tr
                           key={booking.id}

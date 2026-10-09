@@ -902,10 +902,10 @@ export default function BookingManager({
     return normalized === "FLIGHTEXECUTIVE";
   });
 
-  const isManagerUser = !isAdminUser && (isFlightExecutive || user?.roles?.some((r: string) => {
+  const isManagerUser = !isAdminUser && user?.roles?.some((r: string) => {
     const normalized = String(r).toUpperCase().replace(/[\s_-]+/g, "");
     return ["MANAGER", "BRANCHMANAGER"].includes(normalized);
-  }));
+  });
 
   const isBookingOwner =
     booking?.createdById === user?.id ||
@@ -932,14 +932,15 @@ export default function BookingManager({
   const canEdit = isOwner;
 
   // Hide margin/profit from agents viewing OTHER agents' bookings
-  // Admins and Managers always see financials; owner agents also see their own
+  // Flight Executives are strictly prohibited from viewing agent margin or profit across all bookings
+  // Admins, Managers, and booking owner agents can view margin and profit
   const isAgent =
     !!user?.roles?.length &&
     !user?.roles?.some((r: string) => {
       const normalized = String(r).toUpperCase().replace(/[\s_-]+/g, "");
       return ["ADMIN", "SUPERADMIN", "SUPER_ADMIN", "ADMINISTRATOR", "MANAGER", "BRANCHMANAGER", "FLIGHTEXECUTIVE"].includes(normalized);
     });
-  const canViewMarginProfit = isAdminUser || isManagerUser || isBookingOwner;
+  const canViewMarginProfit = !isFlightExecutive && (isAdminUser || isManagerUser || isBookingOwner);
 
   const disableAgentField = !isAdminUser && !isManagerUser;
 
