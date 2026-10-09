@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../api/client";
 import { formatCurrency } from "@tms/shared-utils";
@@ -938,6 +938,36 @@ export default function BookingManager({
   const canViewMarginProfit = isAdminUser || isManagerUser || isBookingOwner;
 
   const disableAgentField = !isAdminUser && !isManagerUser;
+
+  // Passenger counts by category (Adult, Child, Youth, Infant)
+  const passengerCounts = useMemo(() => {
+    const passengers: any[] = booking?.passengers || [];
+    let adult = 0;
+    let youth = 0;
+    let child = 0;
+    let infant = 0;
+
+    passengers.forEach((p) => {
+      const cat = (p.age || "").trim().toLowerCase();
+      if (cat.startsWith("infant")) {
+        infant++;
+      } else if (cat.startsWith("child")) {
+        child++;
+      } else if (cat.startsWith("youth")) {
+        youth++;
+      } else {
+        adult++;
+      }
+    });
+
+    return {
+      total: passengers.length,
+      adult,
+      youth,
+      child,
+      infant,
+    };
+  }, [booking?.passengers]);
 
   // Sync edit state when booking loads
   useEffect(() => {
@@ -2185,15 +2215,79 @@ export default function BookingManager({
               className="px-4 py-3 border-b border-border bg-card cursor-pointer hover:bg-secondary/20 transition-all flex justify-between items-center"
               onClick={() => toggle("passengers")}
             >
-              <h2 className="text-[13px] font-bold text-foreground flex items-center gap-1">
-                <Users className="text-primary" size={15} />
-                Passenger Details
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-[13px] font-bold text-foreground flex items-center gap-1.5">
+                  <Users className="text-primary" size={15} />
+                  <span>Passenger Details</span>
+                </h2>
+
                 {booking.passengers?.length > 0 && (
-                  <span className="ml-1 px-1.5 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-bold">
-                    {booking.passengers.length}
-                  </span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {/* Total Passengers */}
+                    <span
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 text-[10.5px] font-bold shadow-2xs"
+                      title="Total Passengers"
+                    >
+                      <span className="text-[9px] uppercase tracking-wider text-primary/70">Total</span>
+                      <span>{passengerCounts.total}</span>
+                    </span>
+
+                    {/* Adult */}
+                    <span
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[10.5px] font-bold shadow-2xs"
+                      title="Total Adults (15+ yrs)"
+                    >
+                      <span className="text-[9px] uppercase tracking-wider opacity-75">Adult</span>
+                      <span>{passengerCounts.adult}</span>
+                    </span>
+
+                    {/* Youth */}
+                    {(passengerCounts.youth > 0 || booking.passengers.length > 0) && (
+                      <span
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10.5px] font-bold shadow-2xs ${
+                          passengerCounts.youth > 0
+                            ? "bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800"
+                            : "bg-secondary/40 text-muted-foreground/60 border-border/40"
+                        }`}
+                        title="Total Youths (12-15 yrs)"
+                      >
+                        <span className="text-[9px] uppercase tracking-wider opacity-75">Youth</span>
+                        <span>{passengerCounts.youth}</span>
+                      </span>
+                    )}
+
+                    {/* Child */}
+                    {(passengerCounts.child > 0 || booking.passengers.length > 0) && (
+                      <span
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10.5px] font-bold shadow-2xs ${
+                          passengerCounts.child > 0
+                            ? "bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800"
+                            : "bg-secondary/40 text-muted-foreground/60 border-border/40"
+                        }`}
+                        title="Total Children (2-12 yrs)"
+                      >
+                        <span className="text-[9px] uppercase tracking-wider opacity-75">Child</span>
+                        <span>{passengerCounts.child}</span>
+                      </span>
+                    )}
+
+                    {/* Infant */}
+                    {(passengerCounts.infant > 0 || booking.passengers.length > 0) && (
+                      <span
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10.5px] font-bold shadow-2xs ${
+                          passengerCounts.infant > 0
+                            ? "bg-pink-50 dark:bg-pink-950/50 text-pink-700 dark:text-pink-300 border-pink-200 dark:border-pink-800"
+                            : "bg-secondary/40 text-muted-foreground/60 border-border/40"
+                        }`}
+                        title="Total Infants (under 2 yrs)"
+                      >
+                        <span className="text-[9px] uppercase tracking-wider opacity-75">Infant</span>
+                        <span>{passengerCounts.infant}</span>
+                      </span>
+                    )}
+                  </div>
                 )}
-              </h2>
+              </div>
               <div className="flex items-center gap-2">
                 {isOwner && (
                   <button
