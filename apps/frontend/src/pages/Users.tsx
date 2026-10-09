@@ -642,6 +642,7 @@ export default function UsersPage() {
                   <>
                     <option value="Admin">Admin</option>
                     <option value="Manager">Manager</option>
+                    <option value="Flight Executive">Flight Executive</option>
                     <option value="Agent">Agent</option>
                     <option value="Customer">Customer</option>
                   </>

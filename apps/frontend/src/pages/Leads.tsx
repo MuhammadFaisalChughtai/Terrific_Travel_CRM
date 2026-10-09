@@ -223,7 +223,7 @@ export default function LeadsPage() {
     if (!currentUser) return false;
     const checkRole = (r: any) => {
       const up = String(typeof r === "string" ? r : r?.name || "").toUpperCase().replace(/[\s_-]+/g, "");
-      return up === "MANAGER" || up === "BRANCHMANAGER";
+      return up === "MANAGER" || up === "BRANCHMANAGER" || up === "FLIGHTEXECUTIVE";
     };
     if (Array.isArray((currentUser as any).roles)) {
       return (currentUser as any).roles.some(checkRole);

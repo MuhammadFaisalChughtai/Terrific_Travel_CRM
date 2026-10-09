@@ -149,12 +149,20 @@ export default function IssuancePage() {
   const [newRoomCategory, setNewRoomCategory] = useState('');
   const [newBoardBasis, setNewBoardBasis] = useState('RO');
 
-  // Strict Role Check: ONLY System Admins can move cards
+  // Strict Role Check: ONLY System Admins can move cards (Flight Executives can only move FLIGHT cards)
   const isSystemAdmin = useMemo(() => {
     if (!user || !user.roles) return false;
     return user.roles.some((r) => {
       const up = r.toUpperCase().replace(/[\s_-]+/g, '');
       return up === 'ADMIN' || up === 'SUPERADMIN';
+    });
+  }, [user]);
+
+  const isFlightExecutive = useMemo(() => {
+    if (!user || !user.roles) return false;
+    return user.roles.some((r) => {
+      const up = r.toUpperCase().replace(/[\s_-]+/g, '');
+      return up === 'FLIGHTEXECUTIVE';
     });
   }, [user]);
 
@@ -291,11 +299,24 @@ export default function IssuancePage() {
     setNewBoardBasis('RO');
   };
 
-  // Drag & Drop Handlers - Strictly restricted to System Admin
+  // Drag & Drop Handlers - Restricted to System Admin and Flight Executives (FLIGHT cards only)
+  const canMoveTicket = (ticket: any) => {
+    if (isSystemAdmin) return true;
+    if (isFlightExecutive && ticket?.type === 'FLIGHT') return true;
+    return false;
+  };
+
   const handleDragStart = (e: React.DragEvent, ticketId: string) => {
-    if (!isSystemAdmin) {
+    const ticket = tickets.find((t) => t.id === ticketId);
+    if (!ticket) return;
+
+    if (!canMoveTicket(ticket)) {
       e.preventDefault();
-      toast.error('Permission Denied: Only System Administrators can move cards on the Issuance Board.');
+      if (isFlightExecutive && ticket.type === 'HOTEL') {
+        toast.error('Permission Denied: Flight Executives are only permitted to move Flight cards. Hotel cards must be processed by Operations or Admins.');
+      } else {
+        toast.error('Permission Denied: Only System Administrators and Flight Executives can move cards on the Issuance Board.');
+      }
       return;
     }
     e.dataTransfer.setData('text/plain', ticketId);
@@ -303,7 +324,7 @@ export default function IssuancePage() {
   };
 
   const handleDragOver = (e: React.DragEvent, columnId: string) => {
-    if (!isSystemAdmin) return;
+    if (!isSystemAdmin && !isFlightExecutive) return;
     e.preventDefault();
     if (dragOverColumn !== columnId) {
       setDragOverColumn(columnId);
@@ -322,14 +343,18 @@ export default function IssuancePage() {
 
     if (!ticketId) return;
 
-    // Strict Rule: ONLY System Admin can move cards
-    if (!isSystemAdmin) {
-      toast.error('Permission Denied: Only System Administrators can move cards on the Issuance Board.');
-      return;
-    }
-
     const ticket = tickets.find((t) => t.id === ticketId);
     if (!ticket || ticket.status === targetStatus) return;
+
+    // Strict Rule: ONLY System Admin or Flight Executive (for FLIGHT cards only) can move cards
+    if (!canMoveTicket(ticket)) {
+      if (isFlightExecutive && ticket.type === 'HOTEL') {
+        toast.error('Permission Denied: Flight Executives cannot move Hotel cards.');
+      } else {
+        toast.error('Permission Denied: You do not have permission to move cards on the Issuance Board.');
+      }
+      return;
+    }
 
     // Rule: Intercept drop onto ISSUED to capture reservation/confirmation/vendor/cost
     if (targetStatus === 'ISSUED') {
@@ -645,16 +670,17 @@ export default function IssuancePage() {
                     </p>
                   </div>
                 ) : (
-                  colTickets.map((ticket) => {
+                    colTickets.map((ticket) => {
                     const isFlight = ticket.type === 'FLIGHT';
+                    const canMoveThis = isSystemAdmin || (isFlightExecutive && isFlight);
                     return (
                       <div
                         key={ticket.id}
-                        draggable={isSystemAdmin}
+                        draggable={canMoveThis}
                         onDragStart={(e) => handleDragStart(e, ticket.id)}
                         onClick={() => setViewTicket(ticket)}
                         className={`group relative bg-card rounded-xl p-2.5 border border-border transition-all duration-150 select-none hover:shadow-xs hover:border-border/80 ${
-                          isSystemAdmin ? 'cursor-grab active:cursor-grabbing hover:shadow-md' : 'cursor-pointer hover:border-primary/50'
+                          canMoveThis ? 'cursor-grab active:cursor-grabbing hover:shadow-md' : 'cursor-pointer hover:border-primary/50'
                         }`}
                       >
                         {/* Type Badge & Actions */}
@@ -684,7 +710,7 @@ export default function IssuancePage() {
                                 Locked
                               </span>
                             )}
-                            {isSystemAdmin && ticket.status !== 'ISSUED' && (
+                            {canMoveThis && ticket.status !== 'ISSUED' && (
                               <button
                                 type="button"
                                 onClick={(e) => {
@@ -1513,7 +1539,7 @@ export default function IssuancePage() {
               </button>
 
               <div className="flex items-center gap-2">
-                {isSystemAdmin && viewTicket.status !== 'ISSUED' && (
+                {(isSystemAdmin || (isFlightExecutive && viewTicket.type === 'FLIGHT')) && viewTicket.status !== 'ISSUED' && (
                   <button
                     type="button"
                     onClick={() => {

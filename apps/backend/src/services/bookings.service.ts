@@ -283,7 +283,7 @@ export class BookingsService {
       ['SUPERADMIN', 'ADMIN', 'ADMINISTRATOR', 'ROOT'].includes(role)
     );
     const isManager = !isAdmin && cleanRoles.some((role: string) => 
-      ['MANAGER', 'BRANCHMANAGER'].includes(role)
+      ['MANAGER', 'BRANCHMANAGER', 'FLIGHTEXECUTIVE'].includes(role)
     );
     const isAgent = !isAdmin && cleanRoles.some((role: string) => 
       role.includes('AGENT')
@@ -2707,9 +2707,10 @@ export class BookingsService {
     const isAdmin = user.roles.some((role: string) => 
       ['SUPER_ADMIN', 'ADMIN', 'Admin'].includes(role)
     );
-    const isManager = user.roles.some((role: string) => 
-      ['Manager'].includes(role)
-    );
+    const isManager = user.roles.some((role: string) => {
+      const up = (role || '').toUpperCase().replace(/[\s_-]+/g, '');
+      return ['MANAGER', 'BRANCHMANAGER', 'FLIGHTEXECUTIVE'].includes(up);
+    });
     const isAgent = user.roles.some((role: string) => 
       ['Agent', 'TRAVEL_AGENT'].includes(role)
     );

@@ -244,12 +244,14 @@ export default function DashboardLayout() {
       if (clean === "TRAVELAGENT" || clean === "AGENT") {
         return allowed.includes("Agent") || allowed.includes("AGENT");
       }
-      if (clean === "MANAGER" || clean === "BRANCHMANAGER") {
+      if (clean === "MANAGER" || clean === "BRANCHMANAGER" || clean === "FLIGHTEXECUTIVE") {
         return (
           allowed.includes("Manager") ||
           allowed.includes("MANAGER") ||
           allowed.includes("Agent") ||
-          allowed.includes("AGENT")
+          allowed.includes("AGENT") ||
+          allowed.includes("Flight Executive") ||
+          allowed.includes("FLIGHT_EXECUTIVE")
         );
       }
       return allowed.some(

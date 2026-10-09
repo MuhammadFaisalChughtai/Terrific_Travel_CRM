@@ -15,7 +15,13 @@ export class BookingsPolicy {
   static isManager(user: any): boolean {
     if (this.isAdmin(user)) return false;
     const roles = this.cleanRoles(user);
-    return roles.some((r) => ['MANAGER', 'BRANCHMANAGER'].includes(r));
+    return roles.some((r) => ['MANAGER', 'BRANCHMANAGER', 'FLIGHTEXECUTIVE'].includes(r));
+  }
+
+  static isFlightExecutive(user: any): boolean {
+    if (!user) return false;
+    const roles = this.cleanRoles(user);
+    return roles.some((r) => r === 'FLIGHTEXECUTIVE');
   }
 
   static isAgent(user: any): boolean {
@@ -42,7 +48,7 @@ export class BookingsPolicy {
     if (!user) return false;
     const roles = this.cleanRoles(user);
     return roles.some((r) =>
-      ['SUPERADMIN', 'ADMIN', 'ADMINISTRATOR', 'MANAGER', 'BRANCHMANAGER', 'AGENT', 'TRAVELAGENT'].includes(r)
+      ['SUPERADMIN', 'ADMIN', 'ADMINISTRATOR', 'MANAGER', 'BRANCHMANAGER', 'FLIGHTEXECUTIVE', 'AGENT', 'TRAVELAGENT'].includes(r)
     );
   }
 
@@ -58,18 +64,41 @@ export class BookingsPolicy {
   }
 
   /**
-   * Only Admin or the non-locked Booking Owner can edit/modify/delete items.
+   * Only Admin or the non-locked Booking Owner can edit/modify general booking details,
+   * passengers, accommodations, transports, visas, and payments.
+   * Flight Executives are explicitly blocked from editing non-flight sections.
    * Locked bookings are strictly view-only for all agents & managers.
-   * Other agents & managers have strictly view-only access.
    */
   static canEdit(user: any, booking: any): boolean {
+    if (!user || !booking) return false;
+    if (this.isAdmin(user)) return true;
+
+    // Flight Executive is strictly read-only for general booking sections
+    if (this.isFlightExecutive(user)) return false;
+
+    // Locked bookings cannot be edited by non-admins
+    if (this.isLocked(booking)) return false;
+
+    // Only booking owner can edit
+    return this.isOwner(user, booking);
+  }
+
+  /**
+   * Flight editing permissions:
+   * Admins, Flight Executives (even if not owner, but if not locked unless admin),
+   * or non-locked Booking Owner.
+   */
+  static canEditFlights(user: any, booking: any): boolean {
     if (!user || !booking) return false;
     if (this.isAdmin(user)) return true;
 
     // Locked bookings cannot be edited by non-admins
     if (this.isLocked(booking)) return false;
 
-    // Only booking owner can edit
+    // Flight Executive can add/edit flights across bookings
+    if (this.isFlightExecutive(user)) return true;
+
+    // Booking owner can add/edit flights
     return this.isOwner(user, booking);
   }
 

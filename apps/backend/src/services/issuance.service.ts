@@ -15,6 +15,17 @@ export class IssuanceService {
   }
 
   /**
+   * Helper to check if a user is a Flight Executive
+   */
+  private isFlightExecutive(user: any): boolean {
+    if (!user || !user.roles) return false;
+    return user.roles.some((r: string) => {
+      const up = r.toUpperCase().replace(/[\s_-]+/g, '');
+      return up === 'FLIGHTEXECUTIVE';
+    });
+  }
+
+  /**
    * Retrieve all tickets with calculated SLA metrics and search/filtering
    */
   async findAll(user: any, query: { type?: string; search?: string }) {
@@ -420,9 +431,16 @@ export class IssuanceService {
       bookedPrice,
     } = payload;
 
-    // STRICT RULE: Only System Administrators can move cards or change status on the Issuance Board
-    if (!this.isSystemAdmin(user)) {
-      throw new Error('Forbidden: Only System Administrators can move cards or change status on the Issuance Board.');
+    // STRICT RULE: Only System Administrators and Flight Executives (for FLIGHT cards only) can move cards
+    const isAdmin = this.isSystemAdmin(user);
+    const isFlightExec = this.isFlightExecutive(user);
+
+    if (!isAdmin && !isFlightExec) {
+      throw new Error('Forbidden: Only System Administrators and Flight Executives can move cards or change status on the Issuance Board.');
+    }
+
+    if (isFlightExec && !isAdmin && ticket.type !== IssuanceType.FLIGHT) {
+      throw new Error('Forbidden: Flight Executives are only permitted to move and finalize Flight issuance tickets. Hotel tickets must be processed by Operations or Admins.');
     }
 
     // RULE 2: Mandatory Output Validation for ISSUED status

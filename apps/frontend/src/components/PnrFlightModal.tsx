@@ -176,8 +176,13 @@ export default function PnrFlightModal({
   bookingPassengers = [],
 }: PnrFlightModalProps) {
   const user = useAuthStore((state) => state.user);
-  const isAdmin = user?.roles?.some(r => ['ADMIN', 'SUPER_ADMIN', 'Admin', 'Super Admin'].includes(r));
-  const isPriceDisabled = !!flightToEdit && !isAdmin;
+  const cleanRoles = (user?.roles || []).map((r: any) => {
+    const raw = typeof r === "string" ? r : r?.name || "";
+    return raw.toUpperCase().replace(/[\s_-]+/g, "");
+  });
+  const isAdmin = cleanRoles.some(r => ['ADMIN', 'SUPERADMIN', 'ADMINISTRATOR', 'ROOT'].includes(r));
+  const isFlightExecutive = cleanRoles.some(r => r === 'FLIGHTEXECUTIVE');
+  const isPriceDisabled = !!flightToEdit && !isAdmin && !isFlightExecutive;
 
   const [step, setStep] = useState<'pnr' | 'search' | 'form'>('pnr');
   const [pnrText, setPnrText] = useState('');
@@ -1220,7 +1225,7 @@ export default function PnrFlightModal({
                   />
                   {isPriceDisabled && (
                     <span className="text-[9px] text-amber-600 dark:text-amber-400 font-semibold mt-0.5">
-                      🔒 Price can only be edited by Admin / Super Admin
+                      🔒 Price can only be edited by Admin or Flight Executive
                     </span>
                   )}
                 </div>

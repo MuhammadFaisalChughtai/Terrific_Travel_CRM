@@ -26,6 +26,12 @@ async function main() {
     create: { name: 'Manager', description: 'Operations Manager' },
   });
 
+  const flightExecutiveRole = await prisma.role.upsert({
+    where: { name: 'Flight Executive' },
+    update: {},
+    create: { name: 'Flight Executive', description: 'Flight Operations & Ticketing Executive' },
+  });
+
   const agentRole = await prisma.role.upsert({
     where: { name: 'Agent' },
     update: {},
@@ -146,11 +152,11 @@ async function main() {
     'leads:read'
   ];
 
-  // Clean up existing permissions for Manager, Agent, legacyAgent so we don't have dangling/stale mappings
+  // Clean up existing permissions for Manager, Flight Executive, Agent, legacyAgent so we don't have dangling/stale mappings
   await prisma.rolePermission.deleteMany({
     where: {
       roleId: {
-        in: [managerRole.id, agentRole.id, legacyAgentRole.id]
+        in: [managerRole.id, flightExecutiveRole.id, agentRole.id, legacyAgentRole.id]
       }
     }
   });
@@ -182,12 +188,17 @@ async function main() {
       });
     }
 
-    // Assign to Manager role
+    // Assign to Manager and Flight Executive roles (Flight Executive inherits all Manager permissions)
     if (managerPermissions.includes(perm.name)) {
       await prisma.rolePermission.upsert({
         where: { roleId_permissionId: { roleId: managerRole.id, permissionId: createdPerm.id } },
         update: {},
         create: { roleId: managerRole.id, permissionId: createdPerm.id },
+      });
+      await prisma.rolePermission.upsert({
+        where: { roleId_permissionId: { roleId: flightExecutiveRole.id, permissionId: createdPerm.id } },
+        update: {},
+        create: { roleId: flightExecutiveRole.id, permissionId: createdPerm.id },
       });
     }
 

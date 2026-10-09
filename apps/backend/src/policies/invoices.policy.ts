@@ -16,7 +16,7 @@ export class InvoicesPolicy {
     if (!user) return false;
     const roles = this.cleanRoles(user);
     return roles.some((r) =>
-      ['SUPERADMIN', 'ADMIN', 'ADMINISTRATOR', 'MANAGER', 'BRANCHMANAGER', 'AGENT', 'TRAVELAGENT'].includes(r)
+      ['SUPERADMIN', 'ADMIN', 'ADMINISTRATOR', 'MANAGER', 'BRANCHMANAGER', 'FLIGHTEXECUTIVE', 'AGENT', 'TRAVELAGENT'].includes(r)
     );
   }
 

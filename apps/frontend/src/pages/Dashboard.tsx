@@ -71,7 +71,7 @@ export default function Dashboard() {
   }, [cleanRoles]);
 
   const isManager = useMemo(() => {
-    return cleanRoles.some((r) => r.includes("MANAGER"));
+    return cleanRoles.some((r) => r.includes("MANAGER") || r === "FLIGHTEXECUTIVE");
   }, [cleanRoles]);
 
   const isAgent = useMemo(() => {

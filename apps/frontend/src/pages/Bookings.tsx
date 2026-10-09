@@ -50,7 +50,7 @@ export default function Bookings() {
   const isAdmin = cleanRoles.some((r) =>
     ["ADMIN", "SUPERADMIN", "ADMINISTRATOR", "ROOT"].includes(r)
   );
-  const isManager = cleanRoles.some((r) => r.includes("MANAGER"));
+  const isManager = cleanRoles.some((r) => r.includes("MANAGER") || r === "FLIGHTEXECUTIVE");
   const isAgent = !isAdmin && (cleanRoles.some((r) => r.includes("AGENT")) || isManager);
 
   // Checkout cart Zustand state

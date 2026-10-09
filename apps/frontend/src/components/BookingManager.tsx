@@ -897,10 +897,15 @@ export default function BookingManager({
       return ["ADMIN", "SUPERADMIN", "ADMINISTRATOR", "ROOT"].includes(normalized);
     });
 
-  const isManagerUser = !isAdminUser && user?.roles?.some((r: string) => {
+  const isFlightExecutive = !isAdminUser && user?.roles?.some((r: string) => {
+    const normalized = String(r).toUpperCase().replace(/[\s_-]+/g, "");
+    return normalized === "FLIGHTEXECUTIVE";
+  });
+
+  const isManagerUser = !isAdminUser && (isFlightExecutive || user?.roles?.some((r: string) => {
     const normalized = String(r).toUpperCase().replace(/[\s_-]+/g, "");
     return ["MANAGER", "BRANCHMANAGER"].includes(normalized);
-  });
+  }));
 
   const isBookingOwner =
     booking?.createdById === user?.id ||
@@ -914,8 +919,11 @@ export default function BookingManager({
 
   const isLocked = booking?.lockedStatus === "LOCKED" || booking?.isLocked === true;
 
-  // canEdit: admins always can; non-admins only if they own the booking AND it's not locked
-  const isOwner = isAdminUser || (!isLocked && isBookingOwner);
+  // canEdit: admins always can; non-admins only if they own the booking AND it's not locked.
+  // Flight Executives are strictly view-only for general booking fields, passengers, hotels, transfers, visas, and payments.
+  const isOwner = isAdminUser || (!isLocked && isBookingOwner && !isFlightExecutive);
+  // canEditFlights: Admins, Flight Executives (if not locked unless admin), or non-locked Booking Owners can add/edit flights
+  const canEditFlights = isAdminUser || (!isLocked && (isBookingOwner || isFlightExecutive));
   // Alias for explicit intent
   const canEdit = isOwner;
 
@@ -925,7 +933,7 @@ export default function BookingManager({
     !!user?.roles?.length &&
     !user?.roles?.some((r: string) => {
       const normalized = String(r).toUpperCase().replace(/[\s_-]+/g, "");
-      return ["ADMIN", "SUPERADMIN", "SUPER_ADMIN", "ADMINISTRATOR", "MANAGER", "BRANCHMANAGER"].includes(normalized);
+      return ["ADMIN", "SUPERADMIN", "SUPER_ADMIN", "ADMINISTRATOR", "MANAGER", "BRANCHMANAGER", "FLIGHTEXECUTIVE"].includes(normalized);
     });
   const canViewMarginProfit = isAdminUser || isManagerUser || isBookingOwner;
 
@@ -2405,7 +2413,7 @@ export default function BookingManager({
                 Flights & PNR
               </h2>
               <div className="flex items-center gap-2">
-                {isOwner && (
+                {canEditFlights && (
                   <>
                     <button
                       type="button"
@@ -3043,7 +3051,7 @@ export default function BookingManager({
                                             >
                                               <Printer size={15} />
                                             </button>
-                                            {isOwner && (
+                                            {canEditFlights && (
                                               <>
                                                 <button
                                                   type="button"

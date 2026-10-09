@@ -17,11 +17,11 @@ export function requireRoles(...allowedRoles: string[]) {
     const isAdmin = userRoles.some((r) => ['ADMIN', 'SUPERADMIN', 'ROOT', 'ADMINISTRATOR'].includes(r));
     if (isAdmin) return next();
 
-    const isManager = userRoles.some((r) => ['MANAGER', 'BRANCHMANAGER'].includes(r));
+    const isManager = userRoles.some((r) => ['MANAGER', 'BRANCHMANAGER', 'FLIGHTEXECUTIVE'].includes(r));
     const isAgent = userRoles.some((r) => ['AGENT', 'TRAVELAGENT'].includes(r));
 
-    // If resource allows Manager, allow Managers
-    if (isManager && allowed.some((a) => ['MANAGER', 'BRANCHMANAGER'].includes(a))) {
+    // If resource allows Manager, allow Managers (including Flight Executive)
+    if (isManager && allowed.some((a) => ['MANAGER', 'BRANCHMANAGER', 'FLIGHTEXECUTIVE'].includes(a))) {
       return next();
     }
 
@@ -66,10 +66,10 @@ export async function requireBookingOwnership(
     return next(new UnauthorizedException('Unauthorized.'));
   }
 
-  // Admins, Managers, and Agents have global access and bypass ownership checks
+  // Admins, Managers, Flight Executives, and Agents have global access and bypass ownership checks
   const isAdminManagerOrAgent = req.user.roles.some((role) => {
-    const r = role.toUpperCase();
-    return r === 'ADMIN' || r === 'SUPER_ADMIN' || r === 'MANAGER' || r === 'AGENT' || r === 'TRAVEL_AGENT';
+    const r = (role || '').toUpperCase().replace(/[\s_-]+/g, '');
+    return ['ADMIN', 'SUPERADMIN', 'MANAGER', 'BRANCHMANAGER', 'FLIGHTEXECUTIVE', 'AGENT', 'TRAVELAGENT'].includes(r);
   });
 
   if (isAdminManagerOrAgent) {

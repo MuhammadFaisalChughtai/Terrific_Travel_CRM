@@ -20,6 +20,15 @@ async function requireCanEdit(bookingId: string, user: any): Promise<void> {
   }
 }
 
+/** Helper: enforce canEditFlights or throw 403 */
+async function requireCanEditFlights(bookingId: string, user: any): Promise<void> {
+  const booking = await bookingsService.findOne(bookingId);
+  if (!BookingsPolicy.canEditFlights(user, booking)) {
+    const err = new ForbiddenException('Forbidden: You do not have permission to modify flights on this booking.');
+    throw err;
+  }
+}
+
 export const create = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const result = await bookingsService.create(req.user!.id, req.body);
   res.status(201).json({
@@ -117,13 +126,22 @@ export const updateBookingDetails = asyncHandler(async (req: AuthenticatedReques
 
 export const addFlightService = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
-  await requireCanEdit(id, req.user);
+  await requireCanEditFlights(id, req.user);
   const result = await bookingsService.addFlightService(id, req.body);
   res.status(201).json({
     success: true,
     data: result,
   });
 });
+
+const isUserAdminOrFlightExecutive = (user?: any) => {
+  const roles = user?.roles || [];
+  return roles.some((r: any) => {
+    const raw = typeof r === 'string' ? r : r?.name || '';
+    const clean = raw.toUpperCase().replace(/[\s_-]+/g, '');
+    return ['ADMIN', 'SUPERADMIN', 'ROOT', 'ADMINISTRATOR', 'FLIGHTEXECUTIVE'].includes(clean);
+  });
+};
 
 const isUserAdmin = (user?: any) => {
   const roles = user?.roles || [];
@@ -132,8 +150,8 @@ const isUserAdmin = (user?: any) => {
 
 export const updateFlightService = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id, flightServiceId } = req.params;
-  await requireCanEdit(id, req.user);
-  if (!isUserAdmin(req.user) && req.body) {
+  await requireCanEditFlights(id, req.user);
+  if (!isUserAdminOrFlightExecutive(req.user) && req.body) {
     delete req.body.price;
   }
   const result = await bookingsService.updateFlightService(id, flightServiceId, req.body);
@@ -145,7 +163,7 @@ export const updateFlightService = asyncHandler(async (req: AuthenticatedRequest
 
 export const deleteFlightService = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id, flightServiceId } = req.params;
-  await requireCanEdit(id, req.user);
+  await requireCanEditFlights(id, req.user);
   const result = await bookingsService.deleteFlightService(id, flightServiceId);
   res.status(200).json({
     success: true,
@@ -155,7 +173,7 @@ export const deleteFlightService = asyncHandler(async (req: AuthenticatedRequest
 
 export const updateFlightsStatus = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
-  await requireCanEdit(id, req.user);
+  await requireCanEditFlights(id, req.user);
   const result = await bookingsService.updateFlightsStatus(id, req.body, req.user);
   res.status(200).json({
     success: true,
