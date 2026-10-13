@@ -518,6 +518,8 @@ model Vendor {
   visaServices          VisaService[]
   additionalServices    AdditionalService[]
   journalEntryLines     JournalEntryLine[]
+  transportRates        TransportRate[]
+  visaCatalogs          VisaCatalog[]
 }
 
 model BookingTransaction {
@@ -1236,12 +1238,15 @@ model TransportRate {
   currency  String           @default("SAR")
   season    String?          @default("1448H (2026-2027)")
   notes     String?
+  vendorId  String?
+  vendor    Vendor?          @relation(fields: [vendorId], references: [id], onDelete: SetNull)
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
 
   @@unique([routeId, vehicleId, season])
   @@index([routeId])
   @@index([vehicleId])
+  @@index([vendorId])
 }
 
 model VisaCatalog {
@@ -1258,6 +1263,8 @@ model VisaCatalog {
   processingTime    String?
   documentsRequired String?
   notes             String?
+  vendorId          String?
+  vendor            Vendor?  @relation(fields: [vendorId], references: [id], onDelete: SetNull)
   isActive          Boolean  @default(true)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -1265,5 +1272,6 @@ model VisaCatalog {
   @@index([country])
   @@index([visaType])
   @@index([isActive])
+  @@index([vendorId])
 }
 

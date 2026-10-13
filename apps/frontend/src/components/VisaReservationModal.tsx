@@ -4,7 +4,7 @@ import { apiClient } from '../api/client';
 import { useAuthStore } from '../store/auth.store';
 import Modal from './Modal';
 import { toast } from 'sonner';
-import { Loader2, ShieldCheck, FileText, Sparkles } from 'lucide-react';
+import { Loader2, ShieldCheck, FileText, Sparkles, Building2 } from 'lucide-react';
 
 interface VisaReservationModalProps {
   isOpen: boolean;
@@ -142,7 +142,16 @@ export default function VisaReservationModal({
       }
     }
 
-    toast.success(`Selected visa: ${v.visaType} (${v.currency} ${v.price})`);
+    // Auto-fill Vendor automatically
+    if (v.vendorId) {
+      setVendorId(v.vendorId);
+    } else if (visaVendors.length > 0) {
+      setVendorId(visaVendors[0].id);
+    } else if (vendorsData && vendorsData.length > 0) {
+      setVendorId(vendorsData[0].id);
+    }
+
+    toast.success(`Selected visa: ${v.visaType} (${v.currency} ${v.price})${v.vendor?.name ? ` • Vendor: ${v.vendor.name}` : ''}`);
   };
 
   const filteredPassengers = (booking?.passengers || []).filter((p: any) => {
@@ -331,6 +340,12 @@ export default function VisaReservationModal({
                       {docs.length > 0 && (
                         <div className="text-[10px] text-muted-foreground pt-1 border-t border-border/50">
                           <strong className="text-foreground">Required Documents:</strong> {docs.join(', ')}
+                        </div>
+                      )}
+                      {v.vendor?.name && (
+                        <div className="text-[10px] text-primary pt-1 border-t border-border/50 font-semibold flex items-center gap-1">
+                          <Building2 className="w-3 h-3 text-primary shrink-0" />
+                          <span>Assigned Vendor: <strong>{v.vendor.name}</strong></span>
                         </div>
                       )}
                     </div>
@@ -713,12 +728,14 @@ export default function VisaReservationModal({
                       {v.name} ({v.vendorType || 'Visa'})
                     </option>
                   ))}
-                  {/* Fallback to show all vendors if no specific Visa vendor exists */}
-                  {visaVendors.length === 0 && vendorsData?.map((v: any) => (
-                    <option key={v.id} value={v.id}>
-                      {v.name} ({v.vendorType})
-                    </option>
-                  ))}
+                  {/* Also include any other vendors so selected vendor is never unrepresented */}
+                  {vendorsData
+                    ?.filter((v: any) => !visaVendors.some((vv: any) => vv.id === v.id))
+                    .map((v: any) => (
+                      <option key={v.id} value={v.id}>
+                        {v.name} ({v.vendorType || 'Vendor'})
+                      </option>
+                    ))}
                 </select>
               </div>
 

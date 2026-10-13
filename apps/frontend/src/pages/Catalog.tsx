@@ -23,6 +23,7 @@ import {
   ArrowRight,
   Filter,
   Check,
+  Building2,
 } from "lucide-react";
 
 export const ROUTE_SUBTITLES: Record<string, string> = {
@@ -104,6 +105,7 @@ export default function CatalogPage() {
     vehicleName: string;
     price: number | string;
     currency: string;
+    vendorId?: string | null;
   } | null>(null);
 
   const [routeModalOpen, setRouteModalOpen] = useState(false);
@@ -136,6 +138,7 @@ export default function CatalogPage() {
     processingTime: "24-48 Hours",
     documentsRequired: "Passport Copy, Passport Photo",
     description: "",
+    vendorId: "",
     isActive: true,
   });
 
@@ -171,6 +174,14 @@ export default function CatalogPage() {
     },
   });
 
+  const { data: vendorsData } = useQuery({
+    queryKey: ["vendors"],
+    queryFn: async () => {
+      const res = await apiClient.get("/vendors?limit=100");
+      return res.data.data.items || [];
+    },
+  });
+
   // Mutations
   const updateRateMutation = useMutation({
     mutationFn: async (payload: {
@@ -179,6 +190,7 @@ export default function CatalogPage() {
       price: number;
       currency?: string;
       season?: string;
+      vendorId?: string | null;
     }) => {
       const res = await apiClient.post("/catalog/transport-rates", payload);
       return res.data;
@@ -250,6 +262,7 @@ export default function CatalogPage() {
         documentsRequired: docs,
         notes: payload.description || payload.notes || "",
         description: payload.description || payload.notes || "",
+        vendorId: payload.vendorId || null,
       };
 
       if (editingVisa?.id) {
@@ -344,6 +357,8 @@ export default function CatalogPage() {
           price: r.price,
           currency: r.currency || "SAR",
           notes: r.notes,
+          vendorId: r.vendorId,
+          vendor: r.vendor,
         };
       });
     }
@@ -394,6 +409,7 @@ export default function CatalogPage() {
           ? visa.documentsRequired.join(", ")
           : visa.documentsRequired || "",
         description: visa.description || visa.notes || "",
+        vendorId: visa.vendorId || visa.vendor?.id || "",
         isActive: visa.isActive ?? true,
       });
     } else {
@@ -411,6 +427,7 @@ export default function CatalogPage() {
         processingTime: "24-48 Hours",
         documentsRequired: "Passport Copy, Passport Photo",
         description: "",
+        vendorId: "",
         isActive: true,
       });
     }
@@ -686,6 +703,7 @@ export default function CatalogPage() {
                                         vehicleName: v.name,
                                         price: hasPrice ? price : 0,
                                         currency: rateObj?.currency || "SAR",
+                                        vendorId: rateObj?.vendorId || rateObj?.vendor?.id || "",
                                       });
                                       setRateModalOpen(true);
                                     }
@@ -697,7 +715,7 @@ export default function CatalogPage() {
                                   }`}
                                   title={
                                     canEdit
-                                      ? `Click to edit rate for ${route.name} (${v.name})`
+                                      ? `Click to edit rate for ${route.name} (${v.name})${rateObj?.vendor?.name ? ` • Vendor: ${rateObj.vendor.name}` : ""}`
                                       : undefined
                                   }
                                 >
@@ -930,6 +948,14 @@ export default function CatalogPage() {
                           </div>
                         </div>
                       )}
+
+                      {/* Vendor Details */}
+                      {visa.vendor && (
+                        <div className="pt-2 border-t border-border/60 flex items-center gap-1.5 text-[11px] font-semibold text-primary">
+                          <Building2 className="w-3.5 h-3.5 text-primary shrink-0" />
+                          <span className="truncate">Vendor: <strong>{visa.vendor.name}</strong></span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Bottom actions */}
@@ -985,6 +1011,7 @@ export default function CatalogPage() {
                 price: Number(editingRate.price) || 0,
                 currency: editingRate.currency,
                 season: selectedSeason,
+                vendorId: editingRate.vendorId || null,
               });
             }}
             className="space-y-4"
@@ -1019,6 +1046,26 @@ export default function CatalogPage() {
                 className="w-full text-sm py-2 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                 autoFocus
               />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                Assigned Transport Vendor (Auto-fills into Bookings)
+              </label>
+              <select
+                value={editingRate.vendorId || ""}
+                onChange={(e) =>
+                  setEditingRate({ ...editingRate, vendorId: e.target.value })
+                }
+                className="w-full text-xs py-2 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary font-medium cursor-pointer"
+              >
+                <option value="">-- No Specific Vendor (Default) --</option>
+                {vendorsData?.map((v: any) => (
+                  <option key={v.id} value={v.id}>
+                    {v.name} ({v.vendorType || "Vendor"})
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="flex justify-end gap-2 pt-2 border-t border-border">
@@ -1289,6 +1336,27 @@ export default function CatalogPage() {
                   <option value="EUR">EUR</option>
                 </select>
               </div>
+            </div>
+
+            {/* Vendor Selection */}
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                Assigned Visa Vendor (Auto-fills into Bookings)
+              </label>
+              <select
+                value={visaFormData.vendorId}
+                onChange={(e) =>
+                  setVisaFormData({ ...visaFormData, vendorId: e.target.value })
+                }
+                className="w-full text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary font-medium cursor-pointer"
+              >
+                <option value="">-- No Specific Vendor Assigned (Optional) --</option>
+                {vendorsData?.map((v: any) => (
+                  <option key={v.id} value={v.id}>
+                    {v.name} ({v.vendorType || "Vendor"})
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Insurance Info */}

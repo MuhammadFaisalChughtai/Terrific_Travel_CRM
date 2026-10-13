@@ -4,7 +4,7 @@ import { apiClient } from '../api/client';
 import { useAuthStore } from '../store/auth.store';
 import Modal from './Modal';
 import { toast } from 'sonner';
-import { Loader2, Plane, Plus, X, Sparkles, Layers } from 'lucide-react';
+import { Loader2, Plane, Plus, X, Sparkles, Layers, Building2 } from 'lucide-react';
 
 
 interface TransportReservationModalProps {
@@ -205,7 +205,16 @@ export default function TransportReservationModal({
       setPrice(sarAmount);
     }
 
-    toast.success(`Selected: ${opt.routeName} (${opt.vehicleName}) — ${opt.price} SAR`);
+    // Auto-fill Vendor automatically
+    if (opt.vendorId) {
+      setVendorId(opt.vendorId);
+    } else if (transportVendors.length > 0) {
+      setVendorId(transportVendors[0].id);
+    } else if (vendorsData && vendorsData.length > 0) {
+      setVendorId(vendorsData[0].id);
+    }
+
+    toast.success(`Selected: ${opt.routeName} (${opt.vehicleName}) — ${opt.price} SAR${opt.vendorName ? ` • Vendor: ${opt.vendorName}` : ''}`);
   };
 
   // Fetch Vendors
@@ -381,10 +390,28 @@ export default function TransportReservationModal({
                   </option>
                   {catalogTransportOptions?.map((opt: any) => (
                     <option key={opt.id} value={opt.id}>
-                      {opt.routeName} ➔ {opt.vehicleName} — {opt.price} {opt.currency}
+                      {opt.routeName} ➔ {opt.vehicleName} — {opt.price} {opt.currency}{opt.vendorName ? ` [${opt.vendorName}]` : ''}
                     </option>
                   ))}
                 </select>
+
+                {selectedCatalogTransportId && (() => {
+                  const opt = catalogTransportOptions?.find((o: any) => o.id === selectedCatalogTransportId);
+                  if (!opt) return null;
+                  return (
+                    <div className="p-2 bg-background/90 rounded-lg border border-border text-[11px] flex flex-wrap items-center justify-between gap-2 shadow-2xs">
+                      <span className="text-muted-foreground">
+                        Sector: <strong className="text-foreground">{opt.routeName}</strong> | Vehicle: <strong className="text-foreground">{opt.vehicleName}</strong>
+                      </span>
+                      {opt.vendorName && (
+                        <span className="text-emerald-600 dark:text-emerald-400 font-semibold text-[11px] flex items-center gap-1">
+                          <Building2 className="w-3 h-3 inline" />
+                          Assigned Vendor: <strong>{opt.vendorName}</strong>
+                        </span>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Transport Date */}
@@ -943,12 +970,14 @@ export default function TransportReservationModal({
                       {v.name} ({v.vendorType || 'Transport'})
                     </option>
                   ))}
-                  {/* Fallback if no specific transport vendor exists yet to avoid blocking selection */}
-                  {transportVendors.length === 0 && vendorsData?.map((v: any) => (
-                    <option key={v.id} value={v.id}>
-                      {v.name} ({v.vendorType})
-                    </option>
-                  ))}
+                  {/* Also render any other vendors so selected vendor is never unrepresented */}
+                  {vendorsData
+                    ?.filter((v: any) => !transportVendors.some((tv: any) => tv.id === v.id))
+                    .map((v: any) => (
+                      <option key={v.id} value={v.id}>
+                        {v.name} ({v.vendorType || 'Vendor'})
+                      </option>
+                    ))}
                 </select>
               </div>
 

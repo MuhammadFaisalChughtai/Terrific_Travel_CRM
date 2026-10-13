@@ -12,7 +12,7 @@ export class CatalogService {
       prisma.transportRoute.findMany({ orderBy: { sortOrder: 'asc' } }),
       prisma.transportRate.findMany({
         where: { season },
-        include: { vehicle: true, route: true },
+        include: { vehicle: true, route: true, vendor: true },
       }),
     ]);
 
@@ -24,7 +24,7 @@ export class CatalogService {
         prisma.transportRoute.findMany({ orderBy: { sortOrder: 'asc' } }),
         prisma.transportRate.findMany({
           where: { season },
-          include: { vehicle: true, route: true },
+          include: { vehicle: true, route: true, vendor: true },
         }),
       ]);
     }
@@ -40,6 +40,8 @@ export class CatalogService {
         price: r.price,
         currency: r.currency || 'SAR',
         notes: r.notes,
+        vendorId: r.vendorId,
+        vendor: r.vendor,
       };
     }
 
@@ -60,9 +62,14 @@ export class CatalogService {
 
     const rateMap: Record<string, number> = {};
     const currencyMap: Record<string, string> = {};
+    const vendorIdMap: Record<string, string | null> = {};
+    const vendorNameMap: Record<string, string | null> = {};
     for (const r of rates) {
-      rateMap[`${r.routeId}_${r.vehicleId}`] = r.price;
-      currencyMap[`${r.routeId}_${r.vehicleId}`] = r.currency || 'SAR';
+      const key = `${r.routeId}_${r.vehicleId}`;
+      rateMap[key] = r.price;
+      currencyMap[key] = r.currency || 'SAR';
+      vendorIdMap[key] = r.vendorId || null;
+      vendorNameMap[key] = r.vendor?.name || null;
     }
 
     const options: any[] = [];
@@ -71,6 +78,8 @@ export class CatalogService {
         const key = `${route.id}_${vehicle.id}`;
         const price = rateMap[key] ?? 0;
         const currency = currencyMap[key] || 'SAR';
+        const vendorId = vendorIdMap[key] || null;
+        const vendorName = vendorNameMap[key] || null;
 
         options.push({
           id: key,
@@ -83,7 +92,9 @@ export class CatalogService {
           capacity: vehicle.capacity || '',
           price,
           currency,
-          label: `${route.name} | ${vehicle.name} (${currency} ${price})`,
+          vendorId,
+          vendorName,
+          label: `${route.name} | ${vehicle.name} (${currency} ${price})${vendorName ? ` [${vendorName}]` : ''}`,
         });
       }
     }
@@ -101,6 +112,7 @@ export class CatalogService {
     currency?: string;
     season?: string;
     notes?: string;
+    vendorId?: string | null;
   }) {
     const season = data.season || '1448H-(2026-2027)';
     const currency = data.currency || 'SAR';
@@ -117,6 +129,7 @@ export class CatalogService {
         price: Number(data.price),
         currency,
         notes: data.notes,
+        ...(data.vendorId !== undefined ? { vendorId: data.vendorId || null } : {}),
       },
       create: {
         routeId: data.routeId,
@@ -125,10 +138,12 @@ export class CatalogService {
         currency,
         season,
         notes: data.notes,
+        vendorId: data.vendorId || null,
       },
       include: {
         vehicle: true,
         route: true,
+        vendor: true,
       },
     });
   }
@@ -217,6 +232,11 @@ export class CatalogService {
   async getVisaCatalog(includeInactive = false) {
     let visas = await prisma.visaCatalog.findMany({
       where: includeInactive ? {} : { isActive: true },
+      include: {
+        vendor: {
+          select: { id: true, name: true, vendorType: true },
+        },
+      },
       orderBy: [{ country: 'asc' }, { price: 'asc' }],
     });
 
@@ -224,6 +244,11 @@ export class CatalogService {
       await seedCatalogData(prisma);
       visas = await prisma.visaCatalog.findMany({
         where: includeInactive ? {} : { isActive: true },
+        include: {
+          vendor: {
+            select: { id: true, name: true, vendorType: true },
+          },
+        },
         orderBy: [{ country: 'asc' }, { price: 'asc' }],
       });
     }
@@ -249,6 +274,7 @@ export class CatalogService {
     documentsRequired?: any;
     notes?: string;
     description?: string;
+    vendorId?: string | null;
     isActive?: boolean;
   }) {
     const docs = this.sanitizeDocumentsRequired(data.documentsRequired);
@@ -271,7 +297,13 @@ export class CatalogService {
         processingTime: data.processingTime,
         documentsRequired: docs ?? null,
         notes: data.notes || data.description,
+        vendorId: data.vendorId || null,
         isActive: data.isActive !== undefined ? Boolean(data.isActive) : true,
+      },
+      include: {
+        vendor: {
+          select: { id: true, name: true, vendorType: true },
+        },
       },
     });
   }
@@ -294,11 +326,19 @@ export class CatalogService {
     }
     if (data.notes !== undefined) updateData.notes = data.notes;
     else if (data.description !== undefined) updateData.notes = data.description;
+    if (data.vendorId !== undefined) {
+      updateData.vendorId = data.vendorId || null;
+    }
     if (data.isActive !== undefined) updateData.isActive = Boolean(data.isActive);
 
     return prisma.visaCatalog.update({
       where: { id },
       data: updateData,
+      include: {
+        vendor: {
+          select: { id: true, name: true, vendorType: true },
+        },
+      },
     });
   }
 

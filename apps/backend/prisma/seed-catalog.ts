@@ -136,6 +136,52 @@ export const CATALOG_VISAS = [
 ];
 
 export async function seedCatalogData(db: PrismaClient = prisma) {
+  console.log('Resolving Default Vendors for Catalog...');
+  // Find or create default Transport Vendor
+  let transportVendor = await db.vendor.findFirst({
+    where: {
+      OR: [
+        { vendorType: { in: ['Transport', 'transportation', 'Transportation'] } },
+        { name: { contains: 'Transport', mode: 'insensitive' } },
+      ],
+    },
+  });
+
+  if (!transportVendor) {
+    transportVendor = await db.vendor.upsert({
+      where: { id: '5f298e6a-ca20-4742-9a73-13f5d9abde00' },
+      update: { vendorType: 'Transport' },
+      create: {
+        id: '5f298e6a-ca20-4742-9a73-13f5d9abde00',
+        name: 'Golden Crown Umrah Transport',
+        phoneNumber: '+966500000000',
+        vendorType: 'Transport',
+        walletBalance: 0,
+      },
+    });
+  }
+
+  // Find or create default Visa Vendor
+  let visaVendor = await db.vendor.findFirst({
+    where: {
+      OR: [
+        { vendorType: { in: ['VISA', 'visa', 'Visa'] } },
+        { name: { contains: 'Visa', mode: 'insensitive' } },
+      ],
+    },
+  });
+
+  if (!visaVendor) {
+    visaVendor = await db.vendor.create({
+      data: {
+        name: 'Global Visa & Umrah Services',
+        phoneNumber: '+442080000000',
+        vendorType: 'VISA',
+        walletBalance: 0,
+      },
+    });
+  }
+
   console.log('Seeding Transport Vehicles...');
   const vehicleMap: Record<string, string> = {};
   for (const v of CATALOG_VEHICLES) {
@@ -179,13 +225,18 @@ export async function seedCatalogData(db: PrismaClient = prisma) {
             season,
           },
         },
-        update: { price, currency: 'SAR' },
+        update: {
+          price,
+          currency: 'SAR',
+          vendorId: transportVendor.id,
+        },
         create: {
           routeId,
           vehicleId,
           price,
           currency: 'SAR',
           season,
+          vendorId: transportVendor.id,
         },
       });
     }
@@ -199,11 +250,17 @@ export async function seedCatalogData(db: PrismaClient = prisma) {
     if (existing) {
       await db.visaCatalog.update({
         where: { id: existing.id },
-        data: v,
+        data: {
+          ...v,
+          vendorId: existing.vendorId || visaVendor.id,
+        },
       });
     } else {
       await db.visaCatalog.create({
-        data: v,
+        data: {
+          ...v,
+          vendorId: visaVendor.id,
+        },
       });
     }
   }
