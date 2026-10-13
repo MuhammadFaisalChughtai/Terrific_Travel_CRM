@@ -39,6 +39,7 @@ import {
   Receipt,
   Ticket,
   Coffee,
+  BookMarked,
 } from "lucide-react";
 
 export default function DashboardLayout() {
@@ -315,6 +316,12 @@ export default function DashboardLayout() {
       name: "Booked Services",
       path: "/booked-services",
       icon: ArrowRightLeft,
+      roles: ["Admin", "Manager", "Agent"],
+    },
+    {
+      name: "Catalog",
+      path: "/catalog",
+      icon: BookMarked,
       roles: ["Admin", "Manager", "Agent"],
     },
     {

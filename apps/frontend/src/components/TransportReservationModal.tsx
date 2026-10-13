@@ -4,7 +4,7 @@ import { apiClient } from '../api/client';
 import { useAuthStore } from '../store/auth.store';
 import Modal from './Modal';
 import { toast } from 'sonner';
-import { Loader2, Plane, Plus, X } from 'lucide-react';
+import { Loader2, Plane, Plus, X, Sparkles, Layers } from 'lucide-react';
 
 
 interface TransportReservationModalProps {
@@ -38,6 +38,7 @@ export default function TransportReservationModal({
   const [arrivalDestination, setArrivalDestination] = useState('');
   const [departureTime, setDepartureTime] = useState('');
   const [arrivalTime, setArrivalTime] = useState('');
+  const [selectedCatalogTransportId, setSelectedCatalogTransportId] = useState('');
   
   // Flight selection states (supports multiple flights)
   const [selectedFlights, setSelectedFlights] = useState<string[]>([]);
@@ -146,11 +147,66 @@ export default function TransportReservationModal({
         setRefundAmount('0.0');
         setFineAmount('0.0');
         setIssueDate('');
+        setSelectedCatalogTransportId('');
       }
     }
   }, [isOpen, transportToEdit, booking]);
 
+  // Fetch Catalog Transport Options (Rate Matrix)
+  const { data: catalogTransportOptions } = useQuery({
+    queryKey: ['catalog-transport-options'],
+    queryFn: async () => {
+      const res = await apiClient.get('/catalog/transport-options');
+      return res.data.data || [];
+    },
+    enabled: isOpen,
+  });
 
+  const handleSelectCatalogTransport = (rateId: string) => {
+    setSelectedCatalogTransportId(rateId);
+    if (!rateId) return;
+
+    const opt = catalogTransportOptions?.find((o: any) => o.id === rateId);
+    if (!opt) return;
+
+    // Fill vehicle
+    if (opt.vehicleName) {
+      setVehicleType(opt.vehicleName);
+    }
+
+    // Auto-fill route departure / arrival
+    if (opt.defaultDeparture) {
+      setDepartureDestination(opt.defaultDeparture);
+    } else if (opt.routeName && opt.routeName.includes('-')) {
+      const parts = opt.routeName.split('-');
+      setDepartureDestination(parts[0].trim());
+    }
+
+    if (opt.defaultArrival) {
+      setArrivalDestination(opt.defaultArrival);
+    } else if (opt.routeName && opt.routeName.includes('-')) {
+      const parts = opt.routeName.split('-');
+      setArrivalDestination(parts.slice(1).join('-').trim());
+    }
+
+    // Auto-fill currency and amount in SAR
+    const sarAmount = String(opt.price || 0);
+    setOtherCurrencyType(opt.currency || 'SAR');
+    setOtherCurrencyAmount(sarAmount);
+
+    // If conversion rate is already filled, calculate GBP price; otherwise if currency is SAR set price directly
+    if (conversionRate && Number(conversionRate) > 0) {
+      const conv = Number(conversionRate);
+      setPrice((Number(sarAmount) / conv).toFixed(2));
+    } else if (currency === 'SAR') {
+      setPrice(sarAmount);
+    } else {
+      // Default price to SAR amount if currency is SAR or leave placeholder
+      setPrice(sarAmount);
+    }
+
+    toast.success(`Selected: ${opt.routeName} (${opt.vehicleName}) — ${opt.price} SAR`);
+  };
 
   // Fetch Vendors
   const { data: vendorsData, isLoading: isLoadingVendors } = useQuery({
@@ -297,6 +353,39 @@ export default function TransportReservationModal({
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               
+              {/* Quick Select from Official Rate Sheet Catalog */}
+              <div className="col-span-1 md:col-span-2 p-3 bg-gradient-to-r from-emerald-500/10 via-background to-secondary/30 border border-emerald-500/30 rounded-xl space-y-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded border border-emerald-500/30">
+                      ⚡ 1448H RATE CATALOG
+                    </span>
+                    <span className="text-xs font-bold text-foreground">
+                      Select Sector & Vehicle from Standard Sheet
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-muted-foreground">
+                    Auto-populates Route, Vehicle & Price in SAR
+                  </span>
+                </div>
+
+                <select
+                  value={selectedCatalogTransportId}
+                  onChange={(e) => handleSelectCatalogTransport(e.target.value)}
+                  className="w-full text-xs py-2 px-3 bg-background border border-emerald-500/40 rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500 font-medium cursor-pointer"
+                >
+                  <option value="">
+                    {catalogTransportOptions?.length
+                      ? `-- Choose from ${catalogTransportOptions.length} Official Sectors & Vehicle Rates --`
+                      : '-- Loading Catalog Options... --'}
+                  </option>
+                  {catalogTransportOptions?.map((opt: any) => (
+                    <option key={opt.id} value={opt.id}>
+                      {opt.routeName} ➔ {opt.vehicleName} — {opt.price} {opt.currency}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
               {/* Transport Date */}
               <div className="flex flex-col gap-1">

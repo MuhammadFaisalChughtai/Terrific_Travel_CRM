@@ -437,6 +437,14 @@ async function main() {
     }
   });
 
+  // Seed Transport Rates Matrix and Visa Catalog
+  try {
+    const { seedCatalogData } = require('./seed-catalog');
+    await seedCatalogData(prisma);
+  } catch (catalogErr) {
+    console.error('Failed to seed catalog data:', catalogErr);
+  }
+
   console.log('Database Seeding Completed Successfully.');
 }
 

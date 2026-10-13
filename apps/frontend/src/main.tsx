@@ -32,6 +32,7 @@ import LeadsPage from "./pages/Leads";
 import PayrollPage from "./pages/Payroll";
 import IssuancePage from "./pages/Issuance";
 import SecurityAuditPage from "./pages/SecurityAudit";
+import CatalogPage from "./pages/Catalog";
 import { useAuthStore } from "./store/auth.store";
 import { apiClient } from "./api/client";
 
@@ -142,6 +143,7 @@ function AppRouter() {
           <Route path="leads" element={<LeadsPage />} />
           <Route path="payroll" element={<PayrollPage />} />
           <Route path="security-audit" element={<SecurityAuditPage />} />
+          <Route path="catalog" element={<CatalogPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" />} />

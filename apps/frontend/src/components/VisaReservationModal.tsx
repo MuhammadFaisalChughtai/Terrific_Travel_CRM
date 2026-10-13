@@ -4,7 +4,7 @@ import { apiClient } from '../api/client';
 import { useAuthStore } from '../store/auth.store';
 import Modal from './Modal';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ShieldCheck, FileText, Sparkles } from 'lucide-react';
 
 interface VisaReservationModalProps {
   isOpen: boolean;
@@ -36,6 +36,7 @@ export default function VisaReservationModal({
   const [selectedPassports, setSelectedPassports] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [visaType, setVisaType] = useState('');
+  const [selectedCatalogVisaId, setSelectedCatalogVisaId] = useState('');
   const [visaNumber, setVisaNumber] = useState('');
   const [issueDate, setIssueDate] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
@@ -102,9 +103,47 @@ export default function VisaReservationModal({
         setConversionRate('');
         setRefundAmount('0.0');
         setFineAmount('0.0');
+        setSelectedCatalogVisaId('');
       }
     }
   }, [isOpen, visaToEdit, booking]);
+
+  // Fetch Visa Catalog
+  const { data: catalogVisas } = useQuery({
+    queryKey: ['catalog-visas'],
+    queryFn: async () => {
+      const res = await apiClient.get('/catalog/visas');
+      return res.data.data || [];
+    },
+    enabled: isOpen,
+  });
+
+  const handleSelectCatalogVisa = (visaId: string) => {
+    setSelectedCatalogVisaId(visaId);
+    if (!visaId) return;
+
+    const v = catalogVisas?.find((item: any) => item.id === visaId);
+    if (!v) return;
+
+    if (v.visaType) setVisaType(v.visaType);
+    if (v.price !== undefined && v.price !== null) {
+      const p = String(v.price);
+      if (v.currency === 'SAR' || v.currency === 'USD') {
+        setOtherCurrencyType(v.currency);
+        setOtherCurrencyAmount(p);
+        if (conversionRate && Number(conversionRate) > 0) {
+          setPrice((Number(p) / Number(conversionRate)).toFixed(2));
+        } else {
+          setPrice(p);
+        }
+      } else {
+        setCurrency(v.currency || 'GBP');
+        setPrice(p);
+      }
+    }
+
+    toast.success(`Selected visa: ${v.visaType} (${v.currency} ${v.price})`);
+  };
 
   const filteredPassengers = (booking?.passengers || []).filter((p: any) => {
     const fullName = `${p.firstName || ''} ${p.lastName || ''}`.toLowerCase();
@@ -223,6 +262,79 @@ export default function VisaReservationModal({
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               
+              {/* Quick Select from Visa Catalog */}
+              <div className="col-span-1 md:col-span-2 p-3 bg-gradient-to-r from-blue-500/10 via-background to-secondary/30 border border-blue-500/30 rounded-xl space-y-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-black uppercase tracking-wider bg-blue-500/20 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded border border-blue-500/30">
+                      ⚡ VISA CATALOG
+                    </span>
+                    <span className="text-xs font-bold text-foreground">
+                      Select Standard Visa Package
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-muted-foreground">
+                    Auto-fills Visa Type, Price & Insurance Details
+                  </span>
+                </div>
+
+                <select
+                  value={selectedCatalogVisaId}
+                  onChange={(e) => handleSelectCatalogVisa(e.target.value)}
+                  className="w-full text-xs py-2 px-3 bg-background border border-blue-500/40 rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium cursor-pointer"
+                >
+                  <option value="">
+                    {catalogVisas?.length
+                      ? `-- Choose from ${catalogVisas.length} Standard Visa Packages --`
+                      : '-- Loading Visa Catalog... --'}
+                  </option>
+                  {catalogVisas?.map((v: any) => (
+                    <option key={v.id} value={v.id}>
+                      {v.country} - {v.visaType} — {v.currency} {v.price} {v.insuranceIncluded ? '(Insurance Incl.)' : ''}
+                    </option>
+                  ))}
+                </select>
+
+                {selectedCatalogVisaId && (() => {
+                  const v = catalogVisas?.find((item: any) => item.id === selectedCatalogVisaId);
+                  if (!v) return null;
+                  const docs = Array.isArray(v.documentsRequired) ? v.documentsRequired : [];
+                  return (
+                    <div className="p-2.5 bg-background/90 rounded-lg border border-border text-[11px] space-y-1.5 mt-1 shadow-2xs">
+                      <div className="flex items-center gap-2 flex-wrap text-muted-foreground">
+                        {v.validity && <span>Validity: <strong className="text-foreground">{v.validity}</strong></span>}
+                        {v.stayDuration && (
+                          <>
+                            <span>•</span>
+                            <span>Stay: <strong className="text-foreground">{v.stayDuration}</strong></span>
+                          </>
+                        )}
+                        {v.processingTime && (
+                          <>
+                            <span>•</span>
+                            <span>Processing: <strong className="text-foreground">{v.processingTime}</strong></span>
+                          </>
+                        )}
+                        {v.insuranceIncluded && (
+                          <>
+                            <span>•</span>
+                            <span className="text-emerald-600 dark:text-emerald-400 font-semibold inline-flex items-center gap-1">
+                              <ShieldCheck className="w-3 h-3 inline" />
+                              Insurance Included ({v.insuranceDetails || 'Standard'})
+                            </span>
+                          </>
+                        )}
+                      </div>
+                      {docs.length > 0 && (
+                        <div className="text-[10px] text-muted-foreground pt-1 border-t border-border/50">
+                          <strong className="text-foreground">Required Documents:</strong> {docs.join(', ')}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+
               {/* Passport Selection */}
               {visaToEdit ? (
                 <div className="flex flex-col gap-1">

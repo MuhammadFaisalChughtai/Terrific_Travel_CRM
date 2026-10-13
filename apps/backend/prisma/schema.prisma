@@ -1204,3 +1204,66 @@ model DlpClipboardLog {
   @@index([action])
 }
 
+model TransportVehicle {
+  id        String          @id @default(uuid())
+  name      String          @unique
+  capacity  String?
+  imageUrl  String?
+  sortOrder Int             @default(0)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  rates     TransportRate[]
+}
+
+model TransportRoute {
+  id           String          @id @default(uuid())
+  name         String          @unique
+  fromLocation String?
+  toLocation   String?
+  sortOrder    Int             @default(0)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  rates        TransportRate[]
+}
+
+model TransportRate {
+  id        String           @id @default(uuid())
+  routeId   String
+  route     TransportRoute   @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  vehicleId String
+  vehicle   TransportVehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  price     Float
+  currency  String           @default("SAR")
+  season    String?          @default("1448H (2026-2027)")
+  notes     String?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@unique([routeId, vehicleId, season])
+  @@index([routeId])
+  @@index([vehicleId])
+}
+
+model VisaCatalog {
+  id                String   @id @default(uuid())
+  country           String
+  visaType          String
+  price             Float
+  currency          String   @default("GBP")
+  insuranceIncluded Boolean  @default(true)
+  insurancePrice    Float?   @default(0.0)
+  insuranceDetails  String?
+  validity          String?
+  stayDuration      String?
+  processingTime    String?
+  documentsRequired String?
+  notes             String?
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([country])
+  @@index([visaType])
+  @@index([isActive])
+}
+
