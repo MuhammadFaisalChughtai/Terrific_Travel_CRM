@@ -98,6 +98,15 @@ async function bootstrap() {
   try {
     await prisma.$connect();
     logger.info('Database connected successfully.');
+
+    // Seed and verify transport rate sheet & service catalog on system start/restart
+    try {
+      const { seedCatalogData } = await import('../prisma/seed-catalog');
+      await seedCatalogData(prisma);
+      logger.info('Service catalog & special transport rates (1448H) seeded successfully.');
+    } catch (seedErr) {
+      logger.error('Failed to seed catalog on server bootstrap:', seedErr);
+    }
   } catch (err) {
     logger.error('Failed to connect to database:', err);
   }

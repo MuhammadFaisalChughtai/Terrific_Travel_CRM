@@ -25,6 +25,52 @@ import {
   Check,
 } from "lucide-react";
 
+export const ROUTE_SUBTITLES: Record<string, string> = {
+  "JED-MKH": "Jeddah to Makkah (or vice versa)",
+  "MAKAH TO MADINA": "Makkah to Madinah",
+  "JED APT TO MED HTL": "Jeddah Airport to Madinah Hotel",
+  "MAKKAH TO JEDDAH APT/CITY": "Makkah to Jeddah Airport or City",
+  "MAKAH ZIYARAT": "Holy Places Visit in Makkah",
+  "MADINA ZIYARAT": "Holy Places Visit in Madinah",
+  "MADINAH APT-MADINAH HTL": "Madinah Airport to Madinah Hotel",
+  "JEDDAH AIRPORT-JEDDAH CITY": "Jeddah Airport to Jeddah City",
+  "MKH TO TAIF VISIT": "Makkah to Taif Day Trip / Visit",
+  "MKH HTL TO MKH STN": "Makkah Hotel to Makkah Haramain Train Station",
+  "MED STN TO MED HTL": "Madinah Haramain Train Station to Madinah Hotel",
+  "MKH TO MED VIA BADAR EXTRA": "Makkah to Madinah via Badar (Extra)",
+  "MKH ZIYARAT WITH JURANA": "Makkah Ziyarat including Masjid Al-Ji'ranah",
+  "MED APT TO MKH HTL": "Madinah Airport to Makkah Hotel",
+  "TAIF AIRPORT TO MKH HTL": "Taif Airport to Makkah Hotel",
+};
+
+export const VEHICLE_SHORT_NAMES: Record<string, { label: string; sub: string }> = {
+  "FORD OR EQUIVALENT 3 SEATER": { label: "Ford / Equiv.", sub: "3 Seater" },
+  "GMC EXECUTIVE XL YAKUN": { label: "GMC Yukon XL", sub: "Executive" },
+  "STARIA 6 PERSON": { label: "Staria", sub: "6 Person" },
+  "MINI BUS / HIACE 09 SEATER": { label: "Mini Bus / Hiace", sub: "9 Seater" },
+  "COASTER 15 SEATER": { label: "Coaster", sub: "15 Seater" },
+  "BUS 47 SEATER": { label: "Bus", sub: "47 Seater" },
+  "BUS NEW 49 SEATER": { label: "Bus New", sub: "49 Seater" },
+};
+
+export const OFFICIAL_DEFAULT_RATES: Record<string, number[]> = {
+  "JED-MKH": [260, 410, 325, 375, 550, 800, 900],
+  "MAKAH TO MADINA": [425, 830, 520, 575, 790, 1050, 1150],
+  "JED APT TO MED HTL": [520, 870, 600, 650, 900, 1150, 1250],
+  "MAKKAH TO JEDDAH APT/CITY": [195, 350, 290, 280, 450, 700, 800],
+  "MAKAH ZIYARAT": [190, 350, 260, 295, 350, 450, 500],
+  "MADINA ZIYARAT": [190, 350, 260, 295, 350, 450, 500],
+  "MADINAH APT-MADINAH HTL": [180, 260, 220, 270, 330, 450, 500],
+  "JEDDAH AIRPORT-JEDDAH CITY": [180, 330, 250, 280, 300, 450, 500],
+  "MKH TO TAIF VISIT": [600, 950, 690, 750, 830, 1000, 1100],
+  "MKH HTL TO MKH STN": [150, 250, 210, 290, 310, 350, 400],
+  "MED STN TO MED HTL": [150, 250, 210, 290, 310, 350, 400],
+  "MKH TO MED VIA BADAR EXTRA": [220, 300, 230, 270, 280, 300, 350],
+  "MKH ZIYARAT WITH JURANA": [250, 450, 400, 395, 400, 450, 500],
+  "MED APT TO MKH HTL": [700, 980, 800, 875, 1150, 1400, 1550],
+  "TAIF AIRPORT TO MKH HTL": [600, 900, 700, 750, 850, 950, 1050],
+};
+
 export default function CatalogPage() {
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
@@ -43,6 +89,8 @@ export default function CatalogPage() {
   });
 
   const [activeTab, setActiveTab] = useState<"transport" | "visa">("transport");
+  const [currencyMode, setCurrencyMode] = useState<"SAR" | "GBP" | "BOTH">("SAR");
+  const [exchangeRate, setExchangeRate] = useState<number>(4.8);
   const [transportSearch, setTransportSearch] = useState("");
   const [visaSearch, setVisaSearch] = useState("");
   const [selectedSeason, setSelectedSeason] = useState("1448H-(2026-2027)");
@@ -269,6 +317,49 @@ export default function CatalogPage() {
     },
   });
 
+  // Pre-index matrix with fallback to official sheet rates so no cell is ever empty
+  const ratesMatrix = React.useMemo(() => {
+    const map: Record<string, Record<string, any>> = {};
+    const vehiclesList = transportMatrixData?.vehicles || [];
+    const routesList = transportMatrixData?.routes || [];
+
+    // 1. Seed fallback matrix from official sheet
+    routesList.forEach((r: any) => {
+      map[r.id] = {};
+      const defRates = OFFICIAL_DEFAULT_RATES[r.name.trim()] || [];
+      vehiclesList.forEach((v: any, vIdx: number) => {
+        if (defRates[vIdx] !== undefined) {
+          map[r.id][v.id] = { price: defRates[vIdx], currency: "SAR" };
+        }
+      });
+    });
+
+    // 2. Overlay server rates from rates array
+    if (Array.isArray(transportMatrixData?.rates)) {
+      transportMatrixData.rates.forEach((r: any) => {
+        if (!map[r.routeId]) map[r.routeId] = {};
+        map[r.routeId][r.vehicleId] = {
+          id: r.id,
+          price: r.price,
+          currency: r.currency || "SAR",
+          notes: r.notes,
+        };
+      });
+    }
+
+    // 3. Overlay server matrix if available
+    if (transportMatrixData?.matrix) {
+      Object.entries(transportMatrixData.matrix).forEach(([rId, vObj]: [string, any]) => {
+        if (!map[rId]) map[rId] = {};
+        Object.entries(vObj).forEach(([vId, val]: [string, any]) => {
+          map[rId][vId] = val;
+        });
+      });
+    }
+
+    return map;
+  }, [transportMatrixData]);
+
   // Filter transport routes
   const filteredRoutes = (transportMatrixData?.routes || []).filter((r: any) =>
     r.name.toLowerCase().includes(transportSearch.toLowerCase())
@@ -432,29 +523,61 @@ export default function CatalogPage() {
       {/* TAB 1: TRANSPORTATION RATES MATRIX */}
       {activeTab === "transport" && (
         <div className="space-y-4">
-          {/* Matrix Top Banner & Search */}
-          <div className="bg-gradient-to-r from-emerald-950/20 via-background to-background p-4 rounded-xl border border-emerald-500/20 flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                  OFFICIAL SHEET
-                </span>
-                <h2 className="text-sm md:text-base font-bold text-foreground tracking-wide">
-                  SPECIAL TRANSPORT RATES FOR THE YEAR 1448H-(2026-2027)
-                </h2>
-              </div>
-              <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
-                <Info className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                All rates are in <strong className="text-foreground">SAR (Saudi Riyals)</strong>. Click any cell to update prices.
+          {/* Card Header matching reference screenshot */}
+          <div className="bg-card p-4 rounded-xl border border-border flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs">
+            <div className="space-y-0.5">
+              <h2 className="text-lg md:text-xl font-extrabold text-foreground tracking-tight">
+                Complete Special Transport Rate Sheet
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Valid for the year 1448H / (2026–2027) up to 15 Sha'aban
               </p>
             </div>
 
-            <div className="flex items-center gap-2">
-              <div className="relative w-64">
+            <div className="flex items-center gap-3 flex-wrap">
+              {/* Currency Selector: [ SAR ] [ £ GBP ] [ Both ] */}
+              <div className="inline-flex items-center bg-secondary/80 p-0.5 rounded-lg border border-border text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setCurrencyMode("SAR")}
+                  className={`px-3 py-1 rounded-md transition-all ${
+                    currencyMode === "SAR"
+                      ? "bg-slate-900 text-white shadow-xs dark:bg-primary dark:text-primary-foreground font-bold"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  SAR
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCurrencyMode("GBP")}
+                  className={`px-3 py-1 rounded-md transition-all ${
+                    currencyMode === "GBP"
+                      ? "bg-slate-900 text-white shadow-xs dark:bg-primary dark:text-primary-foreground font-bold"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  £ GBP
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCurrencyMode("BOTH")}
+                  className={`px-3 py-1 rounded-md transition-all ${
+                    currencyMode === "BOTH"
+                      ? "bg-slate-900 text-white shadow-xs dark:bg-primary dark:text-primary-foreground font-bold"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Both
+                </button>
+              </div>
+
+              {/* Search Box */}
+              <div className="relative w-60">
                 <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <input
                   type="text"
-                  placeholder="Filter sectors / routes..."
+                  placeholder="Filter routes in table..."
                   value={transportSearch}
                   onChange={(e) => setTransportSearch(e.target.value)}
                   className="w-full text-xs pl-8 pr-3 py-1.5 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
@@ -475,135 +598,183 @@ export default function CatalogPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
-                    <tr className="bg-muted/80 text-muted-foreground border-b border-border divide-x divide-border">
-                      <th className="py-2.5 px-3 font-bold uppercase tracking-wider w-12 text-center text-[10px]">
-                        Sr.
+                    <tr className="bg-slate-900 text-white border-b border-slate-800">
+                      <th className="py-3.5 px-4 font-bold text-xs uppercase tracking-wider min-w-[220px]">
+                        Routes
                       </th>
-                      <th className="py-2.5 px-3 font-bold uppercase tracking-wider min-w-[220px] text-[10px]">
-                        SECTORS (ROUTES)
+                      {(transportMatrixData?.vehicles || []).map((v: any) => {
+                        const short = VEHICLE_SHORT_NAMES[v.name.trim()] || {
+                          label: v.name,
+                          sub: `${v.capacity} pax`,
+                        };
+                        return (
+                          <th
+                            key={v.id}
+                            className="py-3 px-2 font-bold text-center min-w-[110px]"
+                          >
+                            <div className="text-xs font-bold leading-tight">
+                              {short.label}
+                            </div>
+                            <div className="text-[10px] text-slate-300 font-normal mt-0.5">
+                              {short.sub}
+                            </div>
+                          </th>
+                        );
+                      })}
+                      <th className="py-3 px-3 font-bold text-xs text-center uppercase tracking-wider w-20">
+                        Action
                       </th>
-                      {(transportMatrixData?.vehicles || []).map((v: any) => (
-                        <th
-                          key={v.id}
-                          className="py-2.5 px-3 font-bold uppercase tracking-wider min-w-[130px] text-center text-[10px] bg-muted/40"
-                        >
-                          <div className="truncate font-black text-foreground">
-                            {v.name}
-                          </div>
-                          <div className="text-[9px] text-muted-foreground font-normal">
-                            Cap: {v.capacity} pax
-                          </div>
-                        </th>
-                      ))}
-                      {canEdit && (
-                        <th className="py-2.5 px-2 font-bold uppercase tracking-wider w-16 text-center text-[10px]">
-                          Action
-                        </th>
-                      )}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-border">
+                  <tbody className="divide-y divide-border/80">
                     {filteredRoutes.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={
-                            (transportMatrixData?.vehicles?.length || 0) + 3
-                          }
-                          className="py-8 text-center text-muted-foreground text-xs italic"
+                          colSpan={(transportMatrixData?.vehicles?.length || 7) + 2}
+                          className="py-10 text-center text-muted-foreground text-xs italic"
                         >
                           No transport sectors matching "{transportSearch}"
                         </td>
                       </tr>
                     ) : (
-                      filteredRoutes.map((route: any, rIdx: number) => (
-                        <tr
-                          key={route.id}
-                          className="hover:bg-muted/30 transition-colors divide-x divide-border group"
-                        >
-                          <td className="py-2.5 px-3 text-center font-bold text-muted-foreground text-[11px] bg-muted/10">
-                            {rIdx + 1}
-                          </td>
-                          <td className="py-2.5 px-3 font-semibold text-foreground">
-                            <div className="flex items-center justify-between">
-                              <span>{route.name}</span>
-                              {route.defaultDeparture && route.defaultArrival && (
-                                <span className="text-[9.5px] text-muted-foreground font-normal hidden lg:inline">
-                                  ({route.defaultDeparture} ➔ {route.defaultArrival})
-                                </span>
+                      filteredRoutes.map((route: any) => {
+                        const subtitle =
+                          ROUTE_SUBTITLES[route.name.trim()] ||
+                          (route.defaultDeparture && route.defaultArrival
+                            ? `${route.defaultDeparture} to ${route.defaultArrival}`
+                            : "");
+
+                        return (
+                          <tr
+                            key={route.id}
+                            className="hover:bg-muted/40 transition-colors group"
+                          >
+                            <td className="py-3 px-4 font-bold text-foreground">
+                              <div className="text-xs uppercase tracking-tight text-foreground font-extrabold">
+                                {route.name}
+                              </div>
+                              {subtitle && (
+                                <div className="text-[10px] text-muted-foreground font-normal mt-0.5">
+                                  {subtitle}
+                                </div>
                               )}
-                            </div>
-                          </td>
-
-                          {(transportMatrixData?.vehicles || []).map((v: any) => {
-                            const rateObj = transportMatrixData?.matrix?.[
-                              route.id
-                            ]?.[v.id];
-                            const price = rateObj?.price;
-                            const hasPrice = price !== undefined && price !== null;
-
-                            return (
-                              <td
-                                key={v.id}
-                                onClick={() => {
-                                  if (canEdit) {
-                                    setEditingRate({
-                                      routeId: route.id,
-                                      routeName: route.name,
-                                      vehicleId: v.id,
-                                      vehicleName: v.name,
-                                      price: hasPrice ? price : 0,
-                                      currency: rateObj?.currency || "SAR",
-                                    });
-                                    setRateModalOpen(true);
-                                  }
-                                }}
-                                className={`py-2 px-3 text-center transition-all ${
-                                  canEdit
-                                    ? "cursor-pointer hover:bg-primary/10 hover:font-bold"
-                                    : ""
-                                }`}
-                                title={
-                                  canEdit
-                                    ? `Click to edit rate for ${route.name} (${v.name})`
-                                    : undefined
-                                }
-                              >
-                                {hasPrice ? (
-                                  <div className="font-mono font-bold text-[12px] text-emerald-700 dark:text-emerald-400">
-                                    {price}{" "}
-                                    <span className="text-[9px] font-normal text-muted-foreground">
-                                      SAR
-                                    </span>
-                                  </div>
-                                ) : (
-                                  <span className="text-[11px] text-muted-foreground/60 italic">
-                                    -
-                                  </span>
-                                )}
-                              </td>
-                            );
-                          })}
-
-                          {canEdit && (
-                            <td className="py-2 px-2 text-center">
-                              <button
-                                onClick={() => {
-                                  setItemToDelete({
-                                    type: "route",
-                                    id: route.id,
-                                    name: route.name,
-                                  });
-                                  setDeleteModalOpen(true);
-                                }}
-                                className="p-1 text-muted-foreground hover:text-rose-600 rounded transition-colors"
-                                title="Delete Sector"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
                             </td>
-                          )}
-                        </tr>
-                      ))
+
+                            {(transportMatrixData?.vehicles || []).map((v: any, vIdx: number) => {
+                              const rateObj = ratesMatrix[route.id]?.[v.id];
+                              const defRates = OFFICIAL_DEFAULT_RATES[route.name.trim()] || [];
+                              const fallbackPrice = defRates[vIdx];
+                              const price =
+                                rateObj?.price !== undefined && rateObj?.price !== null
+                                  ? rateObj.price
+                                  : fallbackPrice;
+                              const hasPrice = price !== undefined && price !== null;
+
+                              const sarVal = hasPrice ? Number(price) : 0;
+                              const gbpVal = (sarVal / (exchangeRate || 4.8)).toFixed(2);
+
+                              return (
+                                <td
+                                  key={v.id}
+                                  onClick={() => {
+                                    if (canEdit) {
+                                      setEditingRate({
+                                        routeId: route.id,
+                                        routeName: route.name,
+                                        vehicleId: v.id,
+                                        vehicleName: v.name,
+                                        price: hasPrice ? price : 0,
+                                        currency: rateObj?.currency || "SAR",
+                                      });
+                                      setRateModalOpen(true);
+                                    }
+                                  }}
+                                  className={`py-3 px-2 text-center transition-all ${
+                                    canEdit
+                                      ? "cursor-pointer hover:bg-primary/10 hover:font-bold"
+                                      : ""
+                                  }`}
+                                  title={
+                                    canEdit
+                                      ? `Click to edit rate for ${route.name} (${v.name})`
+                                      : undefined
+                                  }
+                                >
+                                  {hasPrice ? (
+                                    currencyMode === "SAR" ? (
+                                      <span className="font-mono font-bold text-xs text-foreground">
+                                        {sarVal}
+                                      </span>
+                                    ) : currencyMode === "GBP" ? (
+                                      <span className="font-mono font-bold text-xs text-foreground">
+                                        £{gbpVal}
+                                      </span>
+                                    ) : (
+                                      <div className="flex flex-col items-center leading-tight">
+                                        <span className="font-mono font-bold text-xs text-foreground">
+                                          {sarVal} <span className="text-[9px] font-normal text-muted-foreground">SAR</span>
+                                        </span>
+                                        <span className="font-mono text-[10px] text-muted-foreground">
+                                          £{gbpVal}
+                                        </span>
+                                      </div>
+                                    )
+                                  ) : (
+                                    <span className="text-[11px] text-muted-foreground/60 italic">
+                                      -
+                                    </span>
+                                  )}
+                                </td>
+                              );
+                            })}
+
+                            <td className="py-3 px-3 text-center">
+                              <div className="flex items-center justify-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const defRates = OFFICIAL_DEFAULT_RATES[route.name.trim()] || [];
+                                    const rowSummary =
+                                      `${route.name}: ` +
+                                      (transportMatrixData?.vehicles || [])
+                                        .map((v: any, idx: number) => {
+                                          const p =
+                                            ratesMatrix[route.id]?.[v.id]?.price ??
+                                            defRates[idx] ??
+                                            "-";
+                                          return `${v.name}: ${p} SAR`;
+                                        })
+                                        .join(" | ");
+                                    navigator.clipboard?.writeText(rowSummary);
+                                    toast.success(
+                                      `Selected & copied rates for ${route.name} to clipboard!`
+                                    );
+                                  }}
+                                  className="px-2.5 py-1 text-[11px] font-semibold rounded-md border border-border bg-background hover:bg-secondary text-foreground transition-all shadow-2xs"
+                                >
+                                  Select
+                                </button>
+                                {canEdit && (
+                                  <button
+                                    onClick={() => {
+                                      setItemToDelete({
+                                        type: "route",
+                                        id: route.id,
+                                        name: route.name,
+                                      });
+                                      setDeleteModalOpen(true);
+                                    }}
+                                    className="p-1 text-muted-foreground hover:text-rose-600 rounded transition-colors"
+                                    title="Delete Route"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>

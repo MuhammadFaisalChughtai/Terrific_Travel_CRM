@@ -16,8 +16,8 @@ export class CatalogService {
       }),
     ]);
 
-    // If empty, auto-seed and reload
-    if (vehicles.length === 0 || routes.length === 0) {
+    // If empty or incomplete (< 105 rates), auto-seed and reload
+    if (vehicles.length === 0 || routes.length === 0 || rates.length < 105) {
       await seedCatalogData(prisma);
       [vehicles, routes, rates] = await Promise.all([
         prisma.transportVehicle.findMany({ orderBy: { sortOrder: 'asc' } }),
@@ -29,11 +29,26 @@ export class CatalogService {
       ]);
     }
 
+    // Build 2D matrix indexed by routeId and vehicleId
+    const matrix: Record<string, Record<string, any>> = {};
+    for (const r of rates) {
+      if (!matrix[r.routeId]) {
+        matrix[r.routeId] = {};
+      }
+      matrix[r.routeId][r.vehicleId] = {
+        id: r.id,
+        price: r.price,
+        currency: r.currency || 'SAR',
+        notes: r.notes,
+      };
+    }
+
     return {
       season,
       vehicles,
       routes,
       rates,
+      matrix,
     };
   }
 
