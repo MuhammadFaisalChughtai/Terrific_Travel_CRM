@@ -40,6 +40,7 @@ router.delete('/transport-vehicles/:id', deleteVehicle);
 router.get('/visas', getVisaCatalog);
 router.post('/visas', createVisa);
 router.patch('/visas/:id', updateVisa);
+router.put('/visas/:id', updateVisa);
 router.delete('/visas/:id', deleteVisa);
 
 // Reset / Seed catalog to defaults

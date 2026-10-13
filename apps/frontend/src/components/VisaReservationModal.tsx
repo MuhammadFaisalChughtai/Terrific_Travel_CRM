@@ -297,8 +297,11 @@ export default function VisaReservationModal({
 
                 {selectedCatalogVisaId && (() => {
                   const v = catalogVisas?.find((item: any) => item.id === selectedCatalogVisaId);
-                  if (!v) return null;
-                  const docs = Array.isArray(v.documentsRequired) ? v.documentsRequired : [];
+                  const docs = Array.isArray(v.documentsRequired)
+                    ? v.documentsRequired
+                    : typeof v.documentsRequired === 'string' && v.documentsRequired.trim()
+                    ? v.documentsRequired.split(/[\n,]+/).map((s: string) => s.trim()).filter(Boolean)
+                    : [];
                   return (
                     <div className="p-2.5 bg-background/90 rounded-lg border border-border text-[11px] space-y-1.5 mt-1 shadow-2xs">
                       <div className="flex items-center gap-2 flex-wrap text-muted-foreground">

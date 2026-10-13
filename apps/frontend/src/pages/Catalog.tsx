@@ -236,19 +236,20 @@ export default function CatalogPage() {
 
   const saveVisaMutation = useMutation({
     mutationFn: async (payload: any) => {
-      const docs =
-        typeof payload.documentsRequired === "string"
-          ? payload.documentsRequired
-              .split(/[\n,]+/)
-              .map((s: string) => s.trim())
-              .filter(Boolean)
-          : payload.documentsRequired;
+      const docs = Array.isArray(payload.documentsRequired)
+        ? payload.documentsRequired.filter(Boolean).map((s: any) => String(s).trim()).join(", ")
+        : typeof payload.documentsRequired === "string"
+        ? payload.documentsRequired.trim()
+        : "";
 
       const body = {
         ...payload,
         price: Number(payload.price) || 0,
-        insuranceCost: Number(payload.insuranceCost) || 0,
+        insurancePrice: Number(payload.insuranceCost) || Number(payload.insurancePrice) || 0,
+        insuranceCost: Number(payload.insuranceCost) || Number(payload.insurancePrice) || 0,
         documentsRequired: docs,
+        notes: payload.description || payload.notes || "",
+        description: payload.description || payload.notes || "",
       };
 
       if (editingVisa?.id) {
@@ -384,7 +385,7 @@ export default function CatalogPage() {
         price: visa.price || 0,
         currency: visa.currency || "SAR",
         insuranceIncluded: visa.insuranceIncluded ?? true,
-        insuranceCost: visa.insuranceCost || 0,
+        insuranceCost: visa.insuranceCost ?? visa.insurancePrice ?? 0,
         insuranceDetails: visa.insuranceDetails || "",
         validity: visa.validity || "",
         stayDuration: visa.stayDuration || "",
@@ -392,7 +393,7 @@ export default function CatalogPage() {
         documentsRequired: Array.isArray(visa.documentsRequired)
           ? visa.documentsRequired.join(", ")
           : visa.documentsRequired || "",
-        description: visa.description || "",
+        description: visa.description || visa.notes || "",
         isActive: visa.isActive ?? true,
       });
     } else {
@@ -829,6 +830,11 @@ export default function CatalogPage() {
               {filteredVisas.map((visa: any) => {
                 const docs: string[] = Array.isArray(visa.documentsRequired)
                   ? visa.documentsRequired
+                  : typeof visa.documentsRequired === "string" && visa.documentsRequired.trim()
+                  ? visa.documentsRequired
+                      .split(/[\n,]+/)
+                      .map((s: string) => s.trim())
+                      .filter(Boolean)
                   : [];
 
                 return (
