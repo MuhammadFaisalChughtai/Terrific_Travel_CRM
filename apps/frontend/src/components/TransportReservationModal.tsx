@@ -162,31 +162,40 @@ export default function TransportReservationModal({
     enabled: isOpen,
   });
 
-  // Distinct Booking Locations (Hotels & Airports)
-  const bookingHotels: string[] = (booking?.accommodations || [])
-    .map((acc: any) => acc.hotelName)
-    .filter(Boolean);
-
-  const bookingDepartureAirports: string[] = Array.from(
+  // Strictly hotels added by the agent in the booking accommodations section
+  const bookingHotels: string[] = Array.from(
     new Set(
-      (booking?.flightServices || [])
-        .map((f: any) => f.departedFrom)
+      (booking?.accommodations || [])
+        .map((acc: any) => acc.hotelName?.trim())
         .filter(Boolean)
     )
   );
+
+  // Saudi destination airports from flight booking (e.g. JED, MED)
+  const isKsaAirport = (codeOrName: string) => {
+    if (!codeOrName) return false;
+    const u = codeOrName.toUpperCase();
+    return u.includes('JED') || u.includes('MED') || u.includes('JEDDAH') || u.includes('MADINAH') || u.includes('MEDINA') || u.includes('RUH') || u.includes('RIYADH') || u.includes('TIF') || u.includes('TAIF');
+  };
 
   const bookingArrivalAirports: string[] = Array.from(
     new Set(
       (booking?.flightServices || [])
-        .map((f: any) => f.arrivedAt)
-        .filter(Boolean)
+        .map((f: any) => f.arrivedAt?.trim())
+        .filter(isKsaAirport)
     )
   );
 
-  // All distinct booking airports
-  const allBookingAirports: string[] = Array.from(
-    new Set([...bookingArrivalAirports, ...bookingDepartureAirports])
+  const bookingDepartureAirports: string[] = Array.from(
+    new Set(
+      (booking?.flightServices || [])
+        .map((f: any) => f.departedFrom?.trim())
+        .filter(isKsaAirport)
+    )
   );
+
+  // Primary arrival airport in KSA (defaulting to JED)
+  const primaryKsaAirport = bookingArrivalAirports[0] || bookingDepartureAirports[0] || 'JED';
 
   const handleSelectCatalogTransport = (rateId: string) => {
     setSelectedCatalogTransportId(rateId);
@@ -200,18 +209,24 @@ export default function TransportReservationModal({
       setVehicleType(opt.vehicleName);
     }
 
-    // Auto-fill route departure / arrival with contextual awareness
+    // Auto-fill route departure / arrival strictly using the booked hotel
     const route = (opt.routeName || '').trim().toUpperCase();
-    const primaryHotel = bookingHotels[0] || 'Makkah Hotel';
-    const primaryArrivalAirport = bookingArrivalAirports[0] || 'Jeddah Airport (JED)';
-    const primaryDepartAirport = bookingDepartureAirports[0] || bookingArrivalAirports[0] || 'Jeddah Airport (JED)';
+    const primaryHotel = bookingHotels[0] || '';
 
     if (route === 'JED-MKH' || route === 'JED APT TO MKH HTL' || route === 'JEDDAH TO MAKKAH') {
-      setDepartureDestination(primaryArrivalAirport);
-      setArrivalDestination(primaryHotel);
+      setDepartureDestination(primaryKsaAirport);
+      if (primaryHotel) {
+        setArrivalDestination(primaryHotel);
+      } else {
+        setArrivalDestination('MKH');
+      }
     } else if (route === 'MKH-JED' || route === 'MAKKAH TO JEDDAH APT/CITY' || route === 'MAKKAH TO JEDDAH') {
-      setDepartureDestination(primaryHotel);
-      setArrivalDestination(primaryDepartAirport);
+      if (primaryHotel) {
+        setDepartureDestination(primaryHotel);
+      } else {
+        setDepartureDestination('MKH');
+      }
+      setArrivalDestination(primaryKsaAirport);
     } else if (opt.defaultDeparture || opt.defaultArrival) {
       if (opt.defaultDeparture) setDepartureDestination(opt.defaultDeparture);
       if (opt.defaultArrival) setArrivalDestination(opt.defaultArrival);
@@ -290,14 +305,20 @@ export default function TransportReservationModal({
       // If this is the first flight being selected, auto-fill destinations & times
       if (selectedFlights.length === 0) {
         setIsReturnFlight(isRet);
-        const hotelName = booking?.accommodations?.[0]?.hotelName || '';
+        const hotelName = bookingHotels[0] || '';
+        const ksaAirport = isKsaAirport(matchedFlight.arrivedAt)
+          ? matchedFlight.arrivedAt
+          : isKsaAirport(matchedFlight.departedFrom)
+          ? matchedFlight.departedFrom
+          : primaryKsaAirport;
+
         if (isRet) {
-          if (!departureDestination) setDepartureDestination(hotelName);
-          if (!arrivalDestination) setArrivalDestination(matchedFlight.departedFrom || '');
+          if (hotelName) setDepartureDestination(hotelName);
+          setArrivalDestination(ksaAirport);
           if (!arrivalTime) setArrivalTime(matchedFlight.departTime || '');
         } else {
-          if (!departureDestination) setDepartureDestination(matchedFlight.arrivedAt || '');
-          if (!arrivalDestination) setArrivalDestination(hotelName);
+          setDepartureDestination(ksaAirport);
+          if (hotelName) setArrivalDestination(hotelName);
           if (!departureTime) setDepartureTime(matchedFlight.arrivalTime || matchedFlight.departTime || '');
         }
       }
@@ -479,7 +500,7 @@ export default function TransportReservationModal({
                   <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
                     Departure Destination *
                   </label>
-                  {(bookingHotels.length > 0 || allBookingAirports.length > 0) && (
+                  {(bookingHotels.length > 0 || bookingArrivalAirports.length > 0 || bookingDepartureAirports.length > 0) && (
                     <span className="text-[9px] text-muted-foreground italic">
                       Pick Hotel or Airport ➔
                     </span>
@@ -493,12 +514,12 @@ export default function TransportReservationModal({
                     value={departureDestination}
                     onChange={(e) => setDepartureDestination(e.target.value)}
                     className={`w-full text-xs py-1.5 pl-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary ${
-                      (bookingHotels.length > 0 || allBookingAirports.length > 0)
+                      (bookingHotels.length > 0 || bookingArrivalAirports.length > 0 || bookingDepartureAirports.length > 0)
                         ? 'pr-[135px]'
                         : 'pr-3'
                     }`}
                   />
-                  {(bookingHotels.length > 0 || allBookingAirports.length > 0) && (
+                  {(bookingHotels.length > 0 || bookingArrivalAirports.length > 0 || bookingDepartureAirports.length > 0) && (
                     <select
                       onChange={(e) => {
                         if (e.target.value) {
@@ -509,7 +530,7 @@ export default function TransportReservationModal({
                       defaultValue=""
                     >
                       <option value="" disabled>-- Pick Location --</option>
-                      {bookingHotels.length > 0 && (
+                      {bookingHotels.length > 0 ? (
                         <optgroup label="🏨 Booked Hotels">
                           {bookingHotels.map((h, i) => (
                             <option key={`h-${i}`} value={h}>
@@ -517,22 +538,20 @@ export default function TransportReservationModal({
                             </option>
                           ))}
                         </optgroup>
-                      )}
-                      {allBookingAirports.length > 0 && (
-                        <optgroup label="✈️ Flight Airports">
-                          {allBookingAirports.map((apt, i) => (
-                            <option key={`apt-${i}`} value={apt}>
-                              {apt}
-                            </option>
-                          ))}
-                        </optgroup>
-                      )}
-                      <optgroup label="📍 Common Hubs">
+                      ) : null}
+                      <optgroup label="✈️ Airport (KSA)">
+                        {bookingArrivalAirports.map((apt, i) => (
+                          <option key={`apt-arr-${i}`} value={apt}>
+                            {apt}
+                          </option>
+                        ))}
+                        {bookingDepartureAirports.map((apt, i) => (
+                          <option key={`apt-dep-${i}`} value={apt}>
+                            {apt}
+                          </option>
+                        ))}
                         <option value="JED">JED (Jeddah Airport)</option>
-                        <option value="MKH">MKH (Makkah)</option>
                         <option value="MED">MED (Madinah Airport)</option>
-                        <option value="Makkah Hotel">Makkah Hotel</option>
-                        <option value="Madinah Hotel">Madinah Hotel</option>
                       </optgroup>
                     </select>
                   )}
@@ -545,7 +564,7 @@ export default function TransportReservationModal({
                   <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
                     Arrival Destination *
                   </label>
-                  {(bookingHotels.length > 0 || allBookingAirports.length > 0) && (
+                  {(bookingHotels.length > 0 || bookingArrivalAirports.length > 0 || bookingDepartureAirports.length > 0) && (
                     <span className="text-[9px] text-muted-foreground italic">
                       Pick Hotel or Airport ➔
                     </span>
@@ -555,16 +574,16 @@ export default function TransportReservationModal({
                   <input
                     required
                     type="text"
-                    placeholder="e.g. Marriott Hotel Makkah or Airport"
+                    placeholder="e.g. Hotel from Booking or Airport"
                     value={arrivalDestination}
                     onChange={(e) => setArrivalDestination(e.target.value)}
                     className={`w-full text-xs py-1.5 pl-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary ${
-                      (bookingHotels.length > 0 || allBookingAirports.length > 0)
+                      (bookingHotels.length > 0 || bookingArrivalAirports.length > 0 || bookingDepartureAirports.length > 0)
                         ? 'pr-[135px]'
                         : 'pr-3'
                     }`}
                   />
-                  {(bookingHotels.length > 0 || allBookingAirports.length > 0) && (
+                  {(bookingHotels.length > 0 || bookingArrivalAirports.length > 0 || bookingDepartureAirports.length > 0) && (
                     <select
                       onChange={(e) => {
                         if (e.target.value) {
@@ -575,7 +594,7 @@ export default function TransportReservationModal({
                       defaultValue=""
                     >
                       <option value="" disabled>-- Pick Location --</option>
-                      {bookingHotels.length > 0 && (
+                      {bookingHotels.length > 0 ? (
                         <optgroup label="🏨 Booked Hotels">
                           {bookingHotels.map((h, i) => (
                             <option key={`ah-${i}`} value={h}>
@@ -583,22 +602,20 @@ export default function TransportReservationModal({
                             </option>
                           ))}
                         </optgroup>
-                      )}
-                      {allBookingAirports.length > 0 && (
-                        <optgroup label="✈️ Flight Airports">
-                          {allBookingAirports.map((apt, i) => (
-                            <option key={`aapt-${i}`} value={apt}>
-                              {apt}
-                            </option>
-                          ))}
-                        </optgroup>
-                      )}
-                      <optgroup label="📍 Common Hubs">
-                        <option value="MKH">MKH (Makkah)</option>
+                      ) : null}
+                      <optgroup label="✈️ Airport (KSA)">
+                        {bookingArrivalAirports.map((apt, i) => (
+                          <option key={`aapt-arr-${i}`} value={apt}>
+                            {apt}
+                          </option>
+                        ))}
+                        {bookingDepartureAirports.map((apt, i) => (
+                          <option key={`aapt-dep-${i}`} value={apt}>
+                            {apt}
+                          </option>
+                        ))}
                         <option value="JED">JED (Jeddah Airport)</option>
                         <option value="MED">MED (Madinah Airport)</option>
-                        <option value="Makkah Hotel">Makkah Hotel</option>
-                        <option value="Madinah Hotel">Madinah Hotel</option>
                       </optgroup>
                     </select>
                   )}
@@ -837,15 +854,21 @@ export default function TransportReservationModal({
                         (f: any) => f.flightNo?.toUpperCase() === primaryFlightNo?.toUpperCase()
                       );
                       if (selectedFlight) {
-                        const hotelName = booking?.accommodations?.[0]?.hotelName || '';
+                        const hotelName = bookingHotels[0] || '';
+                        const ksaAirport = isKsaAirport(selectedFlight.arrivedAt)
+                          ? selectedFlight.arrivedAt
+                          : isKsaAirport(selectedFlight.departedFrom)
+                          ? selectedFlight.departedFrom
+                          : primaryKsaAirport;
+
                         if (checked) {
-                          setDepartureDestination(hotelName);
-                          setArrivalDestination(selectedFlight.departedFrom || '');
+                          if (hotelName) setDepartureDestination(hotelName);
+                          setArrivalDestination(ksaAirport);
                           setDepartureTime('');
                           setArrivalTime(selectedFlight.departTime || '');
                         } else {
-                          setDepartureDestination(selectedFlight.arrivedAt || '');
-                          setArrivalDestination(hotelName);
+                          setDepartureDestination(ksaAirport);
+                          if (hotelName) setArrivalDestination(hotelName);
                           setDepartureTime(selectedFlight.arrivalTime || selectedFlight.departTime || '');
                           setArrivalTime('');
                         }
