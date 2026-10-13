@@ -162,6 +162,32 @@ export default function TransportReservationModal({
     enabled: isOpen,
   });
 
+  // Distinct Booking Locations (Hotels & Airports)
+  const bookingHotels: string[] = (booking?.accommodations || [])
+    .map((acc: any) => acc.hotelName)
+    .filter(Boolean);
+
+  const bookingDepartureAirports: string[] = Array.from(
+    new Set(
+      (booking?.flightServices || [])
+        .map((f: any) => f.departedFrom)
+        .filter(Boolean)
+    )
+  );
+
+  const bookingArrivalAirports: string[] = Array.from(
+    new Set(
+      (booking?.flightServices || [])
+        .map((f: any) => f.arrivedAt)
+        .filter(Boolean)
+    )
+  );
+
+  // All distinct booking airports
+  const allBookingAirports: string[] = Array.from(
+    new Set([...bookingArrivalAirports, ...bookingDepartureAirports])
+  );
+
   const handleSelectCatalogTransport = (rateId: string) => {
     setSelectedCatalogTransportId(rateId);
     if (!rateId) return;
@@ -174,19 +200,28 @@ export default function TransportReservationModal({
       setVehicleType(opt.vehicleName);
     }
 
-    // Auto-fill route departure / arrival
-    if (opt.defaultDeparture) {
-      setDepartureDestination(opt.defaultDeparture);
+    // Auto-fill route departure / arrival with contextual awareness
+    const route = (opt.routeName || '').trim().toUpperCase();
+    const primaryHotel = bookingHotels[0] || 'Makkah Hotel';
+    const primaryArrivalAirport = bookingArrivalAirports[0] || 'Jeddah Airport (JED)';
+    const primaryDepartAirport = bookingDepartureAirports[0] || bookingArrivalAirports[0] || 'Jeddah Airport (JED)';
+
+    if (route === 'JED-MKH' || route === 'JED APT TO MKH HTL' || route === 'JEDDAH TO MAKKAH') {
+      setDepartureDestination(primaryArrivalAirport);
+      setArrivalDestination(primaryHotel);
+    } else if (route === 'MKH-JED' || route === 'MAKKAH TO JEDDAH APT/CITY' || route === 'MAKKAH TO JEDDAH') {
+      setDepartureDestination(primaryHotel);
+      setArrivalDestination(primaryDepartAirport);
+    } else if (opt.defaultDeparture || opt.defaultArrival) {
+      if (opt.defaultDeparture) setDepartureDestination(opt.defaultDeparture);
+      if (opt.defaultArrival) setArrivalDestination(opt.defaultArrival);
     } else if (opt.routeName && opt.routeName.includes('-')) {
       const parts = opt.routeName.split('-');
       setDepartureDestination(parts[0].trim());
-    }
-
-    if (opt.defaultArrival) {
-      setArrivalDestination(opt.defaultArrival);
-    } else if (opt.routeName && opt.routeName.includes('-')) {
-      const parts = opt.routeName.split('-');
       setArrivalDestination(parts.slice(1).join('-').trim());
+    } else if (opt.fromLocation || opt.toLocation) {
+      if (opt.fromLocation) setDepartureDestination(opt.fromLocation);
+      if (opt.toLocation) setArrivalDestination(opt.toLocation);
     }
 
     // Auto-fill currency and amount: SAR goes into Other Currency Amount, GBP into Price
@@ -440,38 +475,65 @@ export default function TransportReservationModal({
 
               {/* Departure Destination */}
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                  Departure Destination *
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                    Departure Destination *
+                  </label>
+                  {(bookingHotels.length > 0 || allBookingAirports.length > 0) && (
+                    <span className="text-[9px] text-muted-foreground italic">
+                      Pick Hotel or Airport ➔
+                    </span>
+                  )}
+                </div>
                 <div className="relative flex items-center">
                   <input
                     required
                     type="text"
-                    placeholder="e.g. Jeddah Airport"
+                    placeholder="e.g. Jeddah Airport or Hotel"
                     value={departureDestination}
                     onChange={(e) => setDepartureDestination(e.target.value)}
                     className={`w-full text-xs py-1.5 pl-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary ${
-                      booking?.accommodations?.length > 0
-                        ? 'pr-[110px]'
+                      (bookingHotels.length > 0 || allBookingAirports.length > 0)
+                        ? 'pr-[135px]'
                         : 'pr-3'
                     }`}
                   />
-                  {booking?.accommodations?.length > 0 && (
+                  {(bookingHotels.length > 0 || allBookingAirports.length > 0) && (
                     <select
                       onChange={(e) => {
                         if (e.target.value) {
                           setDepartureDestination(e.target.value);
                         }
                       }}
-                      className="absolute right-1.5 py-0.5 px-1 bg-secondary/80 border border-border rounded text-[9px] text-muted-foreground focus:outline-none cursor-pointer hover:bg-secondary transition-colors max-w-[100px] truncate"
+                      className="absolute right-1.5 py-0.5 px-1 bg-secondary/90 border border-border rounded text-[9.5px] font-semibold text-foreground focus:outline-none cursor-pointer hover:bg-secondary transition-colors max-w-[125px] truncate"
                       defaultValue=""
                     >
-                      <option value="" disabled>-- Select Hotel --</option>
-                      {booking.accommodations.map((acc: any) => (
-                        <option key={acc.id} value={acc.hotelName}>
-                          {acc.hotelName}
-                        </option>
-                      ))}
+                      <option value="" disabled>-- Pick Location --</option>
+                      {bookingHotels.length > 0 && (
+                        <optgroup label="🏨 Booked Hotels">
+                          {bookingHotels.map((h, i) => (
+                            <option key={`h-${i}`} value={h}>
+                              {h}
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                      {allBookingAirports.length > 0 && (
+                        <optgroup label="✈️ Flight Airports">
+                          {allBookingAirports.map((apt, i) => (
+                            <option key={`apt-${i}`} value={apt}>
+                              {apt}
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                      <optgroup label="📍 Common Hubs">
+                        <option value="JED">JED (Jeddah Airport)</option>
+                        <option value="MKH">MKH (Makkah)</option>
+                        <option value="MED">MED (Madinah Airport)</option>
+                        <option value="Makkah Hotel">Makkah Hotel</option>
+                        <option value="Madinah Hotel">Madinah Hotel</option>
+                      </optgroup>
                     </select>
                   )}
                 </div>
@@ -479,38 +541,65 @@ export default function TransportReservationModal({
 
               {/* Arrival Destination */}
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                  Arrival Destination *
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                    Arrival Destination *
+                  </label>
+                  {(bookingHotels.length > 0 || allBookingAirports.length > 0) && (
+                    <span className="text-[9px] text-muted-foreground italic">
+                      Pick Hotel or Airport ➔
+                    </span>
+                  )}
+                </div>
                 <div className="relative flex items-center">
                   <input
                     required
                     type="text"
-                    placeholder="e.g. Marriott Hotel Makkah"
+                    placeholder="e.g. Marriott Hotel Makkah or Airport"
                     value={arrivalDestination}
                     onChange={(e) => setArrivalDestination(e.target.value)}
                     className={`w-full text-xs py-1.5 pl-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary ${
-                      booking?.accommodations?.length > 0
-                        ? 'pr-[110px]'
+                      (bookingHotels.length > 0 || allBookingAirports.length > 0)
+                        ? 'pr-[135px]'
                         : 'pr-3'
                     }`}
                   />
-                  {booking?.accommodations?.length > 0 && (
+                  {(bookingHotels.length > 0 || allBookingAirports.length > 0) && (
                     <select
                       onChange={(e) => {
                         if (e.target.value) {
                           setArrivalDestination(e.target.value);
                         }
                       }}
-                      className="absolute right-1.5 py-0.5 px-1 bg-secondary/80 border border-border rounded text-[9px] text-muted-foreground focus:outline-none cursor-pointer hover:bg-secondary transition-colors max-w-[100px] truncate"
+                      className="absolute right-1.5 py-0.5 px-1 bg-secondary/90 border border-border rounded text-[9.5px] font-semibold text-foreground focus:outline-none cursor-pointer hover:bg-secondary transition-colors max-w-[125px] truncate"
                       defaultValue=""
                     >
-                      <option value="" disabled>-- Select Hotel --</option>
-                      {booking.accommodations.map((acc: any) => (
-                        <option key={acc.id} value={acc.hotelName}>
-                          {acc.hotelName}
-                        </option>
-                      ))}
+                      <option value="" disabled>-- Pick Location --</option>
+                      {bookingHotels.length > 0 && (
+                        <optgroup label="🏨 Booked Hotels">
+                          {bookingHotels.map((h, i) => (
+                            <option key={`ah-${i}`} value={h}>
+                              {h}
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                      {allBookingAirports.length > 0 && (
+                        <optgroup label="✈️ Flight Airports">
+                          {allBookingAirports.map((apt, i) => (
+                            <option key={`aapt-${i}`} value={apt}>
+                              {apt}
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                      <optgroup label="📍 Common Hubs">
+                        <option value="MKH">MKH (Makkah)</option>
+                        <option value="JED">JED (Jeddah Airport)</option>
+                        <option value="MED">MED (Madinah Airport)</option>
+                        <option value="Makkah Hotel">Makkah Hotel</option>
+                        <option value="Madinah Hotel">Madinah Hotel</option>
+                      </optgroup>
                     </select>
                   )}
                 </div>

@@ -16,8 +16,8 @@ export class CatalogService {
       }),
     ]);
 
-    // If empty or incomplete (< 105 rates), auto-seed and reload
-    if (vehicles.length === 0 || routes.length === 0 || rates.length < 105) {
+    // If empty or incomplete (< 112 rates or < 16 routes), auto-seed and reload
+    if (vehicles.length === 0 || routes.length < 16 || rates.length < 112) {
       await seedCatalogData(prisma);
       [vehicles, routes, rates] = await Promise.all([
         prisma.transportVehicle.findMany({ orderBy: { sortOrder: 'asc' } }),

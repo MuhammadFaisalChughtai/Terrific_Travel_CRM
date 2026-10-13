@@ -27,7 +27,8 @@ import {
 } from "lucide-react";
 
 export const ROUTE_SUBTITLES: Record<string, string> = {
-  "JED-MKH": "Jeddah to Makkah (or vice versa)",
+  "JED-MKH": "Jeddah Airport to Makkah Hotel",
+  "MKH-JED": "Makkah Hotel to Jeddah Airport",
   "MAKAH TO MADINA": "Makkah to Madinah",
   "JED APT TO MED HTL": "Jeddah Airport to Madinah Hotel",
   "MAKKAH TO JEDDAH APT/CITY": "Makkah to Jeddah Airport or City",
@@ -56,6 +57,7 @@ export const VEHICLE_SHORT_NAMES: Record<string, { label: string; sub: string }>
 
 export const OFFICIAL_DEFAULT_RATES: Record<string, number[]> = {
   "JED-MKH": [260, 410, 325, 375, 550, 800, 900],
+  "MKH-JED": [195, 350, 290, 280, 450, 700, 800],
   "MAKAH TO MADINA": [425, 830, 520, 575, 790, 1050, 1150],
   "JED APT TO MED HTL": [520, 870, 600, 650, 900, 1150, 1250],
   "MAKKAH TO JEDDAH APT/CITY": [195, 350, 290, 280, 450, 700, 800],
