@@ -102,6 +102,21 @@ export interface CustomLineItem {
   amount: number;
 }
 
+export const getPreviousMonthYear = (): string => {
+  const d = new Date();
+  d.setDate(1); // prevent month rollover bug if current day is 31st
+  d.setMonth(d.getMonth() - 1);
+  const monthName = d.toLocaleString("en-US", { month: "long" });
+  return `${monthName} ${d.getFullYear()}`;
+};
+
+export const getCurrentMonth10thPayDate = (): string => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  return `${year}-${month}-10`;
+};
+
 export const PAYROLL_MONTH_OPTIONS = [
   "January 2026",
   "February 2026",
@@ -140,6 +155,23 @@ export const PAYROLL_MONTH_OPTIONS = [
   "November 2027",
   "December 2027",
 ];
+
+export const getPayrollMonthOptions = (): string[] => {
+  const now = new Date();
+  const list: string[] = [];
+  for (let offset = 6; offset >= -12; offset--) {
+    const d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+    const m = d.toLocaleString("en-US", { month: "long" });
+    const label = `${m} ${d.getFullYear()}`;
+    if (!list.includes(label)) {
+      list.push(label);
+    }
+  }
+  PAYROLL_MONTH_OPTIONS.forEach((m) => {
+    if (!list.includes(m)) list.push(m);
+  });
+  return list;
+};
 
 export interface PayslipItem {
   id: string;
@@ -261,26 +293,26 @@ export default function PayrollPage() {
     const defaults = getSavedCompanyDefaults();
     return {
       agentId: "",
-      employeeName: "Ali Zain",
-      designation: "Operations Manager",
-      department: "Operations",
+      employeeName: "",
+      designation: "",
+      department: "",
       employeeEmail: "",
       payrollEmail: "",
       companyName: defaults.companyName,
       companyAddress: defaults.companyAddress,
       companyPhone: defaults.companyPhone,
       companyEmail: defaults.companyEmail,
-      monthYear: "June 2026",
-      payDate: "2026-07-01",
+      monthYear: getPreviousMonthYear(),
+      payDate: getCurrentMonth10thPayDate(),
       paymentMethod: "Bank Transfer",
       currency: "PKR",
       currencySymbol: "Rs.",
-      basicSalary: 150000,
-      houseRentAllowance: 65000,
-      travelAllowance: 35000,
+      basicSalary: 0,
+      houseRentAllowance: 0,
+      travelAllowance: 0,
       otherAllowances: 0,
       earningsJson: [] as CustomLineItem[],
-      taxDeduction: 12500,
+      taxDeduction: 0,
       fineDeduction: 0,
       otherDeductions: 0,
       deductionsJson: [] as CustomLineItem[],
@@ -297,13 +329,16 @@ export default function PayrollPage() {
   const { data: agentsData } = useQuery({
     queryKey: ["agents"],
     queryFn: async () => {
-      const res = await apiClient.get("/agents");
+      const res = await apiClient.get("/agents?limit=300");
       return res.data.data.items as Array<{
         id: string;
         name: string;
         email: string;
         payrollEmail?: string | null;
         phoneNumber: string;
+        designation?: string | null;
+        department?: string | null;
+        basicSalary?: number | null;
       }>;
     },
   });
@@ -436,11 +471,25 @@ export default function PayrollPage() {
     const ag = agentsData?.find((a) => a.id === agentId);
     const companyDefaults = getSavedCompanyDefaults();
     if (ag) {
-      // Find the most recent payslip for this agent to populate their defaults
+      // Find the most recent payslip for this agent to populate company/currency defaults if available
       const pastPayslips = ((payrollData?.payslips as PayslipItem[]) || []).filter(
         (p) => p.agentId === agentId || p.employeeName?.toLowerCase().trim() === ag.name.toLowerCase().trim()
       );
       const lastSlip: PayslipItem | null = pastPayslips.length > 0 ? pastPayslips[0] : null;
+
+      // Automatically fetch employee's saved designation, department, and basic salary
+      const designation = ag.designation || lastSlip?.designation || "Operations Manager";
+      const department = ag.department || lastSlip?.department || "Operations";
+      const basicSalary =
+        ag.basicSalary !== undefined && ag.basicSalary !== null && Number(ag.basicSalary) > 0
+          ? Number(ag.basicSalary)
+          : (lastSlip?.basicSalary !== undefined && lastSlip.basicSalary !== null
+            ? Number(lastSlip.basicSalary)
+            : 0);
+
+      // Previous month and 10th of current month
+      const prevMonthYear = getPreviousMonthYear();
+      const currentMonth10th = getCurrentMonth10thPayDate();
 
       setFormData((prev) => ({
         ...prev,
@@ -448,29 +497,48 @@ export default function PayrollPage() {
         employeeName: ag.name,
         employeeEmail: ag.email,
         payrollEmail: ag.payrollEmail || lastSlip?.payrollEmail || ag.email,
-        designation: lastSlip?.designation || prev.designation || "Operations Manager",
-        department: lastSlip?.department || prev.department || "Operations",
+        designation,
+        department,
         companyName: lastSlip?.companyName || companyDefaults.companyName,
         companyAddress: lastSlip?.companyAddress || companyDefaults.companyAddress,
         companyPhone: lastSlip?.companyPhone || companyDefaults.companyPhone,
         companyEmail: lastSlip?.companyEmail || companyDefaults.companyEmail,
+        monthYear: prevMonthYear,
+        payDate: currentMonth10th,
         paymentMethod: lastSlip?.paymentMethod || prev.paymentMethod || "Bank Transfer",
         currency: lastSlip?.currency || prev.currency || "PKR",
         currencySymbol: lastSlip?.currencySymbol || prev.currencySymbol || "Rs.",
-        basicSalary: lastSlip ? lastSlip.basicSalary : prev.basicSalary,
-        houseRentAllowance: lastSlip ? lastSlip.houseRentAllowance : prev.houseRentAllowance,
-        travelAllowance: lastSlip ? lastSlip.travelAllowance : prev.travelAllowance,
-        otherAllowances: lastSlip ? lastSlip.otherAllowances : prev.otherAllowances,
-        taxDeduction: lastSlip ? lastSlip.taxDeduction : prev.taxDeduction,
-        fineDeduction: lastSlip ? lastSlip.fineDeduction : prev.fineDeduction,
-        otherDeductions: lastSlip ? lastSlip.otherDeductions : prev.otherDeductions,
-        earningsJson: lastSlip?.earningsJson ? (lastSlip.earningsJson as CustomLineItem[]) : prev.earningsJson,
-        deductionsJson: lastSlip?.deductionsJson ? (lastSlip.deductionsJson as CustomLineItem[]) : prev.deductionsJson,
+        basicSalary,
+        // Set default allowance and deduction amounts to 0
+        houseRentAllowance: 0,
+        travelAllowance: 0,
+        otherAllowances: 0,
+        earningsJson: [] as CustomLineItem[],
+        taxDeduction: 0,
+        fineDeduction: 0,
+        otherDeductions: 0,
+        deductionsJson: [] as CustomLineItem[],
       }));
     } else {
       setFormData((prev) => ({
         ...prev,
         agentId: "",
+        employeeName: "",
+        designation: "",
+        department: "",
+        employeeEmail: "",
+        payrollEmail: "",
+        monthYear: getPreviousMonthYear(),
+        payDate: getCurrentMonth10thPayDate(),
+        basicSalary: 0,
+        houseRentAllowance: 0,
+        travelAllowance: 0,
+        otherAllowances: 0,
+        earningsJson: [],
+        taxDeduction: 0,
+        fineDeduction: 0,
+        otherDeductions: 0,
+        deductionsJson: [],
       }));
     }
   };
@@ -602,26 +670,26 @@ export default function PayrollPage() {
               const compDefaults = getSavedCompanyDefaults();
               setFormData({
                 agentId: "",
-                employeeName: "Ali Zain",
-                designation: "Operations Manager",
-                department: "Operations",
+                employeeName: "",
+                designation: "",
+                department: "",
                 employeeEmail: "",
                 payrollEmail: "",
                 companyName: compDefaults.companyName,
                 companyAddress: compDefaults.companyAddress,
                 companyPhone: compDefaults.companyPhone,
                 companyEmail: compDefaults.companyEmail,
-                monthYear: "June 2026",
-                payDate: "2026-07-01",
+                monthYear: getPreviousMonthYear(),
+                payDate: getCurrentMonth10thPayDate(),
                 paymentMethod: "Bank Transfer",
                 currency: "PKR",
                 currencySymbol: "Rs.",
-                basicSalary: 150000,
-                houseRentAllowance: 65000,
-                travelAllowance: 35000,
+                basicSalary: 0,
+                houseRentAllowance: 0,
+                travelAllowance: 0,
                 otherAllowances: 0,
                 earningsJson: [],
-                taxDeduction: 12500,
+                taxDeduction: 0,
                 fineDeduction: 0,
                 otherDeductions: 0,
                 deductionsJson: [],
@@ -1069,7 +1137,7 @@ export default function PayrollPage() {
                   onChange={(e) => setFormData({ ...formData, monthYear: e.target.value })}
                   className="w-full px-3 py-2 bg-secondary/20 border border-border/60 rounded-lg text-xs font-semibold focus:ring-2 focus:ring-primary/40"
                 >
-                  {PAYROLL_MONTH_OPTIONS.map((m) => (
+                  {getPayrollMonthOptions().map((m) => (
                     <option key={m} value={m}>
                       {m}
                     </option>
