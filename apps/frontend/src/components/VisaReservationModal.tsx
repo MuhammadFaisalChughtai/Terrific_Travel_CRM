@@ -127,18 +127,27 @@ export default function VisaReservationModal({
 
     if (v.visaType) setVisaType(v.visaType);
     if (v.price !== undefined && v.price !== null) {
-      const p = String(v.price);
-      if (v.currency === 'SAR' || v.currency === 'USD') {
-        setOtherCurrencyType(v.currency);
-        setOtherCurrencyAmount(p);
-        if (conversionRate && Number(conversionRate) > 0) {
-          setPrice((Number(p) / Number(conversionRate)).toFixed(2));
-        } else {
-          setPrice(p);
-        }
+      const p = Number(v.price) || 0;
+      const savedRate = Number(localStorage.getItem('tms_catalog_exchange_rate')) || 4.8;
+      const currentRate = Number(conversionRate) > 0 ? Number(conversionRate) : savedRate;
+      setConversionRate(String(currentRate));
+
+      if (v.currency === 'SAR') {
+        setCurrency('GBP');
+        setOtherCurrencyType('SAR');
+        setOtherCurrencyAmount(String(p));
+        setPrice((p / currentRate).toFixed(2));
+      } else if (v.currency === 'GBP') {
+        setCurrency('GBP');
+        setPrice(String(p));
+        setOtherCurrencyType('SAR');
+        setOtherCurrencyAmount((p * currentRate).toFixed(2));
       } else {
-        setCurrency(v.currency || 'GBP');
-        setPrice(p);
+        // e.g. USD
+        setCurrency('GBP');
+        setOtherCurrencyType(v.currency || 'USD');
+        setOtherCurrencyAmount(String(p));
+        setPrice((p / currentRate).toFixed(2));
       }
     }
 
@@ -652,7 +661,14 @@ export default function VisaReservationModal({
                   step="any"
                   placeholder="0.00"
                   value={otherCurrencyAmount}
-                  onChange={(e) => setOtherCurrencyAmount(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setOtherCurrencyAmount(val);
+                    const rate = Number(conversionRate) > 0 ? Number(conversionRate) : (Number(localStorage.getItem('tms_catalog_exchange_rate')) || 4.8);
+                    if (val && rate > 0 && currency === 'GBP' && !isPriceDisabled) {
+                      setPrice((Number(val) / rate).toFixed(2));
+                    }
+                  }}
                   className="text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                 />
               </div>
@@ -667,7 +683,14 @@ export default function VisaReservationModal({
                   step="any"
                   placeholder="e.g. 4.8"
                   value={conversionRate}
-                  onChange={(e) => setConversionRate(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setConversionRate(val);
+                    const rate = Number(val);
+                    if (rate > 0 && otherCurrencyAmount && currency === 'GBP' && !isPriceDisabled) {
+                      setPrice((Number(otherCurrencyAmount) / rate).toFixed(2));
+                    }
+                  }}
                   className="w-full text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                 />
               </div>

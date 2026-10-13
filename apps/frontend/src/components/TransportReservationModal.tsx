@@ -189,21 +189,16 @@ export default function TransportReservationModal({
       setArrivalDestination(parts.slice(1).join('-').trim());
     }
 
-    // Auto-fill currency and amount in SAR
-    const sarAmount = String(opt.price || 0);
-    setOtherCurrencyType(opt.currency || 'SAR');
-    setOtherCurrencyAmount(sarAmount);
+    // Auto-fill currency and amount: SAR goes into Other Currency Amount, GBP into Price
+    const sarAmount = Number(opt.price || 0);
+    const savedRate = Number(localStorage.getItem('tms_catalog_exchange_rate')) || 4.8;
+    const currentRate = Number(conversionRate) > 0 ? Number(conversionRate) : savedRate;
 
-    // If conversion rate is already filled, calculate GBP price; otherwise if currency is SAR set price directly
-    if (conversionRate && Number(conversionRate) > 0) {
-      const conv = Number(conversionRate);
-      setPrice((Number(sarAmount) / conv).toFixed(2));
-    } else if (currency === 'SAR') {
-      setPrice(sarAmount);
-    } else {
-      // Default price to SAR amount if currency is SAR or leave placeholder
-      setPrice(sarAmount);
-    }
+    setCurrency('GBP');
+    setOtherCurrencyType('SAR');
+    setOtherCurrencyAmount(String(sarAmount));
+    setConversionRate(String(currentRate));
+    setPrice((sarAmount / currentRate).toFixed(2));
 
     // Auto-fill Vendor automatically
     if (opt.vendorId) {
@@ -881,7 +876,14 @@ export default function TransportReservationModal({
                   step="any"
                   placeholder="0.00"
                   value={otherCurrencyAmount}
-                  onChange={(e) => setOtherCurrencyAmount(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setOtherCurrencyAmount(val);
+                    const rate = Number(conversionRate) > 0 ? Number(conversionRate) : (Number(localStorage.getItem('tms_catalog_exchange_rate')) || 4.8);
+                    if (val && rate > 0 && currency === 'GBP' && !isPriceDisabled) {
+                      setPrice((Number(val) / rate).toFixed(2));
+                    }
+                  }}
                   className="text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                 />
               </div>
@@ -896,7 +898,14 @@ export default function TransportReservationModal({
                   step="any"
                   placeholder="e.g. 4.8"
                   value={conversionRate}
-                  onChange={(e) => setConversionRate(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setConversionRate(val);
+                    const rate = Number(val);
+                    if (rate > 0 && otherCurrencyAmount && currency === 'GBP' && !isPriceDisabled) {
+                      setPrice((Number(otherCurrencyAmount) / rate).toFixed(2));
+                    }
+                  }}
                   className="w-full text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                 />
               </div>
