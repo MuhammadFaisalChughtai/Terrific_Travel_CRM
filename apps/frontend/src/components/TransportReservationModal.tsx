@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import { useAuthStore } from '../store/auth.store';
@@ -38,6 +38,7 @@ export default function TransportReservationModal({
   const [arrivalDestination, setArrivalDestination] = useState('');
   const [departureTime, setDepartureTime] = useState('');
   const [arrivalTime, setArrivalTime] = useState('');
+  const [selectedCatalogVehicleType, setSelectedCatalogVehicleType] = useState('');
   const [selectedCatalogTransportId, setSelectedCatalogTransportId] = useState('');
   
   // Flight selection states (supports multiple flights)
@@ -80,6 +81,7 @@ export default function TransportReservationModal({
         setVendorId(transportToEdit.vendorId || '');
         setDate(formatDateToInput(transportToEdit.date));
         setVehicleType(transportToEdit.vehicleType || '');
+        setSelectedCatalogVehicleType(transportToEdit.vehicleType || '');
         setDepartureDestination(transportToEdit.departureDestination || '');
         setArrivalDestination(transportToEdit.arrivalDestination || '');
         setDepartureTime(transportToEdit.departureTime || '');
@@ -147,6 +149,7 @@ export default function TransportReservationModal({
         setRefundAmount('0.0');
         setFineAmount('0.0');
         setIssueDate('');
+        setSelectedCatalogVehicleType('');
         setSelectedCatalogTransportId('');
       }
     }
@@ -197,7 +200,58 @@ export default function TransportReservationModal({
   // Primary arrival airport in KSA (defaulting to JED)
   const primaryKsaAirport = bookingArrivalAirports[0] || bookingDepartureAirports[0] || 'JED';
 
-  const handleSelectCatalogTransport = (rateId: string) => {
+  // Unique vehicle types from catalog
+  const availableVehicles = useMemo(() => {
+    if (!catalogTransportOptions || !catalogTransportOptions.length) return [];
+    const seen = new Set<string>();
+    const list: { id: string; name: string; capacity?: string }[] = [];
+    for (const opt of catalogTransportOptions) {
+      const name = opt.vehicleName?.trim();
+      if (name && !seen.has(name.toUpperCase())) {
+        seen.add(name.toUpperCase());
+        list.push({
+          id: opt.vehicleId || name,
+          name: name,
+          capacity: opt.capacity,
+        });
+      }
+    }
+    return list;
+  }, [catalogTransportOptions]);
+
+  // Routes strictly filtered to the chosen vehicle / transport type
+  const availableRoutesForVehicle = useMemo(() => {
+    if (!selectedCatalogVehicleType || !catalogTransportOptions) return [];
+    const target = selectedCatalogVehicleType.trim().toUpperCase();
+    return catalogTransportOptions.filter(
+      (opt: any) => opt.vehicleName && opt.vehicleName.trim().toUpperCase() === target
+    );
+  }, [selectedCatalogVehicleType, catalogTransportOptions]);
+
+  const handleSelectCatalogVehicle = (chosenVehicle: string) => {
+    setSelectedCatalogVehicleType(chosenVehicle);
+    if (chosenVehicle) {
+      setVehicleType(chosenVehicle);
+    }
+    // If a route was already chosen under another vehicle type, check if the same route exists for this vehicle
+    if (selectedCatalogTransportId) {
+      const prevOpt = catalogTransportOptions?.find((o: any) => o.id === selectedCatalogTransportId);
+      if (prevOpt && chosenVehicle) {
+        const matchingRoute = catalogTransportOptions?.find(
+          (o: any) =>
+            o.vehicleName?.trim().toUpperCase() === chosenVehicle.trim().toUpperCase() &&
+            (o.routeId === prevOpt.routeId || o.routeName === prevOpt.routeName)
+        );
+        if (matchingRoute) {
+          handleSelectCatalogTransport(matchingRoute.id, chosenVehicle);
+          return;
+        }
+      }
+      setSelectedCatalogTransportId('');
+    }
+  };
+
+  const handleSelectCatalogTransport = (rateId: string, explicitVehicleName?: string) => {
     setSelectedCatalogTransportId(rateId);
     if (!rateId) return;
 
@@ -205,8 +259,10 @@ export default function TransportReservationModal({
     if (!opt) return;
 
     // Fill vehicle
-    if (opt.vehicleName) {
-      setVehicleType(opt.vehicleName);
+    const vName = explicitVehicleName || opt.vehicleName;
+    if (vName) {
+      setVehicleType(vName);
+      setSelectedCatalogVehicleType(vName);
     }
 
     // Auto-fill route departure / arrival strictly using the booked hotel
@@ -414,7 +470,7 @@ export default function TransportReservationModal({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               
               {/* Quick Select from Official Rate Sheet Catalog */}
-              <div className="col-span-1 md:col-span-2 p-3 bg-gradient-to-r from-emerald-500/10 via-background to-secondary/30 border border-emerald-500/30 rounded-xl space-y-2">
+              <div className="col-span-1 md:col-span-2 p-3 bg-gradient-to-r from-emerald-500/10 via-background to-secondary/30 border border-emerald-500/30 rounded-xl space-y-2.5">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                   <div className="flex items-center gap-1.5">
                     <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded border border-emerald-500/30">
@@ -425,26 +481,84 @@ export default function TransportReservationModal({
                     </span>
                   </div>
                   <span className="text-[10px] text-muted-foreground">
-                    Auto-populates Route, Vehicle & Price in SAR
+                    Auto-populates Route, Vehicle, Price in SAR & Vendor
                   </span>
                 </div>
 
-                <select
-                  value={selectedCatalogTransportId}
-                  onChange={(e) => handleSelectCatalogTransport(e.target.value)}
-                  className="w-full text-xs py-2 px-3 bg-background border border-emerald-500/40 rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500 font-medium cursor-pointer"
-                >
-                  <option value="">
-                    {catalogTransportOptions?.length
-                      ? `-- Choose from ${catalogTransportOptions.length} Official Sectors & Vehicle Rates --`
-                      : '-- Loading Catalog Options... --'}
-                  </option>
-                  {catalogTransportOptions?.map((opt: any) => (
-                    <option key={opt.id} value={opt.id}>
-                      {opt.routeName} ➔ {opt.vehicleName} — {opt.price} {opt.currency}{opt.vendorName ? ` [${opt.vendorName}]` : ''}
-                    </option>
-                  ))}
-                </select>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                  {/* Step 1: Transport Type (Vehicle) */}
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10.5px] font-bold text-foreground flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <span className="w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-bold">1</span>
+                        <span>Transport / Vehicle Type</span>
+                      </span>
+                      {selectedCatalogVehicleType && (
+                        <span className="text-[9.5px] font-medium text-emerald-600 dark:text-emerald-400">
+                          {availableRoutesForVehicle.length} Routes
+                        </span>
+                      )}
+                    </label>
+                    <select
+                      value={selectedCatalogVehicleType}
+                      onChange={(e) => handleSelectCatalogVehicle(e.target.value)}
+                      className="w-full text-xs py-2 px-3 bg-background border border-emerald-500/40 rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500 font-medium cursor-pointer"
+                    >
+                      <option value="">
+                        {availableVehicles.length > 0
+                          ? `-- 1. Select Transport Type (${availableVehicles.length} Types) --`
+                          : '-- Loading Transport Types... --'}
+                      </option>
+                      {availableVehicles.map((v) => (
+                        <option key={v.name} value={v.name}>
+                          {v.name} {v.capacity ? `(${v.capacity})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Step 2: Route / Sector for Selected Vehicle */}
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10.5px] font-bold text-foreground flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold ${selectedCatalogVehicleType ? 'bg-emerald-600 text-white' : 'bg-muted text-muted-foreground'}`}>2</span>
+                        <span>Route / Sector</span>
+                      </span>
+                      {selectedCatalogTransportId && (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedCatalogTransportId('')}
+                          className="text-[9.5px] text-muted-foreground hover:text-foreground underline"
+                        >
+                          Clear Selection
+                        </button>
+                      )}
+                    </label>
+                    <select
+                      value={selectedCatalogTransportId}
+                      disabled={!selectedCatalogVehicleType}
+                      onChange={(e) => handleSelectCatalogTransport(e.target.value, selectedCatalogVehicleType)}
+                      className={`w-full text-xs py-2 px-3 bg-background border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500 font-medium cursor-pointer ${
+                        !selectedCatalogVehicleType
+                          ? 'opacity-60 cursor-not-allowed border-border'
+                          : 'border-emerald-500/40'
+                      }`}
+                    >
+                      <option value="">
+                        {!selectedCatalogVehicleType
+                          ? '← Select Transport Type first in Step 1'
+                          : availableRoutesForVehicle.length > 0
+                          ? `-- 2. Select Route (${availableRoutesForVehicle.length} Routes) --`
+                          : '-- No routes available for this type --'}
+                      </option>
+                      {availableRoutesForVehicle.map((opt: any) => (
+                        <option key={opt.id} value={opt.id}>
+                          {opt.routeName} — {opt.price} {opt.currency}{opt.vendorName ? ` [${opt.vendorName}]` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
 
                 {selectedCatalogTransportId && (() => {
                   const opt = catalogTransportOptions?.find((o: any) => o.id === selectedCatalogTransportId);
@@ -452,7 +566,7 @@ export default function TransportReservationModal({
                   return (
                     <div className="p-2 bg-background/90 rounded-lg border border-border text-[11px] flex flex-wrap items-center justify-between gap-2 shadow-2xs">
                       <span className="text-muted-foreground">
-                        Sector: <strong className="text-foreground">{opt.routeName}</strong> | Vehicle: <strong className="text-foreground">{opt.vehicleName}</strong>
+                        Sector: <strong className="text-foreground">{opt.routeName}</strong> | Vehicle: <strong className="text-foreground">{opt.vehicleName}</strong> | Price: <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{opt.price} SAR</strong>
                       </span>
                       {opt.vendorName && (
                         <span className="text-emerald-600 dark:text-emerald-400 font-semibold text-[11px] flex items-center gap-1">
@@ -489,9 +603,24 @@ export default function TransportReservationModal({
                   type="text"
                   placeholder="e.g. Hiace, GMC, Bus"
                   value={vehicleType}
-                  onChange={(e) => setVehicleType(e.target.value)}
+                  list="catalog-vehicle-types"
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setVehicleType(val);
+                    const match = availableVehicles.find(
+                      v => v.name.toLowerCase() === val.trim().toLowerCase()
+                    );
+                    if (match) {
+                      handleSelectCatalogVehicle(match.name);
+                    }
+                  }}
                   className="w-full text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                 />
+                <datalist id="catalog-vehicle-types">
+                  {availableVehicles.map((v) => (
+                    <option key={v.name} value={v.name} />
+                  ))}
+                </datalist>
               </div>
 
               {/* Departure Destination */}
