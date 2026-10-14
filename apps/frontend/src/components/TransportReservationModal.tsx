@@ -307,8 +307,13 @@ export default function TransportReservationModal({
     setPrice((sarAmount / currentRate).toFixed(2));
 
     // Auto-fill Vendor automatically
+    const basmaVendor = transportVendors.find((v: any) => v.name?.toLowerCase().includes('basma transport')) ||
+                        transportVendors.find((v: any) => v.name?.toLowerCase().includes('basma'));
+
     if (opt.vendorId) {
       setVendorId(opt.vendorId);
+    } else if (basmaVendor) {
+      setVendorId(basmaVendor.id);
     } else if (transportVendors.length > 0) {
       setVendorId(transportVendors[0].id);
     } else if (vendorsData && vendorsData.length > 0) {
@@ -328,11 +333,29 @@ export default function TransportReservationModal({
     enabled: isOpen
   });
 
-  // Filter vendors that are not flights/hotels (i.e. transport/other)
-  const transportVendors = vendorsData?.filter((v: any) => {
-    const type = v.vendorType?.toLowerCase() || '';
-    return type !== 'flight' && type !== 'accommodation' && type !== 'hotel';
-  }) || [];
+  // Filter vendors that are not flights/hotels (i.e. transport/other) and prioritize Basma Transport
+  const transportVendors = useMemo(() => {
+    const list = (vendorsData || []).filter((v: any) => {
+      const type = v.vendorType?.toLowerCase() || '';
+      return type !== 'flight' && type !== 'accommodation' && type !== 'hotel';
+    });
+    return [...list].sort((a: any, b: any) => {
+      const aBasma = a.name?.toLowerCase().includes('basma transport') ? 2 : a.name?.toLowerCase().includes('basma') ? 1 : 0;
+      const bBasma = b.name?.toLowerCase().includes('basma transport') ? 2 : b.name?.toLowerCase().includes('basma') ? 1 : 0;
+      return bBasma - aBasma;
+    });
+  }, [vendorsData]);
+
+  // Default vendor to Basma Transport when adding a new transport reservation
+  useEffect(() => {
+    if (isOpen && !transportToEdit && (!vendorId || vendorId === '') && transportVendors.length > 0) {
+      const basma = transportVendors.find((v: any) => v.name?.toLowerCase().includes('basma transport')) ||
+                    transportVendors.find((v: any) => v.name?.toLowerCase().includes('basma'));
+      if (basma) {
+        setVendorId(basma.id);
+      }
+    }
+  }, [isOpen, transportToEdit, vendorId, transportVendors]);
 
   const handleAddFlight = (fn: string) => {
     if (!fn) return;

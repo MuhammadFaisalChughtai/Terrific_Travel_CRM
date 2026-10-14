@@ -139,25 +139,30 @@ export const CATALOG_VISAS = [
 
 export async function seedCatalogData(db: PrismaClient = prisma) {
   console.log('Resolving Default Vendors for Catalog...');
-  // Find or create default Transport Vendor
+  // Find or create default Transport Vendor: Basma Transport
   let transportVendor = await db.vendor.findFirst({
     where: {
-      OR: [
-        { vendorType: { in: ['Transport', 'transportation', 'Transportation'] } },
-        { name: { contains: 'Transport', mode: 'insensitive' } },
-      ],
+      name: { contains: 'Basma Transport', mode: 'insensitive' },
     },
   });
 
   if (!transportVendor) {
+    transportVendor = await db.vendor.findFirst({
+      where: {
+        name: { contains: 'Basma', mode: 'insensitive' },
+      },
+    });
+  }
+
+  if (!transportVendor) {
     transportVendor = await db.vendor.upsert({
-      where: { id: '5f298e6a-ca20-4742-9a73-13f5d9abde00' },
-      update: { vendorType: 'Transport' },
+      where: { id: '50fd9f2d-4964-4b67-bfa9-9bc09d46282b' },
+      update: { name: 'Basma Transport', vendorType: 'Transportation' },
       create: {
-        id: '5f298e6a-ca20-4742-9a73-13f5d9abde00',
-        name: 'Golden Crown Umrah Transport',
-        phoneNumber: '+966500000000',
-        vendorType: 'Transport',
+        id: '50fd9f2d-4964-4b67-bfa9-9bc09d46282b',
+        name: 'Basma Transport',
+        phoneNumber: '00966 54 512 1968',
+        vendorType: 'Transportation',
         walletBalance: 0,
       },
     });
@@ -243,6 +248,12 @@ export async function seedCatalogData(db: PrismaClient = prisma) {
       });
     }
   }
+
+  // Ensure all transport rates for this season have Basma Transport assigned
+  await db.transportRate.updateMany({
+    where: { season },
+    data: { vendorId: transportVendor.id },
+  });
 
   console.log('Seeding Visa Catalog Products...');
   for (const v of CATALOG_VISAS) {

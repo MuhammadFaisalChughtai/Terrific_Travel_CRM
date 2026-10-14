@@ -16,8 +16,12 @@ export class CatalogService {
       }),
     ]);
 
-    // If empty or incomplete (< 112 rates or < 16 routes), auto-seed and reload
-    if (vehicles.length === 0 || routes.length < 16 || rates.length < 112) {
+    // If empty or incomplete (< 112 rates or < 16 routes), or rates are not assigned to Basma Transport, auto-seed and reload
+    const hasNonBasmaVendor = rates.some(
+      (r) => !r.vendorId || !r.vendor?.name?.toLowerCase().includes('basma')
+    );
+
+    if (vehicles.length === 0 || routes.length < 16 || rates.length < 112 || hasNonBasmaVendor) {
       await seedCatalogData(prisma);
       [vehicles, routes, rates] = await Promise.all([
         prisma.transportVehicle.findMany({ orderBy: { sortOrder: 'asc' } }),
