@@ -20,25 +20,81 @@ namespace TerrificTravelBridge
         [STAThread]
         static void Main(string[] args)
         {
+            string appData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "TerrificTravel");
+            if (!Directory.Exists(appData)) Directory.CreateDirectory(appData);
+            string logFile = Path.Combine(appData, "debug.log");
+
             try
             {
+                File.AppendAllText(logFile, string.Format("{0}: Main started with args: {1}\r\n", DateTime.Now, args != null ? string.Join(" ", args) : "none"));
+
                 // Force enable TLS 1.2 (3072) and TLS 1.1 (768) in .NET Framework
                 ServicePointManager.SecurityProtocol = (SecurityProtocolType)3072 | (SecurityProtocolType)768 | (SecurityProtocolType)192;
                 ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
             }
-            catch { }
+            catch (Exception ex)
+            {
+                File.AppendAllText(logFile, "TLS init error: " + ex + "\r\n");
+            }
+
+            bool forceLogin = false;
+            if (args != null && args.Length > 0)
+            {
+                foreach (string arg in args)
+                {
+                    if (arg.Equals("--switch-user", StringComparison.OrdinalIgnoreCase) ||
+                        arg.Equals("--login", StringComparison.OrdinalIgnoreCase) ||
+                        arg.Equals("--signout", StringComparison.OrdinalIgnoreCase) ||
+                        arg.Equals("--logout", StringComparison.OrdinalIgnoreCase) ||
+                        arg.Equals("-l", StringComparison.OrdinalIgnoreCase))
+                    {
+                        forceLogin = true;
+                        break;
+                    }
+                }
+            }
+
+            if (forceLogin)
+            {
+                try
+                {
+                    int currentPid = System.Diagnostics.Process.GetCurrentProcess().Id;
+                    foreach (var proc in System.Diagnostics.Process.GetProcessesByName("TerrificTravelBridge"))
+                    {
+                        if (proc.Id != currentPid)
+                        {
+                            proc.Kill();
+                            proc.WaitForExit(1500);
+                        }
+                    }
+                    Thread.Sleep(300);
+                }
+                catch { }
+            }
 
             const string appGuid = "TerrificTravelBridge_SingleInstance_Mutex_2026";
             bool isNewInstance;
             _mutex = new Mutex(true, appGuid, out isNewInstance);
-            if (!isNewInstance)
+            File.AppendAllText(logFile, string.Format("{0}: Mutex isNewInstance={1}, forceLogin={2}\r\n", DateTime.Now, isNewInstance, forceLogin));
+
+            if (!isNewInstance && !forceLogin)
             {
+                File.AppendAllText(logFile, string.Format("{0}: Exiting because not new instance and not forceLogin\r\n", DateTime.Now));
                 return;
             }
 
-            Application.EnableVisualStyles();
-            Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(new MonitorApplicationContext());
+            try
+            {
+                Application.EnableVisualStyles();
+                Application.SetCompatibleTextRenderingDefault(false);
+                File.AppendAllText(logFile, string.Format("{0}: Calling Application.Run\r\n", DateTime.Now));
+                Application.Run(new MonitorApplicationContext(forceLogin));
+                File.AppendAllText(logFile, string.Format("{0}: Application.Run finished normally\r\n", DateTime.Now));
+            }
+            catch (Exception ex)
+            {
+                File.AppendAllText(logFile, string.Format("{0}: Fatal Error in Application.Run: {1}\r\n", DateTime.Now, ex));
+            }
         }
     }
 
@@ -107,7 +163,7 @@ namespace TerrificTravelBridge
         [DllImport("user32.dll")]
         static extern bool GetLastInputInfo(ref LASTINPUTINFO plii);
 
-        public MonitorApplicationContext()
+        public MonitorApplicationContext(bool forceLogin = false)
         {
             try
             {
@@ -120,6 +176,14 @@ namespace TerrificTravelBridge
             _configPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "TerrificTravel", "config.ini");
 
             LoadConfiguration();
+
+            if (forceLogin)
+            {
+                _jwtToken = "";
+                _agentEmail = "";
+                _agentPassword = "";
+                SaveCredentials(_serverUrl, "", "", "");
+            }
 
             var handler = new HttpClientHandler
             {
@@ -148,7 +212,14 @@ namespace TerrificTravelBridge
             catch { }
 
             // Attempt login or prompt for credentials
-            PerformLoginOrPrompt();
+            if (forceLogin)
+            {
+                ShowLoginPrompt();
+            }
+            else
+            {
+                PerformLoginOrPrompt();
+            }
 
             // Heartbeat every 15 seconds
             _heartbeatTimer = new System.Threading.Timer(HeartbeatCallback, null, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(15));
@@ -318,19 +389,24 @@ namespace TerrificTravelBridge
             if (_isLoggingIn) return;
             _isLoggingIn = true;
 
-            ThreadPool.QueueUserWorkItem(delegate(object state)
+            try
             {
-                try
+                using (LoginForm form = new LoginForm(this, _serverUrl, _agentEmail))
                 {
-                    LoginForm form = new LoginForm(this, _serverUrl, _agentEmail);
-                    Application.Run(form);
+                    form.TopMost = true;
+                    form.StartPosition = FormStartPosition.CenterScreen;
+                    form.ShowInTaskbar = true;
+                    form.ShowDialog();
                 }
-                catch { }
-                finally
-                {
-                    _isLoggingIn = false;
-                }
-            });
+            }
+            catch (Exception ex)
+            {
+                Log("ShowLoginPrompt error: " + ex.Message);
+            }
+            finally
+            {
+                _isLoggingIn = false;
+            }
         }
 
         private void SendInitialHeartbeat()
@@ -865,6 +941,8 @@ namespace TerrificTravelBridge
             MinimizeBox = false;
             BackColor = Color.FromArgb(248, 250, 252);
             Font = new Font("Segoe UI", 9F, FontStyle.Regular);
+            TopMost = true;
+            ShowInTaskbar = true;
 
             // Title Banner
             Label lblBrand = new Label

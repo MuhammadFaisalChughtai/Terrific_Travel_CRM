@@ -21,7 +21,10 @@ The desktop app directly connects to the **same CRM database accounts** already 
    - The application calls `POST /api/auth/login`, validates against the database (`User` table with bcrypt hash), caches the authorized token in `%APPDATA%\TerrificTravel\config.ini`, closes the window, and continues running in the background.
 2. **Silent Startup on Subsequent Boots**:
    - On Windows boot, the service automatically signs in silently using the saved credentials or token without showing any dialogs.
-3. **Password Changes**:
+3. **Switching Agents / Sign In Again**:
+   - When a laptop is reassigned to a new employee or an agent leaves, simply double-click **`switch-user.bat`** (or execute `TerrificTravelBridge.exe --switch-user`).
+   - This stops the current background instance, clears the saved session, and immediately pops up the Sign-In modal on screen so the new agent can enter their CRM credentials.
+4. **Password Changes**:
    - If an agent's password is changed in the CRM database, the app seamlessly catches the `401 Unauthorized` response on heartbeat and prompts for their updated CRM password.
 
 ---
