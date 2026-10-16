@@ -83,6 +83,7 @@ export default function VisaReservationModal({
         setConversionRate(visaToEdit.conversionRate ? String(visaToEdit.conversionRate) : '');
         setRefundAmount(String(visaToEdit.refundAmount ?? '0.0'));
         setFineAmount(String(visaToEdit.fineAmount ?? '0.0'));
+        setSelectedCatalogVisaId('');
       } else {
         // Reset states to defaults
         setVendorId('');
@@ -105,6 +106,8 @@ export default function VisaReservationModal({
         setFineAmount('0.0');
         setSelectedCatalogVisaId('');
       }
+    } else {
+      setSelectedCatalogVisaId('');
     }
   }, [isOpen, visaToEdit, booking]);
 

@@ -4251,6 +4251,7 @@ export default function BookingManager({
       />
 
       <TransportReservationModal
+        key={editingTransport ? `edit-transport-${editingTransport.id}` : 'new-transport'}
         isOpen={isTransportModalOpen}
         onClose={() => {
           setIsTransportModalOpen(false);
@@ -4265,6 +4266,7 @@ export default function BookingManager({
       />
 
       <VisaReservationModal
+        key={editingVisa ? `edit-visa-${editingVisa.id}` : 'new-visa'}
         isOpen={isVisaModalOpen}
         onClose={() => {
           setIsVisaModalOpen(false);

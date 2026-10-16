@@ -82,7 +82,8 @@ export default function TransportReservationModal({
         setVendorId(transportToEdit.vendorId || '');
         setDate(formatDateToInput(transportToEdit.date));
         setVehicleType(transportToEdit.vehicleType || '');
-        setSelectedCatalogVehicleType(transportToEdit.vehicleType || '');
+        setSelectedCatalogVehicleType('');
+        setSelectedCatalogTransportId('');
         setDepartureDestination(transportToEdit.departureDestination || '');
         setArrivalDestination(transportToEdit.arrivalDestination || '');
         setDepartureTime(transportToEdit.departureTime || '');
@@ -155,6 +156,9 @@ export default function TransportReservationModal({
         setSelectedCatalogVehicleType('');
         setSelectedCatalogTransportId('');
       }
+    } else {
+      setSelectedCatalogVehicleType('');
+      setSelectedCatalogTransportId('');
     }
   }, [isOpen, transportToEdit, booking]);
 
@@ -236,22 +240,7 @@ export default function TransportReservationModal({
     if (chosenVehicle) {
       setVehicleType(chosenVehicle);
     }
-    // If a route was already chosen under another vehicle type, check if the same route exists for this vehicle
-    if (selectedCatalogTransportId) {
-      const prevOpt = catalogTransportOptions?.find((o: any) => o.id === selectedCatalogTransportId);
-      if (prevOpt && chosenVehicle) {
-        const matchingRoute = catalogTransportOptions?.find(
-          (o: any) =>
-            o.vehicleName?.trim().toUpperCase() === chosenVehicle.trim().toUpperCase() &&
-            (o.routeId === prevOpt.routeId || o.routeName === prevOpt.routeName)
-        );
-        if (matchingRoute) {
-          handleSelectCatalogTransport(matchingRoute.id, chosenVehicle);
-          return;
-        }
-      }
-      setSelectedCatalogTransportId('');
-    }
+    setSelectedCatalogTransportId('');
   };
 
   const handleSelectCatalogTransport = (rateId: string, explicitVehicleName?: string) => {
