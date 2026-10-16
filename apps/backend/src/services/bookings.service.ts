@@ -8,6 +8,56 @@ import { minioService } from './minio.service';
 import { vendorsService } from './vendors.service';
 import { auditLogService } from './audit.service';
 
+/**
+ * Resolves a bookingDate according to UK (Europe/London) timezone.
+ * If input is omitted or empty, or matches today's UK date without time,
+ * it accurately captures the current instant in UK business time.
+ */
+export function resolveUkBookingDate(input?: string | Date | null): Date {
+  if (!input) {
+    return new Date();
+  }
+  if (input instanceof Date) {
+    return input;
+  }
+  const str = String(input).trim();
+  if (!str) {
+    return new Date();
+  }
+
+  // If a pure YYYY-MM-DD date string was passed
+  const dateOnlyRegex = /^\d{4}-\d{2}-\d{2}$/;
+  if (dateOnlyRegex.test(str)) {
+    const todayUk = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Europe/London',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date());
+
+    if (str === todayUk) {
+      // It is today's date in the UK: record current moment
+      return new Date();
+    } else {
+      // Historical or future date: anchor to 12:00:00 (midday) UK time
+      const testDate = new Date(`${str}T12:00:00Z`);
+      const ukHour = parseInt(
+        new Intl.DateTimeFormat('en-GB', {
+          timeZone: 'Europe/London',
+          hour: 'numeric',
+          hour12: false,
+        }).format(testDate),
+        10,
+      );
+      const offsetHours = ukHour - 12;
+      return new Date(testDate.getTime() - offsetHours * 3600000);
+    }
+  }
+
+  const parsed = new Date(str);
+  return isNaN(parsed.getTime()) ? new Date() : parsed;
+}
+
 export class BookingsService {
   async getNextReference() {
     const lastBooking = await prisma.booking.findFirst({
@@ -59,7 +109,7 @@ export class BookingsService {
         totalPrice: Number(data.totalPrice) || 0,
         status: data.status || BookingStatus.PENDING,
         agentId: data.agentId || null,
-        bookingDate: data.bookingDate ? new Date(data.bookingDate) : new Date(),
+        bookingDate: resolveUkBookingDate(data.bookingDate),
         departureDate: data.departureDate ? new Date(data.departureDate) : null,
         paidAmount: Number(data.paidAmount) || 0,
         refundAmount: Number(data.refundAmount) || 0,
@@ -891,7 +941,7 @@ export class BookingsService {
     }
 
     if (data.bookingDate !== undefined) {
-      updateData.bookingDate = data.bookingDate ? new Date(data.bookingDate) : null;
+      updateData.bookingDate = data.bookingDate ? resolveUkBookingDate(data.bookingDate) : null;
     }
 
     if (data.departureDate !== undefined) {
@@ -1487,6 +1537,7 @@ export class BookingsService {
         fineAmount: Number(data.fineAmount) || 0,
         agentQuotedPrice: data.agentQuotedPrice !== undefined && data.agentQuotedPrice !== null ? (Number(data.agentQuotedPrice) || null) : null,
         confirmationNumber: data.confirmationNumber || null,
+        lastCancellationDate: data.lastCancellationDate ? new Date(data.lastCancellationDate) : null,
       },
       include: {
         vendor: true
@@ -1531,6 +1582,7 @@ export class BookingsService {
         fineAmount: data.fineAmount !== undefined ? (Number(data.fineAmount) || 0) : undefined,
         agentQuotedPrice: data.agentQuotedPrice !== undefined ? (data.agentQuotedPrice !== null ? Number(data.agentQuotedPrice) : null) : undefined,
         confirmationNumber: data.confirmationNumber !== undefined ? data.confirmationNumber : undefined,
+        lastCancellationDate: data.lastCancellationDate !== undefined ? (data.lastCancellationDate ? new Date(data.lastCancellationDate) : null) : undefined,
       },
       include: {
         vendor: true
@@ -3369,6 +3421,235 @@ export class BookingsService {
 
       return updatedBvp;
     });
+  }
+
+  /**
+   * Retrieves all hotel accommodations with a free cancellation deadline within 5 days (or past),
+   * where the booking is not yet CONFIRMED or CANCELLED, and the free cancellation date is still active.
+   */
+  async getHotelCancellationAlerts() {
+    const fiveDaysFromNow = new Date();
+    fiveDaysFromNow.setDate(fiveDaysFromNow.getDate() + 5);
+    fiveDaysFromNow.setHours(23, 59, 59, 999);
+
+    const accommodations = await prisma.accommodationService.findMany({
+      where: {
+        lastCancellationDate: {
+          not: null,
+          lte: fiveDaysFromNow,
+        },
+        booking: {
+          status: {
+            notIn: [BookingStatus.CONFIRMED, BookingStatus.CANCELLED],
+          },
+        },
+      },
+      include: {
+        vendor: { select: { id: true, name: true, phoneNumber: true } },
+        booking: {
+          select: {
+            id: true,
+            bookingReference: true,
+            status: true,
+            agentId: true,
+            agent: { select: { id: true, name: true } },
+            passengers: {
+              where: { role: 'Leader' },
+              select: { firstName: true, lastName: true, phoneNumber: true, email: true },
+              take: 1,
+            },
+          },
+        },
+      },
+      orderBy: {
+        lastCancellationDate: 'asc',
+      },
+    });
+
+    const now = new Date();
+
+    return accommodations.map((acc) => {
+      const cancelDate = new Date(acc.lastCancellationDate!);
+      const diffMs = cancelDate.getTime() - now.getTime();
+      const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+      const hoursLeft = Math.ceil(diffMs / (1000 * 60 * 60));
+      const leadPax = acc.booking.passengers?.[0];
+
+      return {
+        id: acc.id,
+        bookingId: acc.bookingId,
+        bookingReference: acc.booking.bookingReference,
+        bookingStatus: acc.booking.status,
+        hotelName: acc.hotelName,
+        roomType: acc.roomType,
+        city: acc.city,
+        checkInDate: acc.checkInDate,
+        checkOutDate: acc.checkOutDate,
+        lastCancellationDate: acc.lastCancellationDate,
+        daysLeft,
+        hoursLeft,
+        isOverdue: diffMs < 0,
+        agentId: acc.booking.agentId,
+        agentName: acc.booking.agent?.name || 'Unassigned',
+        customerName: leadPax ? `${leadPax.firstName || ''} ${leadPax.lastName || ''}`.trim() : 'Valued Customer',
+        customerPhone: leadPax?.phoneNumber || '',
+        vendorName: acc.vendor?.name || 'Hotel Vendor',
+        price: acc.price,
+        currency: acc.currency,
+      };
+    });
+  }
+
+  /**
+   * Marks a hotel accommodation as booked by removing the free cancellation date.
+   * This immediately stops the danger sound and deactivates the cancellation alert.
+   */
+  async markHotelBooked(bookingId: string, accommodationId: string, actorId?: string) {
+    const acc = await prisma.accommodationService.findFirst({
+      where: { id: accommodationId, bookingId },
+      include: { booking: true },
+    });
+
+    if (!acc) {
+      throw new NotFoundException('Hotel accommodation not found for this booking.');
+    }
+
+    const previousCancellationDate = acc.lastCancellationDate;
+
+    const updated = await prisma.accommodationService.update({
+      where: { id: accommodationId },
+      data: {
+        lastCancellationDate: null,
+      },
+    });
+
+    await auditLogService.log({
+      userId: actorId || acc.booking.userId,
+      action: 'Update',
+      module: 'Bookings',
+      recordId: accommodationId,
+      oldValue: { lastCancellationDate: previousCancellationDate },
+      newValue: { lastCancellationDate: null, hotelName: acc.hotelName, action: 'Hotel booked - free cancellation removed' },
+    });
+
+    return updated;
+  }
+
+  /**
+   * Fetches all transfer / transport services where free cancellation is within 5 days (or past due)
+   * and the parent booking is not yet CONFIRMED or CANCELLED.
+   */
+  async getTransferCancellationAlerts() {
+    const thresholdDate = new Date();
+    thresholdDate.setDate(thresholdDate.getDate() + 5);
+
+    const transports = await prisma.transportService.findMany({
+      where: {
+        lastCancellationDate: {
+          not: null,
+          lte: thresholdDate,
+        },
+        booking: {
+          status: {
+            notIn: ['CONFIRMED', 'CANCELLED'],
+          },
+        },
+      },
+      include: {
+        vendor: { select: { id: true, name: true } },
+        booking: {
+          select: {
+            id: true,
+            bookingReference: true,
+            status: true,
+            agentId: true,
+            agent: { select: { id: true, name: true } },
+            passengers: {
+              where: { role: 'Leader' },
+              select: { firstName: true, lastName: true, phoneNumber: true, email: true },
+              take: 1,
+            },
+          },
+        },
+      },
+      orderBy: {
+        lastCancellationDate: 'asc',
+      },
+    });
+
+    const now = new Date();
+
+    return transports.map((tr) => {
+      const cancelDate = new Date(tr.lastCancellationDate!);
+      const diffMs = cancelDate.getTime() - now.getTime();
+      const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+      const hoursLeft = Math.ceil(diffMs / (1000 * 60 * 60));
+      const leadPax = tr.booking.passengers?.[0];
+
+      return {
+        id: tr.id,
+        bookingId: tr.bookingId,
+        bookingReference: tr.booking.bookingReference,
+        bookingStatus: tr.booking.status,
+        vehicleType: tr.vehicleType,
+        departureDestination: tr.departureDestination,
+        arrivalDestination: tr.arrivalDestination,
+        date: tr.date,
+        departureTime: tr.departureTime,
+        arrivalTime: tr.arrivalTime,
+        flightNo: tr.flightNo,
+        lastCancellationDate: tr.lastCancellationDate,
+        daysLeft,
+        hoursLeft,
+        isOverdue: diffMs < 0,
+        agentId: tr.booking.agentId,
+        agentName: tr.booking.agent?.name || 'Unassigned',
+        customerName: leadPax ? `${leadPax.firstName || ''} ${leadPax.lastName || ''}`.trim() : 'Valued Customer',
+        customerPhone: leadPax?.phoneNumber || '',
+        vendorName: tr.vendor?.name || 'Transport Vendor',
+        price: tr.price,
+        currency: tr.currency,
+      };
+    });
+  }
+
+  /**
+   * Marks a transfer / transport service as booked by removing the free cancellation date.
+   * This immediately stops the danger sound and deactivates the cancellation alert.
+   */
+  async markTransferBooked(bookingId: string, transportId: string, actorId?: string) {
+    const tr = await prisma.transportService.findFirst({
+      where: { id: transportId, bookingId },
+      include: { booking: true },
+    });
+
+    if (!tr) {
+      throw new NotFoundException('Transfer service not found for this booking.');
+    }
+
+    const previousCancellationDate = tr.lastCancellationDate;
+
+    const updated = await prisma.transportService.update({
+      where: { id: transportId },
+      data: {
+        lastCancellationDate: null,
+      },
+    });
+
+    await auditLogService.log({
+      userId: actorId || tr.booking.userId,
+      action: 'Update',
+      module: 'Bookings',
+      recordId: transportId,
+      oldValue: { lastCancellationDate: previousCancellationDate },
+      newValue: {
+        lastCancellationDate: null,
+        route: `${tr.departureDestination} -> ${tr.arrivalDestination}`,
+        action: 'Transfer booked - free cancellation removed',
+      },
+    });
+
+    return updated;
   }
 }
 

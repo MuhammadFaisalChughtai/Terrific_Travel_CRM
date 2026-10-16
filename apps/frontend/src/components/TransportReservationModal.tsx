@@ -54,6 +54,7 @@ export default function TransportReservationModal({
   const [price, setPrice] = useState('0');
   const [agentQuotedPrice, setAgentQuotedPrice] = useState('');
   const [confirmationNumber, setConfirmationNumber] = useState('');
+  const [lastCancellationDate, setLastCancellationDate] = useState('');
   const [currency, setCurrency] = useState('GBP');
   const [otherCurrencyType, setOtherCurrencyType] = useState('SAR');
   const [otherCurrencyAmount, setOtherCurrencyAmount] = useState('');
@@ -115,6 +116,7 @@ export default function TransportReservationModal({
         setPrice(String(transportToEdit.price || '0'));
         setAgentQuotedPrice(transportToEdit.agentQuotedPrice !== undefined && transportToEdit.agentQuotedPrice !== null ? String(transportToEdit.agentQuotedPrice) : '');
         setConfirmationNumber(transportToEdit.confirmationNumber || '');
+        setLastCancellationDate(transportToEdit.lastCancellationDate ? formatDateToInput(transportToEdit.lastCancellationDate) : '');
         setCurrency(transportToEdit.currency || '');
         setOtherCurrencyType(transportToEdit.otherCurrencyType || transportToEdit.otherCurrency || 'SAR');
         setOtherCurrencyAmount(transportToEdit.otherCurrencyAmount ? String(transportToEdit.otherCurrencyAmount) : (transportToEdit.otherCurrency && !isNaN(Number(transportToEdit.otherCurrency)) ? transportToEdit.otherCurrency : ''));
@@ -140,6 +142,7 @@ export default function TransportReservationModal({
         setPrice('0');
         setAgentQuotedPrice('');
         setConfirmationNumber('');
+        setLastCancellationDate('');
         setCurrency('GBP');
         setOtherCurrencyType('SAR');
         setOtherCurrencyAmount('');
@@ -442,6 +445,7 @@ export default function TransportReservationModal({
         fineAmount: Number(fineAmount) || 0,
         agentQuotedPrice: agentQuotedPrice ? Number(agentQuotedPrice) : null,
         confirmationNumber: confirmationNumber || null,
+        lastCancellationDate: lastCancellationDate ? new Date(lastCancellationDate).toISOString() : null,
       };
 
       if (transportToEdit) {
@@ -1093,6 +1097,19 @@ export default function TransportReservationModal({
                   placeholder="Enter Confirmation Number"
                   value={confirmationNumber}
                   onChange={(e) => setConfirmationNumber(e.target.value)}
+                  className="w-full text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                />
+              </div>
+
+              {/* Last Cancellation Date */}
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Last Cancellation Date (Free Cancellation)
+                </label>
+                <input
+                  type="date"
+                  value={lastCancellationDate}
+                  onChange={(e) => setLastCancellationDate(e.target.value)}
                   className="w-full text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                 />
               </div>

@@ -79,8 +79,9 @@ export default function InvoicesPage() {
     useState<string>("all");
   const [printTicketGroupByNationality, setPrintTicketGroupByNationality] =
     useState<boolean>(false);
-  const [printTicketDocType, setPrintTicketDocType] =
-    useState<"eticket" | "full_package" | "hotel_voucher" | "agent_copy">("eticket");
+  const [printTicketDocType, setPrintTicketDocType] = useState<
+    "eticket" | "full_package" | "hotel_voucher" | "agent_copy"
+  >("eticket");
   const [printTicketSelectedNationality, setPrintTicketSelectedNationality] =
     useState<string>("all");
   const [printTicketSplitByNationality, setPrintTicketSplitByNationality] =
@@ -98,7 +99,8 @@ export default function InvoicesPage() {
       params.append("limit", itemsPerPage.toString());
       params.append("offset", offset.toString());
       if (searchTerm) params.append("search", searchTerm);
-      if (paymentStatusFilter !== "Any") params.append("paymentStatus", paymentStatusFilter);
+      if (paymentStatusFilter !== "Any")
+        params.append("paymentStatus", paymentStatusFilter);
 
       const res = await apiClient.get(`/bookings?${params.toString()}`);
       return res.data.data;
@@ -204,7 +206,9 @@ export default function InvoicesPage() {
                     booking.passengers?.find((p: any) => p.role === "Leader") ||
                     booking.passengers?.[0];
                   const clientName = leadPassenger
-                    ? `${leadPassenger.title ? leadPassenger.title + " " : ""}${leadPassenger.firstName || ""} ${leadPassenger.lastName || ""}`.trim().toUpperCase()
+                    ? `${leadPassenger.title ? leadPassenger.title + " " : ""}${leadPassenger.firstName || ""} ${leadPassenger.lastName || ""}`
+                        .trim()
+                        .toUpperCase()
                     : "No passengers";
                   const clientEmail = leadPassenger?.email || "—";
 
@@ -539,10 +543,18 @@ export default function InvoicesPage() {
               onChange={(e: any) => setPrintTicketDocType(e.target.value)}
               className="text-xs py-2 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary w-full font-bold"
             >
-              <option value="eticket">Official Flight E-Ticket &amp; Itinerary (Default)</option>
-              <option value="full_package">Full Package Itinerary (Flight + Hotel + Transport)</option>
-              <option value="hotel_voucher">Hotel / Accommodation Voucher Only</option>
-              <option value="agent_copy">Agent Operations &amp; Internal Audit Record</option>
+              <option value="eticket">
+                Official Flight E-Ticket &amp; Itinerary (Default)
+              </option>
+              <option value="full_package">
+                Full Package Itinerary (Flight + Hotel + Transport)
+              </option>
+              <option value="hotel_voucher">
+                Hotel / Accommodation Voucher Only
+              </option>
+              <option value="agent_copy">
+                Agent Operations &amp; Internal Audit Record
+              </option>
             </select>
           </div>
 
@@ -564,10 +576,14 @@ export default function InvoicesPage() {
                   </label>
                   <select
                     value={printTicketSelectedNationality}
-                    onChange={(e) => setPrintTicketSelectedNationality(e.target.value)}
+                    onChange={(e) =>
+                      setPrintTicketSelectedNationality(e.target.value)
+                    }
                     className="text-xs py-2 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary w-full font-medium"
                   >
-                    <option value="all">All Nationalities / All Passengers</option>
+                    <option value="all">
+                      All Nationalities / All Passengers
+                    </option>
                     {availableNationalities.map((nat) => (
                       <option key={nat} value={nat}>
                         {nat} Passengers Only
@@ -576,21 +592,33 @@ export default function InvoicesPage() {
                   </select>
                 </div>
 
-                {availableNationalities.length > 1 && printTicketSelectedNationality === "all" && (
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                      Print Format (Multiple Nationalities Detected)
-                    </label>
-                    <select
-                      value={printTicketSplitByNationality ? "split" : "single"}
-                      onChange={(e) => setPrintTicketSplitByNationality(e.target.value === "split")}
-                      className="text-xs py-2 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary w-full font-medium"
-                    >
-                      <option value="single">Single Combined Ticket (All Nationalities on 1 Document)</option>
-                      <option value="split">Multiple Tickets (Separate Page Break per Nationality)</option>
-                    </select>
-                  </div>
-                )}
+                {availableNationalities.length > 1 &&
+                  printTicketSelectedNationality === "all" && (
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                        Print Format (Multiple Nationalities Detected)
+                      </label>
+                      <select
+                        value={
+                          printTicketSplitByNationality ? "split" : "single"
+                        }
+                        onChange={(e) =>
+                          setPrintTicketSplitByNationality(
+                            e.target.value === "split",
+                          )
+                        }
+                        className="text-xs py-2 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary w-full font-medium"
+                      >
+                        <option value="single">
+                          Single Combined Ticket (All Nationalities on 1
+                          Document)
+                        </option>
+                        <option value="split">
+                          Multiple Tickets (Separate Page Break per Nationality)
+                        </option>
+                      </select>
+                    </div>
+                  )}
               </>
             );
           })()}
@@ -609,7 +637,11 @@ export default function InvoicesPage() {
               </option>
               {printTicketSelectedBooking?.passengers?.map((p: any) => (
                 <option key={p.id} value={p.id}>
-                  {((p.title ? `${p.title} ` : "") + `${p.firstName || ""} ${p.lastName || ""}`).toUpperCase()} ({p.role || "Passenger"})
+                  {(
+                    (p.title ? `${p.title} ` : "") +
+                    `${p.firstName || ""} ${p.lastName || ""}`
+                  ).toUpperCase()}{" "}
+                  ({p.role || "Passenger"})
                 </option>
               ))}
             </select>
@@ -620,10 +652,15 @@ export default function InvoicesPage() {
               type="checkbox"
               id="groupByNationalityInvoices"
               checked={printTicketGroupByNationality}
-              onChange={(e) => setPrintTicketGroupByNationality(e.target.checked)}
+              onChange={(e) =>
+                setPrintTicketGroupByNationality(e.target.checked)
+              }
               className="rounded border-border text-primary focus:ring-primary w-4 h-4 cursor-pointer"
             />
-            <label htmlFor="groupByNationalityInvoices" className="text-xs font-bold text-foreground cursor-pointer flex items-center gap-1.5">
+            <label
+              htmlFor="groupByNationalityInvoices"
+              className="text-xs font-bold text-foreground cursor-pointer flex items-center gap-1.5"
+            >
               <span>Group Passengers by Nationality Headers on Ticket</span>
             </label>
           </div>

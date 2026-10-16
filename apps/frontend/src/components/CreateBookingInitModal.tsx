@@ -68,12 +68,23 @@ export default function CreateBookingInitModal({
     );
   }, [agents, user]);
 
+  // Get today's date in UK timezone (Europe/London) YYYY-MM-DD
+  const getUkTodayDate = (): string => {
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Europe/London",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+  };
+
   // When modal opens, pre-select agent profile and fetch next booking reference
   useEffect(() => {
     if (isOpen) {
       if (linkedAgent) {
         setAgentId(linkedAgent.id);
       }
+      setBookingDate(getUkTodayDate());
       apiClient
         .get("/bookings/next-reference")
         .then((res) => {
@@ -124,7 +135,7 @@ export default function CreateBookingInitModal({
     e.preventDefault();
     createMutation.mutate({
       agentId: agentId || null,
-      bookingDate: bookingDate || new Date().toISOString(),
+      bookingDate: bookingDate || getUkTodayDate(),
       departureDate: departureDate || null,
       totalPrice: Number(totalPrice) || 0,
       bookingReference: (bookingReference || "").trim().toUpperCase() || null,
@@ -250,9 +261,14 @@ export default function CreateBookingInitModal({
 
         {/* Booking Date */}
         <div>
-          <label className="block text-[11px] font-bold text-foreground mb-1">
-            Booking Date
-          </label>
+          <div className="flex items-center justify-between mb-1">
+            <label className="block text-[11px] font-bold text-foreground">
+              Booking Date
+            </label>
+            <span className="text-[10px] text-primary font-bold flex items-center gap-1">
+              🇬🇧 UK Time
+            </span>
+          </div>
           <div className="relative group">
             <div className="absolute left-0 top-0 bottom-0 w-9 flex items-center justify-center text-muted-foreground group-focus-within:text-primary transition-colors pointer-events-none">
               <CalendarRange size={14} />
@@ -265,6 +281,9 @@ export default function CreateBookingInitModal({
               required
             />
           </div>
+          <p className="mt-1 text-[10px] text-muted-foreground">
+            Defaults to current UK business date (London time).
+          </p>
         </div>
 
         {/* Travel Date */}

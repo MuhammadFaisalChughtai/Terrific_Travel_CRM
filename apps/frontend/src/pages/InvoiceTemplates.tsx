@@ -670,6 +670,8 @@ const PLACEHOLDERS_BY_TYPE: Record<
       description: "HTML table rows of pick-up and drop-off",
     },
     { key: "{{TOTAL_GROUND_COST}}", description: "Total ground cost price" },
+    { key: "{{CONFIRMATION_NO}}", description: "Confirmation number (hidden if none)" },
+    { key: "{{CONFIRMATION_NO_BLOCK}}", description: "Confirmation number block (hidden if none)" },
   ],
   visa_invoice: [
     { key: "{{BOOKING_REF}}", description: "Booking unique reference" },

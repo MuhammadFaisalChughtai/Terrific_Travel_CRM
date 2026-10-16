@@ -527,13 +527,14 @@ export function downloadDocument(htmlContent: string, filename: string) {
   html2pdf().set(opt).from(element).save();
 }
 
-// Format date securely
+// Format date securely in official UK timezone
 function formatDate(d: any) {
   if (!d) return "—";
   return new Date(d).toLocaleDateString("en-GB", {
     day: "2-digit",
     month: "short",
     year: "numeric",
+    timeZone: "Europe/London",
   });
 }
 
@@ -565,6 +566,7 @@ function generateTimelineHtml(booking: any): string {
       day: "2-digit",
       month: "short",
       year: "numeric",
+      timeZone: "Europe/London",
     });
   };
 
@@ -2433,6 +2435,17 @@ export function generateTransportVoucherHtml(booking: any, transport: any) {
       ? transferFlightNumbers.join(" & ")
       : "—";
 
+  // Confirmation numbers on these transfers
+  const confirmationNumbers = Array.from(
+    new Set(
+      transfers
+        .map((t: any) => (t.confirmationNumber || "").trim())
+        .filter(Boolean),
+    ),
+  );
+  const confSummary = confirmationNumbers.join(", ");
+  const hasConfirmation = confirmationNumbers.length > 0;
+
   return `
     <div class="document-container">
       <!-- Header -->
@@ -2463,6 +2476,7 @@ export function generateTransportVoucherHtml(booking: any, transport: any) {
           <p>Voucher No: <strong>${voucherNo}</strong></p>
           <p>Issue Date: <strong>${issueDate}</strong></p>
           <p>Booking Reference: <strong>${booking.bookingReference}</strong></p>
+          ${hasConfirmation ? `<p>Confirmation No: <strong style="color: #065F46;">${confSummary}</strong></p>` : ""}
         </div>
       </div>
 
@@ -2482,10 +2496,19 @@ export function generateTransportVoucherHtml(booking: any, transport: any) {
             <span style="font-weight: 700; color: #334155; min-width: 110px;">REF:</span>
             <span style="color: #0F172A;">${agentRef}</span>
           </div>
-          <div style="display: flex; padding: 8px 12px; gap: 8px;">
+          <div style="display: flex; ${hasConfirmation ? "border-bottom: 1px solid #E2E8F0;" : ""} padding: 8px 12px; gap: 8px;">
             <span style="font-weight: 700; color: #334155; min-width: 110px;">FLIGHT(S):</span>
             <span style="color: #0284C7; font-weight: 700;">${allTransferFlightSummary}</span>
           </div>
+          ${
+            hasConfirmation
+              ? `
+          <div style="display: flex; padding: 8px 12px; gap: 8px;">
+            <span style="font-weight: 700; color: #334155; min-width: 110px;">CONFIRMATION NO:</span>
+            <span style="color: #065F46; font-weight: 800;">${confSummary}</span>
+          </div>`
+              : ""
+          }
         </div>
         <div style="display: flex; flex-direction: column;">
           <div style="display: flex; border-bottom: 1px solid #E2E8F0; padding: 8px 12px; gap: 8px;">
@@ -2500,10 +2523,19 @@ export function generateTransportVoucherHtml(booking: any, transport: any) {
             <span style="font-weight: 700; color: #334155; min-width: 110px;">NO OF PAX</span>
             <span style="color: #0F172A;">${paxCount}</span>
           </div>
-          <div style="display: flex; padding: 8px 12px; gap: 8px;">
+          <div style="display: flex; ${hasConfirmation ? "border-bottom: 1px solid #E2E8F0;" : ""} padding: 8px 12px; gap: 8px;">
             <span style="font-weight: 700; color: #334155; min-width: 110px;">VEHICLE</span>
             <span style="color: #0F172A;">${primaryVehicle.toUpperCase()}</span>
           </div>
+          ${
+            hasConfirmation
+              ? `
+          <div style="display: flex; padding: 8px 12px; gap: 8px;">
+            <span style="font-weight: 700; color: #334155; min-width: 110px;">CONF STATUS:</span>
+            <span style="color: #065F46; font-weight: 800;">CONFIRMED</span>
+          </div>`
+              : ""
+          }
         </div>
       </div>
 
@@ -2540,7 +2572,14 @@ export function generateTransportVoucherHtml(booking: any, transport: any) {
               <td><strong>${t.departureDestination}</strong></td>
               <td><strong>${t.arrivalDestination}</strong></td>
               <td>${paxCount}</td>
-              <td>${t.vehicleType || "—"}</td>
+              <td>
+                <strong>${t.vehicleType || "—"}</strong>
+                ${
+                  t.confirmationNumber && t.confirmationNumber.trim()
+                    ? `<div style="margin-top: 3px; font-size: 9.5px; font-weight: 800; color: #065F46;"><span style="color: #64748B; font-weight: 600;">Conf:</span> ${t.confirmationNumber.trim()}</div>`
+                    : ""
+                }
+              </td>
             </tr>
           `,
             )
@@ -3076,6 +3115,16 @@ export function renderTransportVoucher(
     return parseTimeStr(a.departureTime) - parseTimeStr(b.departureTime);
   });
 
+  const confirmationNumbers = Array.from(
+    new Set(
+      transfers
+        .map((t: any) => (t.confirmationNumber || "").trim())
+        .filter(Boolean),
+    ),
+  );
+  const confSummary = confirmationNumbers.join(", ");
+  const hasConfirmation = confirmationNumbers.length > 0;
+
   const transfersRows = sortedTransports
     .map(
       (t: any) => `
@@ -3091,6 +3140,11 @@ export function renderTransportVoucher(
         ${
           t.flightNo
             ? `<div style="margin-top: 4px;">${formatVoucherFlightNos(t.flightNo, booking.flightServices)}</div>`
+            : ""
+        }
+        ${
+          t.confirmationNumber && t.confirmationNumber.trim()
+            ? `<div style="margin-top: 4px; font-size: 10px; font-weight: 800; color: #065F46;"><span style="color: #64748B; font-weight: 600;">Conf:</span> ${t.confirmationNumber.trim()}</div>`
             : ""
         }
       </td>
@@ -3123,6 +3177,28 @@ export function renderTransportVoucher(
     /{{VENDOR_EMAIL}}/g,
     transfers[0]?.vendor?.supportEmail || "—",
   );
+
+  const confirmationBlock = hasConfirmation
+    ? `<p>Confirmation No: <strong style="color: #065F46;">${confSummary}</strong></p>`
+    : "";
+
+  if (html.includes("{{CONFIRMATION_NO_BLOCK}}")) {
+    html = html.replace(/{{CONFIRMATION_NO_BLOCK}}/g, confirmationBlock);
+  } else if (hasConfirmation && !html.includes("Confirmation No")) {
+    html = html.replace(
+      /(<p[^>]*>(?:Booking Reference|BOOKING_REF):?[\s\S]*?<\/p>)/i,
+      `$1\n          ${confirmationBlock}`,
+    );
+  }
+
+  if (hasConfirmation) {
+    html = html.replace(/{{CONFIRMATION_NO}}/g, confSummary);
+  } else {
+    html = html.replace(/{{CONFIRMATION_NO}}/g, "");
+    html = html.replace(/<p[^>]*>Confirmation No:?[\s\S]*?<\/p>/gi, "");
+    html = html.replace(/<div[^>]*class="[^"]*detail-box[^"]*"[^>]*>[\s\S]*?<label[^>]*>Confirmation No<\/label>[\s\S]*?<\/div>/gi, "");
+    html = html.replace(/<div[^>]*class="[^"]*info-cell[^"]*"[^>]*>[\s\S]*?<label[^>]*>Confirmation No<\/label>[\s\S]*?<\/div>/gi, "");
+  }
 
   // Dynamically strip any Price header and Total Ground Cost elements to ensure price is completely removed
   html = html.replace(/<th[^>]*>\s*Price\s*<\/th>/gi, "");

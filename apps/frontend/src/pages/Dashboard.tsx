@@ -954,7 +954,7 @@ export default function Dashboard() {
                           </td>
                           <td className="py-2.5 px-3 text-muted-foreground whitespace-nowrap">
                             {booking.bookingDate
-                              ? new Date(booking.bookingDate).toLocaleDateString("en-GB")
+                              ? new Date(booking.bookingDate).toLocaleDateString("en-GB", { timeZone: "Europe/London" })
                               : "N/A"}
                           </td>
                           <td className="py-2.5 px-3">

@@ -145,12 +145,16 @@ export default function Bookings() {
   // Applied parameters
   const [appliedFilters, setAppliedFilters] = useState<any>({});
 
-  // Auto-apply ?ref= query param on page load (deep-link from Booked Services Monitor)
+  // Auto-apply ?ref= or ?bookingId= query param on page load (deep-link)
   useEffect(() => {
     const refParam = searchParams.get("ref");
     if (refParam) {
       setFilterRefVal(refParam);
       setAppliedFilters({ bookingReference: refParam });
+    }
+    const bookingIdParam = searchParams.get("bookingId");
+    if (bookingIdParam) {
+      setSelectedBookingId(bookingIdParam);
     }
   }, [searchParams]);
 
@@ -638,9 +642,22 @@ export default function Bookings() {
                           month: "long",
                           day: "2-digit",
                           year: "numeric",
+                          timeZone: "Europe/London",
+                        });
+                      };
+                      const formatTime = (dateString: any) => {
+                        if (!dateString) return "";
+                        const date = new Date(dateString);
+                        return date.toLocaleTimeString("en-GB", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          timeZone: "Europe/London",
                         });
                       };
                       const bookingDate = formatDate(
+                        booking.bookingDate || booking.createdAt,
+                      );
+                      const bookingTime = formatTime(
                         booking.bookingDate || booking.createdAt,
                       );
                       const travelDate = formatDate(booking.departureDate);
@@ -842,7 +859,10 @@ export default function Bookings() {
                             </button>
                           </td>
                           <td className="px-4 py-3.5 whitespace-nowrap text-muted-foreground align-middle">
-                            {bookingDate}
+                            <div className="font-medium text-foreground">{bookingDate}</div>
+                            {bookingTime && (
+                              <div className="text-[10px] text-muted-foreground/80">{bookingTime} (UK)</div>
+                            )}
                           </td>
                           <td className="px-4 py-3.5 whitespace-nowrap text-muted-foreground align-middle">
                             {travelDate}

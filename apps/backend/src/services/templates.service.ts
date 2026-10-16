@@ -774,6 +774,7 @@ ${SHARED_CSS}
       <p>Voucher No: <strong>{{VOUCHER_NO}}</strong></p>
       <p>Issue Date: <strong>{{ISSUE_DATE}}</strong></p>
       <p>Booking Reference: <strong>{{BOOKING_REF}}</strong></p>
+      {{CONFIRMATION_NO_BLOCK}}
     </div>
   </div>
 

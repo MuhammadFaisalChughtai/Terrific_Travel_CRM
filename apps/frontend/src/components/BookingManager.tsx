@@ -825,7 +825,12 @@ export default function BookingManager({
     setEditAgentId(b.agentId ?? "");
     setEditBookingDate(
       b.bookingDate
-        ? new Date(b.bookingDate).toISOString().split("T")[0]
+        ? new Intl.DateTimeFormat("en-CA", {
+            timeZone: "Europe/London",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+          }).format(new Date(b.bookingDate))
         : "",
     );
     setEditDepartureDate(
@@ -1327,7 +1332,7 @@ export default function BookingManager({
               {/* ── VIEW MODE ── */}
               {!isEditingDetails && (
                 <div className="pl-5 pr-4 py-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-8 gap-y-3 flex-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-3 flex-1">
                     {/* Total Amount */}
                     <div className="flex flex-col gap-0.5">
                       <div className="flex items-center gap-1.5">
@@ -1353,6 +1358,37 @@ export default function BookingManager({
                         {booking.agent?.name || (
                           <span className="text-muted-foreground italic text-[12px] font-normal">
                             No agent assigned
+                          </span>
+                        )}
+                      </span>
+                    </div>
+
+                    {/* Booking Date (UK) */}
+                    <div className="flex flex-col gap-0.5">
+                      <div className="flex items-center gap-1.5">
+                        <Calendar size={10} className="text-primary" />
+                        <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-1">
+                          Booking Date <span className="text-[8px] text-primary font-bold">🇬🇧 UK</span>
+                        </span>
+                      </div>
+                      <span className="text-[14px] font-bold text-foreground">
+                        {booking.bookingDate || booking.createdAt ? (
+                          <>
+                            {new Date(booking.bookingDate || booking.createdAt).toLocaleDateString(
+                              "en-GB",
+                              { day: "2-digit", month: "short", year: "numeric", timeZone: "Europe/London" },
+                            )}
+                            <span className="text-[11px] text-muted-foreground font-normal ml-1.5">
+                              {new Date(booking.bookingDate || booking.createdAt).toLocaleTimeString("en-GB", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                timeZone: "Europe/London",
+                              })}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground italic text-[12px] font-normal">
+                            Not set
                           </span>
                         )}
                       </span>
@@ -1466,8 +1502,8 @@ export default function BookingManager({
                     <div className="space-y-1.5">
                       <div className="flex items-center gap-1.5">
                         <Calendar size={10} className="text-primary" />
-                        <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">
-                          Booking Date
+                        <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-1">
+                          Booking Date <span className="text-[8px] text-primary font-bold">🇬🇧 UK Time</span>
                         </label>
                       </div>
                       <input
@@ -3437,6 +3473,74 @@ export default function BookingManager({
                               </span>
                             </div>
                           )}
+
+                          {acc.lastCancellationDate && (() => {
+                            const cancelDate = new Date(acc.lastCancellationDate);
+                            const now = new Date();
+                            const diffDays = Math.ceil((cancelDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                            const isDanger = diffDays <= 5 && !["CONFIRMED", "CANCELLED"].includes(booking?.status);
+
+                            return (
+                              <div
+                                className={`mt-2 p-2 rounded border flex flex-col gap-1.5 transition-colors ${
+                                  isDanger
+                                    ? "bg-rose-50 dark:bg-rose-950/40 border-rose-300 dark:border-rose-800"
+                                    : "bg-secondary/40 border-border/40"
+                                }`}
+                              >
+                                <div className="flex items-center justify-between text-[11px]">
+                                  <span
+                                    className={`font-semibold flex items-center gap-1 ${
+                                      isDanger ? "text-rose-700 dark:text-rose-300" : "text-muted-foreground"
+                                    }`}
+                                  >
+                                    {isDanger && <AlertTriangle size={13} className="text-rose-600 animate-pulse" />}
+                                    Free Cancellation:
+                                  </span>
+                                  <span
+                                    className={`font-bold ${
+                                      isDanger ? "text-rose-700 dark:text-rose-300" : "text-foreground"
+                                    }`}
+                                  >
+                                    {cancelDate.toLocaleDateString("en-GB", {
+                                      day: "2-digit",
+                                      month: "short",
+                                      year: "numeric",
+                                      timeZone: "Europe/London",
+                                    })}
+                                    {isDanger && (
+                                      <span className="ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-black bg-rose-600 text-white">
+                                        {diffDays <= 0 ? "EXPIRES TODAY" : `${diffDays}d LEFT`}
+                                      </span>
+                                    )}
+                                  </span>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    try {
+                                      await apiClient.patch(
+                                        `/bookings/${booking.id}/accommodations/${acc.id}/mark-booked`
+                                      );
+                                      toast.success("Hotel marked as booked! Cancellation deadline removed and alarm stopped.");
+                                      queryClient.invalidateQueries({ queryKey: ["booking", booking.id] });
+                                      queryClient.invalidateQueries({ queryKey: ["bookings"] });
+                                      queryClient.invalidateQueries({ queryKey: ["hotel-cancellation-alerts"] });
+                                    } catch (err: any) {
+                                      toast.error(err.response?.data?.error || "Failed to mark hotel booked");
+                                    }
+                                  }}
+                                  className="w-full py-1 px-2 flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[11px] font-bold shadow-xs transition-colors"
+                                  title="Click when hotel is booked to remove cancellation date and silence the danger alert"
+                                >
+                                  <CheckCircle2 size={12} />
+                                  <span>Hotel Booked (Clear Deadline)</span>
+                                </button>
+                              </div>
+                            );
+                          })()}
                         </div>
                       </div>
                     ))}
@@ -3626,6 +3730,57 @@ export default function BookingManager({
                                   Passenger: {ts.passengerName}
                                 </p>
                               )}
+
+                              {ts.lastCancellationDate && (() => {
+                                const cancelDate = new Date(ts.lastCancellationDate);
+                                const now = new Date();
+                                const diffDays = Math.ceil((cancelDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                                const isDanger = diffDays <= 5 && !["CONFIRMED", "CANCELLED"].includes(booking?.status);
+
+                                return (
+                                  <div
+                                    className={`mt-1.5 p-1.5 rounded border flex flex-wrap items-center justify-between gap-1.5 text-[11px] ${
+                                      isDanger
+                                        ? "bg-rose-50 dark:bg-rose-950/40 border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-300"
+                                        : "bg-secondary/40 border-border/40 text-muted-foreground"
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-1 font-semibold">
+                                      {isDanger && <AlertTriangle size={12} className="text-rose-600 animate-pulse shrink-0" />}
+                                      <span>Cancel By: {cancelDate.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "Europe/London" })}</span>
+                                      {isDanger && (
+                                        <span className="ml-1 px-1.5 py-0.2 rounded text-[9px] font-black bg-rose-600 text-white">
+                                          {diffDays <= 0 ? "EXPIRES TODAY" : `${diffDays}d LEFT`}
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    <button
+                                      type="button"
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        try {
+                                          await apiClient.patch(
+                                            `/bookings/${booking.id}/transports/${ts.id}/mark-booked`
+                                          );
+                                          toast.success("Transfer marked as booked! Cancellation deadline removed and alarm stopped.");
+                                          queryClient.invalidateQueries({ queryKey: ["booking", booking.id] });
+                                          queryClient.invalidateQueries({ queryKey: ["bookings"] });
+                                          queryClient.invalidateQueries({ queryKey: ["hotel-cancellation-alerts"] });
+                                          queryClient.invalidateQueries({ queryKey: ["transfer-cancellation-alerts"] });
+                                        } catch (err: any) {
+                                          toast.error(err.response?.data?.error || "Failed to mark transfer booked");
+                                        }
+                                      }}
+                                      className="py-0.5 px-2 flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-bold shadow-xs transition-colors shrink-0"
+                                      title="Click when transfer is booked to remove cancellation date and silence the danger alert"
+                                    >
+                                      <CheckCircle2 size={11} />
+                                      <span>Transfer Booked</span>
+                                    </button>
+                                  </div>
+                                );
+                              })()}
                             </div>
                           </td>
                           <td className="px-4 py-2.5 text-right text-[12px]">

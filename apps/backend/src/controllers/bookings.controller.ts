@@ -532,3 +532,34 @@ export const triggerMissingDetailsReminders = asyncHandler(async (req: Authentic
   const result = await runMissingDetailsCheck();
   res.status(200).json({ success: true, message: 'Missing details reminders check completed successfully.', data: result });
 });
+
+export const getHotelCancellationAlerts = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const result = await bookingsService.getHotelCancellationAlerts();
+  res.status(200).json({ success: true, data: result });
+});
+
+export const markHotelBooked = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id, accommodationId } = req.params;
+  const result = await bookingsService.markHotelBooked(id, accommodationId, req.user?.id);
+  res.status(200).json({
+    success: true,
+    message: 'Hotel marked as booked. Free cancellation deadline removed.',
+    data: result,
+  });
+});
+
+export const getTransferCancellationAlerts = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const result = await bookingsService.getTransferCancellationAlerts();
+  res.status(200).json({ success: true, data: result });
+});
+
+export const markTransferBooked = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id, transportId } = req.params;
+  const result = await bookingsService.markTransferBooked(id, transportId, req.user?.id);
+  res.status(200).json({
+    success: true,
+    message: 'Transfer marked as booked. Free cancellation deadline removed.',
+    data: result,
+  });
+});
+

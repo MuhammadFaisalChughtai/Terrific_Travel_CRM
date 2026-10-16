@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
@@ -348,19 +348,6 @@ export default function SecurityAuditPage() {
     };
   }, [selectedScreenshot]);
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (selectedScreenshot) {
-          setSelectedScreenshot(null);
-        } else if (detailAgent) {
-          setDetailAgent(null);
-        }
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedScreenshot, detailAgent]);
 
   // Live Workstations Query (refetches every 15s)
   const {
@@ -470,6 +457,131 @@ export default function SecurityAuditPage() {
     },
     enabled: isAdmin && activeTab === 'productivity',
   });
+
+  // Track page navigation requests when scrolling past page boundaries
+  const pendingPageNavRef = useRef<'next' | 'prev' | null>(null);
+
+  // Active screenshots list for keyboard navigation and carousel
+  const activeScreenshotsList = useMemo(() => {
+    const list = detailAgent ? agentAuditData?.data : auditData?.data;
+    if (!list) return selectedScreenshot ? [selectedScreenshot] : [];
+    const withScreenshots = list.filter((item) => item.hasScreenshot || item.screenshotUrl);
+    if (selectedScreenshot && !withScreenshots.some((item) => item.id === selectedScreenshot.id)) {
+      return [selectedScreenshot, ...withScreenshots];
+    }
+    return withScreenshots;
+  }, [detailAgent, agentAuditData?.data, auditData?.data, selectedScreenshot?.id]);
+
+  const currentScreenshotIndex = useMemo(() => {
+    if (!selectedScreenshot || !activeScreenshotsList.length) return -1;
+    return activeScreenshotsList.findIndex((item) => item.id === selectedScreenshot.id);
+  }, [selectedScreenshot, activeScreenshotsList]);
+
+  const handleNextScreenshot = () => {
+    if (currentScreenshotIndex === -1 || activeScreenshotsList.length === 0) return;
+    if (currentScreenshotIndex < activeScreenshotsList.length - 1) {
+      setSelectedScreenshot(activeScreenshotsList[currentScreenshotIndex + 1]);
+    } else {
+      // If at end of page and next page exists, advance to next page
+      const totalPages = detailAgent
+        ? agentAuditData?.meta?.totalPages || 1
+        : auditData?.meta?.totalPages || 1;
+      const currentPage = detailAgent ? agentModalPage : clipboardPage;
+
+      if (currentPage < totalPages) {
+        pendingPageNavRef.current = 'next';
+        if (detailAgent) {
+          setAgentModalPage((p) => p + 1);
+        } else {
+          setClipboardPage((p) => p + 1);
+        }
+      } else {
+        // Loop back to first screenshot on current page
+        setSelectedScreenshot(activeScreenshotsList[0]);
+      }
+    }
+  };
+
+  const handlePrevScreenshot = () => {
+    if (currentScreenshotIndex === -1 || activeScreenshotsList.length === 0) return;
+    if (currentScreenshotIndex > 0) {
+      setSelectedScreenshot(activeScreenshotsList[currentScreenshotIndex - 1]);
+    } else {
+      // If at start and previous page exists, go to previous page
+      const currentPage = detailAgent ? agentModalPage : clipboardPage;
+      if (currentPage > 1) {
+        pendingPageNavRef.current = 'prev';
+        if (detailAgent) {
+          setAgentModalPage((p) => p - 1);
+        } else {
+          setClipboardPage((p) => p - 1);
+        }
+      } else {
+        // Loop to last screenshot on current page
+        setSelectedScreenshot(activeScreenshotsList[activeScreenshotsList.length - 1]);
+      }
+    }
+  };
+
+  // When activeScreenshotsList updates after paging, select the target screenshot
+  useEffect(() => {
+    if (pendingPageNavRef.current && activeScreenshotsList.length > 0) {
+      if (pendingPageNavRef.current === 'next') {
+        setSelectedScreenshot(activeScreenshotsList[0]);
+      } else if (pendingPageNavRef.current === 'prev') {
+        setSelectedScreenshot(activeScreenshotsList[activeScreenshotsList.length - 1]);
+      }
+      pendingPageNavRef.current = null;
+    }
+  }, [activeScreenshotsList]);
+
+  // Keyboard Navigation: Arrow keys to scroll through images, Escape to close
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const isInput =
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable);
+
+      if (selectedScreenshot) {
+        if (!isInput) {
+          if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+            e.preventDefault();
+            handleNextScreenshot();
+            return;
+          }
+          if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            handlePrevScreenshot();
+            return;
+          }
+        }
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          setSelectedScreenshot(null);
+          return;
+        }
+      } else if (e.key === 'Escape') {
+        if (detailAgent) {
+          setDetailAgent(null);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    selectedScreenshot,
+    detailAgent,
+    currentScreenshotIndex,
+    activeScreenshotsList,
+    agentModalPage,
+    clipboardPage,
+    auditData,
+    agentAuditData,
+  ]);
 
   function formatMinutes(totalMins: number): string {
     if (!totalMins || totalMins <= 0) return '0m';
@@ -1835,15 +1947,74 @@ export default function SecurityAuditPage() {
                 </div>
               </div>
 
-              <button
-                onClick={() => setSelectedScreenshot(null)}
-                className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                {activeScreenshotsList.length > 1 && (
+                  <div className="flex items-center gap-1.5 mr-2">
+                    <span className="text-[11px] font-mono font-bold text-muted-foreground bg-secondary/80 px-2.5 py-1 rounded-md border border-border">
+                      {currentScreenshotIndex + 1} / {activeScreenshotsList.length}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handlePrevScreenshot}
+                      className="p-1.5 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground transition-all flex items-center gap-1 text-xs font-bold"
+                      title="Previous Screenshot (Left / Up Arrow key)"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                      <span className="hidden sm:inline">Prev</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleNextScreenshot}
+                      className="p-1.5 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground transition-all flex items-center gap-1 text-xs font-bold"
+                      title="Next Screenshot (Right / Down Arrow key)"
+                    >
+                      <span className="hidden sm:inline">Next</span>
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                    <span className="hidden lg:inline-flex items-center text-[10px] text-muted-foreground ml-1">
+                      (← / → Arrow Keys)
+                    </span>
+                  </div>
+                )}
+
+                <button
+                  onClick={() => setSelectedScreenshot(null)}
+                  className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground"
+                  title="Close (Esc)"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
-            <div className="flex-1 overflow-auto p-4 bg-neutral-950 flex flex-col items-center justify-center min-h-[320px]">
+            <div className="relative flex-1 overflow-auto p-4 bg-neutral-950 flex flex-col items-center justify-center min-h-[320px] select-none">
+              {/* Floating Prev/Next Arrow Buttons over Image */}
+              {activeScreenshotsList.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePrevScreenshot();
+                    }}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-black/60 hover:bg-black/90 text-white/70 hover:text-white border border-white/20 transition-all shadow-xl z-20 hover:scale-110 cursor-pointer"
+                    title="Previous Screenshot (Left Arrow or Up Arrow)"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleNextScreenshot();
+                    }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-black/60 hover:bg-black/90 text-white/70 hover:text-white border border-white/20 transition-all shadow-xl z-20 hover:scale-110 cursor-pointer"
+                    title="Next Screenshot (Right Arrow or Down Arrow)"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                </>
+              )}
               {isLoadingImage ? (
                 <div className="flex flex-col items-center justify-center p-12 text-muted-foreground gap-3">
                   <RefreshCw className="w-8 h-8 animate-spin text-orange-500" />
