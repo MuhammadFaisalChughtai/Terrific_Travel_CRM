@@ -151,6 +151,7 @@ export default function FreeCancellationSection({
       await apiClient.patch(`/bookings/${bookingId}/accommodations/${accId}/mark-booked`);
     },
     onSuccess: () => {
+      stopDangerAlarm();
       toast.success('Hotel marked booked! Free cancellation date cleared.');
       queryClient.invalidateQueries({ queryKey: ['cancellation-deadlines'] });
     },
@@ -164,6 +165,7 @@ export default function FreeCancellationSection({
       await apiClient.patch(`/bookings/${bookingId}/transports/${transportId}/mark-booked`);
     },
     onSuccess: () => {
+      stopDangerAlarm();
       toast.success('Transfer marked booked! Free cancellation date cleared.');
       queryClient.invalidateQueries({ queryKey: ['cancellation-deadlines'] });
     },
@@ -177,7 +179,8 @@ export default function FreeCancellationSection({
       await apiClient.patch(`/bookings/${bookingId}/status`, { status: 'CONFIRMED' });
     },
     onSuccess: () => {
-      toast.success('Booking confirmed by administrator!');
+      stopDangerAlarm();
+      toast.success('Booking confirmed by administrator! Alarm silenced.');
       queryClient.invalidateQueries({ queryKey: ['cancellation-deadlines'] });
     },
     onError: (err: any) => {
@@ -213,10 +216,21 @@ export default function FreeCancellationSection({
     toast.success('Reminder resumed.');
   };
 
-  // Danger alarm sound logic: plays hourly emergency siren when danger items exist and not snoozed
+  // Unconfirmed danger bookings (cancellation deadline within 5 days, not yet confirmed by admin)
+  const unconfirmedDangerItems = useMemo(() => {
+    if (!data?.items) return [];
+    return data.items.filter(
+      (item) => item.urgencyLevel === 'DANGER' && !item.isConfirmed && !item.isExpired && item.daysRemaining >= 0
+    );
+  }, [data?.items]);
+
+  const hasUnconfirmedDanger = unconfirmedDangerItems.length > 0;
+
+  // Danger buzzer sound: plays 4-second buzzer every 1 hour ONLY when unconfirmed danger bookings exist
+  // Once all danger bookings are confirmed by admin, buzzer sound is COMPLETELY GONE.
   useEffect(() => {
-    const dangerCount = data?.counts?.danger || 0;
-    if (dangerCount === 0) {
+    if (!hasUnconfirmedDanger) {
+      stopDangerAlarm();
       return;
     }
 
@@ -228,8 +242,9 @@ export default function FreeCancellationSection({
       const lastPlayed = Number(sessionStorage.getItem('cancellation_alert_last_played') || 0);
       const oneHourMs = 60 * 60 * 1000;
 
+      // 4-second buzzer plays every 1 hour
       if (!lastPlayed || now - lastPlayed >= oneHourMs) {
-        playDangerAlarm(6).then((success) => {
+        playDangerAlarm(4).then((success) => {
           if (success) {
             sessionStorage.setItem('cancellation_alert_last_played', String(now));
           }
@@ -256,13 +271,13 @@ export default function FreeCancellationSection({
       window.removeEventListener('click', onUserInteraction);
       window.removeEventListener('keydown', onUserInteraction);
     };
-  }, [data?.counts?.danger]);
+  }, [hasUnconfirmedDanger]);
 
   const handleTestAlarm = async () => {
     await unlockAudioContext();
     const played = await playDangerAlarm(4);
     if (played) {
-      toast.success('🚨 Playing danger siren sound! (4-second test)');
+      toast.success('🚨 4-Second Danger Buzzer is sounding!');
     } else {
       toast.warning('Audio autoplay blocked by browser. Click anywhere on the page and try again.');
     }
@@ -376,14 +391,14 @@ export default function FreeCancellationSection({
             type="button"
             onClick={handleTestAlarm}
             className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
-              rawCounts.danger > 0
+              hasUnconfirmedDanger
                 ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-xs animate-pulse ring-2 ring-rose-500/30'
                 : 'bg-secondary hover:bg-secondary/80 text-foreground border border-border'
             }`}
-            title="Test Danger Alarm Siren Sound"
+            title="Test 4-Second Danger Buzzer Sound"
           >
             <Volume2 className="w-3.5 h-3.5" />
-            <span>{rawCounts.danger > 0 ? 'Sound Alarm (Test)' : 'Test Sound'}</span>
+            <span>{hasUnconfirmedDanger ? 'Sound Buzzer (Test)' : 'Test Buzzer'}</span>
           </button>
 
           <button
@@ -416,11 +431,15 @@ export default function FreeCancellationSection({
           }`}
         >
           <div className="text-[10px] uppercase font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-rose-600 animate-ping" />
+            <span className={`w-2 h-2 rounded-full bg-rose-600 ${hasUnconfirmedDanger ? 'animate-ping' : ''}`} />
             🔴 Danger (&le; 5 Days)
           </div>
           <div className="text-lg font-extrabold text-rose-600 dark:text-rose-400 mt-0.5">{rawCounts.danger}</div>
-          <div className="text-[9.5px] text-rose-600/70 dark:text-rose-400/70 mt-0.5">Within 5 days only</div>
+          <div className="text-[9.5px] text-rose-600/70 dark:text-rose-400/70 mt-0.5">
+            {hasUnconfirmedDanger
+              ? `${unconfirmedDangerItems.length} Pending (Buzzer active)`
+              : 'All Confirmed (Buzzer silent)'}
+          </div>
         </button>
 
         {/* Warning - 6 to 10 Days */}
@@ -902,8 +921,22 @@ export default function FreeCancellationSection({
                           )}
                         </div>
 
-                        {/* Admin Action: Mark Booked / Confirm */}
+                        {/* Admin Action: Confirm Booking (Permanently silences buzzer) */}
                         {isAdmin && !item.isConfirmed && (
+                          <button
+                            type="button"
+                            onClick={() => confirmBookingMutation.mutate(item.bookingId)}
+                            disabled={confirmBookingMutation.isPending}
+                            className="px-2 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10.5px] shadow-xs transition-colors cursor-pointer flex items-center gap-1"
+                            title="Confirm Booking (permanently silences buzzer sound)"
+                          >
+                            <ShieldCheck className="w-3 h-3" />
+                            <span>Confirm</span>
+                          </button>
+                        )}
+
+                        {/* Mark Hotel / Transfer Booked */}
+                        {!item.isConfirmed && (
                           <button
                             type="button"
                             onClick={() => {
@@ -917,7 +950,7 @@ export default function FreeCancellationSection({
                             className="p-1.5 rounded-xl border border-emerald-300 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors cursor-pointer"
                             title={`Mark ${isHotel ? 'Hotel' : 'Transfer'} as Booked (removes free cancellation date)`}
                           >
-                            <ShieldCheck className="w-3.5 h-3.5" />
+                            <CheckCircle2 className="w-3.5 h-3.5" />
                           </button>
                         )}
                       </div>
