@@ -21,7 +21,14 @@ import {
   ShieldCheck,
   AlertCircle,
   X,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
+import {
+  playDangerAlarm,
+  stopDangerAlarm,
+  unlockAudioContext,
+} from '../utils/dangerAlarmAudio';
 
 export interface CancellationItem {
   id: string;
@@ -206,6 +213,61 @@ export default function FreeCancellationSection({
     toast.success('Reminder resumed.');
   };
 
+  // Danger alarm sound logic: plays hourly emergency siren when danger items exist and not snoozed
+  useEffect(() => {
+    const dangerCount = data?.counts?.danger || 0;
+    if (dangerCount === 0) {
+      return;
+    }
+
+    const checkAndPlay = () => {
+      const now = Date.now();
+      const snoozeUntil = Number(localStorage.getItem('cancellation_alert_snooze') || 0);
+      if (snoozeUntil > now) return;
+
+      const lastPlayed = Number(sessionStorage.getItem('cancellation_alert_last_played') || 0);
+      const oneHourMs = 60 * 60 * 1000;
+
+      if (!lastPlayed || now - lastPlayed >= oneHourMs) {
+        playDangerAlarm(6).then((success) => {
+          if (success) {
+            sessionStorage.setItem('cancellation_alert_last_played', String(now));
+          }
+        });
+      }
+    };
+
+    checkAndPlay();
+    const interval = setInterval(checkAndPlay, 30000);
+
+    const onUserInteraction = () => {
+      unlockAudioContext().then((unlocked) => {
+        if (unlocked) {
+          checkAndPlay();
+        }
+      });
+    };
+
+    window.addEventListener('click', onUserInteraction, { once: true });
+    window.addEventListener('keydown', onUserInteraction, { once: true });
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('click', onUserInteraction);
+      window.removeEventListener('keydown', onUserInteraction);
+    };
+  }, [data?.counts?.danger]);
+
+  const handleTestAlarm = async () => {
+    await unlockAudioContext();
+    const played = await playDangerAlarm(4);
+    if (played) {
+      toast.success('🚨 Playing danger siren sound! (4-second test)');
+    } else {
+      toast.warning('Audio autoplay blocked by browser. Click anywhere on the page and try again.');
+    }
+  };
+
   // Helper to check if an item is actively snoozed
   // Note requirement 4: Automatically resume reminders when snooze period ends OR urgency increases!
   const getItemSnoozeInfo = (item: CancellationItem) => {
@@ -305,8 +367,22 @@ export default function FreeCancellationSection({
           </div>
         </div>
 
-        {/* Quick Refresh */}
+        {/* Sound Alarm & Quick Refresh */}
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleTestAlarm}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+              rawCounts.danger > 0
+                ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-xs animate-pulse ring-2 ring-rose-500/30'
+                : 'bg-secondary hover:bg-secondary/80 text-foreground border border-border'
+            }`}
+            title="Test Danger Alarm Siren Sound"
+          >
+            <Volume2 className="w-3.5 h-3.5" />
+            <span>{rawCounts.danger > 0 ? 'Sound Alarm (Test)' : 'Test Sound'}</span>
+          </button>
+
           <button
             type="button"
             onClick={() => refetch()}

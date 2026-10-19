@@ -715,7 +715,9 @@ export class DashboardService {
     search?: string;
     agentId?: string;
   } = {}) {
-    const bookingWhere: any = {};
+    const bookingWhere: any = {
+      status: { not: 'CANCELLED' },
+    };
     if (filters.agentId) {
       bookingWhere.agentId = filters.agentId;
     }

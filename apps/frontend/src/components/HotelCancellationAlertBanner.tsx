@@ -160,8 +160,11 @@ export default function HotelCancellationAlertBanner({
       const oneHourMs = 60 * 60 * 1000;
 
       if (!lastPlayed || now - lastPlayed >= oneHourMs) {
-        playDangerAlarm(6);
-        sessionStorage.setItem("cancellation_alert_last_played", String(now));
+        playDangerAlarm(6).then((played) => {
+          if (played) {
+            sessionStorage.setItem("cancellation_alert_last_played", String(now));
+          }
+        });
       }
     };
 
@@ -169,24 +172,24 @@ export default function HotelCancellationAlertBanner({
     checkAndPlayAlarm();
     const interval = setInterval(checkAndPlayAlarm, 30000);
 
-    return () => {
-      clearInterval(interval);
-    };
-  }, [totalAlertsCount]);
-
-  // Unlock audio on any click in window
-  useEffect(() => {
+    // Unlock audio on first click or keydown in window and play if due
     const handleUserInteraction = () => {
-      unlockAudioContext();
-      setIsAudioUnlocked(true);
+      unlockAudioContext().then((unlocked) => {
+        setIsAudioUnlocked(unlocked);
+        if (unlocked) {
+          checkAndPlayAlarm();
+        }
+      });
     };
     window.addEventListener("click", handleUserInteraction, { once: true });
     window.addEventListener("keydown", handleUserInteraction, { once: true });
+
     return () => {
+      clearInterval(interval);
       window.removeEventListener("click", handleUserInteraction);
       window.removeEventListener("keydown", handleUserInteraction);
     };
-  }, []);
+  }, [totalAlertsCount]);
 
   // Mutation: Mark Hotel Booked (Removes Free Cancellation Date)
   const markHotelBookedMutation = useMutation({
@@ -255,10 +258,14 @@ export default function HotelCancellationAlertBanner({
     toast.info("Danger alarm sound snoozed for 1 hour. Active warning banner remains visible until booking is confirmed or services are marked booked.");
   };
 
-  const handleTestSound = () => {
-    unlockAudioContext();
-    playDangerAlarm(3);
-    toast.success("Playing 3-second test of emergency danger siren.");
+  const handleTestSound = async () => {
+    await unlockAudioContext();
+    const played = await playDangerAlarm(3);
+    if (played) {
+      toast.success("Playing 3-second test of emergency danger siren.");
+    } else {
+      toast.warning("Audio blocked by browser. Please click again to activate audio.");
+    }
   };
 
   if (totalAlertsCount === 0) {

@@ -3440,7 +3440,7 @@ export class BookingsService {
         },
         booking: {
           status: {
-            notIn: [BookingStatus.CONFIRMED, BookingStatus.CANCELLED],
+            not: BookingStatus.CANCELLED,
           },
         },
       },
@@ -3537,7 +3537,7 @@ export class BookingsService {
 
   /**
    * Fetches all transfer / transport services where free cancellation is within 5 days (or past due)
-   * and the parent booking is not yet CONFIRMED or CANCELLED.
+   * and the parent booking is not CANCELLED.
    */
   async getTransferCancellationAlerts() {
     const thresholdDate = new Date();
@@ -3551,7 +3551,7 @@ export class BookingsService {
         },
         booking: {
           status: {
-            notIn: ['CONFIRMED', 'CANCELLED'],
+            not: BookingStatus.CANCELLED,
           },
         },
       },

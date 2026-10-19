@@ -12,30 +12,44 @@ function getAudioContext(): AudioContext | null {
       audioCtx = new AudioContextClass();
     }
   }
-  if (audioCtx && audioCtx.state === "suspended") {
-    audioCtx.resume().catch(() => {});
-  }
   return audioCtx;
 }
 
-export function unlockAudioContext(): void {
+export async function unlockAudioContext(): Promise<boolean> {
   const ctx = getAudioContext();
-  if (ctx && ctx.state === "suspended") {
-    ctx.resume().catch(() => {});
+  if (!ctx) return false;
+  if (ctx.state === "suspended") {
+    try {
+      await ctx.resume();
+    } catch (e) {
+      console.warn("Could not resume AudioContext:", e);
+    }
   }
+  return ctx.state === "running";
+}
+
+export function isAudioUnlocked(): boolean {
+  return !!audioCtx && audioCtx.state === "running";
 }
 
 /**
  * Plays a loud, pulsing emergency danger siren sound
  * Pattern: High/Low alternating siren with pulsing beeps for urgent attention
  */
-export function playDangerAlarm(durationSeconds = 6): void {
+export async function playDangerAlarm(durationSeconds = 6): Promise<boolean> {
   try {
     const ctx = getAudioContext();
-    if (!ctx) return;
+    if (!ctx) return false;
 
     if (ctx.state === "suspended") {
-      ctx.resume().catch(() => {});
+      try {
+        await ctx.resume();
+      } catch (e) {}
+    }
+
+    if (ctx.state !== "running") {
+      console.warn("AudioContext state is", ctx.state, "- waiting for user interaction to unlock.");
+      return false;
     }
 
     // Stop previous if currently playing
@@ -43,7 +57,7 @@ export function playDangerAlarm(durationSeconds = 6): void {
     isPlaying = true;
 
     const masterGain = ctx.createGain();
-    masterGain.gain.setValueAtTime(0.35, ctx.currentTime);
+    masterGain.gain.setValueAtTime(0.4, ctx.currentTime);
     masterGain.connect(ctx.destination);
 
     // Create 2 oscillators for dual-tone dissonant emergency siren
@@ -54,9 +68,9 @@ export function playDangerAlarm(durationSeconds = 6): void {
     osc1.type = "sawtooth";
     osc2.type = "square";
 
-    // Set frequencies: alternating urgent alarm frequencies (880Hz <-> 660Hz)
+    // Set frequencies: alternating urgent alarm frequencies (960Hz <-> 720Hz)
     const now = ctx.currentTime;
-    const pulseCount = Math.floor(durationSeconds * 2.5);
+    const pulseCount = Math.max(2, Math.floor(durationSeconds * 2.5));
     const pulseStep = durationSeconds / pulseCount;
 
     for (let i = 0; i < pulseCount; i++) {
@@ -65,10 +79,10 @@ export function playDangerAlarm(durationSeconds = 6): void {
       osc1.frequency.setValueAtTime(freq, t);
       osc2.frequency.setValueAtTime(freq * 1.05, t); // slight dissonance for danger alarm feel
 
-      // Pulsing volume envelope
+      // Pulsing volume envelope using linear ramps
       gainNode.gain.setValueAtTime(0.01, t);
-      gainNode.gain.linearRampToValueAtTime(0.8, t + 0.05);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, t + pulseStep - 0.02);
+      gainNode.gain.linearRampToValueAtTime(0.85, t + 0.05);
+      gainNode.gain.linearRampToValueAtTime(0.01, t + pulseStep - 0.03);
     }
 
     osc1.connect(gainNode);
@@ -86,8 +100,11 @@ export function playDangerAlarm(durationSeconds = 6): void {
       isPlaying = false;
       currentOscillators = [];
     }, durationSeconds * 1000);
+
+    return true;
   } catch (err) {
     console.warn("Failed to play danger alarm audio:", err);
+    return false;
   }
 }
 
