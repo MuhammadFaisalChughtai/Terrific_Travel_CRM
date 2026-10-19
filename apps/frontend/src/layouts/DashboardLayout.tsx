@@ -40,6 +40,7 @@ import {
   Ticket,
   Coffee,
   BookMarked,
+  AlertTriangle,
 } from "lucide-react";
 
 export default function DashboardLayout() {
@@ -82,6 +83,20 @@ export default function DashboardLayout() {
       !!user &&
       (user.roles.includes("ADMIN") || user.roles.includes("SUPER_ADMIN")),
   });
+
+  const { data: cancellationData } = useQuery<{
+    counts?: { danger?: number };
+  }>({
+    queryKey: ["cancellation-deadlines"],
+    queryFn: async () => {
+      const res = await apiClient.get("/dashboard/cancellation-deadlines");
+      return res.data.data;
+    },
+    enabled: !!user,
+    refetchInterval: 60000,
+  });
+
+  const urgentDangerCount = cancellationData?.counts?.danger || 0;
 
   const queryClient = useQueryClient();
   const { data: todayAttendance } = useQuery({
@@ -265,6 +280,7 @@ export default function DashboardLayout() {
     { name: "Dashboard", path: "/", icon: LayoutDashboard },
     { name: "Bookings", path: "/bookings", icon: CalendarRange },
     { name: "Issuance Board", path: "/issuance", icon: Ticket },
+    { name: "Free Cancellation", path: "/cancellation-deadlines", icon: AlertTriangle },
     { name: "Leads Log Book", path: "/leads", icon: UserCheck },
     { name: "Upcoming Tours", path: "/tours", icon: Compass },
     { name: "Invoices", path: "/invoices", icon: FileText },
@@ -418,13 +434,29 @@ export default function DashboardLayout() {
                           {pendingApprovals.length}
                         </span>
                       )}
+                    {item.name === "Free Cancellation" &&
+                      urgentDangerCount > 0 && (
+                        <span
+                          className={`ml-2 px-1.5 py-0.5 rounded-full text-[10px] font-black leading-none flex items-center justify-center ${
+                            isActive ? "bg-white text-rose-600" : "bg-rose-600 text-white animate-pulse"
+                          }`}
+                        >
+                          {urgentDangerCount}
+                        </span>
+                      )}
                   </span>
                 ) : (
-                  item.name === "Payment Approvals" &&
-                  pendingApprovals &&
-                  pendingApprovals.length > 0 && (
-                    <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-card shadow-sm" />
-                  )
+                  <>
+                    {item.name === "Payment Approvals" &&
+                      pendingApprovals &&
+                      pendingApprovals.length > 0 && (
+                        <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-card shadow-sm" />
+                      )}
+                    {item.name === "Free Cancellation" &&
+                      urgentDangerCount > 0 && (
+                        <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-600 ring-2 ring-card shadow-sm animate-ping" />
+                      )}
+                  </>
                 )}
               </Link>
             );

@@ -5,7 +5,7 @@ import { useAuthStore } from "../store/auth.store";
 import { useNavigate } from "react-router-dom";
 import Modal from "../components/Modal";
 import BookingManager from "../components/BookingManager";
-import FreeCancellationSection from "../components/FreeCancellationSection";
+import DashboardDangerCancellationWidget from "../components/DashboardDangerCancellationWidget";
 import {
   TrendingUp,
   Users,
@@ -363,8 +363,8 @@ export default function Dashboard() {
         </p>
       </div>
 
-      {/* Free Cancellation Hotels & Transportation Section (Front & Center) */}
-      <FreeCancellationSection
+      {/* Urgent Cancellation Danger Deadlines Widget (≤ 5 Days Only) */}
+      <DashboardDangerCancellationWidget
         onOpenBooking={(bId, bRef) => {
           setSelectedBookingId(bId);
           setSelectedBookingRef(bRef || null);
