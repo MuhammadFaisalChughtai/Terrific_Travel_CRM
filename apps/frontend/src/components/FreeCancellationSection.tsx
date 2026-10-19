@@ -83,10 +83,10 @@ export default function FreeCancellationSection({
 }: FreeCancellationSectionProps) {
   const queryClient = useQueryClient();
 
-  // Filters state
+  // Filters state - defaults to DANGER (within 5 days only)
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<'ALL' | 'HOTEL' | 'TRANSPORT'>('ALL');
-  const [urgencyFilter, setUrgencyFilter] = useState<'ALL' | 'DANGER' | 'WARNING' | 'OK' | 'EXPIRED'>('ALL');
+  const [urgencyFilter, setUrgencyFilter] = useState<'ALL' | 'DANGER' | 'WARNING' | 'OK'>('DANGER');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'CONFIRMED'>('ALL');
   const [snoozeFilter, setSnoozeFilter] = useState<'ALL' | 'ACTIVE' | 'SNOOZED'>('ALL');
 
@@ -292,6 +292,9 @@ export default function FreeCancellationSection({
     if (!data?.items) return [];
 
     return data.items.filter((item) => {
+      // Never show already passed or expired cancellation deadlines
+      if (item.isExpired || item.daysRemaining < 0) return false;
+
       // Type filter
       if (typeFilter !== 'ALL' && item.serviceType !== typeFilter) return false;
 
@@ -398,26 +401,7 @@ export default function FreeCancellationSection({
 
       {/* KPI Stats Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 p-3 sm:p-4 bg-secondary/15 border-b border-border">
-        {/* Total */}
-        <button
-          type="button"
-          onClick={() => {
-            setUrgencyFilter('ALL');
-            setStatusFilter('ALL');
-            setSnoozeFilter('ALL');
-          }}
-          className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
-            urgencyFilter === 'ALL' && statusFilter === 'ALL' && snoozeFilter === 'ALL'
-              ? 'bg-card border-primary/50 shadow-xs'
-              : 'bg-card/60 hover:bg-card border-border'
-          }`}
-        >
-          <div className="text-[10px] uppercase font-bold text-muted-foreground">Total Deadlines</div>
-          <div className="text-lg font-extrabold text-foreground mt-0.5">{rawCounts.total}</div>
-          <div className="text-[9.5px] text-muted-foreground mt-0.5">{rawCounts.hotels} Hotels &bull; {rawCounts.transports} Transports</div>
-        </button>
-
-        {/* Danger */}
+        {/* Danger - Within 5 Days */}
         <button
           type="button"
           onClick={() => {
@@ -426,8 +410,8 @@ export default function FreeCancellationSection({
             setSnoozeFilter('ALL');
           }}
           className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
-            urgencyFilter === 'DANGER'
-              ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-400 shadow-xs ring-1 ring-rose-400/30'
+            urgencyFilter === 'DANGER' && statusFilter === 'ALL' && snoozeFilter === 'ALL'
+              ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-400 shadow-xs ring-2 ring-rose-400/40'
               : 'bg-card/60 hover:bg-rose-50/50 dark:hover:bg-rose-950/20 border-rose-200 dark:border-rose-900/60'
           }`}
         >
@@ -436,10 +420,10 @@ export default function FreeCancellationSection({
             🔴 Danger (&le; 5 Days)
           </div>
           <div className="text-lg font-extrabold text-rose-600 dark:text-rose-400 mt-0.5">{rawCounts.danger}</div>
-          <div className="text-[9.5px] text-rose-600/70 dark:text-rose-400/70 mt-0.5">Immediate action required</div>
+          <div className="text-[9.5px] text-rose-600/70 dark:text-rose-400/70 mt-0.5">Within 5 days only</div>
         </button>
 
-        {/* Warning */}
+        {/* Warning - 6 to 10 Days */}
         <button
           type="button"
           onClick={() => {
@@ -448,8 +432,8 @@ export default function FreeCancellationSection({
             setSnoozeFilter('ALL');
           }}
           className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
-            urgencyFilter === 'WARNING'
-              ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-400 shadow-xs ring-1 ring-amber-400/30'
+            urgencyFilter === 'WARNING' && statusFilter === 'ALL' && snoozeFilter === 'ALL'
+              ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-400 shadow-xs ring-2 ring-amber-400/40'
               : 'bg-card/60 hover:bg-amber-50/50 dark:hover:bg-amber-950/20 border-amber-200 dark:border-amber-900/60'
           }`}
         >
@@ -460,7 +444,7 @@ export default function FreeCancellationSection({
           <div className="text-[9.5px] text-amber-600/70 dark:text-amber-400/70 mt-0.5">Upcoming deadline</div>
         </button>
 
-        {/* OK */}
+        {/* OK - Safe (> 10 Days) */}
         <button
           type="button"
           onClick={() => {
@@ -469,8 +453,8 @@ export default function FreeCancellationSection({
             setSnoozeFilter('ALL');
           }}
           className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
-            urgencyFilter === 'OK'
-              ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-400 shadow-xs ring-1 ring-emerald-400/30'
+            urgencyFilter === 'OK' && statusFilter === 'ALL' && snoozeFilter === 'ALL'
+              ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-400 shadow-xs ring-2 ring-emerald-400/40'
               : 'bg-card/60 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/60'
           }`}
         >
@@ -479,6 +463,25 @@ export default function FreeCancellationSection({
           </div>
           <div className="text-lg font-extrabold text-emerald-600 dark:text-emerald-400 mt-0.5">{rawCounts.ok}</div>
           <div className="text-[9.5px] text-emerald-600/70 dark:text-emerald-400/70 mt-0.5">Ample time remaining</div>
+        </button>
+
+        {/* Total Upcoming */}
+        <button
+          type="button"
+          onClick={() => {
+            setUrgencyFilter('ALL');
+            setStatusFilter('ALL');
+            setSnoozeFilter('ALL');
+          }}
+          className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+            urgencyFilter === 'ALL' && statusFilter === 'ALL' && snoozeFilter === 'ALL'
+              ? 'bg-card border-primary/50 shadow-xs ring-2 ring-primary/40'
+              : 'bg-card/60 hover:bg-card border-border'
+          }`}
+        >
+          <div className="text-[10px] uppercase font-bold text-muted-foreground">All Deadlines</div>
+          <div className="text-lg font-extrabold text-foreground mt-0.5">{rawCounts.total}</div>
+          <div className="text-[9.5px] text-muted-foreground mt-0.5">{rawCounts.hotels} Hotels &bull; {rawCounts.transports} Transports</div>
         </button>
 
         {/* Pending Confirmation */}
@@ -573,11 +576,10 @@ export default function FreeCancellationSection({
             onChange={(e) => setUrgencyFilter(e.target.value as any)}
             className="text-[11px] font-semibold py-1 px-2.5 bg-secondary/60 border border-border rounded-xl text-foreground focus:outline-none cursor-pointer"
           >
-            <option value="ALL">All Urgencies</option>
-            <option value="DANGER">🔴 Danger (&le;5d)</option>
-            <option value="WARNING">🟡 Warning (6–10d)</option>
-            <option value="OK">🟢 Safe (&gt;10d)</option>
-            <option value="EXPIRED">⚠️ Expired</option>
+            <option value="DANGER">🔴 Within 5 Days (Urgent)</option>
+            <option value="WARNING">🟡 6–10 Days (Warning)</option>
+            <option value="OK">🟢 &gt;10 Days (Safe)</option>
+            <option value="ALL">All Upcoming Deadlines</option>
           </select>
 
           {/* Admin Confirmation */}

@@ -722,10 +722,16 @@ export class DashboardService {
       bookingWhere.agentId = filters.agentId;
     }
 
-    // 1. Fetch Accommodation records with a cancellation deadline
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    // 1. Fetch Accommodation records with an upcoming cancellation deadline (not passed)
     const accommodations = await prisma.accommodationService.findMany({
       where: {
-        lastCancellationDate: { not: null },
+        lastCancellationDate: {
+          not: null,
+          gte: startOfToday, // Do not show old hotels whose cancellation date is already passed
+        },
         booking: bookingWhere,
       },
       include: {
@@ -748,10 +754,13 @@ export class DashboardService {
       orderBy: { lastCancellationDate: 'asc' },
     });
 
-    // 2. Fetch Transport records with a cancellation deadline
+    // 2. Fetch Transport records with an upcoming cancellation deadline (not passed)
     const transports = await prisma.transportService.findMany({
       where: {
-        lastCancellationDate: { not: null },
+        lastCancellationDate: {
+          not: null,
+          gte: startOfToday, // Do not show old transports whose cancellation date is already passed
+        },
         booking: bookingWhere,
       },
       include: {
@@ -773,8 +782,6 @@ export class DashboardService {
       },
       orderBy: { lastCancellationDate: 'asc' },
     });
-
-    const now = new Date();
 
     const hotelItems = accommodations
       .filter((acc) => !!acc.booking)
@@ -892,14 +899,16 @@ export class DashboardService {
       };
     });
 
-    let allItems = [...hotelItems, ...transportItems];
+    // Only keep upcoming cancellation deadlines (never show already passed deadlines)
+    let allItems = [...hotelItems, ...transportItems].filter(
+      (item) => !item.isExpired && item.daysRemaining >= 0
+    );
 
-    // Priority sorting: DANGER (<=5d) first, then WARNING (6-10d), then OK (>10d), then EXPIRED (<0d)
+    // Priority sorting: DANGER (<=5d) first, then WARNING (6-10d), then OK (>10d)
     const urgencyWeight: Record<string, number> = {
       DANGER: 1,
       WARNING: 2,
       OK: 3,
-      EXPIRED: 4,
     };
 
     allItems.sort((a, b) => {
@@ -916,9 +925,9 @@ export class DashboardService {
       danger: allItems.filter((i) => i.urgencyLevel === 'DANGER').length,
       warning: allItems.filter((i) => i.urgencyLevel === 'WARNING').length,
       ok: allItems.filter((i) => i.urgencyLevel === 'OK').length,
-      expired: allItems.filter((i) => i.urgencyLevel === 'EXPIRED').length,
-      hotels: hotelItems.length,
-      transports: transportItems.length,
+      expired: 0,
+      hotels: allItems.filter((i) => i.serviceType === 'HOTEL').length,
+      transports: allItems.filter((i) => i.serviceType === 'TRANSPORT').length,
       pendingConfirmation: allItems.filter((i) => !i.isConfirmed).length,
       confirmed: allItems.filter((i) => i.isConfirmed).length,
     };

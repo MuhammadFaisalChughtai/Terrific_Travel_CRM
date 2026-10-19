@@ -3428,6 +3428,8 @@ export class BookingsService {
    * where the booking is not yet CONFIRMED or CANCELLED, and the free cancellation date is still active.
    */
   async getHotelCancellationAlerts() {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const fiveDaysFromNow = new Date();
     fiveDaysFromNow.setDate(fiveDaysFromNow.getDate() + 5);
     fiveDaysFromNow.setHours(23, 59, 59, 999);
@@ -3436,6 +3438,7 @@ export class BookingsService {
       where: {
         lastCancellationDate: {
           not: null,
+          gte: startOfToday,
           lte: fiveDaysFromNow,
         },
         booking: {
@@ -3466,38 +3469,38 @@ export class BookingsService {
       },
     });
 
-    const now = new Date();
+    return accommodations
+      .map((acc) => {
+        const cancelDate = new Date(acc.lastCancellationDate!);
+        const diffMs = cancelDate.getTime() - now.getTime();
+        const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+        const hoursLeft = Math.ceil(diffMs / (1000 * 60 * 60));
+        const leadPax = acc.booking.passengers?.[0];
 
-    return accommodations.map((acc) => {
-      const cancelDate = new Date(acc.lastCancellationDate!);
-      const diffMs = cancelDate.getTime() - now.getTime();
-      const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-      const hoursLeft = Math.ceil(diffMs / (1000 * 60 * 60));
-      const leadPax = acc.booking.passengers?.[0];
-
-      return {
-        id: acc.id,
-        bookingId: acc.bookingId,
-        bookingReference: acc.booking.bookingReference,
-        bookingStatus: acc.booking.status,
-        hotelName: acc.hotelName,
-        roomType: acc.roomType,
-        city: acc.city,
-        checkInDate: acc.checkInDate,
-        checkOutDate: acc.checkOutDate,
-        lastCancellationDate: acc.lastCancellationDate,
-        daysLeft,
-        hoursLeft,
-        isOverdue: diffMs < 0,
-        agentId: acc.booking.agentId,
-        agentName: acc.booking.agent?.name || 'Unassigned',
-        customerName: leadPax ? `${leadPax.firstName || ''} ${leadPax.lastName || ''}`.trim() : 'Valued Customer',
-        customerPhone: leadPax?.phoneNumber || '',
-        vendorName: acc.vendor?.name || 'Hotel Vendor',
-        price: acc.price,
-        currency: acc.currency,
-      };
-    });
+        return {
+          id: acc.id,
+          bookingId: acc.bookingId,
+          bookingReference: acc.booking.bookingReference,
+          bookingStatus: acc.booking.status,
+          hotelName: acc.hotelName,
+          roomType: acc.roomType,
+          city: acc.city,
+          checkInDate: acc.checkInDate,
+          checkOutDate: acc.checkOutDate,
+          lastCancellationDate: acc.lastCancellationDate,
+          daysLeft,
+          hoursLeft,
+          isOverdue: diffMs < 0,
+          agentId: acc.booking.agentId,
+          agentName: acc.booking.agent?.name || 'Unassigned',
+          customerName: leadPax ? `${leadPax.firstName || ''} ${leadPax.lastName || ''}`.trim() : 'Valued Customer',
+          customerPhone: leadPax?.phoneNumber || '',
+          vendorName: acc.vendor?.name || 'Hotel Vendor',
+          price: acc.price,
+          currency: acc.currency,
+        };
+      })
+      .filter((alert) => !alert.isOverdue && alert.daysLeft >= 0);
   }
 
   /**
@@ -3540,13 +3543,17 @@ export class BookingsService {
    * and the parent booking is not CANCELLED.
    */
   async getTransferCancellationAlerts() {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const thresholdDate = new Date();
     thresholdDate.setDate(thresholdDate.getDate() + 5);
+    thresholdDate.setHours(23, 59, 59, 999);
 
     const transports = await prisma.transportService.findMany({
       where: {
         lastCancellationDate: {
           not: null,
+          gte: startOfToday,
           lte: thresholdDate,
         },
         booking: {
@@ -3577,40 +3584,40 @@ export class BookingsService {
       },
     });
 
-    const now = new Date();
+    return transports
+      .map((tr) => {
+        const cancelDate = new Date(tr.lastCancellationDate!);
+        const diffMs = cancelDate.getTime() - now.getTime();
+        const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+        const hoursLeft = Math.ceil(diffMs / (1000 * 60 * 60));
+        const leadPax = tr.booking.passengers?.[0];
 
-    return transports.map((tr) => {
-      const cancelDate = new Date(tr.lastCancellationDate!);
-      const diffMs = cancelDate.getTime() - now.getTime();
-      const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-      const hoursLeft = Math.ceil(diffMs / (1000 * 60 * 60));
-      const leadPax = tr.booking.passengers?.[0];
-
-      return {
-        id: tr.id,
-        bookingId: tr.bookingId,
-        bookingReference: tr.booking.bookingReference,
-        bookingStatus: tr.booking.status,
-        vehicleType: tr.vehicleType,
-        departureDestination: tr.departureDestination,
-        arrivalDestination: tr.arrivalDestination,
-        date: tr.date,
-        departureTime: tr.departureTime,
-        arrivalTime: tr.arrivalTime,
-        flightNo: tr.flightNo,
-        lastCancellationDate: tr.lastCancellationDate,
-        daysLeft,
-        hoursLeft,
-        isOverdue: diffMs < 0,
-        agentId: tr.booking.agentId,
-        agentName: tr.booking.agent?.name || 'Unassigned',
-        customerName: leadPax ? `${leadPax.firstName || ''} ${leadPax.lastName || ''}`.trim() : 'Valued Customer',
-        customerPhone: leadPax?.phoneNumber || '',
-        vendorName: tr.vendor?.name || 'Transport Vendor',
-        price: tr.price,
-        currency: tr.currency,
-      };
-    });
+        return {
+          id: tr.id,
+          bookingId: tr.bookingId,
+          bookingReference: tr.booking.bookingReference,
+          bookingStatus: tr.booking.status,
+          vehicleType: tr.vehicleType,
+          departureDestination: tr.departureDestination,
+          arrivalDestination: tr.arrivalDestination,
+          date: tr.date,
+          departureTime: tr.departureTime,
+          arrivalTime: tr.arrivalTime,
+          flightNo: tr.flightNo,
+          lastCancellationDate: tr.lastCancellationDate,
+          daysLeft,
+          hoursLeft,
+          isOverdue: diffMs < 0,
+          agentId: tr.booking.agentId,
+          agentName: tr.booking.agent?.name || 'Unassigned',
+          customerName: leadPax ? `${leadPax.firstName || ''} ${leadPax.lastName || ''}`.trim() : 'Valued Customer',
+          customerPhone: leadPax?.phoneNumber || '',
+          vendorName: tr.vendor?.name || 'Transport Vendor',
+          price: tr.price,
+          currency: tr.currency,
+        };
+      })
+      .filter((alert) => !alert.isOverdue && alert.daysLeft >= 0);
   }
 
   /**

@@ -41,7 +41,6 @@ import {
   Coffee,
   BookMarked,
 } from "lucide-react";
-import HotelCancellationAlertBanner from "../components/HotelCancellationAlertBanner";
 
 export default function DashboardLayout() {
   const location = useLocation();
@@ -562,9 +561,6 @@ export default function DashboardLayout() {
 
         {/* Content Outlet */}
         <main className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto">
-          <HotelCancellationAlertBanner
-            onOpenBooking={(bookingId) => navigate(`/bookings?bookingId=${bookingId}`)}
-          />
           <Outlet />
         </main>
       </div>
