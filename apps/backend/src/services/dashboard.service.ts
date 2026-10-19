@@ -774,94 +774,98 @@ export class DashboardService {
 
     const now = new Date();
 
-    const hotelItems = accommodations.map((acc) => {
-      const cancelDate = new Date(acc.lastCancellationDate!);
-      const diffMs = cancelDate.getTime() - now.getTime();
-      const daysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-      const hoursRemaining = Math.ceil(diffMs / (1000 * 60 * 60));
-      const leadPax = acc.booking.passengers?.[0];
+    const hotelItems = accommodations
+      .filter((acc) => !!acc.booking)
+      .map((acc) => {
+        const cancelDate = new Date(acc.lastCancellationDate!);
+        const diffMs = cancelDate.getTime() - now.getTime();
+        const daysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+        const hoursRemaining = Math.ceil(diffMs / (1000 * 60 * 60));
+        const leadPax = acc.booking?.passengers?.[0];
 
-      let urgencyLevel: 'DANGER' | 'WARNING' | 'OK' | 'EXPIRED' = 'OK';
-      if (diffMs < 0) {
-        urgencyLevel = 'EXPIRED';
-      } else if (daysRemaining <= 5) {
-        urgencyLevel = 'DANGER';
-      } else if (daysRemaining <= 10) {
-        urgencyLevel = 'WARNING';
-      } else {
-        urgencyLevel = 'OK';
-      }
+        let urgencyLevel: 'DANGER' | 'WARNING' | 'OK' | 'EXPIRED' = 'OK';
+        if (diffMs < 0) {
+          urgencyLevel = 'EXPIRED';
+        } else if (daysRemaining <= 5) {
+          urgencyLevel = 'DANGER';
+        } else if (daysRemaining <= 10) {
+          urgencyLevel = 'WARNING';
+        } else {
+          urgencyLevel = 'OK';
+        }
 
-      const isBookingConfirmed = acc.booking.status === 'CONFIRMED';
-      const hasHotelConfirmation = !!(acc.hotelConfirmationNumber || acc.reservationNumber);
-      const isConfirmed = isBookingConfirmed || hasHotelConfirmation;
+        const isBookingConfirmed = acc.booking?.status === 'CONFIRMED';
+        const hasHotelConfirmation = !!(acc.hotelConfirmationNumber || acc.reservationNumber);
+        const isConfirmed = isBookingConfirmed || hasHotelConfirmation;
 
-      return {
-        id: acc.id,
-        serviceType: 'HOTEL' as const,
-        bookingId: acc.bookingId,
-        bookingReference: acc.booking.bookingReference,
-        bookingStatus: acc.booking.status,
-        customerName: leadPax ? `${leadPax.firstName || ''} ${leadPax.lastName || ''}`.trim() : 'Valued Customer',
-        customerPhone: leadPax?.phoneNumber || '',
-        customerEmail: leadPax?.email || '',
-        agentName: acc.booking.agent?.name || 'Unassigned',
-        vendorId: acc.vendorId,
-        vendorName: acc.vendor?.name || 'Hotel Vendor',
-        serviceName: `${acc.hotelName}${acc.city ? ` (${acc.city})` : ''}`,
-        serviceDetails: `${acc.roomType} (${acc.mealType || 'RO'})`,
-        travelDates: {
-          startDate: acc.checkInDate,
-          endDate: acc.checkOutDate,
-          checkInTime: acc.checkInTime || '16:00',
-          checkOutTime: acc.checkOutTime || '12:00',
-        },
-        price: acc.price,
-        currency: acc.currency,
-        lastCancellationDate: acc.lastCancellationDate,
-        daysRemaining,
-        hoursRemaining,
-        isExpired: diffMs < 0,
-        urgencyLevel,
-        isConfirmed,
-        adminConfirmationStatus: isConfirmed ? 'CONFIRMED' : 'PENDING',
-        confirmationNumber: acc.hotelConfirmationNumber || acc.reservationNumber || null,
-        externalUrl: null,
-      };
-    });
+        return {
+          id: acc.id,
+          serviceType: 'HOTEL' as const,
+          bookingId: acc.bookingId,
+          bookingReference: acc.booking?.bookingReference || 'N/A',
+          bookingStatus: acc.booking?.status || 'PENDING',
+          customerName: leadPax ? `${leadPax.firstName || ''} ${leadPax.lastName || ''}`.trim() : 'Valued Customer',
+          customerPhone: leadPax?.phoneNumber || '',
+          customerEmail: leadPax?.email || '',
+          agentName: acc.booking?.agent?.name || 'Unassigned',
+          vendorId: acc.vendorId,
+          vendorName: acc.vendor?.name || 'Hotel Vendor',
+          serviceName: `${acc.hotelName}${acc.city ? ` (${acc.city})` : ''}`,
+          serviceDetails: `${acc.roomType} (${acc.mealType || 'RO'})`,
+          travelDates: {
+            startDate: acc.checkInDate,
+            endDate: acc.checkOutDate,
+            checkInTime: acc.checkInTime || '16:00',
+            checkOutTime: acc.checkOutTime || '12:00',
+          },
+          price: acc.price,
+          currency: acc.currency,
+          lastCancellationDate: acc.lastCancellationDate,
+          daysRemaining,
+          hoursRemaining,
+          isExpired: diffMs < 0,
+          urgencyLevel,
+          isConfirmed,
+          adminConfirmationStatus: isConfirmed ? 'CONFIRMED' : 'PENDING',
+          confirmationNumber: acc.hotelConfirmationNumber || acc.reservationNumber || null,
+          externalUrl: null,
+        };
+      });
 
-    const transportItems = transports.map((tr) => {
-      const cancelDate = new Date(tr.lastCancellationDate!);
-      const diffMs = cancelDate.getTime() - now.getTime();
-      const daysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-      const hoursRemaining = Math.ceil(diffMs / (1000 * 60 * 60));
-      const leadPax = tr.booking.passengers?.[0];
+    const transportItems = transports
+      .filter((tr) => !!tr.booking)
+      .map((tr) => {
+        const cancelDate = new Date(tr.lastCancellationDate!);
+        const diffMs = cancelDate.getTime() - now.getTime();
+        const daysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+        const hoursRemaining = Math.ceil(diffMs / (1000 * 60 * 60));
+        const leadPax = tr.booking?.passengers?.[0];
 
-      let urgencyLevel: 'DANGER' | 'WARNING' | 'OK' | 'EXPIRED' = 'OK';
-      if (diffMs < 0) {
-        urgencyLevel = 'EXPIRED';
-      } else if (daysRemaining <= 5) {
-        urgencyLevel = 'DANGER';
-      } else if (daysRemaining <= 10) {
-        urgencyLevel = 'WARNING';
-      } else {
-        urgencyLevel = 'OK';
-      }
+        let urgencyLevel: 'DANGER' | 'WARNING' | 'OK' | 'EXPIRED' = 'OK';
+        if (diffMs < 0) {
+          urgencyLevel = 'EXPIRED';
+        } else if (daysRemaining <= 5) {
+          urgencyLevel = 'DANGER';
+        } else if (daysRemaining <= 10) {
+          urgencyLevel = 'WARNING';
+        } else {
+          urgencyLevel = 'OK';
+        }
 
-      const isBookingConfirmed = tr.booking.status === 'CONFIRMED';
-      const hasTransportConfirmation = !!tr.confirmationNumber;
-      const isConfirmed = isBookingConfirmed || hasTransportConfirmation;
+        const isBookingConfirmed = tr.booking?.status === 'CONFIRMED';
+        const hasTransportConfirmation = !!tr.confirmationNumber;
+        const isConfirmed = isBookingConfirmed || hasTransportConfirmation;
 
-      return {
-        id: tr.id,
-        serviceType: 'TRANSPORT' as const,
-        bookingId: tr.bookingId,
-        bookingReference: tr.booking.bookingReference,
-        bookingStatus: tr.booking.status,
-        customerName: leadPax ? `${leadPax.firstName || ''} ${leadPax.lastName || ''}`.trim() : 'Valued Customer',
-        customerPhone: leadPax?.phoneNumber || '',
-        customerEmail: leadPax?.email || '',
-        agentName: tr.booking.agent?.name || 'Unassigned',
+        return {
+          id: tr.id,
+          serviceType: 'TRANSPORT' as const,
+          bookingId: tr.bookingId,
+          bookingReference: tr.booking?.bookingReference || 'N/A',
+          bookingStatus: tr.booking?.status || 'PENDING',
+          customerName: leadPax ? `${leadPax.firstName || ''} ${leadPax.lastName || ''}`.trim() : 'Valued Customer',
+          customerPhone: leadPax?.phoneNumber || '',
+          customerEmail: leadPax?.email || '',
+          agentName: tr.booking?.agent?.name || 'Unassigned',
         vendorId: tr.vendorId,
         vendorName: tr.vendor?.name || 'Transport Vendor',
         serviceName: `${tr.vehicleType} Transfer`,

@@ -363,6 +363,15 @@ export default function Dashboard() {
         </p>
       </div>
 
+      {/* Free Cancellation Hotels & Transportation Section (Front & Center) */}
+      <FreeCancellationSection
+        onOpenBooking={(bId, bRef) => {
+          setSelectedBookingId(bId);
+          setSelectedBookingRef(bRef || null);
+        }}
+        isAdmin={isAdmin}
+      />
+
       {/* Main KPI Title & Filter Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-3">
         <div>
@@ -493,15 +502,6 @@ export default function Dashboard() {
           })}
         </div>
       </div>
-
-      {/* Free Cancellation Hotels & Transportation Section */}
-      <FreeCancellationSection
-        onOpenBooking={(bId, bRef) => {
-          setSelectedBookingId(bId);
-          setSelectedBookingRef(bRef || null);
-        }}
-        isAdmin={isAdmin}
-      />
 
       {/* Charts Section Header & Filter */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-card/60 p-4 rounded-xl border border-border">
