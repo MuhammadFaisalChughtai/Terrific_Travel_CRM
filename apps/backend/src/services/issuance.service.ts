@@ -81,6 +81,32 @@ export class IssuanceService {
       orderBy: { createdAt: 'desc' },
     });
 
+    // For any tickets that have a bookingReference but no linked bookingId, resolve them
+    const missingBookingRefs = Array.from(
+      new Set(
+        tickets
+          .filter((t) => !t.bookingId && t.bookingReference && t.bookingReference.trim())
+          .map((t) => t.bookingReference!.trim())
+      )
+    );
+
+    const resolvedBookingsMap = new Map<string, { id: string; bookingReference: string }>();
+    if (missingBookingRefs.length > 0) {
+      try {
+        const foundBookings = await prisma.booking.findMany({
+          where: {
+            bookingReference: { in: missingBookingRefs, mode: 'insensitive' },
+          },
+          select: { id: true, bookingReference: true },
+        });
+        foundBookings.forEach((b) => {
+          resolvedBookingsMap.set(b.bookingReference.toLowerCase(), b);
+        });
+      } catch (err) {
+        logger.warn('Failed to batch resolve missing booking references in issuance.service', err);
+      }
+    }
+
     return tickets.map((t) => {
       const creatorName = t.createdBy
         ? `${t.createdBy.firstName} ${t.createdBy.lastName}`.trim()
@@ -99,8 +125,14 @@ export class IssuanceService {
           null;
       }
 
+      const matchedBk = t.bookingReference ? resolvedBookingsMap.get(t.bookingReference.trim().toLowerCase()) : null;
+      const finalBookingId = t.bookingId || (t.booking as any)?.id || matchedBk?.id || null;
+      const finalBookingReference = t.bookingReference || (t.booking as any)?.bookingReference || matchedBk?.bookingReference || null;
+
       return {
         ...t,
+        bookingId: finalBookingId,
+        bookingReference: finalBookingReference,
         isLocked: t.status === IssuanceStatus.ISSUED && t.isLocked,
         creatorName,
         assigneeName,
@@ -190,6 +222,21 @@ export class IssuanceService {
    * Create an issuance ticket manually
    */
   async create(userId: string, data: any) {
+    if (!data.bookingId && data.bookingReference && data.bookingReference.trim()) {
+      try {
+        const matched = await prisma.booking.findFirst({
+          where: { bookingReference: { equals: data.bookingReference.trim(), mode: 'insensitive' } },
+          select: { id: true, bookingReference: true },
+        });
+        if (matched) {
+          data.bookingId = matched.id;
+          data.bookingReference = matched.bookingReference;
+        }
+      } catch (e) {
+        logger.warn('Failed to resolve booking in create issuance ticket', e);
+      }
+    }
+
     let newTicket: any;
     let attempts = 0;
 

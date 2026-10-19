@@ -1,10 +1,11 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../api/client";
 import { formatCurrency } from "@tms/shared-utils";
 import { useAuthStore } from "../store/auth.store";
 import { useNavigate } from "react-router-dom";
 import Modal from "../components/Modal";
 import BookingManager from "../components/BookingManager";
+import FreeCancellationSection from "../components/FreeCancellationSection";
 import {
   TrendingUp,
   Users,
@@ -46,6 +47,7 @@ type CategoryPeriod =
   | "all";
 
 export default function Dashboard() {
+  const queryClient = useQueryClient();
   const [chartPeriod, setChartPeriod] = useState<ChartPeriod>("daily");
   const [kpiPeriod, setKpiPeriod] = useState<KpiPeriod>("all");
   const [agentPeriod, setAgentPeriod] = useState<AgentPeriod>("all");
@@ -491,6 +493,15 @@ export default function Dashboard() {
           })}
         </div>
       </div>
+
+      {/* Free Cancellation Hotels & Transportation Section */}
+      <FreeCancellationSection
+        onOpenBooking={(bId, bRef) => {
+          setSelectedBookingId(bId);
+          setSelectedBookingRef(bRef || null);
+        }}
+        isAdmin={isAdmin}
+      />
 
       {/* Charts Section Header & Filter */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-card/60 p-4 rounded-xl border border-border">
@@ -1037,6 +1048,7 @@ export default function Dashboard() {
           onClose={() => {
             setSelectedBookingId(null);
             setSelectedBookingRef(null);
+            queryClient.invalidateQueries({ queryKey: ["cancellation-deadlines"] });
           }}
         />
       )}

@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import { useAuthStore } from '../store/auth.store';
 import { toast } from 'sonner';
+import BookingManager from '../components/BookingManager';
 import {
   Plane,
   Building2,
@@ -30,6 +32,7 @@ import {
   Ticket,
   ShieldCheck,
   Trash2,
+  ExternalLink,
 } from 'lucide-react';
 
 export interface IssuanceTicket {
@@ -128,6 +131,48 @@ export default function IssuancePage() {
   const [pendingHoldTicket, setPendingHoldTicket] = useState<IssuanceTicket | null>(null);
   const [holdReasonText, setHoldReasonText] = useState('');
   const [viewTicket, setViewTicket] = useState<IssuanceTicket | null>(null);
+
+  const navigate = useNavigate();
+  const [selectedBookingForManager, setSelectedBookingForManager] = useState<{
+    id: string;
+    reference?: string;
+  } | null>(null);
+  const [isLoadingBooking, setIsLoadingBooking] = useState(false);
+
+  const handleOpenBooking = async (ticket: { bookingId?: string | null; bookingReference?: string | null }) => {
+    const bId = ticket.bookingId?.trim();
+    const bRef = ticket.bookingReference?.trim();
+
+    if (bId) {
+      setViewTicket(null);
+      setSelectedBookingForManager({ id: bId, reference: bRef });
+      return;
+    }
+
+    if (bRef) {
+      setIsLoadingBooking(true);
+      try {
+        const res = await apiClient.get(`/bookings?bookingReference=${encodeURIComponent(bRef)}&limit=1`);
+        const items = res.data?.data?.items || res.data?.items || res.data?.data || [];
+        const found = items.find((b: any) => b.bookingReference?.toLowerCase() === bRef.toLowerCase()) || items[0];
+        if (found?.id) {
+          setViewTicket(null);
+          setSelectedBookingForManager({ id: found.id, reference: found.bookingReference });
+          return;
+        }
+      } catch (err) {
+        console.error('Failed to lookup booking by reference:', err);
+      } finally {
+        setIsLoadingBooking(false);
+      }
+
+      // Fallback: navigate directly to /bookings?ref=...
+      navigate(`/bookings?ref=${encodeURIComponent(bRef)}`);
+      return;
+    }
+
+    toast.error('No booking reference is associated with this issuance item.');
+  };
 
   // New Request Form State
   const [newType, setNewType] = useState<'FLIGHT' | 'HOTEL'>('FLIGHT');
@@ -751,8 +796,19 @@ export default function IssuancePage() {
 
                         {/* Booking Link & Payment Status */}
                         {ticket.bookingReference && (
-                          <div className="text-[9.5px] text-primary font-semibold mb-1.5 flex items-center justify-between">
-                            <span>Booking: {ticket.bookingReference}</span>
+                          <div className="text-[9.5px] font-semibold mb-1.5 flex items-center justify-between">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenBooking(ticket);
+                              }}
+                              className="inline-flex items-center gap-1 text-primary hover:text-primary-hover font-bold hover:underline cursor-pointer group/bk"
+                              title={`Open Booking ${ticket.bookingReference}`}
+                            >
+                              <span>Booking: {ticket.bookingReference}</span>
+                              <ExternalLink className="w-2.5 h-2.5 opacity-70 group-hover/bk:opacity-100 transition-opacity" />
+                            </button>
                             {ticket.paymentStatus && (
                               <span className={`text-[8.5px] uppercase font-bold px-1.5 py-0.2 rounded border ${
                                 ticket.paymentStatus === 'PAID'
@@ -903,7 +959,22 @@ export default function IssuancePage() {
                   <span className="font-mono font-bold text-foreground">Ref: {pendingIssueTicket.ticketNumber}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span><strong>Booking:</strong> {pendingIssueTicket.bookingReference || 'N/A'}</span>
+                  <span>
+                    <strong>Booking:</strong>{' '}
+                    {pendingIssueTicket.bookingReference ? (
+                      <button
+                        type="button"
+                        onClick={() => handleOpenBooking(pendingIssueTicket)}
+                        className="inline-flex items-center gap-1 font-bold text-primary hover:text-primary-hover hover:underline cursor-pointer"
+                        title={`Open Booking ${pendingIssueTicket.bookingReference}`}
+                      >
+                        <span>{pendingIssueTicket.bookingReference}</span>
+                        <ExternalLink className="w-2.5 h-2.5" />
+                      </button>
+                    ) : (
+                      'N/A'
+                    )}
+                  </span>
                   <span className="text-foreground font-semibold">
                     Quoted to Client: <strong>{pendingIssueTicket.currency} {Number(pendingIssueTicket.totalCost).toFixed(2)}</strong>
                   </span>
@@ -1435,7 +1506,19 @@ export default function IssuancePage() {
                 </div>
                 <div>
                   <span className="text-muted-foreground block text-[10px] uppercase font-bold">Booking Ref</span>
-                  <span className="font-bold text-foreground">{viewTicket.bookingReference || 'N/A'}</span>
+                  {viewTicket.bookingReference ? (
+                    <button
+                      type="button"
+                      onClick={() => handleOpenBooking(viewTicket)}
+                      className="inline-flex items-center gap-1.5 font-bold text-primary hover:text-primary-hover hover:underline cursor-pointer mt-0.5"
+                      title={`Open Booking ${viewTicket.bookingReference}`}
+                    >
+                      <span>{viewTicket.bookingReference}</span>
+                      <ExternalLink className="w-3 h-3 text-primary" />
+                    </button>
+                  ) : (
+                    <span className="font-bold text-foreground">N/A</span>
+                  )}
                 </div>
                 <div>
                   <span className="text-muted-foreground block text-[10px] uppercase font-bold">Total Cost</span>
@@ -1539,6 +1622,18 @@ export default function IssuancePage() {
               </button>
 
               <div className="flex items-center gap-2">
+                {viewTicket.bookingReference && (
+                  <button
+                    type="button"
+                    onClick={() => handleOpenBooking(viewTicket)}
+                    disabled={isLoadingBooking}
+                    className="px-3.5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    title={`Open Booking ${viewTicket.bookingReference}`}
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    {isLoadingBooking ? 'Opening...' : 'Open Booking'}
+                  </button>
+                )}
                 {(isSystemAdmin || (isFlightExecutive && viewTicket.type === 'FLIGHT')) && viewTicket.status !== 'ISSUED' && (
                   <button
                     type="button"
@@ -1563,6 +1658,19 @@ export default function IssuancePage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Full Screen Booking Dashboard Modal */}
+      {selectedBookingForManager && (
+        <BookingManager
+          isOpen={!!selectedBookingForManager}
+          bookingId={selectedBookingForManager.id}
+          bookingReference={selectedBookingForManager.reference}
+          onClose={() => {
+            setSelectedBookingForManager(null);
+            queryClient.invalidateQueries({ queryKey: ['issuance-tickets'] });
+          }}
+        />
       )}
     </div>
   );

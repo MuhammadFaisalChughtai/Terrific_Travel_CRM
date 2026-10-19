@@ -138,3 +138,26 @@ export const getCustomerPendingBookings = asyncHandler(async (req: Request, res:
   });
 });
 
+export const getCancellationDeadlines = asyncHandler(async (req: Request, res: Response) => {
+  const user = (req as AuthenticatedRequest).user;
+  const { isAdmin, isAgent, agentId } = await resolveUserFilter(user);
+
+  const type = req.query.type as string | undefined;
+  const urgency = req.query.urgency as string | undefined;
+  const status = req.query.status as string | undefined;
+  const search = req.query.search as string | undefined;
+
+  const result = await dashboardService.getCancellationDeadlines({
+    type,
+    urgency,
+    status,
+    search,
+    agentId: isAgent ? agentId : undefined,
+  });
+
+  res.status(200).json({
+    success: true,
+    data: result,
+  });
+});
+

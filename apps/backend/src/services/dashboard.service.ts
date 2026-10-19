@@ -702,6 +702,226 @@ export class DashboardService {
       count: pendingBookings.length,
     };
   }
+
+  /**
+   * Dedicated Free Cancellation Hotels & Transportation list
+   * Returns all hotel and transport bookings with recorded cancellation deadlines,
+   * categorized by urgency (Red <= 5d, Yellow 6-10d, Green > 10d).
+   */
+  async getCancellationDeadlines(filters: {
+    type?: string;
+    urgency?: string;
+    status?: string;
+    search?: string;
+    agentId?: string;
+  } = {}) {
+    const bookingWhere: any = {};
+    if (filters.agentId) {
+      bookingWhere.agentId = filters.agentId;
+    }
+
+    // 1. Fetch Accommodation records with a cancellation deadline
+    const accommodations = await prisma.accommodationService.findMany({
+      where: {
+        lastCancellationDate: { not: null },
+        booking: bookingWhere,
+      },
+      include: {
+        vendor: { select: { id: true, name: true } },
+        booking: {
+          select: {
+            id: true,
+            bookingReference: true,
+            status: true,
+            agentId: true,
+            agent: { select: { id: true, name: true } },
+            passengers: {
+              where: { role: 'Leader' },
+              select: { firstName: true, lastName: true, phoneNumber: true, email: true },
+              take: 1,
+            },
+          },
+        },
+      },
+      orderBy: { lastCancellationDate: 'asc' },
+    });
+
+    // 2. Fetch Transport records with a cancellation deadline
+    const transports = await prisma.transportService.findMany({
+      where: {
+        lastCancellationDate: { not: null },
+        booking: bookingWhere,
+      },
+      include: {
+        vendor: { select: { id: true, name: true } },
+        booking: {
+          select: {
+            id: true,
+            bookingReference: true,
+            status: true,
+            agentId: true,
+            agent: { select: { id: true, name: true } },
+            passengers: {
+              where: { role: 'Leader' },
+              select: { firstName: true, lastName: true, phoneNumber: true, email: true },
+              take: 1,
+            },
+          },
+        },
+      },
+      orderBy: { lastCancellationDate: 'asc' },
+    });
+
+    const now = new Date();
+
+    const hotelItems = accommodations.map((acc) => {
+      const cancelDate = new Date(acc.lastCancellationDate!);
+      const diffMs = cancelDate.getTime() - now.getTime();
+      const daysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+      const hoursRemaining = Math.ceil(diffMs / (1000 * 60 * 60));
+      const leadPax = acc.booking.passengers?.[0];
+
+      let urgencyLevel: 'DANGER' | 'WARNING' | 'OK' | 'EXPIRED' = 'OK';
+      if (diffMs < 0) {
+        urgencyLevel = 'EXPIRED';
+      } else if (daysRemaining <= 5) {
+        urgencyLevel = 'DANGER';
+      } else if (daysRemaining <= 10) {
+        urgencyLevel = 'WARNING';
+      } else {
+        urgencyLevel = 'OK';
+      }
+
+      const isBookingConfirmed = acc.booking.status === 'CONFIRMED';
+      const hasHotelConfirmation = !!(acc.hotelConfirmationNumber || acc.reservationNumber);
+      const isConfirmed = isBookingConfirmed || hasHotelConfirmation;
+
+      return {
+        id: acc.id,
+        serviceType: 'HOTEL' as const,
+        bookingId: acc.bookingId,
+        bookingReference: acc.booking.bookingReference,
+        bookingStatus: acc.booking.status,
+        customerName: leadPax ? `${leadPax.firstName || ''} ${leadPax.lastName || ''}`.trim() : 'Valued Customer',
+        customerPhone: leadPax?.phoneNumber || '',
+        customerEmail: leadPax?.email || '',
+        agentName: acc.booking.agent?.name || 'Unassigned',
+        vendorId: acc.vendorId,
+        vendorName: acc.vendor?.name || 'Hotel Vendor',
+        serviceName: `${acc.hotelName}${acc.city ? ` (${acc.city})` : ''}`,
+        serviceDetails: `${acc.roomType} (${acc.mealType || 'RO'})`,
+        travelDates: {
+          startDate: acc.checkInDate,
+          endDate: acc.checkOutDate,
+          checkInTime: acc.checkInTime || '16:00',
+          checkOutTime: acc.checkOutTime || '12:00',
+        },
+        price: acc.price,
+        currency: acc.currency,
+        lastCancellationDate: acc.lastCancellationDate,
+        daysRemaining,
+        hoursRemaining,
+        isExpired: diffMs < 0,
+        urgencyLevel,
+        isConfirmed,
+        adminConfirmationStatus: isConfirmed ? 'CONFIRMED' : 'PENDING',
+        confirmationNumber: acc.hotelConfirmationNumber || acc.reservationNumber || null,
+        externalUrl: null,
+      };
+    });
+
+    const transportItems = transports.map((tr) => {
+      const cancelDate = new Date(tr.lastCancellationDate!);
+      const diffMs = cancelDate.getTime() - now.getTime();
+      const daysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+      const hoursRemaining = Math.ceil(diffMs / (1000 * 60 * 60));
+      const leadPax = tr.booking.passengers?.[0];
+
+      let urgencyLevel: 'DANGER' | 'WARNING' | 'OK' | 'EXPIRED' = 'OK';
+      if (diffMs < 0) {
+        urgencyLevel = 'EXPIRED';
+      } else if (daysRemaining <= 5) {
+        urgencyLevel = 'DANGER';
+      } else if (daysRemaining <= 10) {
+        urgencyLevel = 'WARNING';
+      } else {
+        urgencyLevel = 'OK';
+      }
+
+      const isBookingConfirmed = tr.booking.status === 'CONFIRMED';
+      const hasTransportConfirmation = !!tr.confirmationNumber;
+      const isConfirmed = isBookingConfirmed || hasTransportConfirmation;
+
+      return {
+        id: tr.id,
+        serviceType: 'TRANSPORT' as const,
+        bookingId: tr.bookingId,
+        bookingReference: tr.booking.bookingReference,
+        bookingStatus: tr.booking.status,
+        customerName: leadPax ? `${leadPax.firstName || ''} ${leadPax.lastName || ''}`.trim() : 'Valued Customer',
+        customerPhone: leadPax?.phoneNumber || '',
+        customerEmail: leadPax?.email || '',
+        agentName: tr.booking.agent?.name || 'Unassigned',
+        vendorId: tr.vendorId,
+        vendorName: tr.vendor?.name || 'Transport Vendor',
+        serviceName: `${tr.vehicleType} Transfer`,
+        serviceDetails: `${tr.departureDestination} → ${tr.arrivalDestination}${tr.flightNo ? ` (${tr.flightNo})` : ''}`,
+        travelDates: {
+          startDate: tr.date,
+          endDate: tr.date,
+          departureTime: tr.departureTime,
+          arrivalTime: tr.arrivalTime,
+        },
+        price: tr.price,
+        currency: tr.currency,
+        lastCancellationDate: tr.lastCancellationDate,
+        daysRemaining,
+        hoursRemaining,
+        isExpired: diffMs < 0,
+        urgencyLevel,
+        isConfirmed,
+        adminConfirmationStatus: isConfirmed ? 'CONFIRMED' : 'PENDING',
+        confirmationNumber: tr.confirmationNumber || null,
+        externalUrl: null,
+      };
+    });
+
+    let allItems = [...hotelItems, ...transportItems];
+
+    // Priority sorting: DANGER (<=5d) first, then WARNING (6-10d), then OK (>10d), then EXPIRED (<0d)
+    const urgencyWeight: Record<string, number> = {
+      DANGER: 1,
+      WARNING: 2,
+      OK: 3,
+      EXPIRED: 4,
+    };
+
+    allItems.sort((a, b) => {
+      const weightA = urgencyWeight[a.urgencyLevel] || 99;
+      const weightB = urgencyWeight[b.urgencyLevel] || 99;
+      if (weightA !== weightB) {
+        return weightA - weightB;
+      }
+      return new Date(a.lastCancellationDate!).getTime() - new Date(b.lastCancellationDate!).getTime();
+    });
+
+    const counts = {
+      total: allItems.length,
+      danger: allItems.filter((i) => i.urgencyLevel === 'DANGER').length,
+      warning: allItems.filter((i) => i.urgencyLevel === 'WARNING').length,
+      ok: allItems.filter((i) => i.urgencyLevel === 'OK').length,
+      expired: allItems.filter((i) => i.urgencyLevel === 'EXPIRED').length,
+      hotels: hotelItems.length,
+      transports: transportItems.length,
+      pendingConfirmation: allItems.filter((i) => !i.isConfirmed).length,
+      confirmed: allItems.filter((i) => i.isConfirmed).length,
+    };
+
+    return {
+      items: allItems,
+      counts,
+    };
+  }
 }
 
 export const dashboardService = new DashboardService();

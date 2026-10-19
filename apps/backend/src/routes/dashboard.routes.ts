@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getStats, getTrends, getStatsByPeriod, getCustomerPendingBookings } from '../controllers/dashboard.controller';
+import { getStats, getTrends, getStatsByPeriod, getCustomerPendingBookings, getCancellationDeadlines } from '../controllers/dashboard.controller';
 import { authMiddleware } from '../middleware/auth.middleware';
 import { requireRoles } from '../middleware/rbac.middleware';
 
@@ -13,5 +13,6 @@ router.get('/stats', getStats);
 router.get('/trends', getTrends);
 router.get('/stats-by-period', getStatsByPeriod);
 router.get('/customer-pending-bookings', requireRoles('SUPER_ADMIN', 'ADMIN') as any, getCustomerPendingBookings);
+router.get('/cancellation-deadlines', getCancellationDeadlines);
 
 export default router;
