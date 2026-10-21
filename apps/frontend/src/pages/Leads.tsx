@@ -29,6 +29,7 @@ import {
   SlidersHorizontal,
   History,
   MessageSquare,
+  Globe,
 } from "lucide-react";
 import { toast } from "sonner";
 import Modal from "../components/Modal";
@@ -469,6 +470,26 @@ export default function LeadsPage() {
     },
   });
 
+  // Sync Website Leads Mutation
+  const syncWebsiteLeadsMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiClient.post("/leads/sync-website");
+      return res.data;
+    },
+    onSuccess: (data: any) => {
+      if (data?.syncedCount > 0) {
+        toast.success(`Successfully imported ${data.syncedCount} new lead(s) from website!`);
+      } else {
+        toast.info(data?.message || "All website leads are already up to date.");
+      }
+      queryClient.invalidateQueries({ queryKey: ["leads"] });
+    },
+    onError: (err: any) => {
+      const msg = err.response?.data?.message || "Failed to sync leads from website.";
+      toast.error(msg);
+    },
+  });
+
   // Edit Mutation
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: typeof formData }) => {
@@ -648,6 +669,19 @@ export default function LeadsPage() {
             <RefreshCw
               className={`w-4 h-4 ${isFetching ? "animate-spin text-primary" : ""}`}
             />
+          </button>
+          <button
+            onClick={() => syncWebsiteLeadsMutation.mutate()}
+            disabled={syncWebsiteLeadsMutation.isPending}
+            className="flex items-center gap-2 bg-secondary hover:bg-secondary/80 text-secondary-foreground font-medium px-3.5 py-2.5 rounded-lg transition-colors border border-border text-xs sm:text-sm shadow-xs"
+            title="Fetch latest enquiry leads from terrifictravel.co.uk"
+          >
+            <Globe
+              className={`w-4 h-4 text-emerald-500 ${syncWebsiteLeadsMutation.isPending ? "animate-spin" : ""}`}
+            />
+            <span>
+              {syncWebsiteLeadsMutation.isPending ? "Syncing..." : "Sync Website Leads"}
+            </span>
           </button>
           {canAssignLeads && (
             <button

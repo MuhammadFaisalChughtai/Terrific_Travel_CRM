@@ -519,6 +519,106 @@ export class LeadsService {
     return lead;
   }
 
+  async syncWebsiteLeads() {
+    const websiteApiUrl = process.env.WEBSITE_ENQUIRY_URL || 'https://terrifictravel.co.uk/api/enquiry';
+    const apiKey = process.env.WEBSITE_CRM_KEY || 'terrific_crm_leads_secret_2026';
+
+    try {
+      const response = await fetch(`${websiteApiUrl}?limit=100`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Website returned HTTP ${response.status}: ${errorText.substring(0, 100)}`);
+      }
+
+      const data: any = await response.json();
+      const leadsList = Array.isArray(data.leads) ? data.leads : (Array.isArray(data) ? data : []);
+
+      if (leadsList.length === 0) {
+        return {
+          success: true,
+          syncedCount: 0,
+          totalWebsiteLeads: 0,
+          message: 'No leads found to sync from website.',
+        };
+      }
+
+      let syncedCount = 0;
+      for (const enquiry of leadsList) {
+        const enquiryId = enquiry.id || enquiry._id;
+        const name = (enquiry.name || enquiry.fullName || '').trim();
+        const phone = (enquiry.phone || enquiry.phoneNumber || '').trim();
+        const email = (enquiry.email || '').trim();
+
+        if (!name && !phone && !email) continue;
+
+        // Check if lead already exists in CRM
+        const existing = await prisma.lead.findFirst({
+          where: {
+            OR: [
+              ...(enquiryId ? [{ notes: { contains: `[Website ID: ${enquiryId}]` } }] : []),
+              {
+                AND: [
+                  { fullName: name },
+                  { phoneNumber: phone || 'Not provided' },
+                ],
+              },
+            ],
+          },
+        });
+
+        if (!existing) {
+          const notesParts: string[] = [
+            `Source: Website Enquiry (${enquiry.type || 'General'})`,
+          ];
+          if (enquiryId) notesParts.push(`[Website ID: ${enquiryId}]`);
+          if (email) notesParts.push(`Email: ${email}`);
+          if (enquiry.message) notesParts.push(`Message: ${enquiry.message}`);
+
+          if (enquiry.tripDetails) {
+            const details = typeof enquiry.tripDetails === 'string'
+              ? (() => { try { return JSON.parse(enquiry.tripDetails); } catch { return enquiry.tripDetails; } })()
+              : enquiry.tripDetails;
+
+            if (typeof details === 'object' && details !== null) {
+              for (const [k, v] of Object.entries(details)) {
+                if (v) notesParts.push(`${k}: ${v}`);
+              }
+            } else if (typeof details === 'string' && details.trim()) {
+              notesParts.push(`Trip Details: ${details}`);
+            }
+          }
+
+          await this.processInboundWebhookLead({
+            fullName: name || (email ? email.split('@')[0] : 'Website Lead'),
+            phoneNumber: phone || 'Not provided',
+            email,
+            notes: notesParts.join('\n'),
+            platform: 'Website (terrifictravel.co.uk)',
+            metaLeadId: enquiryId || undefined,
+          });
+
+          syncedCount++;
+        }
+      }
+
+      return {
+        success: true,
+        syncedCount,
+        totalWebsiteLeads: leadsList.length,
+        message: `Successfully synced ${syncedCount} new lead(s) from website into Leads Log Book.`,
+      };
+    } catch (err: any) {
+      logger.error('[WebsiteSyncError]', err);
+      throw new BadRequestException(`Website lead sync failed: ${err.message}`);
+    }
+  }
+
   async deleteLead(id: string, userRoles: string[] = []) {
     const existing = await prisma.lead.findUnique({ where: { id } });
     if (!existing) {

@@ -86,3 +86,9 @@ export const deleteLead = asyncHandler(async (req: AuthenticatedRequest, res: Re
     message: result.message,
   });
 });
+
+export const syncWebsiteLeadsController = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const result = await leadsService.syncWebsiteLeads();
+  res.status(200).json(result);
+});
+

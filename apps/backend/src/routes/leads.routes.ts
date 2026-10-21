@@ -1,5 +1,14 @@
 import { Router } from 'express';
-import { getLeads, getLeadById, createLead, updateLead, deleteLead, handleInboundLeadWebhook, verifyMetaWebhookHandshake } from '../controllers/leads.controller';
+import {
+  getLeads,
+  getLeadById,
+  createLead,
+  updateLead,
+  deleteLead,
+  handleInboundLeadWebhook,
+  verifyMetaWebhookHandshake,
+  syncWebsiteLeadsController,
+} from '../controllers/leads.controller';
 import { authMiddleware } from '../middleware/auth.middleware';
 
 const router = Router();
@@ -11,6 +20,7 @@ router.post('/webhook', handleInboundLeadWebhook);
 // Protect all other lead routes with authentication middleware
 router.use(authMiddleware as any);
 
+router.post('/sync-website', syncWebsiteLeadsController);
 router.get('/', getLeads);
 router.get('/:id', getLeadById);
 router.post('/', createLead);
