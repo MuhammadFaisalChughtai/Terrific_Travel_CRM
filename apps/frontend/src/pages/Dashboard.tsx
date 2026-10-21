@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import Modal from "../components/Modal";
 import BookingManager from "../components/BookingManager";
 import DashboardDangerCancellationWidget from "../components/DashboardDangerCancellationWidget";
+import DashboardMissingHotelConfirmationWidget from "../components/DashboardMissingHotelConfirmationWidget";
 import {
   TrendingUp,
   Users,
@@ -362,6 +363,15 @@ export default function Dashboard() {
           operational volume.
         </p>
       </div>
+
+      {/* Urgent Missing Hotel Confirmation Alerts (Check-in ≤ 5 Days) */}
+      <DashboardMissingHotelConfirmationWidget
+        onOpenBooking={(bId, bRef) => {
+          setSelectedBookingId(bId);
+          setSelectedBookingRef(bRef || null);
+        }}
+        isAdmin={isAdmin}
+      />
 
       {/* Urgent Cancellation Danger Deadlines Widget (≤ 5 Days Only) */}
       <DashboardDangerCancellationWidget

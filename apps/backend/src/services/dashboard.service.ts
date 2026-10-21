@@ -1,4 +1,5 @@
 import { prisma } from '../config';
+import { BadRequestException, NotFoundException, ForbiddenException } from '../middleware/error.middleware';
 
 // Shared helper to calculate net profit and margin for a single booking
 function calculateBookingFinancials(b: any): { vendorCost: number; margin: number; netProfit: number } {
@@ -936,6 +937,196 @@ export class DashboardService {
       items: allItems,
       counts,
     };
+  }
+
+  async getMissingHotelConfirmations(filters: {
+    isAdmin?: boolean;
+    isManager?: boolean;
+    isAgent?: boolean;
+    agentId?: string;
+    userId?: string;
+  } = {}) {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const fiveDaysFromNow = new Date(startOfToday.getTime() + 5 * 24 * 60 * 60 * 1000 + 23 * 60 * 60 * 1000 + 59 * 60 * 1000 + 999);
+
+    const bookingWhere: any = {
+      status: { not: 'CANCELLED' },
+    };
+
+    // If not Admin or Manager, restrict strictly to bookings owned/assigned to this agent
+    if (!filters.isAdmin && !filters.isManager) {
+      const ownerConditions: any[] = [];
+      if (filters.agentId) {
+        ownerConditions.push({ agentId: filters.agentId });
+      }
+      if (filters.userId) {
+        ownerConditions.push({ createdById: filters.userId });
+        ownerConditions.push({ assignedToId: filters.userId });
+      }
+
+      if (ownerConditions.length > 0) {
+        bookingWhere.OR = ownerConditions;
+      } else {
+        return { items: [], counts: { total: 0, today: 0, tomorrow: 0, soon: 0 } };
+      }
+    }
+
+    const accommodations = await prisma.accommodationService.findMany({
+      where: {
+        AND: [
+          {
+            OR: [
+              { hotelConfirmationNumber: null },
+              { hotelConfirmationNumber: '' },
+            ],
+          },
+          {
+            OR: [
+              { confirmationNumber: null },
+              { confirmationNumber: '' },
+            ],
+          },
+          {
+            checkInDate: {
+              gte: startOfToday, // check-in not in the past
+              lte: fiveDaysFromNow, // check-in is in next 5 days
+            },
+          },
+          {
+            booking: bookingWhere,
+          },
+        ],
+      },
+      include: {
+        vendor: { select: { id: true, name: true } },
+        booking: {
+          select: {
+            id: true,
+            bookingReference: true,
+            status: true,
+            agentId: true,
+            createdById: true,
+            assignedToId: true,
+            agent: { select: { id: true, name: true } },
+            createdBy: { select: { id: true, firstName: true, lastName: true, email: true } },
+            passengers: {
+              where: { role: 'Leader' },
+              select: { firstName: true, lastName: true, phoneNumber: true, email: true },
+              take: 1,
+            },
+          },
+        },
+      },
+      orderBy: { checkInDate: 'asc' },
+    });
+
+    const items = accommodations
+      .filter((acc) => !!acc.booking)
+      .map((acc) => {
+        const checkIn = new Date(acc.checkInDate);
+        const diffMs = checkIn.getTime() - now.getTime();
+        const daysUntilCheckIn = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+        const hoursUntilCheckIn = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60)));
+        const leadPax = acc.booking?.passengers?.[0];
+
+        let urgencyTag: 'TODAY' | 'TOMORROW' | 'NEXT_5_DAYS' = 'NEXT_5_DAYS';
+        if (daysUntilCheckIn === 0) {
+          urgencyTag = 'TODAY';
+        } else if (daysUntilCheckIn === 1) {
+          urgencyTag = 'TOMORROW';
+        }
+
+        const agentName =
+          acc.booking?.agent?.name ||
+          (acc.booking?.createdBy
+            ? `${acc.booking.createdBy.firstName || ''} ${acc.booking.createdBy.lastName || ''}`.trim()
+            : 'Unassigned');
+
+        return {
+          id: acc.id,
+          bookingId: acc.bookingId,
+          bookingReference: acc.booking?.bookingReference || 'N/A',
+          bookingStatus: acc.booking?.status || 'PENDING',
+          hotelName: acc.hotelName,
+          city: acc.city || null,
+          roomType: acc.roomType,
+          mealType: acc.mealType || null,
+          checkInDate: acc.checkInDate,
+          checkOutDate: acc.checkOutDate,
+          daysUntilCheckIn,
+          hoursUntilCheckIn,
+          urgencyTag,
+          customerName: leadPax ? `${leadPax.firstName || ''} ${leadPax.lastName || ''}`.trim() : 'Valued Guest',
+          customerPhone: leadPax?.phoneNumber || '',
+          customerEmail: leadPax?.email || '',
+          agentName,
+          agentId: acc.booking?.agentId || null,
+          vendorName: acc.vendor?.name || 'Hotel Vendor',
+          price: acc.price,
+          currency: acc.currency,
+          hotelConfirmationNumber: acc.hotelConfirmationNumber || acc.confirmationNumber || null,
+        };
+      });
+
+    const counts = {
+      total: items.length,
+      today: items.filter((i) => i.daysUntilCheckIn === 0).length,
+      tomorrow: items.filter((i) => i.daysUntilCheckIn === 1).length,
+      soon: items.filter((i) => i.daysUntilCheckIn >= 2).length,
+    };
+
+    return {
+      items,
+      counts,
+    };
+  }
+
+  async updateHotelConfirmationNumber(
+    accommodationId: string,
+    confirmationNumber: string,
+    userFilters: {
+      isAdmin?: boolean;
+      isManager?: boolean;
+      agentId?: string;
+      userId?: string;
+    }
+  ) {
+    if (!confirmationNumber || !confirmationNumber.trim()) {
+      throw new BadRequestException('Hotel confirmation number is required.');
+    }
+
+    const cleanNum = confirmationNumber.trim().toUpperCase();
+
+    const acc = await prisma.accommodationService.findUnique({
+      where: { id: accommodationId },
+      include: { booking: true },
+    });
+
+    if (!acc) {
+      throw new NotFoundException('Accommodation record not found.');
+    }
+
+    // Role & Ownership check
+    if (!userFilters.isAdmin && !userFilters.isManager) {
+      const isOwner =
+        (userFilters.agentId && acc.booking?.agentId === userFilters.agentId) ||
+        (userFilters.userId && (acc.booking?.createdById === userFilters.userId || acc.booking?.assignedToId === userFilters.userId));
+
+      if (!isOwner) {
+        throw new ForbiddenException('You do not have permission to update confirmation for this booking.');
+      }
+    }
+
+    const updated = await prisma.accommodationService.update({
+      where: { id: accommodationId },
+      data: {
+        hotelConfirmationNumber: cleanNum,
+        confirmationNumber: cleanNum,
+      },
+    });
+
+    return updated;
   }
 }
 

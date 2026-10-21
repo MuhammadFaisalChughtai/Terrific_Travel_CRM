@@ -19,7 +19,9 @@ async function resolveUserFilter(user?: AuthenticatedRequest['user']) {
     ['ADMIN', 'SUPERADMIN', 'ADMINISTRATOR', 'ROOT'].includes(r)
   );
 
-  const isAgent = !isAdmin && cleanRoles.some((r: string) => r.includes('AGENT') || r.includes('MANAGER') || r === 'FLIGHTEXECUTIVE');
+  const isManager = !isAdmin && cleanRoles.some((r: string) => r.includes('MANAGER') || r === 'FLIGHTEXECUTIVE');
+
+  const isAgent = !isAdmin && !isManager && cleanRoles.some((r: string) => r.includes('AGENT'));
 
   let agentId: string | undefined = user.agentId || undefined;
 
@@ -58,9 +60,10 @@ async function resolveUserFilter(user?: AuthenticatedRequest['user']) {
 
   return {
     isAdmin,
+    isManager,
     isAgent,
-    agentId: isAgent ? agentId : undefined,
-    userId: isAgent ? user.id : undefined,
+    agentId: (isAgent || isManager) ? agentId : undefined,
+    userId: user.id,
   };
 }
 
@@ -158,6 +161,43 @@ export const getCancellationDeadlines = asyncHandler(async (req: Request, res: R
   res.status(200).json({
     success: true,
     data: result,
+  });
+});
+
+export const getMissingHotelConfirmations = asyncHandler(async (req: Request, res: Response) => {
+  const user = (req as AuthenticatedRequest).user;
+  const userFilters = await resolveUserFilter(user);
+
+  const result = await dashboardService.getMissingHotelConfirmations({
+    isAdmin: userFilters.isAdmin,
+    isManager: userFilters.isManager,
+    isAgent: userFilters.isAgent,
+    agentId: userFilters.agentId,
+    userId: userFilters.userId,
+  });
+
+  res.status(200).json({
+    success: true,
+    data: result,
+  });
+});
+
+export const updateHotelConfirmationNumber = asyncHandler(async (req: Request, res: Response) => {
+  const user = (req as AuthenticatedRequest).user;
+  const userFilters = await resolveUserFilter(user);
+  const { accommodationId } = req.params;
+  const { hotelConfirmationNumber } = req.body;
+
+  const result = await dashboardService.updateHotelConfirmationNumber(
+    accommodationId,
+    hotelConfirmationNumber,
+    userFilters
+  );
+
+  res.status(200).json({
+    success: true,
+    data: result,
+    message: 'Hotel confirmation number updated successfully.',
   });
 });
 
