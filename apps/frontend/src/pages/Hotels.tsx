@@ -1,17 +1,46 @@
 import React, { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Pagination from '../components/Pagination';
 import { apiClient } from '../api/client';
 import { useAuthStore } from '../store/auth.store';
 import { formatCurrency } from '@tms/shared-utils';
 import { useBookingStore } from '../store/booking.store';
-import { Hotel, Search, Plus, X, MapPin, Star, UserPlus } from 'lucide-react';
+import MissingHotelConfirmationsSection from '../components/MissingHotelConfirmationsSection';
+import BookingManager from '../components/BookingManager';
+import { Hotel, Search, Plus, X, MapPin, Star, UserPlus, Building2, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Hotels() {
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
   const setHotelRoom = useBookingStore((state) => state.setHotelRoom);
+
+  // Tab & Booking Management
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get('tab') || 'catalog';
+  const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
+  const [selectedBookingRef, setSelectedBookingRef] = useState<string | null>(null);
+
+  // Missing confirmations query to show badge count on tab
+  const { data: missingData } = useQuery({
+    queryKey: ['missing-hotel-confirmations'],
+    queryFn: async () => {
+      const res = await apiClient.get('/dashboard/missing-hotel-confirmations');
+      return res.data.data;
+    },
+    refetchInterval: 30000,
+  });
+  const missingCount = missingData?.counts?.total ?? (missingData?.items?.length ?? 0);
+
+  const handleTabChange = (tab: string) => {
+    if (tab === 'catalog') {
+      searchParams.delete('tab');
+      setSearchParams(searchParams);
+    } else {
+      setSearchParams({ tab });
+    }
+  };
 
   // Search parameters
   const [city, setCity] = useState('');
@@ -129,13 +158,79 @@ export default function Hotels() {
 
   return (
     <div className="space-y-6">
-      {/* Search Filter Panel */}
-      <div className="p-6 bg-card border border-border rounded-2xl shadow-sm space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold flex items-center gap-2">
-            <Search size={18} className="text-primary" />
-            Search Lodgings & Resorts
-          </h3>
+      {/* Top Header & Tab Navigation */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-4">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-primary/10 text-primary border border-primary/20">
+              <Hotel className="w-5 h-5" />
+            </div>
+            <span>Hotels &amp; Lodgings Management</span>
+          </h1>
+          <p className="text-xs text-muted-foreground mt-1">
+            Manage inventory, browse hotel rooms, or resolve urgent missing hotel confirmation numbers (HCN).
+          </p>
+        </div>
+
+        {/* Tab Controls */}
+        <div className="flex items-center gap-1.5 p-1 bg-secondary/50 rounded-xl border border-border self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={() => handleTabChange('catalog')}
+            className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              activeTab === 'catalog'
+                ? 'bg-card text-foreground shadow-xs border border-border/50'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Building2 className="w-3.5 h-3.5" />
+            <span>Catalog &amp; Inventory</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleTabChange('missing-confirmations')}
+            className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              activeTab === 'missing-confirmations'
+                ? 'bg-rose-600 text-white shadow-xs'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <AlertTriangle className={`w-3.5 h-3.5 ${missingCount > 0 ? 'text-rose-500 animate-pulse' : ''}`} />
+            <span>Missing Confirmations</span>
+            {missingCount > 0 && (
+              <span
+                className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${
+                  activeTab === 'missing-confirmations'
+                    ? 'bg-white text-rose-600'
+                    : 'bg-rose-600 text-white animate-pulse'
+                }`}
+              >
+                {missingCount}
+              </span>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Tab 1: Missing Confirmations Section */}
+      {activeTab === 'missing-confirmations' ? (
+        <MissingHotelConfirmationsSection
+          onOpenBooking={(bId, bRef) => {
+            setSelectedBookingId(bId);
+            setSelectedBookingRef(bRef || null);
+          }}
+          isAdmin={Boolean(isAdminOrAgent)}
+        />
+      ) : (
+        <>
+          {/* Search Filter Panel */}
+          <div className="p-6 bg-card border border-border rounded-2xl shadow-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold flex items-center gap-2">
+                <Search size={18} className="text-primary" />
+                Search Lodgings & Resorts
+              </h3>
           {isAdminOrAgent && (
             <button
               onClick={() => setIsHotelModalOpen(true)}
@@ -270,6 +365,8 @@ export default function Hotels() {
           />
         </div>
       )}
+      </>
+    )}
 
       {/* Admin Add Hotel Modal */}
       {isHotelModalOpen && (
@@ -361,6 +458,19 @@ export default function Hotels() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Direct Booking Details Modal */}
+      {selectedBookingId && (
+        <BookingManager
+          isOpen={Boolean(selectedBookingId)}
+          bookingId={selectedBookingId}
+          bookingReference={selectedBookingRef || undefined}
+          onClose={() => {
+            setSelectedBookingId(null);
+            setSelectedBookingRef(null);
+          }}
+        />
       )}
     </div>
   );

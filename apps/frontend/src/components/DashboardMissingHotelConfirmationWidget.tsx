@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../api/client';
 import { toast } from 'sonner';
 import {
@@ -10,10 +11,9 @@ import {
   Volume2,
   RefreshCw,
   Building2,
-  Calendar,
-  Save,
   Clock,
-  Sparkles,
+  ArrowRight,
+  ExternalLink,
 } from 'lucide-react';
 import {
   playDangerAlarm,
@@ -55,6 +55,7 @@ export default function DashboardMissingHotelConfirmationWidget({
   onOpenBooking,
   isAdmin = false,
 }: DashboardMissingHotelConfirmationWidgetProps) {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [inputValues, setInputValues] = useState<Record<string, string>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -68,15 +69,18 @@ export default function DashboardMissingHotelConfirmationWidget({
       const res = await apiClient.get('/dashboard/missing-hotel-confirmations');
       return res.data.data;
     },
-    refetchInterval: 60000,
+    refetchInterval: 30000,
   });
 
   const items = data?.items || [];
   const hasUrgentMissing = items.length > 0;
 
-  // 4-second electric alarm buzzer plays every 1 hour while unconfirmed hotels remain
+  // Strict buzzer logic:
+  // 4-second electric alarm buzzer plays on load/interaction and repeats every 1 hour
+  // as long as unconfirmed hotels remain with check-in <= 5 days.
   useEffect(() => {
     if (!hasUrgentMissing) {
+      stopDangerAlarm();
       return;
     }
 
@@ -98,8 +102,25 @@ export default function DashboardMissingHotelConfirmationWidget({
     };
 
     checkAndPlay();
-    const interval = setInterval(checkAndPlay, 30000); // Check periodic condition every 30s
-    return () => clearInterval(interval);
+    const interval = setInterval(checkAndPlay, 30000);
+
+    // AudioContext unlock on first user interaction so strict buzzer plays immediately
+    const onUserInteraction = () => {
+      unlockAudioContext().then((unlocked) => {
+        if (unlocked) {
+          checkAndPlay();
+        }
+      });
+    };
+
+    window.addEventListener('click', onUserInteraction, { once: true });
+    window.addEventListener('keydown', onUserInteraction, { once: true });
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('click', onUserInteraction);
+      window.removeEventListener('keydown', onUserInteraction);
+    };
   }, [hasUrgentMissing]);
 
   // Mutation to save hotel confirmation number (HCN)
@@ -111,7 +132,7 @@ export default function DashboardMissingHotelConfirmationWidget({
       return res.data;
     },
     onSuccess: (_, variables) => {
-      toast.success('Hotel confirmation number added successfully! Removed from alerts.');
+      toast.success('Hotel confirmation number added successfully! Removed from dashboard.');
       setInputValues((prev) => {
         const next = { ...prev };
         delete next[variables.id];
@@ -166,199 +187,255 @@ export default function DashboardMissingHotelConfirmationWidget({
     return null;
   }
 
-  return (
-    <div className="mb-8 rounded-2xl bg-gradient-to-br from-rose-950/40 via-red-950/20 to-slate-900/40 border-2 border-red-500/40 p-5 shadow-2xl backdrop-blur-xl relative overflow-hidden animate-in fade-in duration-300">
-      {/* Background glowing danger pulse */}
-      <div className="absolute -top-24 -right-24 w-96 h-96 bg-red-600/10 rounded-full blur-3xl pointer-events-none animate-pulse" />
+  // Strictly only show up to 5 items on the dashboard
+  const displayedItems = items.slice(0, 5);
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-red-500/20">
-        <div className="flex items-center gap-3">
-          <div className="relative flex items-center justify-center w-11 h-11 rounded-xl bg-red-600 text-white shadow-lg shadow-red-600/40 animate-pulse">
-            <Hotel className="w-6 h-6" />
-            <span className="absolute -top-1 -right-1 flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500" />
-            </span>
+  return (
+    <div className="bg-card border-2 border-rose-500/30 dark:border-rose-500/40 rounded-2xl shadow-sm overflow-hidden mb-6 transition-all ring-1 ring-rose-500/20">
+      {/* Top Header */}
+      <div className="p-4 sm:p-5 border-b border-border bg-gradient-to-r from-rose-500/10 via-card to-card flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 rounded-xl bg-rose-600 text-white shadow-xs animate-bounce">
+            <Hotel className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
-                Missing Hotel Confirmation Alerts
-                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-red-600/30 text-red-300 border border-red-500/40">
-                  Check-in ≤ 5 Days
-                </span>
-              </h3>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-rose-600 text-white animate-pulse">
+                {items.length} MISSING HCN (≤ 5 DAYS)
+              </span>
+              <span className="text-xs font-bold text-rose-700 dark:text-rose-300">
+                {hasUrgentMissing ? 'Danger Buzzer Active' : 'All Confirmed'}
+              </span>
             </div>
-            <p className="text-xs text-red-200/80 mt-0.5">
-              Urgent: Hotel confirmation number (HCN) is missing. Buzzer active until HCN is entered.
+            <h3 className="text-base font-bold text-foreground mt-0.5">
+              Missing Hotel Confirmation Alerts
+            </h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Check-in within 5 days. Enter Hotel Confirmation Number (HCN) to clear alert and silence buzzer.
             </p>
           </div>
         </div>
 
-        {/* Action Controls */}
-        <div className="flex items-center gap-2">
+        {/* Action Controls & Navigation Link */}
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={handleTestSound}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-200 bg-red-950/60 hover:bg-red-900/60 border border-red-700/50 rounded-lg transition-all shadow-sm"
-            title="Test 4-second danger buzzer"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl bg-rose-600 hover:bg-rose-700 text-white shadow-xs animate-pulse ring-2 ring-rose-500/30 transition-all cursor-pointer"
+            title="Test 4-Second Danger Buzzer Sound"
           >
-            <Volume2 className="w-3.5 h-3.5 text-red-400" />
-            Test Buzzer
+            <Volume2 className="w-3.5 h-3.5" />
+            <span>Sound Buzzer (Test)</span>
           </button>
 
           <button
             type="button"
             onClick={handleSnooze}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-300 bg-slate-800/80 hover:bg-slate-700 border border-slate-700 rounded-lg transition-all shadow-sm"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl bg-secondary hover:bg-secondary/80 text-foreground border border-border transition-colors cursor-pointer"
             title="Snooze buzzer for 1 hour"
           >
-            <Clock className="w-3.5 h-3.5 text-amber-400" />
-            Snooze 1h
+            <Clock className="w-3.5 h-3.5 text-amber-500" />
+            <span>Snooze 1h</span>
           </button>
 
           <button
             type="button"
             onClick={() => refetch()}
             disabled={isRefetching}
-            className="p-1.5 text-slate-400 hover:text-white bg-slate-800/60 hover:bg-slate-700/80 border border-slate-700/60 rounded-lg transition-all"
+            className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-xl bg-secondary hover:bg-secondary/80 text-foreground border border-border transition-colors cursor-pointer"
             title="Refresh list"
           >
-            <RefreshCw className={`w-4 h-4 ${isRefetching ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${isRefetching ? 'animate-spin' : ''}`} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigate('/hotels?tab=missing-confirmations')}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all cursor-pointer shadow-xs"
+            title="View all missing confirmations in Hotels section"
+          >
+            <span>View in Hotels ({items.length})</span>
+            <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
 
-      {/* Breakdown Badges */}
-      <div className="flex flex-wrap items-center gap-2 my-3 text-xs">
-        <span className="font-semibold text-red-400 flex items-center gap-1">
-          <AlertTriangle className="w-3.5 h-3.5" />
-          Urgent Action Required:
-        </span>
-        <span className="px-2.5 py-0.5 rounded-md bg-red-500/20 text-red-300 border border-red-500/30 font-medium">
-          Total: <strong className="text-white font-bold">{data?.counts?.total ?? items.length}</strong>
-        </span>
-        {(data?.counts?.today ?? 0) > 0 && (
-          <span className="px-2.5 py-0.5 rounded-md bg-red-600 text-white font-bold animate-pulse shadow-sm">
-            Check-in TODAY: {data?.counts?.today}
-          </span>
-        )}
-        {(data?.counts?.tomorrow ?? 0) > 0 && (
-          <span className="px-2.5 py-0.5 rounded-md bg-amber-500/30 text-amber-200 border border-amber-500/40 font-semibold">
-            Check-in TOMORROW: {data?.counts?.tomorrow}
-          </span>
-        )}
-      </div>
+      {/* Main Table Content - ONLY TOP 5 ITEMS */}
+      <div className="overflow-x-auto">
+        <table className="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr className="border-b border-border bg-secondary/30 text-muted-foreground font-semibold text-[10px] uppercase tracking-wider">
+              <th className="py-2.5 px-3">Hotel &amp; Room</th>
+              <th className="py-2.5 px-3">Booking Ref</th>
+              <th className="py-2.5 px-3">Guest / Customer</th>
+              <th className="py-2.5 px-3">Agent</th>
+              <th className="py-2.5 px-3">Check-in Date</th>
+              <th className="py-2.5 px-3 text-center">Urgency</th>
+              <th className="py-2.5 px-3 text-right">Add Confirmation # (HCN)</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border/60">
+            {displayedItems.map((item) => {
+              const currentInput = inputValues[item.id] !== undefined ? inputValues[item.id] : '';
+              const isSaving = savingId === item.id;
+              const checkInFormatted = new Date(item.checkInDate).toLocaleDateString('en-GB', {
+                weekday: 'short',
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+              });
 
-      {/* Items List */}
-      <div className="space-y-3 mt-3">
-        {items.map((item) => {
-          const currentInput = inputValues[item.id] !== undefined ? inputValues[item.id] : '';
-          const isSaving = savingId === item.id;
-          const checkInFormatted = new Date(item.checkInDate).toLocaleDateString('en-GB', {
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric',
-          });
-
-          return (
-            <div
-              key={item.id}
-              className="rounded-xl bg-slate-900/90 border border-red-500/30 p-4 transition-all hover:border-red-500/60 hover:shadow-lg shadow-black/40 flex flex-col lg:flex-row lg:items-center justify-between gap-4"
-            >
-              {/* Left Column: Details */}
-              <div className="flex-1 min-w-0">
-                <div className="flex flex-wrap items-center gap-2 mb-1.5">
-                  {/* Countdown Badge */}
-                  {item.daysUntilCheckIn === 0 ? (
-                    <span className="px-2 py-0.5 rounded-md bg-red-600 text-white text-[11px] font-black uppercase tracking-wider animate-pulse">
-                      🚨 Check-in TODAY
-                    </span>
-                  ) : item.daysUntilCheckIn === 1 ? (
-                    <span className="px-2 py-0.5 rounded-md bg-red-500/40 text-red-200 border border-red-500/60 text-[11px] font-bold uppercase tracking-wider">
-                      ⚠️ Check-in Tomorrow
-                    </span>
-                  ) : (
-                    <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[11px] font-bold">
-                      Check-in in {item.daysUntilCheckIn} Days
-                    </span>
-                  )}
-
-                  {/* Booking Reference Pill (Clickable) */}
-                  <button
-                    type="button"
-                    onClick={() => onOpenBooking(item.bookingId, item.bookingReference)}
-                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-slate-800 hover:bg-slate-700 text-blue-400 hover:text-blue-300 border border-slate-700 text-xs font-mono font-bold transition-colors"
-                    title="View full booking"
-                  >
-                    <span>{item.bookingReference}</span>
-                    <Eye className="w-3 h-3 ml-0.5 opacity-70" />
-                  </button>
-
-                  <span className="text-xs text-slate-400 font-medium">
-                    Agent: <span className="text-slate-200 font-semibold">{item.agentName}</span>
-                  </span>
-                </div>
-
-                {/* Hotel & Guest Details */}
-                <div className="text-sm font-bold text-white flex items-center gap-1.5 truncate">
-                  <Building2 className="w-4 h-4 text-red-400 shrink-0" />
-                  <span className="truncate">{item.hotelName}</span>
-                  {item.city && <span className="text-slate-400 text-xs font-normal">({item.city})</span>}
-                </div>
-
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-400 mt-1">
-                  <span>
-                    Guest: <strong className="text-slate-200">{item.customerName}</strong>
-                    {item.customerPhone && <span className="text-slate-400"> ({item.customerPhone})</span>}
-                  </span>
-                  <span>
-                    Room: <strong className="text-slate-300">{item.roomType}</strong>
-                  </span>
-                  <span>
-                    Check-in: <strong className="text-red-300">{checkInFormatted}</strong>
-                  </span>
-                </div>
-              </div>
-
-              {/* Right Column: Quick HCN Input & Save Button */}
-              <div className="flex items-center gap-2 shrink-0 bg-slate-950/60 p-2 rounded-xl border border-red-500/20">
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={currentInput}
-                    onChange={(e) =>
-                      setInputValues((prev) => ({ ...prev, [item.id]: e.target.value.toUpperCase() }))
-                    }
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleSaveHcn(item.id);
-                    }}
-                    placeholder="Enter HCN / Conf #"
-                    className="w-48 sm:w-56 px-3 py-2 text-xs font-mono font-bold bg-slate-900 border border-red-500/40 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                    disabled={isSaving}
-                  />
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => handleSaveHcn(item.id)}
-                  disabled={isSaving || !currentInput.trim()}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg shadow-md shadow-emerald-700/30 transition-all shrink-0"
-                  title="Save Hotel Confirmation Number and silence buzzer"
+              return (
+                <tr
+                  key={item.id}
+                  className="bg-rose-50/40 dark:bg-rose-950/20 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
                 >
-                  {isSaving ? (
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                  )}
-                  Save HCN
-                </button>
-              </div>
-            </div>
-          );
-        })}
+                  {/* Hotel & Room */}
+                  <td className="py-3 px-3 align-middle">
+                    <div className="flex items-start gap-2.5">
+                      <div className="p-2 rounded-xl shrink-0 mt-0.5 bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                        <Building2 className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="font-bold text-foreground line-clamp-1">{item.hotelName}</div>
+                        <p className="text-[11px] text-muted-foreground line-clamp-1">
+                          {item.roomType} {item.city ? `• ${item.city}` : ''}
+                        </p>
+                        {item.vendorName && (
+                          <p className="text-[10px] text-muted-foreground">Supplier: {item.vendorName}</p>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+
+                  {/* Booking Ref */}
+                  <td className="py-3 px-3 align-middle whitespace-nowrap">
+                    <button
+                      type="button"
+                      onClick={() => onOpenBooking(item.bookingId, item.bookingReference)}
+                      className="font-mono text-[11px] font-bold text-primary hover:underline inline-flex items-center gap-1 cursor-pointer"
+                      title={`Open Booking ${item.bookingReference}`}
+                    >
+                      <span>{item.bookingReference}</span>
+                      <ExternalLink className="w-2.5 h-2.5" />
+                    </button>
+                    <div className="text-[9.5px] px-1.5 py-0.2 rounded font-bold uppercase border bg-secondary/80 text-muted-foreground w-max mt-1">
+                      {item.bookingStatus}
+                    </div>
+                  </td>
+
+                  {/* Guest / Customer */}
+                  <td className="py-3 px-3 align-middle">
+                    <div className="font-semibold text-foreground">{item.customerName}</div>
+                    {item.customerPhone && (
+                      <div className="text-[11px] text-muted-foreground font-mono">{item.customerPhone}</div>
+                    )}
+                  </td>
+
+                  {/* Agent */}
+                  <td className="py-3 px-3 align-middle whitespace-nowrap">
+                    <div className="font-medium text-foreground">{item.agentName}</div>
+                  </td>
+
+                  {/* Check-In Date */}
+                  <td className="py-3 px-3 align-middle whitespace-nowrap">
+                    <div className="font-bold text-foreground">{checkInFormatted}</div>
+                    <div className="text-[10.5px] text-muted-foreground">
+                      to{' '}
+                      {new Date(item.checkOutDate).toLocaleDateString('en-GB', {
+                        day: 'numeric',
+                        month: 'short',
+                      })}
+                    </div>
+                  </td>
+
+                  {/* Urgency Badge */}
+                  <td className="py-3 px-3 align-middle text-center whitespace-nowrap">
+                    {item.daysUntilCheckIn === 0 ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-rose-600 text-white shadow-xs animate-pulse">
+                        <AlertTriangle className="w-3 h-3 shrink-0" />
+                        CHECK-IN TODAY
+                      </span>
+                    ) : item.daysUntilCheckIn === 1 ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                        TOMORROW
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-secondary text-foreground border border-border">
+                        {item.daysUntilCheckIn} Days Left
+                      </span>
+                    )}
+                  </td>
+
+                  {/* Quick HCN Input & Save Action */}
+                  <td className="py-3 px-3 align-middle text-right whitespace-nowrap">
+                    <div className="flex items-center justify-end gap-1.5">
+                      <input
+                        type="text"
+                        value={currentInput}
+                        onChange={(e) =>
+                          setInputValues((prev) => ({
+                            ...prev,
+                            [item.id]: e.target.value.toUpperCase(),
+                          }))
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleSaveHcn(item.id);
+                        }}
+                        placeholder="Enter HCN / Conf #"
+                        className="w-36 sm:w-44 px-2.5 py-1.5 text-xs font-mono font-bold bg-background border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-xs"
+                        disabled={isSaving}
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() => handleSaveHcn(item.id)}
+                        disabled={isSaving || !currentInput.trim()}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow-xs transition-all cursor-pointer"
+                        title="Save Hotel Confirmation Number and silence buzzer"
+                      >
+                        {isSaving ? (
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                        )}
+                        <span>Save HCN</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => onOpenBooking(item.bookingId, item.bookingReference)}
+                        className="p-1.5 text-muted-foreground hover:text-foreground bg-secondary hover:bg-secondary/80 rounded-xl transition-all cursor-pointer border border-border"
+                        title="View full booking"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
+
+      {/* Footer Banner when items > 5 */}
+      {items.length > 5 && (
+        <div className="p-3 bg-secondary/30 border-t border-border flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+          <span className="text-muted-foreground font-medium">
+            Showing top <strong className="text-foreground">5</strong> of{' '}
+            <strong className="text-rose-600 dark:text-rose-400 font-bold">{items.length}</strong> urgent unconfirmed hotels (≤ 5 days)
+          </span>
+          <button
+            type="button"
+            onClick={() => navigate('/hotels?tab=missing-confirmations')}
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-primary hover:underline cursor-pointer"
+          >
+            <span>View remaining {items.length - 5} in Hotels Section</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
