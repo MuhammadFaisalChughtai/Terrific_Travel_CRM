@@ -50,11 +50,11 @@ export const config = {
     exchange: 'travel.events',
   },
   smtp: {
-    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    host: (process.env.SMTP_HOST || 'smtp.gmail.com').trim().replace(/^["']|["']$/g, ''),
     port: Number(process.env.SMTP_PORT) || 587,
-    user: process.env.SMTP_USER || '',
-    pass: process.env.SMTP_PASSWORD || '',
-    from: process.env.SMTP_FROM || 'no-reply@terrifictravel.co.uk',
+    user: (process.env.SMTP_USER || '').trim().replace(/^["']|["']$/g, ''),
+    pass: (process.env.SMTP_PASSWORD || '').trim().replace(/^["']|["']$/g, ''),
+    from: (process.env.SMTP_FROM || 'no-reply@terrifictravel.co.uk').trim().replace(/^["']|["']$/g, ''),
   },
   // Dev:  http://localhost:5173  |  Prod: https://crm.terrifictravel.co.uk
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
