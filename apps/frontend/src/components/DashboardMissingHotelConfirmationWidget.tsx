@@ -250,7 +250,7 @@ export default function DashboardMissingHotelConfirmationWidget({
 
           <button
             type="button"
-            onClick={() => navigate('/hotels?tab=missing-confirmations')}
+            onClick={() => navigate('/hotels')}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all cursor-pointer shadow-xs"
             title="View all missing confirmations in Hotels section"
           >
@@ -428,7 +428,7 @@ export default function DashboardMissingHotelConfirmationWidget({
           </span>
           <button
             type="button"
-            onClick={() => navigate('/hotels?tab=missing-confirmations')}
+            onClick={() => navigate('/hotels')}
             className="inline-flex items-center gap-1.5 text-xs font-bold text-primary hover:underline cursor-pointer"
           >
             <span>View remaining {items.length - 5} in Hotels Section</span>

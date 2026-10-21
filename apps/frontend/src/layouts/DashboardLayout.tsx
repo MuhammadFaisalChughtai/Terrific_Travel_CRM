@@ -98,6 +98,20 @@ export default function DashboardLayout() {
 
   const urgentDangerCount = cancellationData?.counts?.danger || 0;
 
+  const { data: missingHotelData } = useQuery<{
+    counts?: { total?: number };
+  }>({
+    queryKey: ["missing-hotel-confirmations"],
+    queryFn: async () => {
+      const res = await apiClient.get("/dashboard/missing-hotel-confirmations");
+      return res.data.data;
+    },
+    enabled: !!user,
+    refetchInterval: 60000,
+  });
+
+  const urgentMissingHotelCount = missingHotelData?.counts?.total || 0;
+
   const queryClient = useQueryClient();
   const { data: todayAttendance } = useQuery({
     queryKey: ["attendance", "today"],
@@ -281,6 +295,7 @@ export default function DashboardLayout() {
     { name: "Bookings", path: "/bookings", icon: CalendarRange },
     { name: "Issuance Board", path: "/issuance", icon: Ticket },
     { name: "Free Cancellation", path: "/cancellation-deadlines", icon: AlertTriangle },
+    { name: "Hotel Confirmations", path: "/hotels", icon: Hotel },
     { name: "Leads Log Book", path: "/leads", icon: UserCheck },
     { name: "Upcoming Tours", path: "/tours", icon: Compass },
     { name: "Invoices", path: "/invoices", icon: FileText },
@@ -444,6 +459,16 @@ export default function DashboardLayout() {
                           {urgentDangerCount}
                         </span>
                       )}
+                    {item.name === "Hotel Confirmations" &&
+                      urgentMissingHotelCount > 0 && (
+                        <span
+                          className={`ml-2 px-1.5 py-0.5 rounded-full text-[10px] font-black leading-none flex items-center justify-center ${
+                            isActive ? "bg-white text-rose-600" : "bg-rose-600 text-white animate-pulse"
+                          }`}
+                        >
+                          {urgentMissingHotelCount}
+                        </span>
+                      )}
                   </span>
                 ) : (
                   <>
@@ -454,6 +479,10 @@ export default function DashboardLayout() {
                       )}
                     {item.name === "Free Cancellation" &&
                       urgentDangerCount > 0 && (
+                        <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-600 ring-2 ring-card shadow-sm animate-ping" />
+                      )}
+                    {item.name === "Hotel Confirmations" &&
+                      urgentMissingHotelCount > 0 && (
                         <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-600 ring-2 ring-card shadow-sm animate-ping" />
                       )}
                   </>
