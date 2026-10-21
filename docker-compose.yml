@@ -111,6 +111,7 @@ services:
       FRONTEND_URL: ${FRONTEND_URL:-https://crm.terrifictravel.co.uk}
       # Dev: http://localhost:3000 | Prod: https://api.terrifictravel.co.uk
       BACKEND_URL: ${BACKEND_URL:-https://api.terrifictravel.co.uk}
+      LEAD_WEBHOOK_SECRET: ${LEAD_WEBHOOK_SECRET:-tms_lead_webhook_secret_key_2026}
     depends_on:
       postgres:
         condition: service_healthy
@@ -129,6 +130,25 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: tms-n8n
+    restart: always
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_PORT=5678
+      - N8N_HOST=${N8N_HOST:-n8n.terrifictravel.co.uk}
+      - N8N_PROTOCOL=${N8N_PROTOCOL:-https}
+      - WEBHOOK_URL=${N8N_WEBHOOK_URL:-https://n8n.terrifictravel.co.uk/}
+      - GENERIC_TIMEZONE=Europe/London
+      - TZ=Europe/London
+      - N8N_DEFAULT_BINARY_DATA_MODE=filesystem
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      - backend
 
   frontend:
     build:
@@ -156,3 +176,4 @@ volumes:
   redis_data:
   rabbitmq_data:
   minio_data:
+  n8n_data:

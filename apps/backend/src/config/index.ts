@@ -60,6 +60,7 @@ export const config = {
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
   // Dev:  http://localhost:3000  |  Prod: https://api.terrifictravel.co.uk
   backendUrl: process.env.BACKEND_URL || 'http://localhost:3000',
+  leadWebhookSecret: (process.env.LEAD_WEBHOOK_SECRET || 'tms_lead_webhook_secret_key_2026').trim().replace(/^["']|["']$/g, ''),
 };
 
 // Database Singleton

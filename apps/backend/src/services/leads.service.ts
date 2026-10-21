@@ -1,4 +1,4 @@
-import { prisma } from '../config';
+import { prisma, redis, logger } from '../config';
 import { BadRequestException, ForbiddenException, NotFoundException } from '../middleware/error.middleware';
 import { LeadStatus } from '@prisma/client';
 
@@ -343,6 +343,180 @@ export class LeadsService {
     });
 
     return this.getLeadById(id);
+  }
+
+  async processInboundWebhookLead(payload: any) {
+    if (!payload || typeof payload !== 'object') {
+      throw new BadRequestException('Invalid lead payload received.');
+    }
+
+    // Extract Lead Name
+    let fullName =
+      payload.fullName ||
+      payload.full_name ||
+      payload.name ||
+      [payload.firstName || payload.first_name, payload.lastName || payload.last_name].filter(Boolean).join(' ') ||
+      '';
+
+    // Extract Phone Number
+    let phoneNumber =
+      payload.phoneNumber ||
+      payload.phone_number ||
+      payload.phone ||
+      payload.mobile ||
+      '';
+
+    // Extract Email
+    let email = payload.email || payload.email_address || '';
+
+    // If Meta payload sends field_data array (standard Facebook Graph API webhook format)
+    if (Array.isArray(payload.field_data)) {
+      for (const field of payload.field_data) {
+        const fieldName = (field.name || '').toLowerCase();
+        const value = Array.isArray(field.values) ? field.values.join(', ') : (field.values || '');
+        if (!value) continue;
+
+        if (!fullName && (fieldName.includes('name') || fieldName === 'full_name')) {
+          fullName = value;
+        } else if (!phoneNumber && (fieldName.includes('phone') || fieldName.includes('mobile'))) {
+          phoneNumber = value;
+        } else if (!email && fieldName.includes('email')) {
+          email = value;
+        }
+      }
+    }
+
+    // Fallbacks
+    if (!fullName.trim()) {
+      fullName = email ? `Lead (${email.split('@')[0]})` : 'Meta Lead (Pending Info)';
+    }
+    if (!phoneNumber.trim()) {
+      phoneNumber = 'Not provided';
+    }
+
+    // Build comprehensive notes from Meta campaign/ad/form metadata
+    const notesParts: string[] = [];
+    if (payload.notes && typeof payload.notes === 'string' && payload.notes.trim()) {
+      notesParts.push(payload.notes.trim());
+    }
+    if (email) {
+      notesParts.push(`Email: ${email.trim()}`);
+    }
+
+    const campaign = payload.campaignName || payload.campaign_name || payload.campaign;
+    if (campaign) notesParts.push(`Campaign: ${campaign}`);
+
+    const adSet = payload.adSetName || payload.adset_name || payload.adSet;
+    if (adSet) notesParts.push(`Ad Set: ${adSet}`);
+
+    const ad = payload.adName || payload.ad_name || payload.ad;
+    if (ad) notesParts.push(`Ad: ${ad}`);
+
+    const form = payload.formName || payload.form_name || payload.form;
+    if (form) notesParts.push(`Form: ${form}`);
+
+    const platform = payload.platform || 'Meta Lead Ads';
+    if (platform) notesParts.push(`Platform: ${platform}`);
+
+    const leadId = payload.metaLeadId || payload.lead_id || payload.id;
+    if (leadId) notesParts.push(`Meta Lead ID: ${leadId}`);
+
+    // Parse custom fields or any extra questions answered in the Meta form
+    if (Array.isArray(payload.field_data)) {
+      for (const field of payload.field_data) {
+        const fieldName = (field.name || '').toLowerCase();
+        if (['full_name', 'name', 'phone_number', 'phone', 'email'].includes(fieldName)) continue;
+        const val = Array.isArray(field.values) ? field.values.join(', ') : (field.values || '');
+        if (val) {
+          notesParts.push(`${field.name}: ${val}`);
+        }
+      }
+    } else if (payload.customFields && typeof payload.customFields === 'object') {
+      for (const [k, v] of Object.entries(payload.customFields)) {
+        notesParts.push(`${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`);
+      }
+    }
+
+    const finalNotes = notesParts.join('\n');
+
+    // Query active agents eligible for round-robin lead assignment
+    let eligibleAgents = await prisma.user.findMany({
+      where: {
+        isActive: true,
+        userRoles: {
+          some: {
+            role: {
+              name: {
+                in: [
+                  'Agent',
+                  'TRAVEL_AGENT',
+                  'Travel Agent',
+                  'TravelAgent',
+                  'Flight Executive',
+                  'Manager',
+                ],
+                mode: 'insensitive',
+              },
+            },
+          },
+        },
+      },
+      select: this.selectUser,
+      orderBy: { createdAt: 'asc' },
+    });
+
+    // Fallback: If no users with specific agent roles are configured, pick from any active user
+    if (eligibleAgents.length === 0) {
+      eligibleAgents = await prisma.user.findMany({
+        where: { isActive: true },
+        select: this.selectUser,
+        orderBy: { createdAt: 'asc' },
+      });
+    }
+
+    // Round-robin / random distribution among active agents
+    let assignedAgent: any = null;
+    if (eligibleAgents.length > 0) {
+      try {
+        const counter = await redis.incr('tms:leads:meta_round_robin_counter');
+        const agentIndex = (counter - 1) % eligibleAgents.length;
+        assignedAgent = eligibleAgents[agentIndex];
+      } catch (err) {
+        // Fallback to random assignment if Redis is momentarily unreachable
+        const randomIndex = Math.floor(Math.random() * eligibleAgents.length);
+        assignedAgent = eligibleAgents[randomIndex];
+      }
+    }
+
+    const logNote = assignedAgent
+      ? `Lead received from ${platform} via n8n automation. Assigned to agent ${assignedAgent.firstName} ${assignedAgent.lastName} (${assignedAgent.email || assignedAgent.agentId || 'Agent'}).`
+      : `Lead received from ${platform} via n8n automation. Unassigned (no active agents currently available).`;
+
+    const lead = await prisma.lead.create({
+      data: {
+        fullName: fullName.trim(),
+        phoneNumber: phoneNumber.trim(),
+        notes: finalNotes || null,
+        status: LeadStatus.NEW,
+        assignedAgentId: assignedAgent ? assignedAgent.id : null,
+        createdById: assignedAgent ? assignedAgent.id : null,
+        statusLogs: {
+          create: {
+            status: LeadStatus.NEW,
+            notes: logNote,
+            createdById: assignedAgent ? assignedAgent.id : null,
+          },
+        },
+      },
+      include: {
+        assignedAgent: { select: this.selectUser },
+        statusLogs: this.statusLogsInclude,
+      },
+    });
+
+    logger.info(`[LeadWebhook] Inbound lead "${lead.fullName}" created with ID: ${lead.id}, assigned to: ${assignedAgent ? assignedAgent.email : 'None'}`);
+
+    return lead;
   }
 
   async deleteLead(id: string, userRoles: string[] = []) {

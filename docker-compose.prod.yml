@@ -35,3 +35,11 @@ services:
       # Set MinIO's own public domain so its console links are correct
       MINIO_BROWSER_REDIRECT_URL: https://cdn.terrifictravel.co.uk/minio/ui
       MINIO_SERVER_URL: https://cdn.terrifictravel.co.uk
+
+  n8n:
+    restart: always
+    environment:
+      - N8N_HOST=n8n.terrifictravel.co.uk
+      - N8N_PROTOCOL=https
+      - WEBHOOK_URL=https://n8n.terrifictravel.co.uk/
+
