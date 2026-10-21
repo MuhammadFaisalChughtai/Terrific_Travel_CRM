@@ -4,6 +4,17 @@ import { asyncHandler } from '../middleware/async.middleware';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
 import { config } from '../config';
 
+export const verifyMetaWebhookHandshake = (req: Request, res: Response) => {
+  const mode = req.query['hub.mode'];
+  const token = req.query['hub.verify_token'];
+  const challenge = req.query['hub.challenge'];
+
+  if (mode === 'subscribe' && token === config.leadWebhookSecret) {
+    return res.status(200).send(challenge);
+  }
+  return res.status(403).send('Forbidden: Invalid verification token.');
+};
+
 export const handleInboundLeadWebhook = asyncHandler(async (req: Request, res: Response) => {
   const secretHeader = (req.headers['x-webhook-secret'] || req.headers['x-api-key']) as string | undefined;
   const querySecret = req.query.secret as string | undefined;
