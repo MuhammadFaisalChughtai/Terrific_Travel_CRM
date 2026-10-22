@@ -1,4 +1,4 @@
-import { prisma, redis, logger } from '../config';
+import { prisma, redis, logger, config } from '../config';
 import { BadRequestException, ForbiddenException, NotFoundException } from '../middleware/error.middleware';
 import { LeadStatus } from '@prisma/client';
 
@@ -350,6 +350,58 @@ export class LeadsService {
       throw new BadRequestException('Invalid lead payload received.');
     }
 
+    // Direct Meta Webhook format: { object: 'page', entry: [ { changes: [ { field: 'leadgen', value: { leadgen_id } } ] } ] }
+    if (payload.object === 'page' && Array.isArray(payload.entry)) {
+      const results: any[] = [];
+      for (const entry of payload.entry) {
+        if (!Array.isArray(entry.changes)) continue;
+        for (const change of entry.changes) {
+          if (change.field === 'leadgen' && change.value) {
+            const val = change.value;
+            const leadgenId = val.leadgen_id;
+            const formId = val.form_id;
+            const pageId = val.page_id;
+            const adId = val.ad_id;
+
+            let leadPayload: any = {
+              metaLeadId: leadgenId,
+              platform: 'Meta Lead Ads',
+              notes: `Meta Lead ID: ${leadgenId}${formId ? `\nForm ID: ${formId}` : ''}${pageId ? `\nPage ID: ${pageId}` : ''}${adId ? `\nAd ID: ${adId}` : ''}`,
+            };
+
+            // If a Meta Page Access Token is configured, automatically fetch full contact details from Graph API
+            if (config.metaPageAccessToken && leadgenId) {
+              try {
+                const graphUrl = `https://graph.facebook.com/v21.0/${leadgenId}?access_token=${config.metaPageAccessToken}`;
+                const resp = await fetch(graphUrl);
+                if (resp.ok) {
+                  const graphData: any = await resp.json();
+                  leadPayload = {
+                    ...leadPayload,
+                    ...graphData,
+                    metaLeadId: leadgenId,
+                  };
+                } else {
+                  const errText = await resp.text();
+                  logger.error(`[Meta Graph API Error for ${leadgenId}]: ${errText}`);
+                }
+              } catch (graphErr: any) {
+                logger.error(`[Meta Graph API fetch failed for ${leadgenId}]: ${graphErr.message}`);
+              }
+            }
+
+            const created = await this.saveInboundLead(leadPayload);
+            results.push(created);
+          }
+        }
+      }
+      return results.length === 1 ? results[0] : results;
+    }
+
+    return this.saveInboundLead(payload);
+  }
+
+  private async saveInboundLead(payload: any) {
     // Extract Lead Name
     let fullName =
       payload.fullName ||

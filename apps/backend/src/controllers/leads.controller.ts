@@ -22,8 +22,12 @@ export const handleInboundLeadWebhook = asyncHandler(async (req: Request, res: R
   const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
   const providedSecret = secretHeader || querySecret || bearerToken;
 
+  const isMetaDirectPayload = req.body?.object === 'page' && Array.isArray(req.body?.entry);
+  const hasMetaSignature = Boolean(req.headers['x-hub-signature-256'] || req.headers['x-hub-signature']);
+
   const expectedSecret = config.leadWebhookSecret;
-  if (expectedSecret && providedSecret !== expectedSecret) {
+  // Allow if secret matches OR if request is directly from Meta (has Meta signature or Meta page payload)
+  if (!isMetaDirectPayload && !hasMetaSignature && expectedSecret && providedSecret !== expectedSecret) {
     return res.status(401).json({
       success: false,
       message: 'Unauthorized: Invalid or missing webhook secret.',

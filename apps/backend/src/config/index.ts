@@ -56,11 +56,10 @@ export const config = {
     pass: (process.env.SMTP_PASSWORD || '').trim().replace(/^["']|["']$/g, ''),
     from: (process.env.SMTP_FROM || 'no-reply@terrifictravel.co.uk').trim().replace(/^["']|["']$/g, ''),
   },
-  // Dev:  http://localhost:5173  |  Prod: https://crm.terrifictravel.co.uk
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
-  // Dev:  http://localhost:3000  |  Prod: https://api.terrifictravel.co.uk
   backendUrl: process.env.BACKEND_URL || 'http://localhost:3000',
   leadWebhookSecret: (process.env.LEAD_WEBHOOK_SECRET || 'tms_lead_webhook_secret_key_2026').trim().replace(/^["']|["']$/g, ''),
+  metaPageAccessToken: (process.env.META_PAGE_ACCESS_TOKEN || process.env.META_ACCESS_TOKEN || '').trim().replace(/^["']|["']$/g, ''),
 };
 
 // Database Singleton
