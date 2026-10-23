@@ -7,6 +7,7 @@ import { randomUUID } from 'crypto';
 import { minioService } from './minio.service';
 import { vendorsService } from './vendors.service';
 import { auditLogService } from './audit.service';
+import { agentMarginService } from './agent-margin.service';
 
 /**
  * Resolves a bookingDate according to UK (Europe/London) timezone.
@@ -858,11 +859,30 @@ export class BookingsService {
         passengers: { include: { agent: true, documents: true } },
         bookingVendorPayments: { include: { vendor: true } },
         vendorPaymentAllocations: { include: { vendorPayment: { include: { createdBy: true } } } },
-        accommodations: { include: { vendor: true } },
+        accommodations: {
+          include: {
+            vendor: true,
+            priceAdjustments: {
+              include: {
+                adjustedBy: { select: { id: true, firstName: true, lastName: true } },
+                additionalMarginPaidBy: { select: { id: true, firstName: true, lastName: true } },
+              },
+              orderBy: { adjustmentDate: 'desc' },
+            },
+          },
+        },
         flightServices: { include: { vendor: true } },
         transportServices: { include: { vendor: true } },
         visaServices: { include: { vendor: true } },
         additionalServices: { include: { vendor: true } },
+        hotelPriceAdjustments: {
+          include: {
+            adjustedBy: { select: { id: true, firstName: true, lastName: true } },
+            additionalMarginPaidBy: { select: { id: true, firstName: true, lastName: true } },
+            accommodation: { select: { id: true, hotelName: true, roomType: true } },
+          },
+          orderBy: { adjustmentDate: 'desc' },
+        },
       },
     });
     if (!booking) throw new NotFoundException('Booking not found');
@@ -3657,6 +3677,333 @@ export class BookingsService {
     });
 
     return updated;
+  }
+
+  /**
+   * Adjusts hotel price for a booking with active free-cancellation / price reduction.
+   * Scenario A: Agent margin has NOT been paid -> updates price directly, recalculates profit & standard margin.
+   * Scenario B: Agent margin HAS been paid -> preserves original records, creates HotelPriceAdjustment,
+   * calculates savings, additional profit, and additional agent margin separately.
+   */
+  async adjustHotelPrice(
+    bookingId: string,
+    accommodationId: string,
+    data: { newPrice: number; notes?: string; overrideExpired?: boolean },
+    actorId: string
+  ) {
+    const newPrice = Number(data.newPrice);
+    if (isNaN(newPrice) || newPrice < 0) {
+      throw new BadRequestException('New hotel price must be a valid positive number');
+    }
+
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: {
+        agent: { include: { slabs: { orderBy: { minSales: 'asc' } } } },
+        agentMargin: true,
+        transactions: true,
+        bookingVendorPayments: true,
+        accommodations: true,
+        flightServices: true,
+        transportServices: true,
+        visaServices: true,
+      },
+    });
+
+    if (!booking) {
+      throw new NotFoundException('Booking not found');
+    }
+
+    const acc = booking.accommodations.find((a) => a.id === accommodationId);
+    if (!acc) {
+      throw new NotFoundException('Hotel accommodation not found on this booking');
+    }
+
+    const baselinePrice = acc.price;
+    if (newPrice >= baselinePrice) {
+      throw new BadRequestException(
+        `New hotel price (£${newPrice}) must be strictly lower than the current price (£${baselinePrice}) to qualify as a savings adjustment.`
+      );
+    }
+
+    const savedAmount = Math.round((baselinePrice - newPrice) * 100) / 100;
+    const originalPrice = acc.originalPrice ?? baselinePrice;
+    const originalBookingDate = acc.originalBookingDate ?? (acc.issueDate || booking.bookingDate || booking.createdAt);
+
+    // Free cancellation check warning
+    const isExpired = acc.lastCancellationDate && new Date(acc.lastCancellationDate) < new Date();
+    const expiryNote = isExpired ? ' [Notice: Free-cancellation deadline had passed]' : '';
+
+    // Check if agent margin has already been paid for this booking
+    const hasPaidMargin =
+      booking.agentMargin?.status === 'PAID' ||
+      booking.transactions.some(
+        (tx) => tx.paymentMethod === 'AGENT PAYOUT' || tx.paymentMethod === 'AGENT_PAYOUT'
+      );
+
+    if (!hasPaidMargin) {
+      // -------------------------------------------------------------
+      // SCENARIO A: Agent margin has NOT been paid
+      // Update hotel price directly, recalculate profit & agent margin
+      // -------------------------------------------------------------
+      const updatedAcc = await prisma.accommodationService.update({
+        where: { id: accommodationId },
+        data: {
+          originalPrice,
+          originalBookingDate,
+          price: newPrice,
+        },
+      });
+
+      // Synchronize booking vendor payment records
+      await vendorsService.syncBookingVendorPayments(booking.id);
+
+      // Recalculate unpaid agent margin record if linked
+      if (booking.agentMarginId) {
+        try {
+          await agentMarginService.recalculateMarginRecord(booking.agentMarginId);
+        } catch (err) {
+          logger.warn(`Failed to auto-recalculate agent margin for booking ${booking.id}: ${err}`);
+        }
+      }
+
+      await auditLogService.log({
+        userId: actorId,
+        action: 'Update',
+        module: 'Bookings',
+        recordId: accommodationId,
+        oldValue: { price: baselinePrice },
+        newValue: {
+          price: newPrice,
+          savedAmount,
+          scenario: 'A (Margin Unpaid)',
+          note: (data.notes || 'Hotel price reduced directly') + expiryNote,
+        },
+      });
+
+      await rabbitMQService.publish('booking.updated', { bookingId: booking.id });
+
+      return {
+        scenario: 'A',
+        message: 'Hotel price updated directly. Profit and agent margin recalculated according to existing business rules.',
+        accommodation: updatedAcc,
+        savedAmount,
+      };
+    } else {
+      // -------------------------------------------------------------
+      // SCENARIO B: Agent margin HAS already been paid
+      // Preserve original financial records, track savings & additional margins separately
+      // -------------------------------------------------------------
+
+      // 1. Calculate Slab Commission Rate for the booking
+      let commissionRate = 0;
+      if (booking.agent && booking.agent.slabs && booking.agent.slabs.length > 0 && !booking.agentMarginVoided) {
+        const slabs = booking.agent.slabs;
+        const matchedSlab = slabs.find(
+          (s: any) =>
+            booking.totalPrice >= s.minSales && (s.maxSales === null || booking.totalPrice <= s.maxSales)
+        );
+        if (matchedSlab) {
+          commissionRate = matchedSlab.commissionRate;
+        } else {
+          const highestSlab = slabs.reduce((prev: any, current: any) =>
+            prev.minSales > current.minSales ? prev : current
+          );
+          if (booking.totalPrice > highestSlab.minSales) {
+            commissionRate = highestSlab.commissionRate;
+          }
+        }
+      }
+
+      // 2. Additional margin & profit
+      const additionalMargin = commissionRate > 0
+        ? Math.round(savedAmount * (commissionRate / 100) * 100) / 100
+        : 0;
+      const additionalProfit = Math.round((savedAmount - additionalMargin) * 100) / 100;
+
+      // 3. Compute raw original profit baseline
+      const vendorCost = booking.bookingVendorPayments.reduce(
+        (sum, vp) => sum + (vp.originalCost || 0),
+        0
+      );
+      const vendorRefund =
+        (booking.accommodations?.reduce((sum, a) => sum + (a.refundAmount || 0), 0) || 0) +
+        (booking.flightServices?.reduce((sum, fs) => sum + (fs.refundAmount || 0), 0) || 0) +
+        (booking.transportServices?.reduce((sum, ts) => sum + (ts.refundAmount || 0), 0) || 0) +
+        (booking.visaServices?.reduce((sum, vs) => sum + (vs.refundAmount || 0), 0) || 0);
+      const originalProfit =
+        booking.totalPrice - vendorCost + vendorRefund - (booking.refundAmount || 0) - (booking.cardPaymentCharges || 0);
+
+      // 4. Atomic execution
+      const result = await prisma.$transaction(async (tx) => {
+        const adjustment = await tx.hotelPriceAdjustment.create({
+          data: {
+            bookingId: booking.id,
+            accommodationId: acc.id,
+            baselinePrice,
+            newPrice,
+            savedAmount,
+            originalProfit,
+            additionalProfit,
+            additionalMargin,
+            marginRate: commissionRate,
+            originalMarginPaid: true,
+            additionalMarginPaid: false,
+            adjustmentDate: new Date(),
+            adjustedById: actorId,
+            notes: (data.notes || `Hotel price reduced from £${baselinePrice} to £${newPrice}`) + expiryNote,
+          },
+          include: {
+            adjustedBy: { select: { id: true, firstName: true, lastName: true } },
+          },
+        });
+
+        const updatedAcc = await tx.accommodationService.update({
+          where: { id: acc.id },
+          data: {
+            originalPrice,
+            originalBookingDate,
+            price: newPrice,
+            isPriceAdjusted: true,
+            totalSavedAmount: (acc.totalSavedAmount || 0) + savedAmount,
+          },
+        });
+
+        return { adjustment, updatedAcc };
+      });
+
+      // Synchronize booking vendor payments with new hotel cost
+      await vendorsService.syncBookingVendorPayments(booking.id);
+
+      await auditLogService.log({
+        userId: actorId,
+        action: 'Update',
+        module: 'Bookings',
+        recordId: acc.id,
+        oldValue: { price: baselinePrice },
+        newValue: {
+          price: newPrice,
+          savedAmount,
+          additionalProfit,
+          additionalMargin,
+          scenario: 'B (Margin Paid)',
+          adjustmentId: result.adjustment.id,
+        },
+      });
+
+      await rabbitMQService.publish('booking.updated', { bookingId: booking.id });
+
+      return {
+        scenario: 'B',
+        message: 'Price adjusted. Additional profit and additional agent margin recorded separately.',
+        adjustment: result.adjustment,
+        accommodation: result.updatedAcc,
+        savedAmount,
+        additionalProfit,
+        additionalMargin,
+        marginRate: commissionRate,
+      };
+    }
+  }
+
+  /**
+   * Records payout of the additional agent margin generated from a hotel price adjustment.
+   */
+  async payAdditionalHotelMargin(
+    bookingId: string,
+    adjustmentId: string,
+    actorId: string,
+    notes?: string
+  ) {
+    const adjustment = await prisma.hotelPriceAdjustment.findUnique({
+      where: { id: adjustmentId },
+      include: {
+        booking: {
+          include: {
+            agent: true,
+          },
+        },
+        accommodation: true,
+      },
+    });
+
+    if (!adjustment || adjustment.bookingId !== bookingId) {
+      throw new NotFoundException('Price adjustment record not found for this booking');
+    }
+
+    if (adjustment.additionalMarginPaid) {
+      throw new BadRequestException('This additional agent margin has already been marked as paid');
+    }
+
+    if (adjustment.additionalMargin <= 0) {
+      throw new BadRequestException('This price adjustment does not have an additional agent margin to pay');
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Mark adjustment as paid
+      const updatedAdjustment = await tx.hotelPriceAdjustment.update({
+        where: { id: adjustmentId },
+        data: {
+          additionalMarginPaid: true,
+          additionalMarginPaidAt: new Date(),
+          additionalMarginPaidById: actorId,
+        },
+        include: {
+          adjustedBy: { select: { id: true, firstName: true, lastName: true } },
+          additionalMarginPaidBy: { select: { id: true, firstName: true, lastName: true } },
+        },
+      });
+
+      // 2. Create BookingTransaction record
+      const txNote =
+        notes ||
+        `Additional Agent Margin Payout for Hotel Price Adjustment (${adjustment.accommodation.hotelName}: Saved £${adjustment.savedAmount})`;
+      const bookingTx = await tx.bookingTransaction.create({
+        data: {
+          bookingId: adjustment.bookingId,
+          amount: -adjustment.additionalMargin,
+          paymentMethod: 'AGENT PAYOUT',
+          paidOn: new Date(),
+          notes: txNote,
+        },
+      });
+
+      // 3. Create Vendor Ledger entry if agent is associated
+      let ledgerEntry = null;
+      if (adjustment.booking.agentId) {
+        ledgerEntry = await tx.vendorLedger.create({
+          data: {
+            agentId: adjustment.booking.agentId,
+            eventType: 'AGENT_PAYOUT',
+            debit: adjustment.additionalMargin,
+            credit: 0,
+            runningBalance: 0,
+            notes: `Additional Margin Payout - Booking #${adjustment.booking.bookingReference} | ${adjustment.accommodation.hotelName}`,
+            referenceNumber: `ADD-MARGIN-${adjustment.id.slice(-6).toUpperCase()}`,
+            createdById: actorId,
+          },
+        });
+      }
+
+      return { updatedAdjustment, bookingTx, ledgerEntry };
+    });
+
+    await auditLogService.log({
+      userId: actorId,
+      action: 'Update',
+      module: 'Bookings',
+      recordId: adjustmentId,
+      oldValue: { additionalMarginPaid: false },
+      newValue: {
+        additionalMarginPaid: true,
+        amount: adjustment.additionalMargin,
+        bookingId: adjustment.bookingId,
+      },
+    });
+
+    await rabbitMQService.publish('booking.updated', { bookingId: adjustment.bookingId });
+
+    return result;
   }
 }
 

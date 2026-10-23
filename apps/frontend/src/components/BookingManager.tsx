@@ -47,6 +47,7 @@ import {
   Ticket,
   Eye,
   Lock,
+  Tag,
 } from "lucide-react";
 // @ts-ignore
 import html2pdf from "html2pdf.js";
@@ -55,6 +56,7 @@ import HtmlEditorModal from "./HtmlEditorModal";
 import PnrFlightModal from "./PnrFlightModal";
 import PassengerModal from "./PassengerModal";
 import HotelReservationModal from "./HotelReservationModal";
+import HotelPriceAdjustmentModal from "./HotelPriceAdjustmentModal";
 import TransportReservationModal from "./TransportReservationModal";
 import VisaReservationModal from "./VisaReservationModal";
 import AdditionalServiceModal from "./AdditionalServiceModal";
@@ -253,6 +255,10 @@ export default function BookingManager({
   const [editingPassenger, setEditingPassenger] = useState<any | null>(null);
   const [isHotelModalOpen, setIsHotelModalOpen] = useState(false);
   const [editingAccommodation, setEditingAccommodation] = useState<any | null>(
+    null,
+  );
+  const [isAdjustPriceModalOpen, setIsAdjustPriceModalOpen] = useState(false);
+  const [adjustingAccommodation, setAdjustingAccommodation] = useState<any | null>(
     null,
   );
   const [isTransportModalOpen, setIsTransportModalOpen] = useState(false);
@@ -1039,6 +1045,30 @@ export default function BookingManager({
     },
   });
 
+  const handlePayAdditionalMargin = async (adjustmentId: string) => {
+    if (
+      !window.confirm(
+        "Are you sure you want to record payout of this additional agent margin? This will record an AGENT PAYOUT transaction and update the agent ledger."
+      )
+    ) {
+      return;
+    }
+    const bId = booking?.id || bookingId;
+    try {
+      await apiClient.post(`/bookings/${bId}/hotel-adjustments/${adjustmentId}/pay-margin`);
+      toast.success("Additional agent margin paid successfully!");
+      queryClient.invalidateQueries({ queryKey: ["booking", bId] });
+      queryClient.invalidateQueries({ queryKey: ["bookings"] });
+      queryClient.invalidateQueries({ queryKey: ["agent-margins"] });
+    } catch (err: any) {
+      toast.error(
+        err.response?.data?.message ||
+          err.response?.data?.error ||
+          "Failed to pay additional margin."
+      );
+    }
+  };
+
   if (isLoading) {
     return (
       <Modal
@@ -1254,26 +1284,83 @@ export default function BookingManager({
     agentMargin = 0;
   }
 
-  // Calculate actual agent payout by summing up negative agent payout transaction amounts
-  const actualAgentPayout = booking.transactions
+  // Price adjustments financial calculations
+  const hotelPriceAdjustments: any[] = booking.hotelPriceAdjustments || [];
+  const hasHotelPriceAdjustments = hotelPriceAdjustments.length > 0;
+
+  const totalHotelSavedAmount = hotelPriceAdjustments.reduce(
+    (sum: number, adj: any) => sum + (adj.savedAmount || 0),
+    0
+  );
+
+  const totalAdditionalProfit = hotelPriceAdjustments.reduce(
+    (sum: number, adj: any) => sum + (adj.additionalProfit || 0),
+    0
+  );
+
+  const totalAdditionalMargin = hotelPriceAdjustments.reduce(
+    (sum: number, adj: any) => sum + (adj.additionalMargin || 0),
+    0
+  );
+
+  const isAdditionalMarginTx = (tx: any) => {
+    return (
+      (tx.paymentMethod === "AGENT PAYOUT" || tx.paymentMethod === "AGENT_PAYOUT") &&
+      (tx.notes || "").toLowerCase().includes("additional")
+    );
+  };
+
+  const actualOriginalPayout = booking.transactions
     ? Math.abs(
         booking.transactions
           .filter(
             (tx: any) =>
-              tx.paymentMethod === "AGENT PAYOUT" ||
-              tx.paymentMethod === "AGENT_PAYOUT",
+              (tx.paymentMethod === "AGENT PAYOUT" || tx.paymentMethod === "AGENT_PAYOUT") &&
+              !isAdditionalMarginTx(tx),
           )
           .reduce((sum: number, tx: any) => sum + tx.amount, 0),
       )
     : 0;
 
-  // Total Profit: if voided, company profit is rawProfit. 
-  // If paid (hasAgentPayout), subtract actualAgentPayout. Otherwise, subtract originalAgentMargin.
-  const profit = booking.agentMarginVoided 
-    ? rawProfit 
-    : (hasAgentPayout 
-        ? rawProfit - actualAgentPayout 
-        : rawProfit - originalAgentMargin);
+  const actualAdditionalPayout = booking.transactions
+    ? Math.abs(
+        booking.transactions
+          .filter(isAdditionalMarginTx)
+          .reduce((sum: number, tx: any) => sum + tx.amount, 0),
+      )
+    : 0;
+
+  const actualAgentPayout = actualOriginalPayout + actualAdditionalPayout;
+
+  const originalMarginPaidDate = useMemo(() => {
+    if (booking.agentMargin?.paidDate) {
+      return new Date(booking.agentMargin.paidDate).toLocaleDateString("en-GB");
+    }
+    const origTx = booking.transactions?.find(
+      (tx: any) =>
+        (tx.paymentMethod === "AGENT PAYOUT" || tx.paymentMethod === "AGENT_PAYOUT") &&
+        !isAdditionalMarginTx(tx)
+    );
+    if (origTx?.paidOn) {
+      return new Date(origTx.paidOn).toLocaleDateString("en-GB");
+    }
+    return null;
+  }, [booking]);
+
+  const originalProfit = booking.agentMarginVoided
+    ? rawProfit - totalHotelSavedAmount
+    : hasAgentPayout
+      ? rawProfit - totalHotelSavedAmount - actualOriginalPayout
+      : rawProfit - totalHotelSavedAmount - originalAgentMargin;
+
+  // Total Profit: if price adjusted, baseline original profit + additional profit. Otherwise standard calculation.
+  const profit = hasHotelPriceAdjustments
+    ? originalProfit + totalAdditionalProfit
+    : booking.agentMarginVoided
+      ? rawProfit
+      : hasAgentPayout
+        ? rawProfit - actualAgentPayout
+        : rawProfit - originalAgentMargin;
 
   return (
     <Modal
@@ -1758,76 +1845,183 @@ export default function BookingManager({
                     </div>
                   )}
 
-                  {/* Agent Margin */}
-                  {canViewMarginProfit && (
-                    <div className="bg-card p-3.5 rounded-lg shadow-sm border border-border flex flex-col justify-between">
-                      <div className="flex items-center gap-1 text-blue-500 mb-1">
-                        <BadgePercent size={12} />
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-blue-500">
-                          {isAgent ? "My Margin" : "Agent Margin"}
+                  {/* Hotel Savings — if price was adjusted */}
+                  {canViewMarginProfit && totalHotelSavedAmount > 0 && (
+                    <div className="bg-card p-3.5 rounded-lg shadow-sm border border-emerald-300 dark:border-emerald-800/60 bg-emerald-50/20 dark:bg-emerald-950/10 flex flex-col justify-between">
+                      <div className="flex items-center gap-1 text-emerald-600 mb-1">
+                        <ArrowDownRight size={12} />
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">
+                          Saved Hotel Price
                         </span>
                       </div>
-                       <div className="flex flex-col gap-0.5">
-                        <div className="flex items-baseline gap-1">
-                          <span className="text-[15px] font-bold text-blue-600 dark:text-blue-400">
-                            {formatCurrency(agentMargin)}
-                          </span>
-                          {booking.agentId && booking.agent && (
-                            <span className="text-[12px] font-semibold text-blue-500/70">
-                              ({agentCommissionRate}%)
-                            </span>
-                          )}
-                        </div>
-                        {hasAgentPayout && (
-                          <span className="text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide mt-0.5">
-                            Paid
-                          </span>
-                        )}
-                        {booking.agentMarginVoided && (
-                          <span className="text-[10px] font-extrabold text-red-600 dark:text-red-400 uppercase tracking-wide mt-0.5">
-                            Voided / Not Qualify
-                          </span>
-                        )}
-                        {isAdminUser && !isAgent && !hasAgentPayout && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const msg = booking.agentMarginVoided
-                                ? `Are you sure you want to unvoid booking #${booking.bookingReference} and restore its agent margin qualification?`
-                                : `Are you sure you want to void the agent margin for booking #${booking.bookingReference}?`;
-                              if (window.confirm(msg)) {
-                                toggleVoidMutation.mutate();
-                              }
-                            }}
-                            disabled={toggleVoidMutation.isPending}
-                            className={`mt-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border transition-all cursor-pointer ${
-                              booking.agentMarginVoided
-                                ? "bg-emerald-500/10 text-emerald-700 hover:bg-emerald-600 hover:text-white border-emerald-500/30 dark:text-emerald-300"
-                                : "bg-rose-500/10 text-rose-700 hover:bg-rose-600 hover:text-white border-rose-500/30 dark:text-rose-300"
-                            }`}
-                            title={
-                              booking.agentMarginVoided
-                                ? "Click to Unvoid & Restore Agent Margin"
-                                : "Click to Void Agent Margin"
-                            }
-                          >
-                            {toggleVoidMutation.isPending ? (
-                              <Loader2 size={10} className="animate-spin" />
-                            ) : booking.agentMarginVoided ? (
-                              <>
-                                <CheckCircle size={10} />
-                                <span>Unvoid Margin</span>
-                              </>
-                            ) : (
-                              <>
-                                <XCircle size={10} />
-                                <span>Void Margin</span>
-                              </>
-                            )}
-                          </button>
-                        )}
+                      <div className="flex flex-col">
+                        <span className="text-[15px] font-bold text-emerald-600 dark:text-emerald-400">
+                          {formatCurrency(totalHotelSavedAmount)}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground font-semibold">
+                          Supplier discount recorded
+                        </span>
                       </div>
                     </div>
+                  )}
+
+                  {/* Agent Margin — Separate Original & Additional if price adjusted */}
+                  {canViewMarginProfit && (
+                    <>
+                      {totalAdditionalMargin > 0 ? (
+                        <>
+                          {/* Original Margin Card */}
+                          <div className="bg-card p-3.5 rounded-lg shadow-sm border border-border flex flex-col justify-between">
+                            <div className="flex items-center gap-1 text-blue-500 mb-1">
+                              <BadgePercent size={12} />
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-blue-500">
+                                {isAgent ? "Original Margin" : "Orig Agent Margin"}
+                              </span>
+                            </div>
+                            <div className="flex flex-col gap-0.5">
+                              <div className="flex items-baseline gap-1">
+                                <span className="text-[15px] font-bold text-blue-600 dark:text-blue-400">
+                                  {formatCurrency(hasAgentPayout ? actualOriginalPayout : originalAgentMargin)}
+                                </span>
+                                {booking.agentId && booking.agent && (
+                                  <span className="text-[12px] font-semibold text-blue-500/70">
+                                    ({agentCommissionRate}%)
+                                  </span>
+                                )}
+                              </div>
+                              {hasAgentPayout ? (
+                                <span className="text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide mt-0.5 flex items-center gap-1">
+                                  Paid {originalMarginPaidDate && <span className="text-[9px] font-normal text-muted-foreground">({originalMarginPaidDate})</span>}
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-extrabold text-amber-600 dark:text-amber-400 uppercase tracking-wide mt-0.5">
+                                  Unpaid
+                                </span>
+                              )}
+                              {booking.agentMarginVoided && (
+                                <span className="text-[10px] font-extrabold text-red-600 dark:text-red-400 uppercase tracking-wide mt-0.5">
+                                  Voided / Not Qualify
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Additional Margin Card */}
+                          <div className="bg-card p-3.5 rounded-lg shadow-sm border border-blue-300 dark:border-blue-800/60 bg-blue-50/20 dark:bg-blue-950/10 flex flex-col justify-between">
+                            <div className="flex items-center gap-1 text-blue-600 dark:text-blue-400 mb-1">
+                              <BadgePercent size={12} />
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                                {isAgent ? "Addl Margin" : "Addl Agent Margin"}
+                              </span>
+                            </div>
+                            <div className="flex flex-col gap-0.5">
+                              <div className="flex items-baseline gap-1">
+                                <span className="text-[15px] font-bold text-blue-600 dark:text-blue-400">
+                                  +{formatCurrency(totalAdditionalMargin)}
+                                </span>
+                              </div>
+                              {hotelPriceAdjustments.every((a: any) => a.additionalMarginPaid) ? (
+                                <span className="text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide mt-0.5">
+                                  Paid
+                                </span>
+                              ) : (
+                                <div className="flex flex-col gap-1 mt-0.5">
+                                  <span className="text-[10px] font-extrabold text-amber-600 dark:text-amber-400 uppercase tracking-wide">
+                                    Unpaid
+                                  </span>
+                                  {isAdminUser && !isAgent && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const unpaidAdj = hotelPriceAdjustments.find((a: any) => !a.additionalMarginPaid && a.additionalMargin > 0);
+                                        if (unpaidAdj) {
+                                          handlePayAdditionalMargin(unpaidAdj.id);
+                                        }
+                                      }}
+                                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-blue-600 hover:bg-blue-700 text-white transition-all cursor-pointer shadow-xs w-fit"
+                                      title="Record payout for additional agent margin"
+                                    >
+                                      <CheckCircle2 size={10} />
+                                      <span>Pay Addl Margin</span>
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        /* Standard Single Agent Margin Card */
+                        <div className="bg-card p-3.5 rounded-lg shadow-sm border border-border flex flex-col justify-between">
+                          <div className="flex items-center gap-1 text-blue-500 mb-1">
+                            <BadgePercent size={12} />
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-blue-500">
+                              {isAgent ? "My Margin" : "Agent Margin"}
+                            </span>
+                          </div>
+                          <div className="flex flex-col gap-0.5">
+                            <div className="flex items-baseline gap-1">
+                              <span className="text-[15px] font-bold text-blue-600 dark:text-blue-400">
+                                {formatCurrency(agentMargin)}
+                              </span>
+                              {booking.agentId && booking.agent && (
+                                <span className="text-[12px] font-semibold text-blue-500/70">
+                                  ({agentCommissionRate}%)
+                                </span>
+                              )}
+                            </div>
+                            {hasAgentPayout && (
+                              <span className="text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide mt-0.5">
+                                Paid
+                              </span>
+                            )}
+                            {booking.agentMarginVoided && (
+                              <span className="text-[10px] font-extrabold text-red-600 dark:text-red-400 uppercase tracking-wide mt-0.5">
+                                Voided / Not Qualify
+                              </span>
+                            )}
+                            {isAdminUser && !isAgent && !hasAgentPayout && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const msg = booking.agentMarginVoided
+                                    ? `Are you sure you want to unvoid booking #${booking.bookingReference} and restore its agent margin qualification?`
+                                    : `Are you sure you want to void the agent margin for booking #${booking.bookingReference}?`;
+                                  if (window.confirm(msg)) {
+                                    toggleVoidMutation.mutate();
+                                  }
+                                }}
+                                disabled={toggleVoidMutation.isPending}
+                                className={`mt-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border transition-all cursor-pointer ${
+                                  booking.agentMarginVoided
+                                    ? "bg-emerald-500/10 text-emerald-700 hover:bg-emerald-600 hover:text-white border-emerald-500/30 dark:text-emerald-300"
+                                    : "bg-rose-500/10 text-rose-700 hover:bg-rose-600 hover:text-white border-rose-500/30 dark:text-rose-300"
+                                }`}
+                                title={
+                                  booking.agentMarginVoided
+                                    ? "Click to Unvoid & Restore Agent Margin"
+                                    : "Click to Void Agent Margin"
+                                }
+                              >
+                                {toggleVoidMutation.isPending ? (
+                                  <Loader2 size={10} className="animate-spin" />
+                                ) : booking.agentMarginVoided ? (
+                                  <>
+                                    <CheckCircle size={10} />
+                                    <span>Unvoid Margin</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <XCircle size={10} />
+                                    <span>Void Margin</span>
+                                  </>
+                                )}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
 
                   {/* Total Profit */}
@@ -1839,9 +2033,16 @@ export default function BookingManager({
                           {isAgent ? "Generated Profit" : "Total Profit"}
                         </span>
                       </div>
-                      <span className="text-[15px] font-bold text-emerald-700 dark:text-emerald-400">
-                        {formatCurrency(profit)}
-                      </span>
+                      <div className="flex flex-col">
+                        <span className="text-[15px] font-bold text-emerald-700 dark:text-emerald-400">
+                          {formatCurrency(profit)}
+                        </span>
+                        {totalAdditionalProfit > 0 && (
+                          <span className="text-[10px] text-muted-foreground font-semibold mt-0.5">
+                            Orig: {formatCurrency(originalProfit)} <span className="text-emerald-600 dark:text-emerald-400 font-bold">+Addl: {formatCurrency(totalAdditionalProfit)}</span>
+                          </span>
+                        )}
+                      </div>
                     </div>
                   )}
 
@@ -3353,6 +3554,20 @@ export default function BookingManager({
                             >
                               <Ticket size={11} />
                             </button>
+                            {(isAdminUser || isManagerUser) && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setAdjustingAccommodation(acc);
+                                  setIsAdjustPriceModalOpen(true);
+                                }}
+                                className="p-1 hover:bg-secondary rounded text-muted-foreground hover:text-emerald-600 transition-all"
+                                title="Adjust Hotel Price (Lower Rate & Record Savings)"
+                              >
+                                <Tag size={11} />
+                              </button>
+                            )}
                             {isOwner && (
                               <>
                                 <button
@@ -3463,6 +3678,29 @@ export default function BookingManager({
                               {formatCurrency(acc.price)}
                             </span>
                           </div>
+                          {acc.isPriceAdjusted && (
+                            <div className="mt-1.5 p-1.5 rounded bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/50 flex flex-col gap-0.5 text-[11px]">
+                              <div className="flex items-center justify-between text-emerald-800 dark:text-emerald-300 font-bold">
+                                <span className="flex items-center gap-1">
+                                  <ArrowDownRight size={11} />
+                                  Price Adjusted (Saved: {formatCurrency(acc.totalSavedAmount || ((acc.originalPrice || acc.price) - acc.price))})
+                                </span>
+                                {acc.originalPrice && (
+                                  <span className="line-through text-muted-foreground font-semibold">
+                                    Orig: {formatCurrency(acc.originalPrice)}
+                                  </span>
+                                )}
+                              </div>
+                              {acc.originalBookingDate && (
+                                <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                                  <span>Booked: {new Date(acc.originalBookingDate).toLocaleDateString("en-GB")}</span>
+                                  {acc.priceAdjustments?.[0]?.adjustmentDate && (
+                                    <span>Adjusted: {new Date(acc.priceAdjustments[0].adjustmentDate).toLocaleDateString("en-GB")}</span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )}
                           {acc.agentQuotedPrice !== undefined && acc.agentQuotedPrice !== null && (
                             <div className="flex justify-between">
                               <span className="text-muted-foreground text-[12px]">
@@ -3516,28 +3754,45 @@ export default function BookingManager({
                                   </span>
                                 </div>
 
-                                <button
-                                  type="button"
-                                  onClick={async (e) => {
-                                    e.stopPropagation();
-                                    try {
-                                      await apiClient.patch(
-                                        `/bookings/${booking.id}/accommodations/${acc.id}/mark-booked`
-                                      );
-                                      toast.success("Hotel marked as booked! Cancellation deadline removed and alarm stopped.");
-                                      queryClient.invalidateQueries({ queryKey: ["booking", booking.id] });
-                                      queryClient.invalidateQueries({ queryKey: ["bookings"] });
-                                      queryClient.invalidateQueries({ queryKey: ["hotel-cancellation-alerts"] });
-                                    } catch (err: any) {
-                                      toast.error(err.response?.data?.error || "Failed to mark hotel booked");
-                                    }
-                                  }}
-                                  className="w-full py-1 px-2 flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[11px] font-bold shadow-xs transition-colors"
-                                  title="Click when hotel is booked to remove cancellation date and silence the danger alert"
-                                >
-                                  <CheckCircle2 size={12} />
-                                  <span>Hotel Booked (Clear Deadline)</span>
-                                </button>
+                                <div className="flex gap-1.5 w-full">
+                                  {(isAdminUser || isManagerUser) && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setAdjustingAccommodation(acc);
+                                        setIsAdjustPriceModalOpen(true);
+                                      }}
+                                      className="flex-1 py-1 px-2 flex items-center justify-center gap-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-[11px] font-bold shadow-xs transition-colors"
+                                      title="Lower the hotel price if a cheaper rate is available"
+                                    >
+                                      <Tag size={11} />
+                                      <span>Adjust Price</span>
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      try {
+                                        await apiClient.patch(
+                                          `/bookings/${booking.id}/accommodations/${acc.id}/mark-booked`
+                                        );
+                                        toast.success("Hotel marked as booked! Cancellation deadline removed and alarm stopped.");
+                                        queryClient.invalidateQueries({ queryKey: ["booking", booking.id] });
+                                        queryClient.invalidateQueries({ queryKey: ["bookings"] });
+                                        queryClient.invalidateQueries({ queryKey: ["hotel-cancellation-alerts"] });
+                                      } catch (err: any) {
+                                        toast.error(err.response?.data?.error || "Failed to mark hotel booked");
+                                      }
+                                    }}
+                                    className="flex-1 py-1 px-2 flex items-center justify-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[11px] font-bold shadow-xs transition-colors"
+                                    title="Click when hotel is booked to remove cancellation date and silence the danger alert"
+                                  >
+                                    <CheckCircle2 size={11} />
+                                    <span>Hotel Booked</span>
+                                  </button>
+                                </div>
                               </div>
                             );
                           })()}
@@ -3549,6 +3804,94 @@ export default function BookingManager({
                   <p className="text-center py-3 text-muted-foreground italic text-[12px]">
                     No hotels registered.
                   </p>
+                )}
+
+                {/* Hotel Price Adjustments Audit Table */}
+                {hotelPriceAdjustments.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-border/80">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                        <Tag size={12} className="text-primary" />
+                        Price Adjustment & Savings History
+                      </span>
+                      <span className="text-[11px] font-extrabold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-300 dark:border-emerald-800">
+                        Total Saved: {formatCurrency(totalHotelSavedAmount)}
+                      </span>
+                    </div>
+                    <div className="overflow-x-auto rounded border border-border bg-card">
+                      <table className="w-full text-left text-[11px]">
+                        <thead className="bg-secondary/40 text-muted-foreground uppercase text-[9px] font-bold border-b border-border">
+                          <tr>
+                            <th className="py-1.5 px-2.5">Date</th>
+                            <th className="py-1.5 px-2">Hotel</th>
+                            <th className="py-1.5 px-2">Baseline</th>
+                            <th className="py-1.5 px-2">New Rate</th>
+                            <th className="py-1.5 px-2">Saved</th>
+                            <th className="py-1.5 px-2">Addl Profit</th>
+                            <th className="py-1.5 px-2">Addl Margin</th>
+                            <th className="py-1.5 px-2">Adjusted By</th>
+                            <th className="py-1.5 px-2.5 text-right">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                          {hotelPriceAdjustments.map((adj: any) => (
+                            <tr key={adj.id} className="hover:bg-secondary/20 transition-colors">
+                              <td className="py-1.5 px-2.5 font-medium whitespace-nowrap">
+                                {new Date(adj.adjustmentDate).toLocaleDateString("en-GB")}
+                              </td>
+                              <td className="py-1.5 px-2 font-bold text-foreground">
+                                {adj.accommodation?.hotelName || "Hotel"}
+                              </td>
+                              <td className="py-1.5 px-2 text-muted-foreground">
+                                {formatCurrency(adj.baselinePrice)}
+                              </td>
+                              <td className="py-1.5 px-2 font-bold text-foreground">
+                                {formatCurrency(adj.newPrice)}
+                              </td>
+                              <td className="py-1.5 px-2 font-extrabold text-emerald-600 dark:text-emerald-400">
+                                +{formatCurrency(adj.savedAmount)}
+                              </td>
+                              <td className="py-1.5 px-2 font-bold text-emerald-700 dark:text-emerald-400">
+                                {formatCurrency(adj.additionalProfit)}
+                              </td>
+                              <td className="py-1.5 px-2 font-bold text-blue-600 dark:text-blue-400">
+                                {formatCurrency(adj.additionalMargin)}
+                                {adj.marginRate > 0 && <span className="text-[9px] text-muted-foreground ml-0.5">({adj.marginRate}%)</span>}
+                              </td>
+                              <td className="py-1.5 px-2 text-muted-foreground">
+                                {adj.adjustedBy ? `${adj.adjustedBy.firstName} ${adj.adjustedBy.lastName}` : "Admin"}
+                              </td>
+                              <td className="py-1.5 px-2.5 text-right whitespace-nowrap">
+                                {adj.additionalMargin > 0 ? (
+                                  adj.additionalMarginPaid ? (
+                                    <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                                      Paid {adj.additionalMarginPaidAt && `(${new Date(adj.additionalMarginPaidAt).toLocaleDateString('en-GB')})`}
+                                    </span>
+                                  ) : (
+                                    isAdminUser && !isAgent ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => handlePayAdditionalMargin(adj.id)}
+                                        className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+                                      >
+                                        Pay Margin
+                                      </button>
+                                    ) : (
+                                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                                        Unpaid
+                                      </span>
+                                    )
+                                  )
+                                ) : (
+                                  <span className="text-muted-foreground text-[10px]">—</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
                 )}
               </div>
             )}
@@ -4247,6 +4590,21 @@ export default function BookingManager({
         accommodationToEdit={editingAccommodation}
         onSuccess={() => {
           queryClient.invalidateQueries({ queryKey: ["booking", booking.id] });
+        }}
+      />
+
+      <HotelPriceAdjustmentModal
+        isOpen={isAdjustPriceModalOpen}
+        onClose={() => {
+          setIsAdjustPriceModalOpen(false);
+          setAdjustingAccommodation(null);
+        }}
+        booking={booking}
+        accommodation={adjustingAccommodation}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["booking", booking.id] });
+          queryClient.invalidateQueries({ queryKey: ["bookings"] });
+          queryClient.invalidateQueries({ queryKey: ["hotel-cancellation-alerts"] });
         }}
       />
 

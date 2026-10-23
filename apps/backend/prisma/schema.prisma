@@ -108,6 +108,8 @@ model User {
   assignedIssuances       IssuanceTicket[] @relation("AssignedIssuances")
   workstationHeartbeats   AgentWorkstationHeartbeat[]
   clipboardLogs           DlpClipboardLog[]
+  adjustedHotelPrices     HotelPriceAdjustment[] @relation("AdjustedHotelPrices")
+  paidAdditionalMargins   HotelPriceAdjustment[] @relation("PaidAdditionalMargins")
 }
 
 enum LeadStatus {
@@ -351,6 +353,7 @@ model Booking {
   journalEntries      JournalEntry[]
   journalEntryLines   JournalEntryLine[]     @relation("LineBooking")
   issuanceTickets     IssuanceTicket[]
+  hotelPriceAdjustments HotelPriceAdjustment[]
 
   @@index([bookingReference])
 }
@@ -601,6 +604,40 @@ model AccommodationService {
   checkOutTime            String?   @default("12:00")
   agentQuotedPrice        Float?
   confirmationNumber      String?
+  originalPrice           Float?
+  originalBookingDate     DateTime?
+  isPriceAdjusted         Boolean                @default(false)
+  totalSavedAmount        Float                  @default(0.0)
+  priceAdjustments        HotelPriceAdjustment[]
+}
+
+model HotelPriceAdjustment {
+  id                        String               @id @default(uuid())
+  bookingId                 String
+  booking                   Booking              @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  accommodationId           String
+  accommodation             AccommodationService @relation(fields: [accommodationId], references: [id], onDelete: Cascade)
+  baselinePrice             Float
+  newPrice                  Float
+  savedAmount               Float
+  originalProfit            Float
+  additionalProfit          Float
+  additionalMargin          Float
+  marginRate                Float                @default(0.0)
+  originalMarginPaid        Boolean              @default(false)
+  additionalMarginPaid      Boolean              @default(false)
+  additionalMarginPaidAt    DateTime?
+  additionalMarginPaidById  String?
+  additionalMarginPaidBy    User?                @relation("PaidAdditionalMargins", fields: [additionalMarginPaidById], references: [id])
+  adjustmentDate            DateTime             @default(now())
+  adjustedById              String
+  adjustedBy                User                 @relation("AdjustedHotelPrices", fields: [adjustedById], references: [id])
+  notes                     String?
+  createdAt                 DateTime             @default(now())
+  updatedAt                 DateTime             @updatedAt
+
+  @@index([bookingId])
+  @@index([accommodationId])
 }
 
 model FlightReservation {

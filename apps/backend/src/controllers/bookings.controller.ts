@@ -563,3 +563,38 @@ export const markTransferBooked = asyncHandler(async (req: AuthenticatedRequest,
   });
 });
 
+export const adjustHotelPrice = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const isAllowed = req.user!.roles.some((role: string) =>
+    ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'BRANCH_MANAGER'].includes(role.toUpperCase())
+  );
+  if (!isAllowed) {
+    res.status(403).json({ success: false, message: 'Only administrators or managers can adjust hotel prices' });
+    return;
+  }
+  const { id, accommodationId } = req.params;
+  const result = await bookingsService.adjustHotelPrice(id, accommodationId, req.body, req.user!.id);
+  res.status(200).json({
+    success: true,
+    data: result,
+  });
+});
+
+export const payAdditionalHotelMargin = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const isAllowed = req.user!.roles.some((role: string) =>
+    ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'BRANCH_MANAGER'].includes(role.toUpperCase())
+  );
+  if (!isAllowed) {
+    res.status(403).json({ success: false, message: 'Only administrators or managers can pay agent margins' });
+    return;
+  }
+  const { id, adjustmentId } = req.params;
+  const { notes } = req.body;
+  const result = await bookingsService.payAdditionalHotelMargin(id, adjustmentId, req.user!.id, notes);
+  res.status(200).json({
+    success: true,
+    message: 'Additional agent margin payout recorded successfully',
+    data: result,
+  });
+});
+
+
