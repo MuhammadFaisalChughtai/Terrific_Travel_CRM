@@ -1332,7 +1332,7 @@ export default function BookingManager({
 
   const actualAgentPayout = actualOriginalPayout + actualAdditionalPayout;
 
-  const originalMarginPaidDate = useMemo(() => {
+  const originalMarginPaidDate = (() => {
     if (booking.agentMargin?.paidDate) {
       return new Date(booking.agentMargin.paidDate).toLocaleDateString("en-GB");
     }
@@ -1345,7 +1345,7 @@ export default function BookingManager({
       return new Date(origTx.paidOn).toLocaleDateString("en-GB");
     }
     return null;
-  }, [booking]);
+  })();
 
   const originalProfit = booking.agentMarginVoided
     ? rawProfit - totalHotelSavedAmount
