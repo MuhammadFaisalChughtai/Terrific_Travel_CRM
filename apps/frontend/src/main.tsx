@@ -34,6 +34,7 @@ import IssuancePage from "./pages/Issuance";
 import SecurityAuditPage from "./pages/SecurityAudit";
 import CatalogPage from "./pages/Catalog";
 import FreeCancellationPage from "./pages/FreeCancellationPage";
+import { PermissionRoute } from "./components/PermissionRoute";
 import { useAuthStore } from "./store/auth.store";
 import { apiClient } from "./api/client";
 
@@ -126,26 +127,151 @@ function AppRouter() {
           <Route path="flights" element={<Flights />} />
           <Route path="hotels" element={<Hotels />} />
           <Route path="tours" element={<Tours />} />
-          <Route path="bookings" element={<Bookings />} />
-          <Route path="issuance" element={<IssuancePage />} />
-          <Route path="payments" element={<Payments />} />
-          {/* <Route path="reports" element={<Reports />} /> */}
+          <Route
+            path="bookings"
+            element={
+              <PermissionRoute permission={["bookings:read", "bookings:read_own"]}>
+                <Bookings />
+              </PermissionRoute>
+            }
+          />
+          <Route
+            path="issuance"
+            element={
+              <PermissionRoute permission={["issuance:manage", "bookings:read", "bookings:read_own"]}>
+                <IssuancePage />
+              </PermissionRoute>
+            }
+          />
+          <Route
+            path="payments"
+            element={
+              <PermissionRoute permission={["invoices:read", "vendors:pay", "bookings:edit_any"]}>
+                <Payments />
+              </PermissionRoute>
+            }
+          />
           <Route path="notifications" element={<Notifications />} />
-          <Route path="settings" element={<Settings />} />
-          <Route path="agent" element={<AgentPage />} />
-          <Route path="vendors" element={<VendorPage />} />
-          <Route path="ledger" element={<LedgerPage />} />
-          <Route path="invoices" element={<InvoicesPage />} />
-          <Route path="invoice-templates" element={<InvoiceTemplatesPage />} />
-          <Route path="users" element={<UsersPage />} />
-          <Route path="attendance" element={<Attendance />} />
-          <Route path="agent-margins" element={<AgentMargins />} />
-          <Route path="booked-services" element={<BookedServices />} />
-          <Route path="leads" element={<LeadsPage />} />
-          <Route path="payroll" element={<PayrollPage />} />
-          <Route path="security-audit" element={<SecurityAuditPage />} />
-          <Route path="catalog" element={<CatalogPage />} />
-          <Route path="cancellation-deadlines" element={<FreeCancellationPage />} />
+          <Route
+            path="settings"
+            element={
+              <PermissionRoute permission={["settings:manage", "roles:manage"]}>
+                <Settings />
+              </PermissionRoute>
+            }
+          />
+          <Route
+            path="agent"
+            element={
+              <PermissionRoute permission={["users:read", "users:manage"]}>
+                <AgentPage />
+              </PermissionRoute>
+            }
+          />
+          <Route
+            path="vendors"
+            element={
+              <PermissionRoute permission="vendors:read">
+                <VendorPage />
+              </PermissionRoute>
+            }
+          />
+          <Route
+            path="ledger"
+            element={
+              <PermissionRoute permission="ledger:read">
+                <LedgerPage />
+              </PermissionRoute>
+            }
+          />
+          <Route
+            path="invoices"
+            element={
+              <PermissionRoute permission="invoices:read">
+                <InvoicesPage />
+              </PermissionRoute>
+            }
+          />
+          <Route
+            path="invoice-templates"
+            element={
+              <PermissionRoute permission="settings:manage">
+                <InvoiceTemplatesPage />
+              </PermissionRoute>
+            }
+          />
+          <Route
+            path="users"
+            element={
+              <PermissionRoute permission={["users:read", "users:manage", "roles:manage"]}>
+                <UsersPage />
+              </PermissionRoute>
+            }
+          />
+          <Route
+            path="attendance"
+            element={
+              <PermissionRoute permission={["attendance:read", "attendance:log", "attendance:manage"]}>
+                <Attendance />
+              </PermissionRoute>
+            }
+          />
+          <Route
+            path="agent-margins"
+            element={
+              <PermissionRoute permission={["margins:view", "margins:calculate"]}>
+                <AgentMargins />
+              </PermissionRoute>
+            }
+          />
+          <Route
+            path="booked-services"
+            element={
+              <PermissionRoute permission={["bookings:read", "bookings:read_own"]}>
+                <BookedServices />
+              </PermissionRoute>
+            }
+          />
+          <Route
+            path="leads"
+            element={
+              <PermissionRoute permission="leads:read">
+                <LeadsPage />
+              </PermissionRoute>
+            }
+          />
+          <Route
+            path="payroll"
+            element={
+              <PermissionRoute permission={["payroll:read", "payroll:manage"]}>
+                <PayrollPage />
+              </PermissionRoute>
+            }
+          />
+          <Route
+            path="security-audit"
+            element={
+              <PermissionRoute permission="security:audit">
+                <SecurityAuditPage />
+              </PermissionRoute>
+            }
+          />
+          <Route
+            path="catalog"
+            element={
+              <PermissionRoute permission="catalog:manage">
+                <CatalogPage />
+              </PermissionRoute>
+            }
+          />
+          <Route
+            path="cancellation-deadlines"
+            element={
+              <PermissionRoute permission={["bookings:read", "bookings:adjust_price"]}>
+                <FreeCancellationPage />
+              </PermissionRoute>
+            }
+          />
           <Route path="free-cancellation" element={<Navigate to="/cancellation-deadlines" replace />} />
         </Route>
 

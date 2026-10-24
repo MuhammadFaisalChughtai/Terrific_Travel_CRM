@@ -1,5 +1,18 @@
 import { Router } from 'express';
-import { findAll, findOne, update, create, resetPassword, getRoles, getPermissions, updateRolePermissions, remove } from '../controllers/users.controller';
+import {
+  findAll,
+  findOne,
+  update,
+  create,
+  resetPassword,
+  getRoles,
+  getPermissions,
+  updateRolePermissions,
+  createRole,
+  updateRole,
+  deleteRole,
+  remove,
+} from '../controllers/users.controller';
 import { authMiddleware } from '../middleware/auth.middleware';
 import { requirePermissions } from '../middleware/rbac.middleware';
 
@@ -12,9 +25,12 @@ router.post('/', requirePermissions('users:manage') as any, create);
 router.get('/', requirePermissions('users:manage', 'users:read') as any, findAll);
 
 // Roles & Permissions management (must be BEFORE /:id)
-router.get('/roles', requirePermissions('permissions:manage') as any, getRoles);
-router.get('/permissions', requirePermissions('permissions:manage') as any, getPermissions);
-router.patch('/roles/:roleId/permissions', requirePermissions('permissions:manage') as any, updateRolePermissions);
+router.get('/roles', requirePermissions('permissions:manage', 'roles:manage', 'roles:read') as any, getRoles);
+router.post('/roles', requirePermissions('permissions:manage', 'roles:manage') as any, createRole);
+router.patch('/roles/:roleId', requirePermissions('permissions:manage', 'roles:manage') as any, updateRole);
+router.delete('/roles/:roleId', requirePermissions('permissions:manage', 'roles:manage') as any, deleteRole);
+router.get('/permissions', requirePermissions('permissions:manage', 'roles:manage') as any, getPermissions);
+router.patch('/roles/:roleId/permissions', requirePermissions('permissions:manage', 'roles:manage') as any, updateRolePermissions);
 
 router.get('/:id', (req: any, res: any, next: any) => {
   if (req.user && req.params.id === req.user.id) {

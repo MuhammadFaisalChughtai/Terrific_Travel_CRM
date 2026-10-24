@@ -303,6 +303,144 @@ export class UsersService {
       permissions: updatedPermissions.map((rp) => rp.permission)
     };
   }
+
+  async createRole(data: { name: string; description?: string; permissionIds?: string[] }, actorId?: string) {
+    const trimmedName = (data.name || '').trim();
+    if (!trimmedName) {
+      throw new Error('Role name is required.');
+    }
+
+    const existingRole = await prisma.role.findFirst({
+      where: { name: { equals: trimmedName, mode: 'insensitive' } },
+    });
+    if (existingRole) {
+      throw new Error(`A role with the name "${trimmedName}" already exists.`);
+    }
+
+    const role = await prisma.role.create({
+      data: {
+        name: trimmedName,
+        description: data.description || null,
+        isSystem: false,
+      },
+    });
+
+    if (data.permissionIds && Array.isArray(data.permissionIds) && data.permissionIds.length > 0) {
+      await prisma.rolePermission.createMany({
+        data: data.permissionIds.map((permId) => ({
+          roleId: role.id,
+          permissionId: permId,
+        })),
+      });
+    }
+
+    const created = await prisma.role.findUnique({
+      where: { id: role.id },
+      include: {
+        rolePermissions: {
+          include: { permission: true },
+        },
+      },
+    });
+
+    await auditLogService.log({
+      userId: actorId || null,
+      action: 'Create',
+      module: 'Settings',
+      recordId: role.id,
+      newValue: created,
+    });
+
+    return created;
+  }
+
+  async updateRole(
+    roleId: string,
+    data: { name?: string; description?: string; permissionIds?: string[] },
+    actorId?: string
+  ) {
+    const role = await prisma.role.findUnique({ where: { id: roleId } });
+    if (!role) throw new NotFoundException('Role not found');
+
+    const updateData: any = {};
+    if (data.name !== undefined) {
+      const trimmedName = data.name.trim();
+      if (!trimmedName) throw new Error('Role name cannot be empty.');
+      if (role.isSystem && trimmedName !== role.name) {
+        throw new Error('System built-in role names cannot be renamed.');
+      }
+      updateData.name = trimmedName;
+    }
+
+    if (data.description !== undefined) {
+      updateData.description = data.description;
+    }
+
+    if (Object.keys(updateData).length > 0) {
+      await prisma.role.update({
+        where: { id: roleId },
+        data: updateData,
+      });
+    }
+
+    if (data.permissionIds && Array.isArray(data.permissionIds)) {
+      await this.updateRolePermissions(roleId, data.permissionIds, actorId);
+    }
+
+    const updated = await prisma.role.findUnique({
+      where: { id: roleId },
+      include: {
+        rolePermissions: {
+          include: { permission: true },
+        },
+      },
+    });
+
+    return updated;
+  }
+
+  async deleteRole(roleId: string, actorId?: string) {
+    const role = await prisma.role.findUnique({ where: { id: roleId } });
+    if (!role) throw new NotFoundException('Role not found');
+
+    const builtInRoleNames = [
+      'SUPER_ADMIN',
+      'Admin',
+      'ADMIN',
+      'Manager',
+      'Flight Executive',
+      'Agent',
+      'TRAVEL_AGENT',
+      'Customer',
+      'CUSTOMER',
+    ];
+
+    if (role.isSystem || builtInRoleNames.includes(role.name)) {
+      throw new Error('System built-in roles cannot be deleted.');
+    }
+
+    const assignedUsersCount = await prisma.userRole.count({
+      where: { roleId },
+    });
+    if (assignedUsersCount > 0) {
+      throw new Error(
+        `Cannot delete role "${role.name}" because it is currently assigned to ${assignedUsersCount} user(s). Please reassign them first.`
+      );
+    }
+
+    await prisma.rolePermission.deleteMany({ where: { roleId } });
+    await prisma.role.delete({ where: { id: roleId } });
+
+    await auditLogService.log({
+      userId: actorId || null,
+      action: 'Archive',
+      module: 'Settings',
+      recordId: roleId,
+      oldValue: role,
+    });
+
+    return { id: roleId, deleted: true };
+  }
 }
 
 export const usersService = new UsersService();

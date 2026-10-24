@@ -45,6 +45,8 @@ interface UserItem {
 interface Permission {
   id: string;
   name: string;
+  module?: string;
+  displayName?: string | null;
   description: string | null;
 }
 
@@ -58,6 +60,7 @@ interface Role {
   id: string;
   name: string;
   description: string | null;
+  isSystem?: boolean;
   rolePermissions: RolePermission[];
 }
 
@@ -67,6 +70,12 @@ export default function UsersPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserItem | null>(null);
   const [deleteConfirmUser, setDeleteConfirmUser] = useState<UserItem | null>(null);
+
+  // Role Management states
+  const [isCreateRoleOpen, setIsCreateRoleOpen] = useState(false);
+  const [newRoleName, setNewRoleName] = useState("");
+  const [newRoleDescription, setNewRoleDescription] = useState("");
+  const [roleToDelete, setRoleToDelete] = useState<Role | null>(null);
 
   // Form states
   const [firstName, setFirstName] = useState("");
@@ -133,6 +142,40 @@ export default function UsersPage() {
     },
   });
 
+  // Create custom role mutation
+  const createRoleMutation = useMutation({
+    mutationFn: async (payload: { name: string; description?: string }) => {
+      const res = await apiClient.post("/users/roles", payload);
+      return res.data.data;
+    },
+    onSuccess: (newRole) => {
+      toast.success(`Role "${newRole.name}" created successfully!`);
+      setIsCreateRoleOpen(false);
+      setNewRoleName("");
+      setNewRoleDescription("");
+      queryClient.invalidateQueries({ queryKey: ["roles-list"] });
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || "Failed to create role.");
+    },
+  });
+
+  // Delete custom role mutation
+  const deleteRoleMutation = useMutation({
+    mutationFn: async (roleId: string) => {
+      const res = await apiClient.delete(`/users/roles/${roleId}`);
+      return res.data.data;
+    },
+    onSuccess: () => {
+      toast.success("Role deleted successfully!");
+      setRoleToDelete(null);
+      queryClient.invalidateQueries({ queryKey: ["roles-list"] });
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || "Failed to delete role.");
+    },
+  });
+
   const hasPermission = (role: Role, permissionId: string) => {
     return role.rolePermissions.some((rp) => rp.permissionId === permissionId);
   };
@@ -144,6 +187,18 @@ export default function UsersPage() {
       nextPermIds = currentPermIds.filter((id) => id !== permissionId);
     } else {
       nextPermIds = [...currentPermIds, permissionId];
+    }
+    updateRolePermissionsMutation.mutate({ roleId: role.id, permissionIds: nextPermIds });
+  };
+
+  const handleToggleModulePermissions = (role: Role, modulePermIds: string[]) => {
+    const currentPermIds = role.rolePermissions.map((rp) => rp.permissionId);
+    const allChecked = modulePermIds.every((id) => currentPermIds.includes(id));
+    let nextPermIds: string[];
+    if (allChecked) {
+      nextPermIds = currentPermIds.filter((id) => !modulePermIds.includes(id));
+    } else {
+      nextPermIds = Array.from(new Set([...currentPermIds, ...modulePermIds]));
     }
     updateRolePermissionsMutation.mutate({ roleId: role.id, permissionIds: nextPermIds });
   };
@@ -272,21 +327,74 @@ export default function UsersPage() {
   const filteredUsers = usersData?.items || [];
   const totalUsers = usersData?.total || 0;
 
-  const targetRoleNames = ["Admin", "Manager", "Agent"];
+  const systemRoleOrder = ["Admin", "Manager", "Flight Executive", "Agent"];
   const displayedRoles = (rolesData || [])
-    .filter((r) => targetRoleNames.includes(r.name))
-    .sort((a, b) => targetRoleNames.indexOf(a.name) - targetRoleNames.indexOf(b.name));
+    .filter((r) => !["ADMIN", "TRAVEL_AGENT", "CUSTOMER", "SUPER_ADMIN"].includes(r.name))
+    .sort((a, b) => {
+      const idxA = systemRoleOrder.indexOf(a.name);
+      const idxB = systemRoleOrder.indexOf(b.name);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return a.name.localeCompare(b.name);
+    });
+
+  const getGroupLabel = (prefix: string) => {
+    switch (prefix) {
+      case "bookings":
+        return "Bookings";
+      case "invoices":
+        return "Invoices";
+      case "vendors":
+        return "Vendors";
+      case "margins":
+        return "Agent Margins";
+      case "leads":
+        return "Leads CRM";
+      case "attendance":
+      case "payroll":
+        return "Attendance & HR";
+      case "ledger":
+      case "reports":
+        return "Financials";
+      case "security":
+        return "Security & DLP";
+      case "catalog":
+      case "flights":
+      case "issuance":
+        return "Catalog & Inventory";
+      case "users":
+      case "roles":
+      case "permissions":
+      case "settings":
+        return "Administration";
+      default:
+        return prefix.charAt(0).toUpperCase() + prefix.slice(1);
+    }
+  };
 
   const groupedPermissions = (permissionsData || []).reduce((acc, perm) => {
-    const prefix = perm.name.split(":")[0] || "other";
-    if (!acc[prefix]) {
-      acc[prefix] = [];
+    const mod = perm.module || getGroupLabel(perm.name.split(":")[0]) || "General";
+    if (!acc[mod]) {
+      acc[mod] = [];
     }
-    acc[prefix].push(perm);
+    acc[mod].push(perm);
     return acc;
   }, {} as Record<string, Permission[]>);
 
-  const groupOrder = ["bookings", "invoices", "customers", "reports", "users", "roles", "permissions", "settings"];
+  const groupOrder = [
+    "Bookings",
+    "Invoices",
+    "Vendors",
+    "Agent Margins",
+    "Leads CRM",
+    "Attendance & HR",
+    "Financials",
+    "Security & DLP",
+    "Catalog & Inventory",
+    "Administration",
+    "General",
+  ];
   const sortedGroupKeys = Object.keys(groupedPermissions).sort((a, b) => {
     const indexA = groupOrder.indexOf(a);
     const indexB = groupOrder.indexOf(b);
@@ -295,29 +403,6 @@ export default function UsersPage() {
     if (indexB === -1) return -1;
     return indexA - indexB;
   });
-
-  const getGroupLabel = (prefix: string) => {
-    switch (prefix) {
-      case "bookings":
-        return "Bookings Management";
-      case "invoices":
-        return "Invoices & Billing";
-      case "customers":
-        return "Customer Accounts";
-      case "reports":
-        return "Reports & Analytics";
-      case "users":
-        return "User Management";
-      case "roles":
-        return "Role Assignments";
-      case "permissions":
-        return "Access Policies";
-      case "settings":
-        return "System Settings";
-      default:
-        return prefix.charAt(0).toUpperCase() + prefix.slice(1);
-    }
-  };
 
   return (
     <div className="space-y-6 font-sans text-xs pb-10">
@@ -486,13 +571,25 @@ export default function UsersPage() {
 
       {/* Permission Matrix Guide Card */}
       <div className="bg-card p-6 rounded-xl border border-border/80 shadow-sm space-y-4">
-        <h3 className="text-sm font-bold text-foreground flex items-center gap-1.5">
-          <Shield size={16} className="text-primary" />
-          Interactive Permission Matrix Reference
-        </h3>
-        <p className="text-muted-foreground text-xs">
-          Reference table summarizing system clearances. Hard deletions are disabled globally for all operators, including Administrators, to preserve secure financial audit trails.
-        </p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-bold text-foreground flex items-center gap-1.5">
+              <Shield size={16} className="text-primary" />
+              Dynamic PBAC Permission Matrix
+            </h3>
+            <p className="text-muted-foreground text-xs mt-0.5">
+              Configure granular module authorizations dynamically per role. Changes apply in real-time across all operators.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsCreateRoleOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-lg font-bold text-xs transition-all cursor-pointer self-start sm:self-auto"
+          >
+            <Plus size={13} />
+            <span>Create Custom Role</span>
+          </button>
+        </div>
 
         {isLoadingRoles || isLoadingPermissions ? (
           <div className="flex flex-col items-center justify-center py-10 space-y-2">
@@ -504,65 +601,111 @@ export default function UsersPage() {
             <table className="w-full text-[10.5px] text-left border-collapse">
               <thead>
                 <tr className="bg-secondary/25 border-b border-border/60 text-muted-foreground font-bold">
-                  <th className="px-4 py-2.5">Module Action</th>
-                  {displayedRoles.map((role) => (
-                    <th key={role.id} className="px-4 py-2.5 w-32 text-center">
-                      {role.name}
-                    </th>
-                  ))}
+                  <th className="px-4 py-2.5">Module & System Permission</th>
+                  {displayedRoles.map((role) => {
+                    const isSystemRole =
+                      role.isSystem ||
+                      ["Admin", "Manager", "Agent", "Flight Executive"].includes(role.name);
+
+                    return (
+                      <th key={role.id} className="px-4 py-2.5 w-36 text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <span className="font-bold text-foreground">{role.name}</span>
+                          {!isSystemRole && (
+                            <button
+                              type="button"
+                              onClick={() => setRoleToDelete(role)}
+                              className="text-rose-500 hover:text-rose-600 transition-colors p-0.5 cursor-pointer"
+                              title={`Delete custom role "${role.name}"`}
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          )}
+                        </div>
+                        <span
+                          className={`inline-block px-1.5 py-0.2 text-[8px] font-bold rounded-full mt-0.5 ${
+                            isSystemRole
+                              ? "bg-secondary text-muted-foreground border border-border/50"
+                              : "bg-primary/10 text-primary border border-primary/20"
+                          }`}
+                        >
+                          {isSystemRole ? "System" : "Custom"}
+                        </span>
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/40 text-foreground">
-                {sortedGroupKeys.map((groupKey) => (
-                  <React.Fragment key={groupKey}>
-                    {/* Header Row for Category */}
-                    <tr className="bg-secondary/10">
-                      <td
-                        colSpan={1 + displayedRoles.length}
-                        className="px-4 py-2 font-bold text-primary border-y border-border/40 text-[10px] tracking-wide uppercase"
-                      >
-                        {getGroupLabel(groupKey)}
-                      </td>
-                    </tr>
-                    {groupedPermissions[groupKey].map((perm) => (
-                      <tr key={perm.id} className="hover:bg-secondary/5 transition-colors">
-                        <td className="px-4 py-2.5">
-                          <div className="font-semibold text-foreground">{perm.description || perm.name}</div>
-                          <div className="text-[9px] text-muted-foreground font-mono mt-0.5">{perm.name}</div>
+                {sortedGroupKeys.map((groupKey) => {
+                  const modulePerms = groupedPermissions[groupKey];
+                  const modulePermIds = modulePerms.map((p) => p.id);
+
+                  return (
+                    <React.Fragment key={groupKey}>
+                      {/* Header Row for Category */}
+                      <tr className="bg-secondary/15">
+                        <td className="px-4 py-2 font-bold text-primary border-y border-border/40 text-[10.5px] tracking-wide uppercase">
+                          {groupKey} ({modulePerms.length})
                         </td>
                         {displayedRoles.map((role) => {
-                          const checked = hasPermission(role, perm.id);
-                          const isMutating = updateRolePermissionsMutation.isPending;
-                          
-                          // Custom rules / exclusions if any
-                          const isDeletePermission = perm.name.endsWith(":delete");
+                          const currentPermIds = role.rolePermissions.map((rp) => rp.permissionId);
+                          const allChecked = modulePermIds.every((id) =>
+                            currentPermIds.includes(id)
+                          );
 
                           return (
-                            <td key={role.id} className="px-4 py-2.5 text-center">
-                              <div className="flex flex-col items-center justify-center gap-1">
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    checked={checked}
-                                    disabled={isMutating}
-                                    onChange={() => handleTogglePermission(role, perm.id)}
-                                    className="sr-only peer"
-                                  />
-                                  <div className="w-7 h-4 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-primary"></div>
-                                </label>
-                                {isDeletePermission && (
-                                  <span className="text-[7.5px] text-rose-500 font-bold block leading-none mt-0.5">
-                                    (Blocked API-side)
-                                  </span>
-                                )}
-                              </div>
+                            <td
+                              key={role.id}
+                              className="px-4 py-1.5 text-center border-y border-border/40"
+                            >
+                              <button
+                                type="button"
+                                onClick={() => handleToggleModulePermissions(role, modulePermIds)}
+                                className="text-[9px] font-semibold text-primary hover:underline cursor-pointer"
+                              >
+                                {allChecked ? "Deselect All" : "Select All"}
+                              </button>
                             </td>
                           );
                         })}
                       </tr>
-                    ))}
-                  </React.Fragment>
-                ))}
+                      {modulePerms.map((perm) => (
+                        <tr key={perm.id} className="hover:bg-secondary/5 transition-colors">
+                          <td className="px-4 py-2.5">
+                            <div className="font-semibold text-foreground">
+                              {perm.displayName || perm.description || perm.name}
+                            </div>
+                            <div className="text-[9px] text-muted-foreground font-mono mt-0.5">
+                              {perm.name}
+                            </div>
+                          </td>
+                          {displayedRoles.map((role) => {
+                            const checked = hasPermission(role, perm.id);
+                            const isMutating = updateRolePermissionsMutation.isPending;
+
+                            return (
+                              <td key={role.id} className="px-4 py-2.5 text-center">
+                                <div className="flex flex-col items-center justify-center gap-1">
+                                  <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={checked}
+                                      disabled={isMutating}
+                                      onChange={() => handleTogglePermission(role, perm.id)}
+                                      className="sr-only peer"
+                                    />
+                                    <div className="w-7 h-4 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-primary"></div>
+                                  </label>
+                                </div>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </React.Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -741,6 +884,162 @@ export default function UsersPage() {
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* Modal - Create Custom Role */}
+      <Modal
+        isOpen={isCreateRoleOpen}
+        onClose={() => setIsCreateRoleOpen(false)}
+        title="Create New Custom Role"
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!newRoleName.trim()) {
+              toast.error("Please enter a role name.");
+              return;
+            }
+            createRoleMutation.mutate({
+              name: newRoleName.trim(),
+              description: newRoleDescription.trim() || undefined,
+            });
+          }}
+          className="p-5 space-y-4 font-sans text-left"
+        >
+          <div>
+            <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">
+              Role Name
+            </label>
+            <input
+              type="text"
+              required
+              value={newRoleName}
+              onChange={(e) => setNewRoleName(e.target.value)}
+              placeholder="e.g. Visa Executive, Finance Auditor"
+              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">
+              Description (Optional)
+            </label>
+            <textarea
+              rows={3}
+              value={newRoleDescription}
+              onChange={(e) => setNewRoleDescription(e.target.value)}
+              placeholder="Describe the permissions and responsibility of this role..."
+              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary resize-none"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4 border-t border-border mt-4">
+            <button
+              type="button"
+              onClick={() => setIsCreateRoleOpen(false)}
+              className="px-4 py-2 bg-secondary text-foreground font-bold rounded-lg text-xs hover:bg-secondary/80 transition-all border border-border cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={createRoleMutation.isPending}
+              className="px-4 py-2 bg-primary text-white font-bold rounded-lg text-xs hover:bg-primary/90 transition-all cursor-pointer flex items-center gap-1.5"
+            >
+              {createRoleMutation.isPending && (
+                <Loader2 className="animate-spin h-3.5 w-3.5" />
+              )}
+              Create Role
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Modal - Delete Custom Role Confirmation */}
+      <Modal
+        isOpen={!!roleToDelete}
+        onClose={() => setRoleToDelete(null)}
+        title="Confirm Role Deletion"
+      >
+        <div className="p-5 space-y-4 text-left">
+          <div className="flex items-center gap-3 text-rose-500">
+            <AlertTriangle className="h-6 w-6 shrink-0" />
+            <span className="font-bold text-sm">
+              Delete custom role &quot;{roleToDelete?.name}&quot;?
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            This action will permanently delete this role and its permission assignments. If any operators are currently assigned to this role, they must be reassigned first.
+          </p>
+          <div className="flex justify-end gap-2 pt-4 border-t border-border">
+            <button
+              type="button"
+              onClick={() => setRoleToDelete(null)}
+              className="px-4 py-2 bg-secondary text-foreground font-bold rounded-lg text-xs hover:bg-secondary/80 transition-all border border-border cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={deleteRoleMutation.isPending}
+              onClick={() => {
+                if (roleToDelete) {
+                  deleteRoleMutation.mutate(roleToDelete.id);
+                }
+              }}
+              className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg text-xs transition-all cursor-pointer flex items-center gap-1.5"
+            >
+              {deleteRoleMutation.isPending && (
+                <Loader2 className="animate-spin h-3.5 w-3.5" />
+              )}
+              Delete Role
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal - Delete User Confirmation */}
+      <Modal
+        isOpen={!!deleteConfirmUser}
+        onClose={() => setDeleteConfirmUser(null)}
+        title="Permanently Delete Operator Account"
+      >
+        <div className="p-5 space-y-4 text-left">
+          <div className="flex items-center gap-3 text-rose-500">
+            <AlertTriangle className="h-6 w-6 shrink-0" />
+            <span className="font-bold text-sm">
+              Delete {deleteConfirmUser?.firstName} {deleteConfirmUser?.lastName}?
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Are you sure you want to permanently delete the operator account for{" "}
+            <strong>{deleteConfirmUser?.email}</strong>? This action cannot be undone.
+          </p>
+          <div className="flex justify-end gap-2 pt-4 border-t border-border">
+            <button
+              type="button"
+              onClick={() => setDeleteConfirmUser(null)}
+              className="px-4 py-2 bg-secondary text-foreground font-bold rounded-lg text-xs hover:bg-secondary/80 transition-all border border-border cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={deleteUserMutation.isPending}
+              onClick={() => {
+                if (deleteConfirmUser) {
+                  deleteUserMutation.mutate(deleteConfirmUser.id);
+                }
+              }}
+              className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg text-xs transition-all cursor-pointer flex items-center gap-1.5"
+            >
+              {deleteUserMutation.isPending && (
+                <Loader2 className="animate-spin h-3.5 w-3.5" />
+              )}
+              Confirm Delete
+            </button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

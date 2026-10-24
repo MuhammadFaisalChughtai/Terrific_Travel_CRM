@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { getAll, getByType, updateTemplate, resetTemplate } from '../controllers/templates.controller';
 import { authMiddleware } from '../middleware/auth.middleware';
-import { requireRoles } from '../middleware/rbac.middleware';
+import { requirePermissions } from '../middleware/rbac.middleware';
 
 const router = Router();
 
@@ -12,8 +12,8 @@ router.use(authMiddleware as any);
 router.get('/', getAll);
 router.get('/:type', getByType);
 
-// Only ADMIN / SUPER_ADMIN can modify templates
-router.put('/:type', requireRoles('SUPER_ADMIN', 'ADMIN') as any, updateTemplate);
-router.post('/:type/reset', requireRoles('SUPER_ADMIN', 'ADMIN') as any, resetTemplate);
+// Only authorized users can modify templates
+router.put('/:type', requirePermissions('settings:manage') as any, updateTemplate);
+router.post('/:type/reset', requirePermissions('settings:manage') as any, resetTemplate);
 
 export default router;

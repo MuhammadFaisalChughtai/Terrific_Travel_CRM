@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { checkout, webhook, findAll, recordTransaction, submitPaymentRequest, getPaymentRequests, approvePaymentRequest, rejectPaymentRequest } from '../controllers/payments.controller';
 import { authMiddleware } from '../middleware/auth.middleware';
-import { requireRoles } from '../middleware/rbac.middleware';
+import { requirePermissions } from '../middleware/rbac.middleware';
 
 const router = Router();
 
@@ -10,14 +10,14 @@ router.post('/webhook', webhook);
 
 // Payment Requests routes
 router.post('/requests', authMiddleware as any, submitPaymentRequest);
-router.get('/requests', authMiddleware as any, requireRoles('SUPER_ADMIN', 'ADMIN') as any, getPaymentRequests);
-router.post('/requests/:id/approve', authMiddleware as any, requireRoles('SUPER_ADMIN', 'ADMIN') as any, approvePaymentRequest);
-router.post('/requests/:id/reject', authMiddleware as any, requireRoles('SUPER_ADMIN', 'ADMIN') as any, rejectPaymentRequest);
+router.get('/requests', authMiddleware as any, requirePermissions('invoices:read', 'bookings:read', 'ledger:read') as any, getPaymentRequests);
+router.post('/requests/:id/approve', authMiddleware as any, requirePermissions('invoices:edit', 'bookings:edit_any') as any, approvePaymentRequest);
+router.post('/requests/:id/reject', authMiddleware as any, requirePermissions('invoices:edit', 'bookings:edit_any') as any, rejectPaymentRequest);
 
 // Protected routes (Old transaction flow kept for fallback if needed, but UI uses /requests now)
 router.post('/checkout', authMiddleware as any, checkout);
-router.post('/transactions', authMiddleware as any, requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, recordTransaction);
-router.get('/', authMiddleware as any, requireRoles('SUPER_ADMIN', 'ADMIN', 'TRAVEL_AGENT') as any, findAll);
+router.post('/transactions', authMiddleware as any, requirePermissions('bookings:create', 'bookings:edit_own', 'bookings:edit_any') as any, recordTransaction);
+router.get('/', authMiddleware as any, requirePermissions('bookings:read', 'bookings:read_own', 'invoices:read') as any, findAll);
 
 router.delete('/:id', (req, res) => {
   res.status(403).json({

@@ -46,9 +46,25 @@ export function requirePermissions(...allowedPermissions: string[]) {
       return next(new UnauthorizedException('Unauthorized.'));
     }
 
-    const hasPermission = req.user.permissions.some((permission) =>
-      allowedPermissions.includes(permission)
-    );
+    const clean = (r: string) => (r || '').toUpperCase().replace(/[\s_-]+/g, '');
+    const userRoles = (req.user.roles || []).map(clean);
+    
+    // Super-admins and admins bypass all permission checks
+    const isSuperOrAdmin = userRoles.some((r) => ['ADMIN', 'SUPERADMIN', 'ROOT', 'ADMINISTRATOR'].includes(r));
+    if (isSuperOrAdmin) return next();
+
+    const userPerms = req.user.permissions || [];
+    // Wildcard bypass
+    if (userPerms.includes('*') || userPerms.includes('all')) return next();
+
+    // Check if user has any of the allowed permissions or wildcard module match (e.g. 'bookings:*')
+    const hasPermission = allowedPermissions.some((requiredPerm) => {
+      if (userPerms.includes(requiredPerm)) return true;
+      const [module] = requiredPerm.split(':');
+      if (module && userPerms.includes(`${module}:*`)) return true;
+      return false;
+    });
+
     if (!hasPermission) {
       return next(new ForbiddenException('You do not have the required permissions to access this resource.'));
     }

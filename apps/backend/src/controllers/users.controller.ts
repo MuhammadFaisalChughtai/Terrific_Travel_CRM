@@ -73,6 +73,33 @@ export const updateRolePermissions = asyncHandler(async (req: AuthenticatedReque
   });
 });
 
+export const createRole = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const result = await usersService.createRole(req.body, req.user!.id);
+  res.status(201).json({
+    success: true,
+    data: result,
+  });
+});
+
+export const updateRole = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { roleId } = req.params;
+  const result = await usersService.updateRole(roleId, req.body, req.user!.id);
+  res.status(200).json({
+    success: true,
+    data: result,
+  });
+});
+
+export const deleteRole = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { roleId } = req.params;
+  const result = await usersService.deleteRole(roleId, req.user!.id);
+  res.status(200).json({
+    success: true,
+    data: result,
+    message: 'Role deleted successfully.',
+  });
+});
+
 export const remove = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
   const result = await usersService.remove(id, req.user!.id);

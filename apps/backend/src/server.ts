@@ -99,6 +99,14 @@ async function bootstrap() {
     await prisma.$connect();
     logger.info('Database connected successfully.');
 
+    // Sync dynamic permission registry
+    try {
+      const { syncPermissionsRegistry } = await import('./services/permissions-sync.service');
+      await syncPermissionsRegistry(prisma);
+    } catch (syncErr) {
+      logger.error('Failed to sync permissions registry on server bootstrap:', syncErr);
+    }
+
     // Seed and verify transport rate sheet & service catalog on system start/restart
     try {
       const { seedCatalogData } = await import('../prisma/seed-catalog');

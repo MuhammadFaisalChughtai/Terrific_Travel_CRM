@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "../store/auth.store";
+import { usePermission } from "../hooks/usePermission";
 import { apiClient } from "../api/client";
 import { useThemeStore } from "../store/theme.store";
 import { useDashboardStore } from "../store/dashboard.store";
@@ -290,89 +291,154 @@ export default function DashboardLayout() {
     });
   };
 
+  const { can } = usePermission();
+
   const menuItems = [
     { name: "Dashboard", path: "/", icon: LayoutDashboard },
-    { name: "Bookings", path: "/bookings", icon: CalendarRange },
-    { name: "Issuance Board", path: "/issuance", icon: Ticket },
-    { name: "Free Cancellation", path: "/cancellation-deadlines", icon: AlertTriangle },
-    { name: "Hotel Confirmations", path: "/hotels", icon: Hotel },
-    { name: "Leads Log Book", path: "/leads", icon: UserCheck },
-    { name: "Upcoming Tours", path: "/tours", icon: Compass },
-    { name: "Invoices", path: "/invoices", icon: FileText },
-    { name: "Agent", path: "/agent", icon: Users, roles: ["Admin"] },
+    {
+      name: "Bookings",
+      path: "/bookings",
+      icon: CalendarRange,
+      permission: ["bookings:read", "bookings:read_own"],
+    },
+    {
+      name: "Issuance Board",
+      path: "/issuance",
+      icon: Ticket,
+      permission: ["issuance:manage", "bookings:read", "bookings:read_own"],
+    },
+    {
+      name: "Free Cancellation",
+      path: "/cancellation-deadlines",
+      icon: AlertTriangle,
+      permission: ["bookings:read", "bookings:adjust_price"],
+    },
+    {
+      name: "Hotel Confirmations",
+      path: "/hotels",
+      icon: Hotel,
+      permission: ["bookings:read", "bookings:read_own", "catalog:manage"],
+    },
+    {
+      name: "Leads Log Book",
+      path: "/leads",
+      icon: UserCheck,
+      permission: "leads:read",
+    },
+    {
+      name: "Upcoming Tours",
+      path: "/tours",
+      icon: Compass,
+      permission: ["bookings:read", "catalog:manage"],
+    },
+    {
+      name: "Invoices",
+      path: "/invoices",
+      icon: FileText,
+      permission: "invoices:read",
+    },
+    {
+      name: "Agent",
+      path: "/agent",
+      icon: Users,
+      permission: ["users:read", "users:manage"],
+      roles: ["Admin"],
+    },
     {
       name: "Vendors",
       path: "/vendors",
       icon: Store,
+      permission: "vendors:read",
       roles: ["Admin"],
     },
     {
       name: "Ledger",
       path: "/ledger",
       icon: BookOpen,
+      permission: "ledger:read",
       roles: ["Admin"],
     },
     {
       name: "Templates",
       path: "/invoice-templates",
       icon: Layers,
+      permission: "settings:manage",
       roles: ["Admin"],
     },
-    { name: "Users", path: "/users", icon: User, roles: ["Admin"] },
+    {
+      name: "Users",
+      path: "/users",
+      icon: User,
+      permission: ["users:read", "users:manage", "roles:manage"],
+      roles: ["Admin"],
+    },
     {
       name: "Security & DLP",
       path: "/security-audit",
       icon: ShieldAlert,
+      permission: "security:audit",
       roles: ["Admin", "SuperAdmin"],
     },
     {
       name: "Payment Approvals",
       path: "/payments",
       icon: DollarSign,
+      permission: ["invoices:read", "vendors:pay", "bookings:edit_any"],
       roles: ["Admin"],
     },
     {
       name: "Attendance",
       path: "/attendance",
       icon: Clock,
+      permission: ["attendance:read", "attendance:log", "attendance:manage"],
       roles: ["Admin", "Manager", "Agent"],
     },
     {
       name: "Agent Margins",
       path: "/agent-margins",
       icon: Calculator,
+      permission: ["margins:view", "margins:calculate"],
       roles: ["Admin", "Manager", "Agent"],
     },
     {
       name: "Booked Services",
       path: "/booked-services",
       icon: ArrowRightLeft,
+      permission: ["bookings:read", "bookings:read_own"],
       roles: ["Admin", "Manager", "Agent"],
     },
     {
       name: "Catalog",
       path: "/catalog",
       icon: BookMarked,
+      permission: "catalog:manage",
       roles: ["Admin", "Manager", "Agent"],
     },
     {
       name: "Payroll",
       path: "/payroll",
       icon: Receipt,
+      permission: ["payroll:read", "payroll:manage"],
       roles: ["Admin"],
     },
-    // {
-    //   name: "Financials",
-    //   path: "/reports",
-    //   icon: PieChart,
-    //   roles: ["Admin", "Manager"],
-    // },
-    { name: "Settings", path: "/settings", icon: Settings, roles: ["Admin"] },
+    {
+      name: "Settings",
+      path: "/settings",
+      icon: Settings,
+      permission: ["settings:manage", "roles:manage"],
+      roles: ["Admin"],
+    },
   ];
 
-  const filteredMenuItems = menuItems.filter((item) =>
-    item.roles ? userHasRole(item.roles) : true,
-  );
+  const filteredMenuItems = menuItems.filter((item: any) => {
+    if (item.permission) {
+      return can(item.permission);
+    }
+    if (item.roles) {
+      return userHasRole(item.roles);
+    }
+    return true;
+  });
 
   const handleLogout = () => {
     clearAuth();
