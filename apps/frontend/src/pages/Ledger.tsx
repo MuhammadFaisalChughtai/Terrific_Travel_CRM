@@ -470,13 +470,13 @@ export default function LedgerPage() {
                   filteredLedger.map((e: any, idx: number) => {
                     const hasReceipt =
                       e.notes &&
-                      e.notes.match(/Receipt:\s*(https?:\/\/[^|]+)/i);
+                      e.notes.match(/Receipt:\s*((?:https?:\/\/|\/)[^\s|]+)/i);
                     const receiptUrl = hasReceipt
                       ? encodeURI(hasReceipt[1].trim())
                       : null;
                     const cleanedNotes = e.notes
                       ? e.notes
-                          .replace(/Receipt:\s*https?:\/\/[^|]+/i, "")
+                          .replace(/Receipt:\s*(?:https?:\/\/|\/)[^\s|]+/i, "")
                           .trim()
                       : "";
 
