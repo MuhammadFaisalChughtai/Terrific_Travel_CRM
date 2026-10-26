@@ -74,6 +74,8 @@ export default function DashboardLayout() {
     return () => clearInterval(interval);
   }, []);
 
+  const { can } = usePermission();
+
   const { data: pendingApprovals } = useQuery({
     queryKey: ["payment-requests", "PENDING"],
     queryFn: async () => {
@@ -82,7 +84,9 @@ export default function DashboardLayout() {
     },
     enabled:
       !!user &&
-      (user.roles.includes("ADMIN") || user.roles.includes("SUPER_ADMIN")),
+      (can(["payments:read", "payments:approve"]) ||
+        user.roles.includes("ADMIN") ||
+        user.roles.includes("SUPER_ADMIN")),
   });
 
   const { data: cancellationData } = useQuery<{
@@ -291,8 +295,6 @@ export default function DashboardLayout() {
     });
   };
 
-  const { can } = usePermission();
-
   const menuItems = [
     { name: "Dashboard", path: "/", icon: LayoutDashboard },
     {
@@ -383,7 +385,7 @@ export default function DashboardLayout() {
       name: "Payment Approvals",
       path: "/payments",
       icon: DollarSign,
-      permission: ["invoices:read", "vendors:pay", "bookings:edit_any"],
+      permission: ["payments:read", "payments:approve", "invoices:read", "vendors:pay", "bookings:edit_any"],
       roles: ["Admin"],
     },
     {

@@ -94,6 +94,20 @@ export const SYSTEM_PERMISSIONS: SystemPermissionDef[] = [
     description: 'Allows printing invoices, tickets, and vouchers.',
   },
 
+  // ── Payment Approvals ──────────────────────────────────────────────
+  {
+    name: 'payments:read',
+    module: 'Payment Approvals',
+    displayName: 'View Payment Approvals',
+    description: 'Allows viewing pending customer payment requests and approval queues.',
+  },
+  {
+    name: 'payments:approve',
+    module: 'Payment Approvals',
+    displayName: 'Approve & Reject Payment Requests',
+    description: 'Allows approving or rejecting customer payments and posting ledger entries.',
+  },
+
   // ── Vendors & Suppliers ────────────────────────────────────────────
   {
     name: 'vendors:read',

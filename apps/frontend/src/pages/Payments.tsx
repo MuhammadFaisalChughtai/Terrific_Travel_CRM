@@ -6,8 +6,10 @@ import { formatCurrency } from '@tms/shared-utils';
 import { CreditCard, CheckCircle2, XCircle, Clock, Search, FileText, Check, X, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNotificationStore } from '../store/notification.store';
+import { usePermission } from '../hooks/usePermission';
 
 export default function Payments() {
+  const { can } = usePermission();
   const [activeTab, setActiveTab] = useState<'requests' | 'ledger'>('requests');
   const queryClient = useQueryClient();
   const addNotification = useNotificationStore((state) => state.addNotification);
@@ -164,22 +166,28 @@ export default function Payments() {
                         )}
                       </td>
                       <td className="py-3.5 px-4 text-right space-x-2">
-                        <button
-                          onClick={() => handleApprove(req.id)}
-                          disabled={approveMutation.isPending || rejectMutation.isPending}
-                          className="p-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 rounded-md transition-colors"
-                          title="Approve"
-                        >
-                          <Check size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleReject(req.id)}
-                          disabled={approveMutation.isPending || rejectMutation.isPending}
-                          className="p-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-600 rounded-md transition-colors"
-                          title="Reject"
-                        >
-                          <X size={16} />
-                        </button>
+                        {can("payments:approve") ? (
+                          <>
+                            <button
+                              onClick={() => handleApprove(req.id)}
+                              disabled={approveMutation.isPending || rejectMutation.isPending}
+                              className="p-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 rounded-md transition-colors"
+                              title="Approve"
+                            >
+                              <Check size={16} />
+                            </button>
+                            <button
+                              onClick={() => handleReject(req.id)}
+                              disabled={approveMutation.isPending || rejectMutation.isPending}
+                              className="p-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-600 rounded-md transition-colors"
+                              title="Reject"
+                            >
+                              <X size={16} />
+                            </button>
+                          </>
+                        ) : (
+                          <span className="text-xs text-muted-foreground italic">Read-only</span>
+                        )}
                       </td>
                     </tr>
                   ))}
