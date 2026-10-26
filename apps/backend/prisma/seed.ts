@@ -106,6 +106,7 @@ async function main() {
   // 4. Default permission sets for FRESH, uninitialized databases only
   const defaultManagerPermNames = [
     'bookings:read', 'bookings:read_own', 'bookings:create', 'bookings:edit_any', 'bookings:edit_own',
+    'services:read', 'services:manage',
     'invoices:read', 'invoices:edit', 'invoices:download', 'invoices:print',
     'customers:read', 'customers:create', 'customers:edit',
     'reports:read_all', 'reports:read_own',
@@ -118,6 +119,7 @@ async function main() {
 
   const defaultAgentPermNames = [
     'bookings:read', 'bookings:read_own', 'bookings:create', 'bookings:edit_own',
+    'services:read',
     'invoices:read', 'invoices:download', 'invoices:print',
     'customers:read', 'customers:create', 'customers:edit',
     'reports:read_own', 'settings:read',

@@ -405,8 +405,8 @@ export default function DashboardLayout() {
       name: "Booked Services",
       path: "/booked-services",
       icon: ArrowRightLeft,
-      permission: ["bookings:read", "bookings:read_own"],
-      roles: ["Admin", "Manager", "Agent"],
+      permission: ["services:read", "services:manage", "bookings:read", "bookings:read_own"],
+      roles: ["Admin", "Manager", "Flight Executive", "Agent"],
     },
     {
       name: "Catalog",

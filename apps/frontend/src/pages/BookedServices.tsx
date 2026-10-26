@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuthStore } from "../store/auth.store";
+import { usePermission } from "../hooks/usePermission";
 
 interface FlightServiceItem {
   id: string;
@@ -175,22 +176,38 @@ export default function BookedServicesPage() {
   const [selectedBookingRef, setSelectedBookingRef] = useState<string | null>(
     null,
   );
-  const isAllowed = user?.roles?.some((r) => {
-    const up = r.toUpperCase();
+  const { can } = usePermission();
+  const isAdminOrManager = user?.roles?.some((r) => {
+    const up = r.toUpperCase().replace(/[\s_-]+/g, "");
     return [
+      "SUPERADMIN",
       "SUPER_ADMIN",
       "ADMIN",
-      "AGENT",
-      "TRAVEL_AGENT",
+      "ADMINISTRATOR",
+      "ROOT",
       "MANAGER",
-      "BRANCH_MANAGER",
+      "BRANCHMANAGER",
     ].includes(up);
   });
 
-  const isAgentOnly = !user?.roles?.some((r) => {
-    const up = r.toUpperCase();
-    return ["SUPER_ADMIN", "ADMIN", "MANAGER", "BRANCH_MANAGER"].includes(up);
-  });
+  const canReadServices =
+    isAdminOrManager ||
+    can([
+      "services:read",
+      "services:manage",
+      "bookings:read",
+      "bookings:read_own",
+    ]);
+
+  const canManageServices =
+    isAdminOrManager ||
+    can([
+      "services:manage",
+      "bookings:edit_any",
+    ]);
+
+  const isAllowed = canReadServices;
+  const isAgentOnly = !canManageServices;
 
   const handleOpenBooking = (bookingId: string, bookingRef: string, lockedStatus?: string) => {
     if (isAgentOnly && lockedStatus === "LOCKED") {
@@ -207,8 +224,7 @@ export default function BookedServicesPage() {
   if (!isAllowed) {
     return (
       <div className="p-8 text-center text-rose-500 font-bold bg-rose-500/10 border border-rose-500/20 rounded-xl max-w-xl mx-auto mt-12">
-        Access Denied: This monitor page is only accessible to Admin, Manager or
-        Agent users.
+        Access Denied: This monitor page requires &quot;Booked Services&quot; permission. Contact your administrator to grant access.
       </div>
     );
   }

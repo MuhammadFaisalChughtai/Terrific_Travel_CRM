@@ -2815,6 +2815,14 @@ export class BookingsService {
       ['Agent', 'TRAVEL_AGENT'].includes(role)
     );
 
+    const userPermissions: string[] = user.permissions || [];
+    const hasGlobalAccess =
+      isAdmin ||
+      userPermissions.includes('services:manage') ||
+      userPermissions.includes('flights:manage') ||
+      userPermissions.includes('bookings:read') ||
+      userPermissions.includes('bookings:edit_any');
+
     let accommodations: any[] = [];
     let accomTotal = 0;
     let flights: any[] = [];
@@ -2877,8 +2885,8 @@ export class BookingsService {
       });
     }
 
-    if (!isAdmin) {
-      if (isAgent || isManager) {
+    if (!hasGlobalAccess) {
+      if (isAgent || isManager || user.agentId) {
         const agentOrCreator = user.agentId 
           ? { OR: [{ agentId: user.agentId }, { createdById: user.id }] }
           : { createdById: user.id };
@@ -2992,8 +3000,8 @@ export class BookingsService {
         });
       }
 
-      if (!isAdmin) {
-        if (isAgent || isManager) {
+      if (!hasGlobalAccess) {
+        if (isAgent || isManager || user.agentId) {
           if (user.agentId) {
             flightAndFilters.push({
               OR: [

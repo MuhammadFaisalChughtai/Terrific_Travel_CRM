@@ -343,6 +343,8 @@ export default function UsersPage() {
     switch (prefix) {
       case "bookings":
         return "Bookings";
+      case "services":
+        return "Booked Services";
       case "payments":
         return "Payment Approvals";
       case "agents":
@@ -388,6 +390,7 @@ export default function UsersPage() {
 
   const groupOrder = [
     "Bookings",
+    "Booked Services",
     "Payment Approvals",
     "Agent Access",
     "Invoices",

@@ -128,6 +128,20 @@ export const SYSTEM_PERMISSIONS: SystemPermissionDef[] = [
     description: 'Allows permanently deleting or removing agent profiles.',
   },
 
+  // ── Booked Services ────────────────────────────────────────────────
+  {
+    name: 'services:read',
+    module: 'Booked Services',
+    displayName: 'View Booked Services',
+    description: 'Allows viewing the booked services monitor, service details, and provider status.',
+  },
+  {
+    name: 'services:manage',
+    module: 'Booked Services',
+    displayName: 'Manage & Mark Services Done',
+    description: 'Allows toggling service completion status and updating vendor payment tracking.',
+  },
+
   // ── Vendors & Suppliers ────────────────────────────────────────────
   {
     name: 'vendors:read',

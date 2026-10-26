@@ -30,9 +30,9 @@ router.get('/passengers/global-search', requirePermissions('bookings:read') as a
 router.get('/accommodations/cancellation-alerts', getHotelCancellationAlerts);
 router.get('/transports/cancellation-alerts', getTransferCancellationAlerts);
 router.get('/accommodations/unique-hotels', requirePermissions('bookings:read') as any, getUniqueHotels);
-router.get('/booked-services', getBookedServices);
-router.patch('/booked-services/:id/toggle-done', toggleBookedServiceDone);
-router.patch('/booked-services/vendor-payment-status', updateVendorPaymentStatus);
+router.get('/booked-services', requirePermissions('services:read', 'services:manage', 'bookings:read', 'bookings:read_own') as any, getBookedServices);
+router.patch('/booked-services/:id/toggle-done', requirePermissions('services:manage', 'bookings:edit_any', 'bookings:edit_own') as any, toggleBookedServiceDone);
+router.patch('/booked-services/vendor-payment-status', requirePermissions('services:manage', 'bookings:edit_any', 'bookings:edit_own') as any, updateVendorPaymentStatus);
 
 router.post('/', requirePermissions('bookings:create') as any, create);
 router.get('/next-reference', requirePermissions('bookings:create') as any, getNextReference);

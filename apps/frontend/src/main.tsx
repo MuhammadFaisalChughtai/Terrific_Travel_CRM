@@ -227,7 +227,7 @@ function AppRouter() {
           <Route
             path="booked-services"
             element={
-              <PermissionRoute permission={["bookings:read", "bookings:read_own"]}>
+              <PermissionRoute permission={["services:read", "services:manage", "bookings:read", "bookings:read_own"]}>
                 <BookedServices />
               </PermissionRoute>
             }
