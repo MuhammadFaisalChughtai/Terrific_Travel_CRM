@@ -385,8 +385,7 @@ export default function DashboardLayout() {
       name: "Payment Approvals",
       path: "/payments",
       icon: DollarSign,
-      permission: ["payments:read", "payments:approve", "invoices:read", "vendors:pay", "bookings:edit_any"],
-      roles: ["Admin"],
+      permission: ["payments:read", "payments:approve"],
     },
     {
       name: "Attendance",

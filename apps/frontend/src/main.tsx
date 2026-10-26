@@ -146,7 +146,7 @@ function AppRouter() {
           <Route
             path="payments"
             element={
-              <PermissionRoute permission={["payments:read", "payments:approve", "invoices:read", "vendors:pay", "bookings:edit_any"]}>
+              <PermissionRoute permission={["payments:read", "payments:approve"]}>
                 <Payments />
               </PermissionRoute>
             }

@@ -10,9 +10,9 @@ router.post('/webhook', webhook);
 
 // Payment Requests routes
 router.post('/requests', authMiddleware as any, submitPaymentRequest);
-router.get('/requests', authMiddleware as any, requirePermissions('payments:read', 'invoices:read', 'bookings:read', 'ledger:read') as any, getPaymentRequests);
-router.post('/requests/:id/approve', authMiddleware as any, requirePermissions('payments:approve', 'invoices:edit', 'bookings:edit_any') as any, approvePaymentRequest);
-router.post('/requests/:id/reject', authMiddleware as any, requirePermissions('payments:approve', 'invoices:edit', 'bookings:edit_any') as any, rejectPaymentRequest);
+router.get('/requests', authMiddleware as any, requirePermissions('payments:read', 'payments:approve') as any, getPaymentRequests);
+router.post('/requests/:id/approve', authMiddleware as any, requirePermissions('payments:approve') as any, approvePaymentRequest);
+router.post('/requests/:id/reject', authMiddleware as any, requirePermissions('payments:approve') as any, rejectPaymentRequest);
 
 // Protected routes (Old transaction flow kept for fallback if needed, but UI uses /requests now)
 router.post('/checkout', authMiddleware as any, checkout);
