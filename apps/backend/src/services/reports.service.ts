@@ -132,9 +132,27 @@ export const reportsService = {
       }
     });
 
+    const allAgents = await prisma.agent.findMany({
+      include: {
+        users: {
+          select: { id: true, isActive: true }
+        }
+      }
+    });
+
+    const activeAgents = (allAgents as any[]).filter((a: any) => {
+      const isJobActive = !a.jobStatus || (a.jobStatus || '').trim().toLowerCase() === 'active';
+      if (!isJobActive) return false;
+      if (a.users && a.users.length > 0) {
+        const hasActiveUser = a.users.some((u: any) => u.isActive !== false);
+        if (!hasActiveUser) return false;
+      }
+      return true;
+    });
+    const activeAgentIdSet = new Set(activeAgents.map((a: any) => a.id));
+
     const agentBookingsMap: Record<string, { agentName: string; bookingsCount: number }> = {};
-    const allAgents = await prisma.agent.findMany();
-    allAgents.forEach(agent => {
+    activeAgents.forEach(agent => {
       agentBookingsMap[agent.id] = {
         agentName: agent.name,
         bookingsCount: 0
@@ -142,7 +160,7 @@ export const reportsService = {
     });
 
     agentBookingsRaw.forEach((b: any) => {
-      if (b.agent) {
+      if (b.agent && activeAgentIdSet.has(b.agent.id)) {
         if (!agentBookingsMap[b.agent.id]) {
           agentBookingsMap[b.agent.id] = {
             agentName: b.agent.name,

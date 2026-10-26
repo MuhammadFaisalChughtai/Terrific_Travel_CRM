@@ -205,13 +205,43 @@ export class DashboardService {
       prisma.booking.findMany({
         include: bookingInclude,
       }),
-      prisma.agent.findMany(),
+      prisma.agent.findMany({
+        include: {
+          users: {
+            select: { id: true, isActive: true },
+          },
+        },
+      }),
     ]);
 
     // Revenue = SUM(booking.totalPrice)
     const totalRevenue = allBookings.reduce((sum: number, b: any) => sum + b.totalPrice, 0);
 
-    const agentMap: Record<string, { id: string; name: string; profit: number; bookingsCount: number }> = {};
+    // Filter only ACTIVE agents (by jobStatus and active linked users)
+    const activeAgents = (globalAgents as any[]).filter((a: any) => {
+      const isJobActive = !a.jobStatus || (a.jobStatus || '').trim().toLowerCase() === 'active';
+      if (!isJobActive) return false;
+      if (a.users && a.users.length > 0) {
+        const hasActiveUser = a.users.some((u: any) => u.isActive !== false);
+        if (!hasActiveUser) return false;
+      }
+      return true;
+    });
+    const activeAgentIdSet = new Set(activeAgents.map((a: any) => a.id));
+
+    const agentMap: Record<string, { id: string; name: string; profit: number; bookingsCount: number; jobStatus: string; isActive: boolean }> = {};
+
+    activeAgents.forEach((a: any) => {
+      agentMap[a.id] = {
+        id: a.id,
+        name: a.name,
+        profit: 0,
+        bookingsCount: 0,
+        jobStatus: a.jobStatus || 'Active',
+        isActive: true,
+      };
+    });
+
     let totalProfit = 0;
     let totalMargin = 0;
     let totalCustomerPending = 0;
@@ -232,36 +262,27 @@ export class DashboardService {
       }
     });
 
-    // Calculate agent leaderboard using ALL global bookings where payment > 0
+    // Calculate agent leaderboard using ALL global bookings where payment > 0 for ACTIVE agents only
     globalBookings.forEach((b: any) => {
       const { netProfit } = calculateBookingFinancials(b);
       const { clientPaid } = calculateCustomerPending(b);
       const hasPayment = clientPaid > 0 || (b.paidAmount && b.paidAmount > 0);
 
-      if (b.agent) {
+      if (b.agent && activeAgentIdSet.has(b.agent.id)) {
         if (!agentMap[b.agent.id]) {
           agentMap[b.agent.id] = {
             id: b.agent.id,
             name: b.agent.name,
             profit: 0,
             bookingsCount: 0,
+            jobStatus: b.agent.jobStatus || 'Active',
+            isActive: true,
           };
         }
         if (b.status !== 'CANCELLED' && hasPayment) {
           agentMap[b.agent.id].profit += netProfit;
           agentMap[b.agent.id].bookingsCount += 1;
         }
-      }
-    });
-
-    globalAgents.forEach((a: any) => {
-      if (!agentMap[a.id]) {
-        agentMap[a.id] = {
-          id: a.id,
-          name: a.name,
-          profit: 0,
-          bookingsCount: 0,
-        };
       }
     });
 
@@ -373,15 +394,35 @@ export class DashboardService {
       })
     ]);
 
-    const globalAgents = await prisma.agent.findMany();
-    const agentMap: Record<string, { id: string; name: string; profit: number; bookingsCount: number }> = {};
+    const globalAgents = await prisma.agent.findMany({
+      include: {
+        users: {
+          select: { id: true, isActive: true },
+        },
+      },
+    });
 
-    globalAgents.forEach((a: any) => {
+    const activeAgents = (globalAgents as any[]).filter((a: any) => {
+      const isJobActive = !a.jobStatus || (a.jobStatus || '').trim().toLowerCase() === 'active';
+      if (!isJobActive) return false;
+      if (a.users && a.users.length > 0) {
+        const hasActiveUser = a.users.some((u: any) => u.isActive !== false);
+        if (!hasActiveUser) return false;
+      }
+      return true;
+    });
+    const activeAgentIdSet = new Set(activeAgents.map((a: any) => a.id));
+
+    const agentMap: Record<string, { id: string; name: string; profit: number; bookingsCount: number; jobStatus: string; isActive: boolean }> = {};
+
+    activeAgents.forEach((a: any) => {
       agentMap[a.id] = {
         id: a.id,
         name: a.name,
         profit: 0,
         bookingsCount: 0,
+        jobStatus: a.jobStatus || 'Active',
+        isActive: true,
       };
     });
 
@@ -413,13 +454,15 @@ export class DashboardService {
       const { clientPaid } = calculateCustomerPending(b);
       const hasPayment = clientPaid > 0 || (b.paidAmount && b.paidAmount > 0);
 
-      if (b.agent) {
+      if (b.agent && activeAgentIdSet.has(b.agent.id)) {
         if (!agentMap[b.agent.id]) {
           agentMap[b.agent.id] = {
             id: b.agent.id,
             name: b.agent.name,
             profit: 0,
             bookingsCount: 0,
+            jobStatus: b.agent.jobStatus || 'Active',
+            isActive: true,
           };
         }
         // Only count booking and profit towards agent performance when payment is greater than 0

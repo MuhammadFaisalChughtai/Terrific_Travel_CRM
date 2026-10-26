@@ -319,9 +319,15 @@ export default function Dashboard() {
   const sortedAgents = useMemo(() => {
     const performanceData =
       agentStatsData?.agentPerformance || stats.agentPerformance || [];
-    return [...performanceData].sort(
-      (a, b) => b.bookingsCount - a.bookingsCount || b.profit - a.profit,
-    );
+    return [...performanceData]
+      .filter((a: any) => {
+        if (a.isActive === false) return false;
+        if (a.jobStatus && a.jobStatus.toLowerCase() !== "active") return false;
+        return true;
+      })
+      .sort(
+        (a, b) => b.bookingsCount - a.bookingsCount || b.profit - a.profit,
+      );
   }, [agentStatsData?.agentPerformance, stats.agentPerformance]);
 
   const topAgents = useMemo(() => {
