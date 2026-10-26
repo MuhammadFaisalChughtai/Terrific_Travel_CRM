@@ -52,10 +52,12 @@ export default function RecalculateMarginModal({ startDate, endDate, agentId, da
     });
   }, [bookings, tokens]);
 
+  const isSelectableBooking = (b: any) => b.marginStatus !== 'PAID' || b.isIncrementalAdjustment;
+
   // Automatically check all selectable bookings when they are fetched
   useEffect(() => {
     if (bookings) {
-      const selectable = bookings.filter((b: any) => b.marginStatus !== 'PAID');
+      const selectable = bookings.filter(isSelectableBooking);
       setIncludedBookingIds(new Set(selectable.map((b: any) => b.id)));
     }
   }, [bookings]);
@@ -71,7 +73,7 @@ export default function RecalculateMarginModal({ startDate, endDate, agentId, da
   };
 
   const toggleAll = () => {
-    const selectable = filteredBookings.filter((b: any) => b.marginStatus !== 'PAID');
+    const selectable = filteredBookings.filter(isSelectableBooking);
     const allSelected = selectable.every((b: any) => includedBookingIds.has(b.id));
     
     const newSet = new Set(includedBookingIds);
@@ -84,7 +86,7 @@ export default function RecalculateMarginModal({ startDate, endDate, agentId, da
   };
 
   const selectOnlyFiltered = () => {
-    const selectable = filteredBookings.filter((b: any) => b.marginStatus !== 'PAID');
+    const selectable = filteredBookings.filter(isSelectableBooking);
     const newSet = new Set(includedBookingIds);
     selectable.forEach((b: any) => newSet.add(b.id));
     setIncludedBookingIds(newSet);
@@ -92,7 +94,7 @@ export default function RecalculateMarginModal({ startDate, endDate, agentId, da
   };
 
   const deselectFiltered = () => {
-    const selectable = filteredBookings.filter((b: any) => b.marginStatus !== 'PAID');
+    const selectable = filteredBookings.filter(isSelectableBooking);
     const newSet = new Set(includedBookingIds);
     selectable.forEach((b: any) => newSet.delete(b.id));
     setIncludedBookingIds(newSet);
@@ -211,7 +213,7 @@ export default function RecalculateMarginModal({ startDate, endDate, agentId, da
                           <input 
                             type="checkbox" 
                             checked={(() => {
-                              const selectable = filteredBookings.filter((b: any) => b.marginStatus !== 'PAID');
+                              const selectable = filteredBookings.filter(isSelectableBooking);
                               return selectable.length > 0 && selectable.every((b: any) => includedBookingIds.has(b.id));
                             })()}
                             onChange={toggleAll}
@@ -234,7 +236,22 @@ export default function RecalculateMarginModal({ startDate, endDate, agentId, da
                             className={`transition-colors ${isChecked ? "" : "bg-muted/30 opacity-60"}`}
                           >
                             <td className="px-4 py-3 text-center">
-                              {b.marginStatus === 'PAID' ? (
+                              {b.isIncrementalAdjustment ? (
+                                <div className="flex items-center justify-center gap-1.5">
+                                  <input 
+                                    type="checkbox" 
+                                    checked={isChecked}
+                                    onChange={() => toggleBooking(b.id)}
+                                    className="rounded border-input text-primary focus:ring-primary cursor-pointer"
+                                  />
+                                  <span 
+                                    className="text-[9px] uppercase font-bold text-blue-700 bg-blue-100 dark:bg-blue-900/40 dark:text-blue-300 px-1 py-0.5 rounded-sm whitespace-nowrap"
+                                    title="Original margin paid. Includes incremental price adjustments (upgrade/downgrade)."
+                                  >
+                                    Adj ({b.profit >= 0 ? `+£${b.profit}` : `-£${Math.abs(b.profit)}`})
+                                  </span>
+                                </div>
+                              ) : b.marginStatus === 'PAID' ? (
                                 <span className="text-[10px] uppercase font-bold text-emerald-600 bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400 px-1.5 py-0.5 rounded-sm whitespace-nowrap">
                                   Margin Paid
                                 </span>
@@ -255,6 +272,11 @@ export default function RecalculateMarginModal({ startDate, endDate, agentId, da
                             <td className="px-4 py-3">{formatDate(b.date)}</td>
                             <td className="px-4 py-3 text-right font-medium text-emerald-600 dark:text-emerald-400">
                               {formatCurrency(b.profit)}
+                              {b.isIncrementalAdjustment && (
+                                <span className="block text-[10px] font-semibold text-blue-600 dark:text-blue-400">
+                                  (Net Adjustment)
+                                </span>
+                              )}
                             </td>
                           </tr>
                         );

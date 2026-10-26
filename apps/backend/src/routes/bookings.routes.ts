@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import multer from 'multer';
-import { create, getNextReference, findAll, findOne, updateStatus, updateBookingDetails, toggleLock, cancel, finalizeMargin, addFlightService, updateFlightService, updateFlightsStatus, deleteFlightService, addAccommodationService, updateAccommodationService, deleteAccommodationService, addPassenger, updatePassenger, deletePassenger, getPassengerForm, submitPassengerForm, sendPassengerLink, sendTicketOrder, uploadPassengerPassportScan, getPassengerPassportScan, deletePassengerPassportScan, addPassengerDocument, getPassengerDocumentFile, deletePassengerDocument, addPassengerByFormToken, deletePassengerByFormToken, adminUploadPassportScan, adminGetPassportScan, adminDeletePassportScan, adminAddPassengerDocument, adminGetPassengerDocumentFile, adminDeletePassengerDocument, searchAllPassengers, addTransportService, updateTransportService, deleteTransportService, addVisaService, updateVisaService, deleteVisaService, addAdditionalService, updateAdditionalService, deleteAdditionalService, deleteVendorPayment, deleteTransaction, getUniqueHotels, getBookedServices, toggleBookedServiceDone, updateVendorPaymentStatus, triggerMissingDetailsReminders, getHotelCancellationAlerts, markHotelBooked, getTransferCancellationAlerts, markTransferBooked, adjustHotelPrice, payAdditionalHotelMargin } from '../controllers/bookings.controller';
+import { create, getNextReference, findAll, findOne, updateStatus, updateBookingDetails, toggleLock, cancel, finalizeMargin, addFlightService, updateFlightService, updateFlightsStatus, deleteFlightService, addAccommodationService, updateAccommodationService, deleteAccommodationService, addPassenger, updatePassenger, deletePassenger, getPassengerForm, submitPassengerForm, sendPassengerLink, sendTicketOrder, uploadPassengerPassportScan, getPassengerPassportScan, deletePassengerPassportScan, addPassengerDocument, getPassengerDocumentFile, deletePassengerDocument, addPassengerByFormToken, deletePassengerByFormToken, adminUploadPassportScan, adminGetPassportScan, adminDeletePassportScan, adminAddPassengerDocument, adminGetPassengerDocumentFile, adminDeletePassengerDocument, searchAllPassengers, addTransportService, updateTransportService, deleteTransportService, addVisaService, updateVisaService, deleteVisaService, addAdditionalService, updateAdditionalService, deleteAdditionalService, deleteVendorPayment, deleteTransaction, getUniqueHotels, getBookedServices, toggleBookedServiceDone, updateVendorPaymentStatus, triggerMissingDetailsReminders, getHotelCancellationAlerts, markHotelBooked, getTransferCancellationAlerts, markTransferBooked, adjustHotelPrice, payAdditionalHotelMargin, adjustTransportPrice, adjustVisaPrice, adjustAdditionalServicePrice, payAdditionalServiceMargin } from '../controllers/bookings.controller';
 import { authMiddleware } from '../middleware/auth.middleware';
 import { requireRoles, requirePermissions, requireBookingOwnership } from '../middleware/rbac.middleware';
 
@@ -65,15 +65,20 @@ router.delete('/:id/accommodations/:accommodationId', requireBookingOwnership as
 router.post('/:id/transports', requireBookingOwnership as any, addTransportService);
 router.patch('/:id/transports/:transportServiceId', requireBookingOwnership as any, updateTransportService);
 router.patch('/:id/transports/:transportId/mark-booked', requireBookingOwnership as any, markTransferBooked);
+router.post('/:id/transports/:transportId/adjust-price', requireBookingOwnership as any, adjustTransportPrice);
 router.delete('/:id/transports/:transportServiceId', requireBookingOwnership as any, deleteTransportService);
 
 router.post('/:id/visas', requireBookingOwnership as any, addVisaService);
 router.patch('/:id/visas/:visaServiceId', requireBookingOwnership as any, updateVisaService);
+router.post('/:id/visas/:visaId/adjust-price', requireBookingOwnership as any, adjustVisaPrice);
 router.delete('/:id/visas/:visaServiceId', requireBookingOwnership as any, deleteVisaService);
 
 router.post('/:id/additional-services', requireBookingOwnership as any, addAdditionalService);
 router.patch('/:id/additional-services/:serviceId', requireBookingOwnership as any, updateAdditionalService);
+router.post('/:id/additional-services/:additionalServiceId/adjust-price', requireBookingOwnership as any, adjustAdditionalServicePrice);
 router.delete('/:id/additional-services/:serviceId', requireBookingOwnership as any, deleteAdditionalService);
+
+router.post('/:id/adjustments/:serviceType/:adjustmentId/pay-margin', requireBookingOwnership as any, payAdditionalServiceMargin);
 
 // Passenger CRUD require ownership
 router.post('/:id/passengers', requireBookingOwnership as any, addPassenger);

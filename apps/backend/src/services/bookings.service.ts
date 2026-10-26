@@ -872,14 +872,71 @@ export class BookingsService {
           },
         },
         flightServices: { include: { vendor: true } },
-        transportServices: { include: { vendor: true } },
-        visaServices: { include: { vendor: true } },
-        additionalServices: { include: { vendor: true } },
+        transportServices: {
+          include: {
+            vendor: true,
+            priceAdjustments: {
+              include: {
+                adjustedBy: { select: { id: true, firstName: true, lastName: true } },
+                additionalMarginPaidBy: { select: { id: true, firstName: true, lastName: true } },
+              },
+              orderBy: { adjustmentDate: 'desc' },
+            },
+          },
+        },
+        visaServices: {
+          include: {
+            vendor: true,
+            priceAdjustments: {
+              include: {
+                adjustedBy: { select: { id: true, firstName: true, lastName: true } },
+                additionalMarginPaidBy: { select: { id: true, firstName: true, lastName: true } },
+              },
+              orderBy: { adjustmentDate: 'desc' },
+            },
+          },
+        },
+        additionalServices: {
+          include: {
+            vendor: true,
+            priceAdjustments: {
+              include: {
+                adjustedBy: { select: { id: true, firstName: true, lastName: true } },
+                additionalMarginPaidBy: { select: { id: true, firstName: true, lastName: true } },
+              },
+              orderBy: { adjustmentDate: 'desc' },
+            },
+          },
+        },
         hotelPriceAdjustments: {
           include: {
             adjustedBy: { select: { id: true, firstName: true, lastName: true } },
             additionalMarginPaidBy: { select: { id: true, firstName: true, lastName: true } },
             accommodation: { select: { id: true, hotelName: true, roomType: true } },
+          },
+          orderBy: { adjustmentDate: 'desc' },
+        },
+        transportPriceAdjustments: {
+          include: {
+            adjustedBy: { select: { id: true, firstName: true, lastName: true } },
+            additionalMarginPaidBy: { select: { id: true, firstName: true, lastName: true } },
+            transport: { select: { id: true, vehicleType: true, departureDestination: true, arrivalDestination: true } },
+          },
+          orderBy: { adjustmentDate: 'desc' },
+        },
+        visaPriceAdjustments: {
+          include: {
+            adjustedBy: { select: { id: true, firstName: true, lastName: true } },
+            additionalMarginPaidBy: { select: { id: true, firstName: true, lastName: true } },
+            visa: { select: { id: true, passportNumber: true, visaType: true } },
+          },
+          orderBy: { adjustmentDate: 'desc' },
+        },
+        additionalServicePriceAdjustments: {
+          include: {
+            adjustedBy: { select: { id: true, firstName: true, lastName: true } },
+            additionalMarginPaidBy: { select: { id: true, firstName: true, lastName: true } },
+            additionalService: { select: { id: true, serviceName: true } },
           },
           orderBy: { adjustmentDate: 'desc' },
         },
@@ -3688,10 +3745,10 @@ export class BookingsService {
   }
 
   /**
-   * Adjusts hotel price for a booking with active free-cancellation / price reduction.
+   * Adjusts hotel price for a booking (Upgrade or Downgrade/Savings).
    * Scenario A: Agent margin has NOT been paid -> updates price directly, recalculates profit & standard margin.
    * Scenario B: Agent margin HAS been paid -> preserves original records, creates HotelPriceAdjustment,
-   * calculates savings, additional profit, and additional agent margin separately.
+   * calculates additional or reduced profit and agent margin separately.
    */
   async adjustHotelPrice(
     bookingId: string,
@@ -3728,21 +3785,20 @@ export class BookingsService {
     }
 
     const baselinePrice = acc.price;
-    if (newPrice >= baselinePrice) {
-      throw new BadRequestException(
-        `New hotel price (£${newPrice}) must be strictly lower than the current price (£${baselinePrice}) to qualify as a savings adjustment.`
-      );
+    if (newPrice === baselinePrice) {
+      throw new BadRequestException(`New hotel price (£${newPrice}) must be different from current price (£${baselinePrice}).`);
     }
 
-    const savedAmount = Math.round((baselinePrice - newPrice) * 100) / 100;
+    const isUpgrade = newPrice > baselinePrice;
+    const adjustmentType = isUpgrade ? 'UPGRADE' : 'DOWNGRADE';
+    const diffAmount = Math.round(Math.abs(newPrice - baselinePrice) * 100) / 100;
+    const savedAmount = !isUpgrade ? diffAmount : 0;
     const originalPrice = acc.originalPrice ?? baselinePrice;
     const originalBookingDate = acc.originalBookingDate ?? (acc.issueDate || booking.bookingDate || booking.createdAt);
 
-    // Free cancellation check warning
     const isExpired = acc.lastCancellationDate && new Date(acc.lastCancellationDate) < new Date();
     const expiryNote = isExpired ? ' [Notice: Free-cancellation deadline had passed]' : '';
 
-    // Check if agent margin has already been paid for this booking
     const hasPaidMargin =
       booking.agentMargin?.status === 'PAID' ||
       booking.transactions.some(
@@ -3750,10 +3806,6 @@ export class BookingsService {
       );
 
     if (!hasPaidMargin) {
-      // -------------------------------------------------------------
-      // SCENARIO A: Agent margin has NOT been paid
-      // Update hotel price directly, recalculate profit & agent margin
-      // -------------------------------------------------------------
       const updatedAcc = await prisma.accommodationService.update({
         where: { id: accommodationId },
         data: {
@@ -3763,10 +3815,8 @@ export class BookingsService {
         },
       });
 
-      // Synchronize booking vendor payment records
       await vendorsService.syncBookingVendorPayments(booking.id);
 
-      // Recalculate unpaid agent margin record if linked
       if (booking.agentMarginId) {
         try {
           await agentMarginService.recalculateMarginRecord(booking.agentMarginId);
@@ -3783,9 +3833,10 @@ export class BookingsService {
         oldValue: { price: baselinePrice },
         newValue: {
           price: newPrice,
-          savedAmount,
+          diffAmount,
+          adjustmentType,
           scenario: 'A (Margin Unpaid)',
-          note: (data.notes || 'Hotel price reduced directly') + expiryNote,
+          note: (data.notes || `Hotel price ${adjustmentType.toLowerCase()}d directly`) + expiryNote,
         },
       });
 
@@ -3793,17 +3844,13 @@ export class BookingsService {
 
       return {
         scenario: 'A',
-        message: 'Hotel price updated directly. Profit and agent margin recalculated according to existing business rules.',
+        message: `Hotel price ${adjustmentType.toLowerCase()}d directly. Profit and agent margin recalculated.`,
         accommodation: updatedAcc,
+        diffAmount,
+        adjustmentType,
         savedAmount,
       };
     } else {
-      // -------------------------------------------------------------
-      // SCENARIO B: Agent margin HAS already been paid
-      // Preserve original financial records, track savings & additional margins separately
-      // -------------------------------------------------------------
-
-      // 1. Calculate Slab Commission Rate for the booking
       let commissionRate = 0;
       if (booking.agent && booking.agent.slabs && booking.agent.slabs.length > 0 && !booking.agentMarginVoided) {
         const slabs = booking.agent.slabs;
@@ -3823,13 +3870,23 @@ export class BookingsService {
         }
       }
 
-      // 2. Additional margin & profit
-      const additionalMargin = commissionRate > 0
-        ? Math.round(savedAmount * (commissionRate / 100) * 100) / 100
-        : 0;
-      const additionalProfit = Math.round((savedAmount - additionalMargin) * 100) / 100;
+      let additionalMargin = 0;
+      let additionalProfit = 0;
+      let reducedMargin = 0;
+      let reducedProfit = 0;
 
-      // 3. Compute raw original profit baseline
+      if (isUpgrade) {
+        additionalMargin = commissionRate > 0
+          ? Math.round(diffAmount * (commissionRate / 100) * 100) / 100
+          : 0;
+        additionalProfit = Math.round((diffAmount - additionalMargin) * 100) / 100;
+      } else {
+        reducedMargin = commissionRate > 0
+          ? Math.round(diffAmount * (commissionRate / 100) * 100) / 100
+          : 0;
+        reducedProfit = Math.round((diffAmount - reducedMargin) * 100) / 100;
+      }
+
       const vendorCost = booking.bookingVendorPayments.reduce(
         (sum, vp) => sum + (vp.originalCost || 0),
         0
@@ -3842,7 +3899,6 @@ export class BookingsService {
       const originalProfit =
         booking.totalPrice - vendorCost + vendorRefund - (booking.refundAmount || 0) - (booking.cardPaymentCharges || 0);
 
-      // 4. Atomic execution
       const result = await prisma.$transaction(async (tx) => {
         const adjustment = await tx.hotelPriceAdjustment.create({
           data: {
@@ -3850,16 +3906,20 @@ export class BookingsService {
             accommodationId: acc.id,
             baselinePrice,
             newPrice,
+            diffAmount,
             savedAmount,
             originalProfit,
             additionalProfit,
             additionalMargin,
+            reducedProfit,
+            reducedMargin,
+            adjustmentType,
             marginRate: commissionRate,
             originalMarginPaid: true,
             additionalMarginPaid: false,
             adjustmentDate: new Date(),
             adjustedById: actorId,
-            notes: (data.notes || `Hotel price reduced from £${baselinePrice} to £${newPrice}`) + expiryNote,
+            notes: (data.notes || `Hotel price ${adjustmentType.toLowerCase()}d from £${baselinePrice} to £${newPrice}`) + expiryNote,
           },
           include: {
             adjustedBy: { select: { id: true, firstName: true, lastName: true } },
@@ -3873,14 +3933,13 @@ export class BookingsService {
             originalBookingDate,
             price: newPrice,
             isPriceAdjusted: true,
-            totalSavedAmount: (acc.totalSavedAmount || 0) + savedAmount,
+            totalSavedAmount: !isUpgrade ? (acc.totalSavedAmount || 0) + diffAmount : acc.totalSavedAmount,
           },
         });
 
         return { adjustment, updatedAcc };
       });
 
-      // Synchronize booking vendor payments with new hotel cost
       await vendorsService.syncBookingVendorPayments(booking.id);
 
       await auditLogService.log({
@@ -3891,9 +3950,12 @@ export class BookingsService {
         oldValue: { price: baselinePrice },
         newValue: {
           price: newPrice,
-          savedAmount,
+          diffAmount,
+          adjustmentType,
           additionalProfit,
           additionalMargin,
+          reducedProfit,
+          reducedMargin,
           scenario: 'B (Margin Paid)',
           adjustmentId: result.adjustment.id,
         },
@@ -3903,37 +3965,750 @@ export class BookingsService {
 
       return {
         scenario: 'B',
-        message: 'Price adjusted. Additional profit and additional agent margin recorded separately.',
+        message: `Hotel price ${adjustmentType.toLowerCase()}d. Financial impact recorded separately.`,
         adjustment: result.adjustment,
         accommodation: result.updatedAcc,
+        diffAmount,
+        adjustmentType,
         savedAmount,
         additionalProfit,
         additionalMargin,
+        reducedProfit,
+        reducedMargin,
         marginRate: commissionRate,
       };
     }
   }
 
   /**
-   * Records payout of the additional agent margin generated from a hotel price adjustment.
+   * Adjusts transport price for a booking (Upgrade or Downgrade/Savings).
    */
-  async payAdditionalHotelMargin(
+  async adjustTransportPrice(
     bookingId: string,
+    transportId: string,
+    data: { newPrice: number; notes?: string },
+    actorId: string
+  ) {
+    const newPrice = Number(data.newPrice);
+    if (isNaN(newPrice) || newPrice < 0) {
+      throw new BadRequestException('New transport price must be a valid positive number');
+    }
+
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: {
+        agent: { include: { slabs: { orderBy: { minSales: 'asc' } } } },
+        agentMargin: true,
+        transactions: true,
+        bookingVendorPayments: true,
+        accommodations: true,
+        flightServices: true,
+        transportServices: true,
+        visaServices: true,
+      },
+    });
+
+    if (!booking) {
+      throw new NotFoundException('Booking not found');
+    }
+
+    const tr = booking.transportServices.find((t) => t.id === transportId);
+    if (!tr) {
+      throw new NotFoundException('Transport service not found on this booking');
+    }
+
+    const baselinePrice = tr.price;
+    if (newPrice === baselinePrice) {
+      throw new BadRequestException(`New price (£${newPrice}) must be different from current price (£${baselinePrice}).`);
+    }
+
+    const isUpgrade = newPrice > baselinePrice;
+    const adjustmentType = isUpgrade ? 'UPGRADE' : 'DOWNGRADE';
+    const diffAmount = Math.round(Math.abs(newPrice - baselinePrice) * 100) / 100;
+    const savedAmount = !isUpgrade ? diffAmount : 0;
+    const originalPrice = tr.originalPrice ?? baselinePrice;
+    const originalBookingDate = tr.originalBookingDate ?? (tr.issueDate || booking.bookingDate || booking.createdAt);
+
+    const hasPaidMargin =
+      booking.agentMargin?.status === 'PAID' ||
+      booking.transactions.some(
+        (tx) => tx.paymentMethod === 'AGENT PAYOUT' || tx.paymentMethod === 'AGENT_PAYOUT'
+      );
+
+    if (!hasPaidMargin) {
+      const updatedTr = await prisma.transportService.update({
+        where: { id: transportId },
+        data: {
+          originalPrice,
+          originalBookingDate,
+          price: newPrice,
+        },
+      });
+
+      await vendorsService.syncBookingVendorPayments(booking.id);
+
+      if (booking.agentMarginId) {
+        try {
+          await agentMarginService.recalculateMarginRecord(booking.agentMarginId);
+        } catch (err) {
+          logger.warn(`Failed to auto-recalculate agent margin for booking ${booking.id}: ${err}`);
+        }
+      }
+
+      await auditLogService.log({
+        userId: actorId,
+        action: 'Update',
+        module: 'Bookings',
+        recordId: transportId,
+        oldValue: { price: baselinePrice },
+        newValue: {
+          price: newPrice,
+          diffAmount,
+          adjustmentType,
+          scenario: 'A (Margin Unpaid)',
+          note: data.notes || `Transport price ${adjustmentType.toLowerCase()}d directly`,
+        },
+      });
+
+      await rabbitMQService.publish('booking.updated', { bookingId: booking.id });
+
+      return {
+        scenario: 'A',
+        message: `Transport price ${adjustmentType.toLowerCase()}d directly. Profit and agent margin recalculated.`,
+        transport: updatedTr,
+        diffAmount,
+        adjustmentType,
+        savedAmount,
+      };
+    } else {
+      let commissionRate = 0;
+      if (booking.agent && booking.agent.slabs && booking.agent.slabs.length > 0 && !booking.agentMarginVoided) {
+        const slabs = booking.agent.slabs;
+        const matchedSlab = slabs.find(
+          (s: any) =>
+            booking.totalPrice >= s.minSales && (s.maxSales === null || booking.totalPrice <= s.maxSales)
+        );
+        if (matchedSlab) {
+          commissionRate = matchedSlab.commissionRate;
+        } else {
+          const highestSlab = slabs.reduce((prev: any, current: any) =>
+            prev.minSales > current.minSales ? prev : current
+          );
+          if (booking.totalPrice > highestSlab.minSales) {
+            commissionRate = highestSlab.commissionRate;
+          }
+        }
+      }
+
+      let additionalMargin = 0;
+      let additionalProfit = 0;
+      let reducedMargin = 0;
+      let reducedProfit = 0;
+
+      if (isUpgrade) {
+        additionalMargin = commissionRate > 0
+          ? Math.round(diffAmount * (commissionRate / 100) * 100) / 100
+          : 0;
+        additionalProfit = Math.round((diffAmount - additionalMargin) * 100) / 100;
+      } else {
+        reducedMargin = commissionRate > 0
+          ? Math.round(diffAmount * (commissionRate / 100) * 100) / 100
+          : 0;
+        reducedProfit = Math.round((diffAmount - reducedMargin) * 100) / 100;
+      }
+
+      const vendorCost = booking.bookingVendorPayments.reduce(
+        (sum, vp) => sum + (vp.originalCost || 0),
+        0
+      );
+      const vendorRefund =
+        (booking.accommodations?.reduce((sum, a) => sum + (a.refundAmount || 0), 0) || 0) +
+        (booking.flightServices?.reduce((sum, fs) => sum + (fs.refundAmount || 0), 0) || 0) +
+        (booking.transportServices?.reduce((sum, ts) => sum + (ts.refundAmount || 0), 0) || 0) +
+        (booking.visaServices?.reduce((sum, vs) => sum + (vs.refundAmount || 0), 0) || 0);
+      const originalProfit =
+        booking.totalPrice - vendorCost + vendorRefund - (booking.refundAmount || 0) - (booking.cardPaymentCharges || 0);
+
+      const result = await prisma.$transaction(async (tx) => {
+        const adjustment = await tx.transportPriceAdjustment.create({
+          data: {
+            bookingId: booking.id,
+            transportId: tr.id,
+            baselinePrice,
+            newPrice,
+            diffAmount,
+            savedAmount,
+            originalProfit,
+            additionalProfit,
+            additionalMargin,
+            reducedProfit,
+            reducedMargin,
+            adjustmentType,
+            marginRate: commissionRate,
+            originalMarginPaid: true,
+            additionalMarginPaid: false,
+            adjustmentDate: new Date(),
+            adjustedById: actorId,
+            notes: data.notes || `Transport price ${adjustmentType.toLowerCase()}d from £${baselinePrice} to £${newPrice}`,
+          },
+          include: {
+            adjustedBy: { select: { id: true, firstName: true, lastName: true } },
+          },
+        });
+
+        const updatedTr = await tx.transportService.update({
+          where: { id: tr.id },
+          data: {
+            originalPrice,
+            originalBookingDate,
+            price: newPrice,
+            isPriceAdjusted: true,
+            totalSavedAmount: !isUpgrade ? (tr.totalSavedAmount || 0) + diffAmount : tr.totalSavedAmount,
+          },
+        });
+
+        return { adjustment, updatedTr };
+      });
+
+      await vendorsService.syncBookingVendorPayments(booking.id);
+
+      await auditLogService.log({
+        userId: actorId,
+        action: 'Update',
+        module: 'Bookings',
+        recordId: tr.id,
+        oldValue: { price: baselinePrice },
+        newValue: {
+          price: newPrice,
+          diffAmount,
+          adjustmentType,
+          additionalProfit,
+          additionalMargin,
+          reducedProfit,
+          reducedMargin,
+          scenario: 'B (Margin Paid)',
+          adjustmentId: result.adjustment.id,
+        },
+      });
+
+      await rabbitMQService.publish('booking.updated', { bookingId: booking.id });
+
+      return {
+        scenario: 'B',
+        message: `Transport price ${adjustmentType.toLowerCase()}d. Financial impact recorded separately.`,
+        adjustment: result.adjustment,
+        transport: result.updatedTr,
+        diffAmount,
+        adjustmentType,
+        savedAmount,
+        additionalProfit,
+        additionalMargin,
+        reducedProfit,
+        reducedMargin,
+        marginRate: commissionRate,
+      };
+    }
+  }
+
+  /**
+   * Adjusts visa price for a booking (Upgrade or Downgrade/Savings).
+   */
+  async adjustVisaPrice(
+    bookingId: string,
+    visaId: string,
+    data: { newPrice: number; notes?: string },
+    actorId: string
+  ) {
+    const newPrice = Number(data.newPrice);
+    if (isNaN(newPrice) || newPrice < 0) {
+      throw new BadRequestException('New visa price must be a valid positive number');
+    }
+
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: {
+        agent: { include: { slabs: { orderBy: { minSales: 'asc' } } } },
+        agentMargin: true,
+        transactions: true,
+        bookingVendorPayments: true,
+        accommodations: true,
+        flightServices: true,
+        transportServices: true,
+        visaServices: true,
+      },
+    });
+
+    if (!booking) {
+      throw new NotFoundException('Booking not found');
+    }
+
+    const vs = booking.visaServices.find((v) => v.id === visaId);
+    if (!vs) {
+      throw new NotFoundException('Visa service not found on this booking');
+    }
+
+    const baselinePrice = vs.price;
+    if (newPrice === baselinePrice) {
+      throw new BadRequestException(`New price (£${newPrice}) must be different from current price (£${baselinePrice}).`);
+    }
+
+    const isUpgrade = newPrice > baselinePrice;
+    const adjustmentType = isUpgrade ? 'UPGRADE' : 'DOWNGRADE';
+    const diffAmount = Math.round(Math.abs(newPrice - baselinePrice) * 100) / 100;
+    const savedAmount = !isUpgrade ? diffAmount : 0;
+    const originalPrice = vs.originalPrice ?? baselinePrice;
+    const originalBookingDate = vs.originalBookingDate ?? (vs.issueDate || booking.bookingDate || booking.createdAt);
+
+    const hasPaidMargin =
+      booking.agentMargin?.status === 'PAID' ||
+      booking.transactions.some(
+        (tx) => tx.paymentMethod === 'AGENT PAYOUT' || tx.paymentMethod === 'AGENT_PAYOUT'
+      );
+
+    if (!hasPaidMargin) {
+      const updatedVs = await prisma.visaService.update({
+        where: { id: visaId },
+        data: {
+          originalPrice,
+          originalBookingDate,
+          price: newPrice,
+        },
+      });
+
+      await vendorsService.syncBookingVendorPayments(booking.id);
+
+      if (booking.agentMarginId) {
+        try {
+          await agentMarginService.recalculateMarginRecord(booking.agentMarginId);
+        } catch (err) {
+          logger.warn(`Failed to auto-recalculate agent margin for booking ${booking.id}: ${err}`);
+        }
+      }
+
+      await auditLogService.log({
+        userId: actorId,
+        action: 'Update',
+        module: 'Bookings',
+        recordId: visaId,
+        oldValue: { price: baselinePrice },
+        newValue: {
+          price: newPrice,
+          diffAmount,
+          adjustmentType,
+          scenario: 'A (Margin Unpaid)',
+          note: data.notes || `Visa price ${adjustmentType.toLowerCase()}d directly`,
+        },
+      });
+
+      await rabbitMQService.publish('booking.updated', { bookingId: booking.id });
+
+      return {
+        scenario: 'A',
+        message: `Visa price ${adjustmentType.toLowerCase()}d directly. Profit and agent margin recalculated.`,
+        visa: updatedVs,
+        diffAmount,
+        adjustmentType,
+        savedAmount,
+      };
+    } else {
+      let commissionRate = 0;
+      if (booking.agent && booking.agent.slabs && booking.agent.slabs.length > 0 && !booking.agentMarginVoided) {
+        const slabs = booking.agent.slabs;
+        const matchedSlab = slabs.find(
+          (s: any) =>
+            booking.totalPrice >= s.minSales && (s.maxSales === null || booking.totalPrice <= s.maxSales)
+        );
+        if (matchedSlab) {
+          commissionRate = matchedSlab.commissionRate;
+        } else {
+          const highestSlab = slabs.reduce((prev: any, current: any) =>
+            prev.minSales > current.minSales ? prev : current
+          );
+          if (booking.totalPrice > highestSlab.minSales) {
+            commissionRate = highestSlab.commissionRate;
+          }
+        }
+      }
+
+      let additionalMargin = 0;
+      let additionalProfit = 0;
+      let reducedMargin = 0;
+      let reducedProfit = 0;
+
+      if (isUpgrade) {
+        additionalMargin = commissionRate > 0
+          ? Math.round(diffAmount * (commissionRate / 100) * 100) / 100
+          : 0;
+        additionalProfit = Math.round((diffAmount - additionalMargin) * 100) / 100;
+      } else {
+        reducedMargin = commissionRate > 0
+          ? Math.round(diffAmount * (commissionRate / 100) * 100) / 100
+          : 0;
+        reducedProfit = Math.round((diffAmount - reducedMargin) * 100) / 100;
+      }
+
+      const vendorCost = booking.bookingVendorPayments.reduce(
+        (sum, vp) => sum + (vp.originalCost || 0),
+        0
+      );
+      const vendorRefund =
+        (booking.accommodations?.reduce((sum, a) => sum + (a.refundAmount || 0), 0) || 0) +
+        (booking.flightServices?.reduce((sum, fs) => sum + (fs.refundAmount || 0), 0) || 0) +
+        (booking.transportServices?.reduce((sum, ts) => sum + (ts.refundAmount || 0), 0) || 0) +
+        (booking.visaServices?.reduce((sum, vs) => sum + (vs.refundAmount || 0), 0) || 0);
+      const originalProfit =
+        booking.totalPrice - vendorCost + vendorRefund - (booking.refundAmount || 0) - (booking.cardPaymentCharges || 0);
+
+      const result = await prisma.$transaction(async (tx) => {
+        const adjustment = await tx.visaPriceAdjustment.create({
+          data: {
+            bookingId: booking.id,
+            visaId: vs.id,
+            baselinePrice,
+            newPrice,
+            diffAmount,
+            savedAmount,
+            originalProfit,
+            additionalProfit,
+            additionalMargin,
+            reducedProfit,
+            reducedMargin,
+            adjustmentType,
+            marginRate: commissionRate,
+            originalMarginPaid: true,
+            additionalMarginPaid: false,
+            adjustmentDate: new Date(),
+            adjustedById: actorId,
+            notes: data.notes || `Visa price ${adjustmentType.toLowerCase()}d from £${baselinePrice} to £${newPrice}`,
+          },
+          include: {
+            adjustedBy: { select: { id: true, firstName: true, lastName: true } },
+          },
+        });
+
+        const updatedVs = await tx.visaService.update({
+          where: { id: vs.id },
+          data: {
+            originalPrice,
+            originalBookingDate,
+            price: newPrice,
+            isPriceAdjusted: true,
+            totalSavedAmount: !isUpgrade ? (vs.totalSavedAmount || 0) + diffAmount : vs.totalSavedAmount,
+          },
+        });
+
+        return { adjustment, updatedVs };
+      });
+
+      await vendorsService.syncBookingVendorPayments(booking.id);
+
+      await auditLogService.log({
+        userId: actorId,
+        action: 'Update',
+        module: 'Bookings',
+        recordId: vs.id,
+        oldValue: { price: baselinePrice },
+        newValue: {
+          price: newPrice,
+          diffAmount,
+          adjustmentType,
+          additionalProfit,
+          additionalMargin,
+          reducedProfit,
+          reducedMargin,
+          scenario: 'B (Margin Paid)',
+          adjustmentId: result.adjustment.id,
+        },
+      });
+
+      await rabbitMQService.publish('booking.updated', { bookingId: booking.id });
+
+      return {
+        scenario: 'B',
+        message: `Visa price ${adjustmentType.toLowerCase()}d. Financial impact recorded separately.`,
+        adjustment: result.adjustment,
+        visa: result.updatedVs,
+        diffAmount,
+        adjustmentType,
+        savedAmount,
+        additionalProfit,
+        additionalMargin,
+        reducedProfit,
+        reducedMargin,
+        marginRate: commissionRate,
+      };
+    }
+  }
+
+  /**
+   * Adjusts additional service price for a booking (Upgrade or Downgrade/Savings).
+   */
+  async adjustAdditionalServicePrice(
+    bookingId: string,
+    additionalServiceId: string,
+    data: { newPrice: number; notes?: string },
+    actorId: string
+  ) {
+    const newPrice = Number(data.newPrice);
+    if (isNaN(newPrice) || newPrice < 0) {
+      throw new BadRequestException('New service price must be a valid positive number');
+    }
+
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: {
+        agent: { include: { slabs: { orderBy: { minSales: 'asc' } } } },
+        agentMargin: true,
+        transactions: true,
+        bookingVendorPayments: true,
+        accommodations: true,
+        flightServices: true,
+        transportServices: true,
+        visaServices: true,
+        additionalServices: true,
+      },
+    });
+
+    if (!booking) {
+      throw new NotFoundException('Booking not found');
+    }
+
+    const as = booking.additionalServices.find((a) => a.id === additionalServiceId);
+    if (!as) {
+      throw new NotFoundException('Additional service not found on this booking');
+    }
+
+    const baselinePrice = as.servicePrice;
+    if (newPrice === baselinePrice) {
+      throw new BadRequestException(`New price (£${newPrice}) must be different from current price (£${baselinePrice}).`);
+    }
+
+    const isUpgrade = newPrice > baselinePrice;
+    const adjustmentType = isUpgrade ? 'UPGRADE' : 'DOWNGRADE';
+    const diffAmount = Math.round(Math.abs(newPrice - baselinePrice) * 100) / 100;
+    const savedAmount = !isUpgrade ? diffAmount : 0;
+    const originalPrice = as.originalPrice ?? baselinePrice;
+    const originalBookingDate = as.originalBookingDate ?? (as.createdAt || booking.bookingDate || booking.createdAt);
+
+    const hasPaidMargin =
+      booking.agentMargin?.status === 'PAID' ||
+      booking.transactions.some(
+        (tx) => tx.paymentMethod === 'AGENT PAYOUT' || tx.paymentMethod === 'AGENT_PAYOUT'
+      );
+
+    if (!hasPaidMargin) {
+      const updatedAs = await prisma.additionalService.update({
+        where: { id: additionalServiceId },
+        data: {
+          originalPrice,
+          originalBookingDate,
+          servicePrice: newPrice,
+        },
+      });
+
+      await vendorsService.syncBookingVendorPayments(booking.id);
+
+      if (booking.agentMarginId) {
+        try {
+          await agentMarginService.recalculateMarginRecord(booking.agentMarginId);
+        } catch (err) {
+          logger.warn(`Failed to auto-recalculate agent margin for booking ${booking.id}: ${err}`);
+        }
+      }
+
+      await auditLogService.log({
+        userId: actorId,
+        action: 'Update',
+        module: 'Bookings',
+        recordId: additionalServiceId,
+        oldValue: { servicePrice: baselinePrice },
+        newValue: {
+          servicePrice: newPrice,
+          diffAmount,
+          adjustmentType,
+          scenario: 'A (Margin Unpaid)',
+          note: data.notes || `Additional service price ${adjustmentType.toLowerCase()}d directly`,
+        },
+      });
+
+      await rabbitMQService.publish('booking.updated', { bookingId: booking.id });
+
+      return {
+        scenario: 'A',
+        message: `Additional service price ${adjustmentType.toLowerCase()}d directly. Profit and agent margin recalculated.`,
+        additionalService: updatedAs,
+        diffAmount,
+        adjustmentType,
+        savedAmount,
+      };
+    } else {
+      let commissionRate = 0;
+      if (booking.agent && booking.agent.slabs && booking.agent.slabs.length > 0 && !booking.agentMarginVoided) {
+        const slabs = booking.agent.slabs;
+        const matchedSlab = slabs.find(
+          (s: any) =>
+            booking.totalPrice >= s.minSales && (s.maxSales === null || booking.totalPrice <= s.maxSales)
+        );
+        if (matchedSlab) {
+          commissionRate = matchedSlab.commissionRate;
+        } else {
+          const highestSlab = slabs.reduce((prev: any, current: any) =>
+            prev.minSales > current.minSales ? prev : current
+          );
+          if (booking.totalPrice > highestSlab.minSales) {
+            commissionRate = highestSlab.commissionRate;
+          }
+        }
+      }
+
+      let additionalMargin = 0;
+      let additionalProfit = 0;
+      let reducedMargin = 0;
+      let reducedProfit = 0;
+
+      if (isUpgrade) {
+        additionalMargin = commissionRate > 0
+          ? Math.round(diffAmount * (commissionRate / 100) * 100) / 100
+          : 0;
+        additionalProfit = Math.round((diffAmount - additionalMargin) * 100) / 100;
+      } else {
+        reducedMargin = commissionRate > 0
+          ? Math.round(diffAmount * (commissionRate / 100) * 100) / 100
+          : 0;
+        reducedProfit = Math.round((diffAmount - reducedMargin) * 100) / 100;
+      }
+
+      const vendorCost = booking.bookingVendorPayments.reduce(
+        (sum, vp) => sum + (vp.originalCost || 0),
+        0
+      );
+      const vendorRefund =
+        (booking.accommodations?.reduce((sum, a) => sum + (a.refundAmount || 0), 0) || 0) +
+        (booking.flightServices?.reduce((sum, fs) => sum + (fs.refundAmount || 0), 0) || 0) +
+        (booking.transportServices?.reduce((sum, ts) => sum + (ts.refundAmount || 0), 0) || 0) +
+        (booking.visaServices?.reduce((sum, vs) => sum + (vs.refundAmount || 0), 0) || 0);
+      const originalProfit =
+        booking.totalPrice - vendorCost + vendorRefund - (booking.refundAmount || 0) - (booking.cardPaymentCharges || 0);
+
+      const result = await prisma.$transaction(async (tx) => {
+        const adjustment = await tx.additionalServicePriceAdjustment.create({
+          data: {
+            bookingId: booking.id,
+            additionalServiceId: as.id,
+            baselinePrice,
+            newPrice,
+            diffAmount,
+            savedAmount,
+            originalProfit,
+            additionalProfit,
+            additionalMargin,
+            reducedProfit,
+            reducedMargin,
+            adjustmentType,
+            marginRate: commissionRate,
+            originalMarginPaid: true,
+            additionalMarginPaid: false,
+            adjustmentDate: new Date(),
+            adjustedById: actorId,
+            notes: data.notes || `Additional service price ${adjustmentType.toLowerCase()}d from £${baselinePrice} to £${newPrice}`,
+          },
+          include: {
+            adjustedBy: { select: { id: true, firstName: true, lastName: true } },
+          },
+        });
+
+        const updatedAs = await tx.additionalService.update({
+          where: { id: as.id },
+          data: {
+            originalPrice,
+            originalBookingDate,
+            servicePrice: newPrice,
+            isPriceAdjusted: true,
+            totalSavedAmount: !isUpgrade ? (as.totalSavedAmount || 0) + diffAmount : as.totalSavedAmount,
+          },
+        });
+
+        return { adjustment, updatedAs };
+      });
+
+      await vendorsService.syncBookingVendorPayments(booking.id);
+
+      await auditLogService.log({
+        userId: actorId,
+        action: 'Update',
+        module: 'Bookings',
+        recordId: as.id,
+        oldValue: { servicePrice: baselinePrice },
+        newValue: {
+          servicePrice: newPrice,
+          diffAmount,
+          adjustmentType,
+          additionalProfit,
+          additionalMargin,
+          reducedProfit,
+          reducedMargin,
+          scenario: 'B (Margin Paid)',
+          adjustmentId: result.adjustment.id,
+        },
+      });
+
+      await rabbitMQService.publish('booking.updated', { bookingId: booking.id });
+
+      return {
+        scenario: 'B',
+        message: `Additional service price ${adjustmentType.toLowerCase()}d. Financial impact recorded separately.`,
+        adjustment: result.adjustment,
+        additionalService: result.updatedAs,
+        diffAmount,
+        adjustmentType,
+        savedAmount,
+        additionalProfit,
+        additionalMargin,
+        reducedProfit,
+        reducedMargin,
+        marginRate: commissionRate,
+      };
+    }
+  }
+
+  /**
+   * Unified method to record payout of additional agent margin across all service adjustment types.
+   */
+  async payAdditionalServiceMargin(
+    bookingId: string,
+    serviceType: 'hotel' | 'transport' | 'visa' | 'additional',
     adjustmentId: string,
     actorId: string,
     notes?: string
   ) {
-    const adjustment = await prisma.hotelPriceAdjustment.findUnique({
-      where: { id: adjustmentId },
-      include: {
-        booking: {
-          include: {
-            agent: true,
-          },
-        },
-        accommodation: true,
-      },
-    });
+    let adjustment: any = null;
+    let serviceLabel = '';
+
+    if (serviceType === 'hotel') {
+      adjustment = await prisma.hotelPriceAdjustment.findUnique({
+        where: { id: adjustmentId },
+        include: { booking: { include: { agent: true } }, accommodation: true },
+      });
+      serviceLabel = adjustment?.accommodation?.hotelName || 'Hotel';
+    } else if (serviceType === 'transport') {
+      adjustment = await prisma.transportPriceAdjustment.findUnique({
+        where: { id: adjustmentId },
+        include: { booking: { include: { agent: true } }, transport: true },
+      });
+      serviceLabel = adjustment?.transport?.vehicleType || 'Transport';
+    } else if (serviceType === 'visa') {
+      adjustment = await prisma.visaPriceAdjustment.findUnique({
+        where: { id: adjustmentId },
+        include: { booking: { include: { agent: true } }, visa: true },
+      });
+      serviceLabel = `Visa (${adjustment?.visa?.passportNumber || ''})`;
+    } else if (serviceType === 'additional') {
+      adjustment = await prisma.additionalServicePriceAdjustment.findUnique({
+        where: { id: adjustmentId },
+        include: { booking: { include: { agent: true } }, additionalService: true },
+      });
+      serviceLabel = adjustment?.additionalService?.serviceName || 'Service';
+    }
 
     if (!adjustment || adjustment.bookingId !== bookingId) {
       throw new NotFoundException('Price adjustment record not found for this booking');
@@ -3948,24 +4723,26 @@ export class BookingsService {
     }
 
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Mark adjustment as paid
-      const updatedAdjustment = await tx.hotelPriceAdjustment.update({
-        where: { id: adjustmentId },
-        data: {
-          additionalMarginPaid: true,
-          additionalMarginPaidAt: new Date(),
-          additionalMarginPaidById: actorId,
-        },
-        include: {
-          adjustedBy: { select: { id: true, firstName: true, lastName: true } },
-          additionalMarginPaidBy: { select: { id: true, firstName: true, lastName: true } },
-        },
-      });
+      let updatedAdjustment: any;
+      const updateData = {
+        additionalMarginPaid: true,
+        additionalMarginPaidAt: new Date(),
+        additionalMarginPaidById: actorId,
+      };
 
-      // 2. Create BookingTransaction record
+      if (serviceType === 'hotel') {
+        updatedAdjustment = await tx.hotelPriceAdjustment.update({ where: { id: adjustmentId }, data: updateData });
+      } else if (serviceType === 'transport') {
+        updatedAdjustment = await tx.transportPriceAdjustment.update({ where: { id: adjustmentId }, data: updateData });
+      } else if (serviceType === 'visa') {
+        updatedAdjustment = await tx.visaPriceAdjustment.update({ where: { id: adjustmentId }, data: updateData });
+      } else if (serviceType === 'additional') {
+        updatedAdjustment = await tx.additionalServicePriceAdjustment.update({ where: { id: adjustmentId }, data: updateData });
+      }
+
       const txNote =
         notes ||
-        `Additional Agent Margin Payout for Hotel Price Adjustment (${adjustment.accommodation.hotelName}: Saved £${adjustment.savedAmount})`;
+        `Additional Agent Margin Payout for ${serviceType.toUpperCase()} Adjustment (${serviceLabel}: +£${adjustment.additionalMargin})`;
       const bookingTx = await tx.bookingTransaction.create({
         data: {
           bookingId: adjustment.bookingId,
@@ -3976,7 +4753,6 @@ export class BookingsService {
         },
       });
 
-      // 3. Create Vendor Ledger entry if agent is associated
       let ledgerEntry = null;
       if (adjustment.booking.agentId) {
         ledgerEntry = await tx.vendorLedger.create({
@@ -3986,7 +4762,7 @@ export class BookingsService {
             debit: adjustment.additionalMargin,
             credit: 0,
             runningBalance: 0,
-            notes: `Additional Margin Payout - Booking #${adjustment.booking.bookingReference} | ${adjustment.accommodation.hotelName}`,
+            notes: `Additional Margin Payout - Booking #${adjustment.booking.bookingReference} | ${serviceLabel}`,
             referenceNumber: `ADD-MARGIN-${adjustment.id.slice(-6).toUpperCase()}`,
             createdById: actorId,
           },
@@ -4006,12 +4782,25 @@ export class BookingsService {
         additionalMarginPaid: true,
         amount: adjustment.additionalMargin,
         bookingId: adjustment.bookingId,
+        serviceType,
       },
     });
 
     await rabbitMQService.publish('booking.updated', { bookingId: adjustment.bookingId });
 
     return result;
+  }
+
+  /**
+   * Backwards compatible method for hotel additional margin payout.
+   */
+  async payAdditionalHotelMargin(
+    bookingId: string,
+    adjustmentId: string,
+    actorId: string,
+    notes?: string
+  ) {
+    return this.payAdditionalServiceMargin(bookingId, 'hotel', adjustmentId, actorId, notes);
   }
 }
 

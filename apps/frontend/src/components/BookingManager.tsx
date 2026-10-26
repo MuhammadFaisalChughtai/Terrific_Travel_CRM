@@ -8,6 +8,7 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   TrendingUp,
+  TrendingDown,
   Building2,
   BadgePercent,
   Plus,
@@ -57,6 +58,7 @@ import PnrFlightModal from "./PnrFlightModal";
 import PassengerModal from "./PassengerModal";
 import HotelReservationModal from "./HotelReservationModal";
 import HotelPriceAdjustmentModal from "./HotelPriceAdjustmentModal";
+import ServicePriceAdjustmentModal, { ServiceAdjustmentType } from "./ServicePriceAdjustmentModal";
 import TransportReservationModal from "./TransportReservationModal";
 import VisaReservationModal from "./VisaReservationModal";
 import AdditionalServiceModal from "./AdditionalServiceModal";
@@ -261,6 +263,10 @@ export default function BookingManager({
   const [adjustingAccommodation, setAdjustingAccommodation] = useState<any | null>(
     null,
   );
+  const [adjustingService, setAdjustingService] = useState<{
+    type: ServiceAdjustmentType;
+    data: any;
+  } | null>(null);
   const [isTransportModalOpen, setIsTransportModalOpen] = useState(false);
   const [editingTransport, setEditingTransport] = useState<any | null>(null);
   const [showPrintDropdown, setShowPrintDropdown] = useState(false);
@@ -1045,7 +1051,7 @@ export default function BookingManager({
     },
   });
 
-  const handlePayAdditionalMargin = async (adjustmentId: string) => {
+  const handlePayAdditionalMargin = async (serviceType: string, adjustmentId: string) => {
     if (
       !window.confirm(
         "Are you sure you want to record payout of this additional agent margin? This will record an AGENT PAYOUT transaction and update the agent ledger."
@@ -1055,7 +1061,7 @@ export default function BookingManager({
     }
     const bId = booking?.id || bookingId;
     try {
-      await apiClient.post(`/bookings/${bId}/hotel-adjustments/${adjustmentId}/pay-margin`);
+      await apiClient.post(`/bookings/${bId}/adjustments/${serviceType}/${adjustmentId}/pay-margin`);
       toast.success("Additional agent margin paid successfully!");
       queryClient.invalidateQueries({ queryKey: ["booking", bId] });
       queryClient.invalidateQueries({ queryKey: ["bookings"] });
@@ -1284,22 +1290,47 @@ export default function BookingManager({
     agentMargin = 0;
   }
 
-  // Price adjustments financial calculations
+  // Price adjustments financial calculations across all 4 services
   const hotelPriceAdjustments: any[] = booking.hotelPriceAdjustments || [];
-  const hasHotelPriceAdjustments = hotelPriceAdjustments.length > 0;
+  const transportPriceAdjustments: any[] = booking.transportPriceAdjustments || [];
+  const visaPriceAdjustments: any[] = booking.visaPriceAdjustments || [];
+  const additionalServicePriceAdjustments: any[] = booking.additionalServicePriceAdjustments || [];
+
+  const allPriceAdjustments: any[] = [
+    ...hotelPriceAdjustments.map((a: any) => ({ ...a, serviceType: 'hotel', serviceCategory: 'Hotel' })),
+    ...transportPriceAdjustments.map((a: any) => ({ ...a, serviceType: 'transport', serviceCategory: 'Transfer' })),
+    ...visaPriceAdjustments.map((a: any) => ({ ...a, serviceType: 'visa', serviceCategory: 'Visa' })),
+    ...additionalServicePriceAdjustments.map((a: any) => ({ ...a, serviceType: 'additional', serviceCategory: 'Additional Service' })),
+  ];
+  const hasAnyPriceAdjustments = allPriceAdjustments.length > 0;
 
   const totalHotelSavedAmount = hotelPriceAdjustments.reduce(
     (sum: number, adj: any) => sum + (adj.savedAmount || 0),
     0
   );
 
-  const totalAdditionalProfit = hotelPriceAdjustments.reduce(
+  const totalAdditionalProfit = allPriceAdjustments.reduce(
     (sum: number, adj: any) => sum + (adj.additionalProfit || 0),
     0
   );
 
-  const totalAdditionalMargin = hotelPriceAdjustments.reduce(
+  const totalReducedProfit = allPriceAdjustments.reduce(
+    (sum: number, adj: any) => sum + (adj.reducedProfit || 0),
+    0
+  );
+
+  const totalAdditionalMargin = allPriceAdjustments.reduce(
     (sum: number, adj: any) => sum + (adj.additionalMargin || 0),
+    0
+  );
+
+  const totalReducedMargin = allPriceAdjustments.reduce(
+    (sum: number, adj: any) => sum + (adj.reducedMargin || 0),
+    0
+  );
+
+  const totalSavedAmount = allPriceAdjustments.reduce(
+    (sum: number, adj: any) => sum + (adj.savedAmount || 0),
     0
   );
 
@@ -1348,14 +1379,14 @@ export default function BookingManager({
   })();
 
   const originalProfit = booking.agentMarginVoided
-    ? rawProfit - totalHotelSavedAmount
+    ? rawProfit - totalAdditionalProfit + totalReducedProfit
     : hasAgentPayout
-      ? rawProfit - totalHotelSavedAmount - actualOriginalPayout
-      : rawProfit - totalHotelSavedAmount - originalAgentMargin;
+      ? rawProfit - totalAdditionalProfit + totalReducedProfit - actualOriginalPayout
+      : rawProfit - totalAdditionalProfit + totalReducedProfit - originalAgentMargin;
 
-  // Total Profit: if price adjusted, baseline original profit + additional profit. Otherwise standard calculation.
-  const profit = hasHotelPriceAdjustments
-    ? originalProfit + totalAdditionalProfit
+  // Total Profit: if price adjusted, baseline original profit + additional profit - reduced profit. Otherwise standard calculation.
+  const profit = hasAnyPriceAdjustments
+    ? originalProfit + totalAdditionalProfit - totalReducedProfit
     : booking.agentMarginVoided
       ? rawProfit
       : hasAgentPayout
@@ -1865,10 +1896,10 @@ export default function BookingManager({
                     </div>
                   )}
 
-                  {/* Agent Margin — Separate Original & Additional if price adjusted */}
+                  {/* Agent Margin — Separate Original, Additional, & Reduced if price adjusted */}
                   {canViewMarginProfit && (
                     <>
-                      {totalAdditionalMargin > 0 ? (
+                      {totalAdditionalMargin > 0 || totalReducedMargin > 0 ? (
                         <>
                           {/* Original Margin Card */}
                           <div className="bg-card p-3.5 rounded-lg shadow-sm border border-border flex flex-col justify-between">
@@ -1906,49 +1937,73 @@ export default function BookingManager({
                             </div>
                           </div>
 
-                          {/* Additional Margin Card */}
-                          <div className="bg-card p-3.5 rounded-lg shadow-sm border border-blue-300 dark:border-blue-800/60 bg-blue-50/20 dark:bg-blue-950/10 flex flex-col justify-between">
-                            <div className="flex items-center gap-1 text-blue-600 dark:text-blue-400 mb-1">
-                              <BadgePercent size={12} />
-                              <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
-                                {isAgent ? "Addl Margin" : "Addl Agent Margin"}
-                              </span>
-                            </div>
-                            <div className="flex flex-col gap-0.5">
-                              <div className="flex items-baseline gap-1">
-                                <span className="text-[15px] font-bold text-blue-600 dark:text-blue-400">
-                                  +{formatCurrency(totalAdditionalMargin)}
+                          {/* Upgrade Block: Additional Agent Margin */}
+                          {totalAdditionalMargin > 0 && (
+                            <div className="bg-card p-3.5 rounded-lg shadow-sm border border-blue-300 dark:border-blue-800/60 bg-blue-50/20 dark:bg-blue-950/10 flex flex-col justify-between">
+                              <div className="flex items-center gap-1 text-blue-600 dark:text-blue-400 mb-1">
+                                <BadgePercent size={12} />
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                                  {isAgent ? "Addl Margin" : "Additional Agent Margin"}
                                 </span>
                               </div>
-                              {hotelPriceAdjustments.every((a: any) => a.additionalMarginPaid) ? (
-                                <span className="text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide mt-0.5">
-                                  Paid
-                                </span>
-                              ) : (
-                                <div className="flex flex-col gap-1 mt-0.5">
-                                  <span className="text-[10px] font-extrabold text-amber-600 dark:text-amber-400 uppercase tracking-wide">
-                                    Unpaid
+                              <div className="flex flex-col gap-0.5">
+                                <div className="flex items-baseline gap-1">
+                                  <span className="text-[15px] font-bold text-blue-600 dark:text-blue-400">
+                                    +{formatCurrency(totalAdditionalMargin)}
                                   </span>
-                                  {isAdminUser && !isAgent && (
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        const unpaidAdj = hotelPriceAdjustments.find((a: any) => !a.additionalMarginPaid && a.additionalMargin > 0);
-                                        if (unpaidAdj) {
-                                          handlePayAdditionalMargin(unpaidAdj.id);
-                                        }
-                                      }}
-                                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-blue-600 hover:bg-blue-700 text-white transition-all cursor-pointer shadow-xs w-fit"
-                                      title="Record payout for additional agent margin"
-                                    >
-                                      <CheckCircle2 size={10} />
-                                      <span>Pay Addl Margin</span>
-                                    </button>
-                                  )}
                                 </div>
-                              )}
+                                {allPriceAdjustments.filter((a: any) => a.additionalMargin > 0).every((a: any) => a.additionalMarginPaid) ? (
+                                  <span className="text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide mt-0.5">
+                                    Paid
+                                  </span>
+                                ) : (
+                                  <div className="flex flex-col gap-1 mt-0.5">
+                                    <span className="text-[10px] font-extrabold text-amber-600 dark:text-amber-400 uppercase tracking-wide">
+                                      Unpaid
+                                    </span>
+                                    {isAdminUser && !isAgent && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const unpaidAdj = allPriceAdjustments.find((a: any) => !a.additionalMarginPaid && a.additionalMargin > 0);
+                                          if (unpaidAdj) {
+                                            handlePayAdditionalMargin(unpaidAdj.serviceType, unpaidAdj.id);
+                                          }
+                                        }}
+                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-blue-600 hover:bg-blue-700 text-white transition-all cursor-pointer shadow-xs w-fit"
+                                        title="Record payout for additional agent margin"
+                                      >
+                                        <CheckCircle2 size={10} />
+                                        <span>Pay Addl Margin</span>
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                          </div>
+                          )}
+
+                          {/* Downgrade Block: Reduced Agent Margin */}
+                          {totalReducedMargin > 0 && (
+                            <div className="bg-card p-3.5 rounded-lg shadow-sm border border-rose-300 dark:border-rose-800/60 bg-rose-50/20 dark:bg-rose-950/10 flex flex-col justify-between">
+                              <div className="flex items-center gap-1 text-rose-600 dark:text-rose-400 mb-1">
+                                <BadgePercent size={12} />
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400">
+                                  {isAgent ? "Reduced Margin" : "Reduced Agent Margin"}
+                                </span>
+                              </div>
+                              <div className="flex flex-col gap-0.5">
+                                <div className="flex items-baseline gap-1">
+                                  <span className="text-[15px] font-bold text-rose-600 dark:text-rose-400">
+                                    -{formatCurrency(totalReducedMargin)}
+                                  </span>
+                                </div>
+                                <span className="text-[10px] font-medium text-muted-foreground mt-0.5">
+                                  Reversed on Downgrade
+                                </span>
+                              </div>
+                            </div>
+                          )}
                         </>
                       ) : (
                         /* Standard Single Agent Margin Card */
@@ -2024,6 +2079,46 @@ export default function BookingManager({
                     </>
                   )}
 
+                  {/* Upgrade Block: Additional Profit */}
+                  {canViewMarginProfit && totalAdditionalProfit > 0 && (
+                    <div className="bg-card p-3.5 rounded-lg shadow-sm border border-emerald-300 dark:border-emerald-800/60 bg-emerald-50/20 dark:bg-emerald-950/10 flex flex-col justify-between">
+                      <div className="flex items-center gap-1 text-emerald-600 mb-1">
+                        <TrendingUp size={12} />
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">
+                          Additional Profit
+                        </span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[15px] font-bold text-emerald-600 dark:text-emerald-400">
+                          +{formatCurrency(totalAdditionalProfit)}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground font-semibold mt-0.5">
+                          Generated by Upgrade
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Downgrade Block: Reduced Profit */}
+                  {canViewMarginProfit && totalReducedProfit > 0 && (
+                    <div className="bg-card p-3.5 rounded-lg shadow-sm border border-rose-300 dark:border-rose-800/60 bg-rose-50/20 dark:bg-rose-950/10 flex flex-col justify-between">
+                      <div className="flex items-center gap-1 text-rose-600 mb-1">
+                        <TrendingDown size={12} />
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600">
+                          Reduced Profit
+                        </span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[15px] font-bold text-rose-600 dark:text-rose-400">
+                          -{formatCurrency(totalReducedProfit)}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground font-semibold mt-0.5">
+                          Reduced on Downgrade
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Total Profit */}
                   {canViewMarginProfit && (
                     <div className="bg-card p-3.5 rounded-lg shadow-sm border border-border flex flex-col justify-between">
@@ -2037,9 +2132,11 @@ export default function BookingManager({
                         <span className="text-[15px] font-bold text-emerald-700 dark:text-emerald-400">
                           {formatCurrency(profit)}
                         </span>
-                        {totalAdditionalProfit > 0 && (
+                        {hasAnyPriceAdjustments && (
                           <span className="text-[10px] text-muted-foreground font-semibold mt-0.5">
-                            Orig: {formatCurrency(originalProfit)} <span className="text-emerald-600 dark:text-emerald-400 font-bold">+Addl: {formatCurrency(totalAdditionalProfit)}</span>
+                            Orig: {formatCurrency(originalProfit)}
+                            {totalAdditionalProfit > 0 && <span className="text-emerald-600 dark:text-emerald-400 font-bold ml-1">+Addl: {formatCurrency(totalAdditionalProfit)}</span>}
+                            {totalReducedProfit > 0 && <span className="text-rose-600 dark:text-rose-400 font-bold ml-1">-Red: {formatCurrency(totalReducedProfit)}</span>}
                           </span>
                         )}
                       </div>
@@ -3559,11 +3656,10 @@ export default function BookingManager({
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setAdjustingAccommodation(acc);
-                                  setIsAdjustPriceModalOpen(true);
+                                  setAdjustingService({ type: 'hotel', data: acc });
                                 }}
                                 className="p-1 hover:bg-secondary rounded text-muted-foreground hover:text-emerald-600 transition-all"
-                                title="Adjust Hotel Price (Lower Rate & Record Savings)"
+                                title="Adjust Hotel Price (Upgrade / Downgrade)"
                               >
                                 <Tag size={11} />
                               </button>
@@ -3760,11 +3856,10 @@ export default function BookingManager({
                                       type="button"
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        setAdjustingAccommodation(acc);
-                                        setIsAdjustPriceModalOpen(true);
+                                        setAdjustingService({ type: 'hotel', data: acc });
                                       }}
                                       className="flex-1 py-1 px-2 flex items-center justify-center gap-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-[11px] font-bold shadow-xs transition-colors"
-                                      title="Lower the hotel price if a cheaper rate is available"
+                                      title="Adjust hotel price (Upgrade / Downgrade)"
                                     >
                                       <Tag size={11} />
                                       <span>Adjust Price</span>
@@ -3812,11 +3907,13 @@ export default function BookingManager({
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
                         <Tag size={12} className="text-primary" />
-                        Price Adjustment & Savings History
+                        Hotel Price Adjustment &amp; Upgrade/Downgrade History
                       </span>
-                      <span className="text-[11px] font-extrabold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-300 dark:border-emerald-800">
-                        Total Saved: {formatCurrency(totalHotelSavedAmount)}
-                      </span>
+                      {totalHotelSavedAmount > 0 && (
+                        <span className="text-[11px] font-extrabold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-300 dark:border-emerald-800">
+                          Total Saved: {formatCurrency(totalHotelSavedAmount)}
+                        </span>
+                      )}
                     </div>
                     <div className="overflow-x-auto rounded border border-border bg-card">
                       <table className="w-full text-left text-[11px]">
@@ -3824,11 +3921,12 @@ export default function BookingManager({
                           <tr>
                             <th className="py-1.5 px-2.5">Date</th>
                             <th className="py-1.5 px-2">Hotel</th>
+                            <th className="py-1.5 px-2">Type</th>
                             <th className="py-1.5 px-2">Baseline</th>
                             <th className="py-1.5 px-2">New Rate</th>
-                            <th className="py-1.5 px-2">Saved</th>
-                            <th className="py-1.5 px-2">Addl Profit</th>
-                            <th className="py-1.5 px-2">Addl Margin</th>
+                            <th className="py-1.5 px-2">Diff</th>
+                            <th className="py-1.5 px-2">Profit Impact</th>
+                            <th className="py-1.5 px-2">Margin Impact</th>
                             <th className="py-1.5 px-2">Adjusted By</th>
                             <th className="py-1.5 px-2.5 text-right">Action</th>
                           </tr>
@@ -3842,21 +3940,40 @@ export default function BookingManager({
                               <td className="py-1.5 px-2 font-bold text-foreground">
                                 {adj.accommodation?.hotelName || "Hotel"}
                               </td>
+                              <td className="py-1.5 px-2">
+                                <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${
+                                  adj.adjustmentType === 'UPGRADE'
+                                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
+                                    : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
+                                }`}>
+                                  {adj.adjustmentType || (adj.savedAmount > 0 ? 'SAVINGS' : 'ADJUSTMENT')}
+                                </span>
+                              </td>
                               <td className="py-1.5 px-2 text-muted-foreground">
                                 {formatCurrency(adj.baselinePrice)}
                               </td>
                               <td className="py-1.5 px-2 font-bold text-foreground">
                                 {formatCurrency(adj.newPrice)}
                               </td>
-                              <td className="py-1.5 px-2 font-extrabold text-emerald-600 dark:text-emerald-400">
-                                +{formatCurrency(adj.savedAmount)}
+                              <td className="py-1.5 px-2 font-extrabold text-foreground">
+                                {adj.adjustmentType === 'UPGRADE'
+                                  ? `+${formatCurrency(adj.diffAmount || (adj.newPrice - adj.baselinePrice))}`
+                                  : (adj.savedAmount > 0 ? `-${formatCurrency(adj.savedAmount)}` : `-${formatCurrency(adj.diffAmount || (adj.baselinePrice - adj.newPrice))}`)}
                               </td>
                               <td className="py-1.5 px-2 font-bold text-emerald-700 dark:text-emerald-400">
-                                {formatCurrency(adj.additionalProfit)}
+                                {adj.additionalProfit > 0 && <span className="text-emerald-600">+{formatCurrency(adj.additionalProfit)}</span>}
+                                {adj.reducedProfit > 0 && <span className="text-rose-600">-{formatCurrency(adj.reducedProfit)}</span>}
+                                {adj.additionalProfit === 0 && adj.reducedProfit === 0 && <span>—</span>}
                               </td>
                               <td className="py-1.5 px-2 font-bold text-blue-600 dark:text-blue-400">
-                                {formatCurrency(adj.additionalMargin)}
-                                {adj.marginRate > 0 && <span className="text-[9px] text-muted-foreground ml-0.5">({adj.marginRate}%)</span>}
+                                {adj.additionalMargin > 0 && (
+                                  <span>
+                                    +{formatCurrency(adj.additionalMargin)}
+                                    {adj.marginRate > 0 && <span className="text-[9px] text-muted-foreground ml-0.5">({adj.marginRate}%)</span>}
+                                  </span>
+                                )}
+                                {adj.reducedMargin > 0 && <span className="text-rose-600">-{formatCurrency(adj.reducedMargin)}</span>}
+                                {adj.additionalMargin === 0 && adj.reducedMargin === 0 && <span>—</span>}
                               </td>
                               <td className="py-1.5 px-2 text-muted-foreground">
                                 {adj.adjustedBy ? `${adj.adjustedBy.firstName} ${adj.adjustedBy.lastName}` : "Admin"}
@@ -3871,7 +3988,7 @@ export default function BookingManager({
                                     isAdminUser && !isAgent ? (
                                       <button
                                         type="button"
-                                        onClick={() => handlePayAdditionalMargin(adj.id)}
+                                        onClick={() => handlePayAdditionalMargin('hotel', adj.id)}
                                         className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-600 hover:bg-blue-700 text-white transition-colors"
                                       >
                                         Pay Margin
@@ -4124,6 +4241,29 @@ export default function BookingManager({
                                   </div>
                                 );
                               })()}
+                              {ts.isPriceAdjusted && (
+                                <div className="mt-1.5 p-1.5 rounded bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/50 flex flex-col gap-0.5 text-[11px]">
+                                  <div className="flex items-center justify-between text-emerald-800 dark:text-emerald-300 font-bold">
+                                    <span className="flex items-center gap-1">
+                                      <Tag size={11} />
+                                      Price Adjusted {ts.priceAdjustments?.[0]?.adjustmentType ? `(${ts.priceAdjustments[0].adjustmentType})` : ''}
+                                    </span>
+                                    {ts.originalPrice && (
+                                      <span className="line-through text-muted-foreground font-semibold">
+                                        Orig: {formatCurrency(ts.originalPrice)}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {ts.originalBookingDate && (
+                                    <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                                      <span>Booked: {new Date(ts.originalBookingDate).toLocaleDateString("en-GB")}</span>
+                                      {ts.priceAdjustments?.[0]?.adjustmentDate && (
+                                        <span>Adjusted: {new Date(ts.priceAdjustments[0].adjustmentDate).toLocaleDateString("en-GB")}</span>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           </td>
                           <td className="px-4 py-2.5 text-right text-[12px]">
@@ -4155,6 +4295,19 @@ export default function BookingManager({
                               >
                                 <FileText size={11} />
                               </button>
+                              {(isAdminUser || isManagerUser) && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setAdjustingService({ type: 'transport', data: ts });
+                                  }}
+                                  className="p-1 hover:bg-secondary rounded text-muted-foreground hover:text-emerald-600 transition-all"
+                                  title="Adjust Transfer Price (Upgrade / Downgrade)"
+                                >
+                                  <Tag size={11} />
+                                </button>
+                              )}
                               {isOwner && (
                                 <>
                                   <button
@@ -4198,6 +4351,104 @@ export default function BookingManager({
                     )}
                   </tbody>
                 </table>
+
+                {/* Transport Price Adjustments History Table */}
+                {transportPriceAdjustments.length > 0 && (
+                  <div className="mt-3 p-3 border-t border-border/80">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                        <Tag size={12} className="text-primary" />
+                        Transfer Price Adjustment &amp; Upgrade/Downgrade History
+                      </span>
+                    </div>
+                    <div className="overflow-x-auto rounded border border-border bg-card">
+                      <table className="w-full text-left text-[11px]">
+                        <thead className="bg-secondary/40 text-muted-foreground uppercase text-[9px] font-bold border-b border-border">
+                          <tr>
+                            <th className="py-1.5 px-2.5">Date</th>
+                            <th className="py-1.5 px-2">Transfer</th>
+                            <th className="py-1.5 px-2">Type</th>
+                            <th className="py-1.5 px-2">Baseline</th>
+                            <th className="py-1.5 px-2">New Rate</th>
+                            <th className="py-1.5 px-2">Diff</th>
+                            <th className="py-1.5 px-2">Profit Impact</th>
+                            <th className="py-1.5 px-2">Margin Impact</th>
+                            <th className="py-1.5 px-2">Adjusted By</th>
+                            <th className="py-1.5 px-2.5 text-right">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                          {transportPriceAdjustments.map((adj: any) => (
+                            <tr key={adj.id} className="hover:bg-secondary/20 transition-colors">
+                              <td className="py-1.5 px-2.5 font-medium whitespace-nowrap">
+                                {new Date(adj.adjustmentDate).toLocaleDateString("en-GB")}
+                              </td>
+                              <td className="py-1.5 px-2 font-bold text-foreground">
+                                {adj.transportService?.vehicleType || "Transfer"}
+                              </td>
+                              <td className="py-1.5 px-2">
+                                <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${
+                                  adj.adjustmentType === 'UPGRADE'
+                                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
+                                    : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
+                                }`}>
+                                  {adj.adjustmentType || (adj.savedAmount > 0 ? 'SAVINGS' : 'ADJUSTMENT')}
+                                </span>
+                              </td>
+                              <td className="py-1.5 px-2 text-muted-foreground">
+                                {formatCurrency(adj.baselinePrice)}
+                              </td>
+                              <td className="py-1.5 px-2 font-bold text-foreground">
+                                {formatCurrency(adj.newPrice)}
+                              </td>
+                              <td className="py-1.5 px-2 font-extrabold text-foreground">
+                                {adj.adjustmentType === 'UPGRADE' ? `+${formatCurrency(adj.diffAmount)}` : `-${formatCurrency(adj.diffAmount)}`}
+                              </td>
+                              <td className="py-1.5 px-2 font-bold text-emerald-700 dark:text-emerald-400">
+                                {adj.additionalProfit > 0 && <span className="text-emerald-600">+{formatCurrency(adj.additionalProfit)}</span>}
+                                {adj.reducedProfit > 0 && <span className="text-rose-600">-{formatCurrency(adj.reducedProfit)}</span>}
+                                {adj.additionalProfit === 0 && adj.reducedProfit === 0 && <span>—</span>}
+                              </td>
+                              <td className="py-1.5 px-2 font-bold text-blue-600 dark:text-blue-400">
+                                {adj.additionalMargin > 0 && <span>+{formatCurrency(adj.additionalMargin)}</span>}
+                                {adj.reducedMargin > 0 && <span className="text-rose-600">-{formatCurrency(adj.reducedMargin)}</span>}
+                                {adj.additionalMargin === 0 && adj.reducedMargin === 0 && <span>—</span>}
+                              </td>
+                              <td className="py-1.5 px-2 text-muted-foreground">
+                                {adj.adjustedBy ? `${adj.adjustedBy.firstName} ${adj.adjustedBy.lastName}` : "Admin"}
+                              </td>
+                              <td className="py-1.5 px-2.5 text-right whitespace-nowrap">
+                                {adj.additionalMargin > 0 ? (
+                                  adj.additionalMarginPaid ? (
+                                    <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                                      Paid {adj.additionalMarginPaidAt && `(${new Date(adj.additionalMarginPaidAt).toLocaleDateString('en-GB')})`}
+                                    </span>
+                                  ) : (
+                                    isAdminUser && !isAgent ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => handlePayAdditionalMargin('transport', adj.id)}
+                                        className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+                                      >
+                                        Pay Margin
+                                      </button>
+                                    ) : (
+                                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                                        Unpaid
+                                      </span>
+                                    )
+                                  )
+                                ) : (
+                                  <span className="text-muted-foreground text-[10px]">—</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </section>
@@ -4309,6 +4560,29 @@ export default function BookingManager({
                             </p>
                           </div>
                         )}
+                        {vs.isPriceAdjusted && (
+                          <div className="p-1 px-2 rounded bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/50 flex flex-col gap-0.5 text-[10px]">
+                            <div className="flex items-center gap-1.5 text-emerald-800 dark:text-emerald-300 font-bold">
+                              <span className="flex items-center gap-1">
+                                <Tag size={10} />
+                                Price Adjusted {vs.priceAdjustments?.[0]?.adjustmentType ? `(${vs.priceAdjustments[0].adjustmentType})` : ''}
+                              </span>
+                              {vs.originalPrice && (
+                                <span className="line-through text-muted-foreground font-semibold">
+                                  Orig: {formatCurrency(vs.originalPrice)}
+                                </span>
+                              )}
+                            </div>
+                            {vs.originalBookingDate && (
+                              <div className="flex items-center gap-2 text-[9px] text-muted-foreground">
+                                <span>Booked: {new Date(vs.originalBookingDate).toLocaleDateString("en-GB")}</span>
+                                {vs.priceAdjustments?.[0]?.adjustmentDate && (
+                                  <span>Adjusted: {new Date(vs.priceAdjustments[0].adjustmentDate).toLocaleDateString("en-GB")}</span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                       <div className="flex items-center gap-2">
                         <button
@@ -4329,6 +4603,19 @@ export default function BookingManager({
                         >
                           <FileText size={11} />
                         </button>
+                        {(isAdminUser || isManagerUser) && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setAdjustingService({ type: 'visa', data: vs });
+                            }}
+                            className="p-1 hover:bg-secondary rounded text-muted-foreground hover:text-emerald-600 transition-all"
+                            title="Adjust Visa Price (Upgrade / Downgrade)"
+                          >
+                            <Tag size={11} />
+                          </button>
+                        )}
                         {isOwner && (
                           <>
                             <button
@@ -4363,6 +4650,104 @@ export default function BookingManager({
                   <p className="text-center py-3 text-muted-foreground italic text-[12px]">
                     No visa services registered.
                   </p>
+                )}
+
+                {/* Visa Price Adjustments History Table */}
+                {visaPriceAdjustments.length > 0 && (
+                  <div className="mt-3 p-3 border-t border-border/80">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                        <Tag size={12} className="text-primary" />
+                        Visa Price Adjustment &amp; Upgrade/Downgrade History
+                      </span>
+                    </div>
+                    <div className="overflow-x-auto rounded border border-border bg-card">
+                      <table className="w-full text-left text-[11px]">
+                        <thead className="bg-secondary/40 text-muted-foreground uppercase text-[9px] font-bold border-b border-border">
+                          <tr>
+                            <th className="py-1.5 px-2.5">Date</th>
+                            <th className="py-1.5 px-2">Passport / Type</th>
+                            <th className="py-1.5 px-2">Type</th>
+                            <th className="py-1.5 px-2">Baseline</th>
+                            <th className="py-1.5 px-2">New Rate</th>
+                            <th className="py-1.5 px-2">Diff</th>
+                            <th className="py-1.5 px-2">Profit Impact</th>
+                            <th className="py-1.5 px-2">Margin Impact</th>
+                            <th className="py-1.5 px-2">Adjusted By</th>
+                            <th className="py-1.5 px-2.5 text-right">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                          {visaPriceAdjustments.map((adj: any) => (
+                            <tr key={adj.id} className="hover:bg-secondary/20 transition-colors">
+                              <td className="py-1.5 px-2.5 font-medium whitespace-nowrap">
+                                {new Date(adj.adjustmentDate).toLocaleDateString("en-GB")}
+                              </td>
+                              <td className="py-1.5 px-2 font-bold text-foreground">
+                                {adj.visaService?.passportNumber || "Visa"} ({adj.visaService?.visaType || ""})
+                              </td>
+                              <td className="py-1.5 px-2">
+                                <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${
+                                  adj.adjustmentType === 'UPGRADE'
+                                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
+                                    : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
+                                }`}>
+                                  {adj.adjustmentType || (adj.savedAmount > 0 ? 'SAVINGS' : 'ADJUSTMENT')}
+                                </span>
+                              </td>
+                              <td className="py-1.5 px-2 text-muted-foreground">
+                                {formatCurrency(adj.baselinePrice)}
+                              </td>
+                              <td className="py-1.5 px-2 font-bold text-foreground">
+                                {formatCurrency(adj.newPrice)}
+                              </td>
+                              <td className="py-1.5 px-2 font-extrabold text-foreground">
+                                {adj.adjustmentType === 'UPGRADE' ? `+${formatCurrency(adj.diffAmount)}` : `-${formatCurrency(adj.diffAmount)}`}
+                              </td>
+                              <td className="py-1.5 px-2 font-bold text-emerald-700 dark:text-emerald-400">
+                                {adj.additionalProfit > 0 && <span className="text-emerald-600">+{formatCurrency(adj.additionalProfit)}</span>}
+                                {adj.reducedProfit > 0 && <span className="text-rose-600">-{formatCurrency(adj.reducedProfit)}</span>}
+                                {adj.additionalProfit === 0 && adj.reducedProfit === 0 && <span>—</span>}
+                              </td>
+                              <td className="py-1.5 px-2 font-bold text-blue-600 dark:text-blue-400">
+                                {adj.additionalMargin > 0 && <span>+{formatCurrency(adj.additionalMargin)}</span>}
+                                {adj.reducedMargin > 0 && <span className="text-rose-600">-{formatCurrency(adj.reducedMargin)}</span>}
+                                {adj.additionalMargin === 0 && adj.reducedMargin === 0 && <span>—</span>}
+                              </td>
+                              <td className="py-1.5 px-2 text-muted-foreground">
+                                {adj.adjustedBy ? `${adj.adjustedBy.firstName} ${adj.adjustedBy.lastName}` : "Admin"}
+                              </td>
+                              <td className="py-1.5 px-2.5 text-right whitespace-nowrap">
+                                {adj.additionalMargin > 0 ? (
+                                  adj.additionalMarginPaid ? (
+                                    <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                                      Paid {adj.additionalMarginPaidAt && `(${new Date(adj.additionalMarginPaidAt).toLocaleDateString('en-GB')})`}
+                                    </span>
+                                  ) : (
+                                    isAdminUser && !isAgent ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => handlePayAdditionalMargin('visa', adj.id)}
+                                        className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+                                      >
+                                        Pay Margin
+                                      </button>
+                                    ) : (
+                                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                                        Unpaid
+                                      </span>
+                                    )
+                                  )
+                                ) : (
+                                  <span className="text-muted-foreground text-[10px]">—</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
                 )}
               </div>
             )}
@@ -4485,6 +4870,29 @@ export default function BookingManager({
                             </p>
                           </div>
                         )}
+                        {as.isPriceAdjusted && (
+                          <div className="p-1 px-2 rounded bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/50 flex flex-col gap-0.5 text-[10px]">
+                            <div className="flex items-center gap-1.5 text-emerald-800 dark:text-emerald-300 font-bold">
+                              <span className="flex items-center gap-1">
+                                <Tag size={10} />
+                                Price Adjusted {as.priceAdjustments?.[0]?.adjustmentType ? `(${as.priceAdjustments[0].adjustmentType})` : ''}
+                              </span>
+                              {as.originalPrice && (
+                                <span className="line-through text-muted-foreground font-semibold">
+                                  Orig: {formatCurrency(as.originalPrice)}
+                                </span>
+                              )}
+                            </div>
+                            {as.originalBookingDate && (
+                              <div className="flex items-center gap-2 text-[9px] text-muted-foreground">
+                                <span>Booked: {new Date(as.originalBookingDate).toLocaleDateString("en-GB")}</span>
+                                {as.priceAdjustments?.[0]?.adjustmentDate && (
+                                  <span>Adjusted: {new Date(as.priceAdjustments[0].adjustmentDate).toLocaleDateString("en-GB")}</span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                       <div className="flex items-center gap-2">
                         <button
@@ -4505,6 +4913,19 @@ export default function BookingManager({
                         >
                           <FileText size={11} />
                         </button>
+                        {(isAdminUser || isManagerUser) && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setAdjustingService({ type: 'additional', data: as });
+                            }}
+                            className="p-1 hover:bg-secondary rounded text-muted-foreground hover:text-emerald-600 transition-all"
+                            title="Adjust Additional Service Price (Upgrade / Downgrade)"
+                          >
+                            <Tag size={11} />
+                          </button>
+                        )}
                         {isOwner && (
                           <>
                             <button
@@ -4539,6 +4960,104 @@ export default function BookingManager({
                   <p className="text-center py-3 text-muted-foreground italic text-[12px]">
                     No additional services registered.
                   </p>
+                )}
+
+                {/* Additional Service Price Adjustments History Table */}
+                {additionalServicePriceAdjustments.length > 0 && (
+                  <div className="mt-3 p-3 border-t border-border/80">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                        <Tag size={12} className="text-primary" />
+                        Additional Service Price Adjustment &amp; Upgrade/Downgrade History
+                      </span>
+                    </div>
+                    <div className="overflow-x-auto rounded border border-border bg-card">
+                      <table className="w-full text-left text-[11px]">
+                        <thead className="bg-secondary/40 text-muted-foreground uppercase text-[9px] font-bold border-b border-border">
+                          <tr>
+                            <th className="py-1.5 px-2.5">Date</th>
+                            <th className="py-1.5 px-2">Service Name</th>
+                            <th className="py-1.5 px-2">Type</th>
+                            <th className="py-1.5 px-2">Baseline</th>
+                            <th className="py-1.5 px-2">New Rate</th>
+                            <th className="py-1.5 px-2">Diff</th>
+                            <th className="py-1.5 px-2">Profit Impact</th>
+                            <th className="py-1.5 px-2">Margin Impact</th>
+                            <th className="py-1.5 px-2">Adjusted By</th>
+                            <th className="py-1.5 px-2.5 text-right">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                          {additionalServicePriceAdjustments.map((adj: any) => (
+                            <tr key={adj.id} className="hover:bg-secondary/20 transition-colors">
+                              <td className="py-1.5 px-2.5 font-medium whitespace-nowrap">
+                                {new Date(adj.adjustmentDate).toLocaleDateString("en-GB")}
+                              </td>
+                              <td className="py-1.5 px-2 font-bold text-foreground">
+                                {adj.additionalService?.serviceName || "Service"}
+                              </td>
+                              <td className="py-1.5 px-2">
+                                <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${
+                                  adj.adjustmentType === 'UPGRADE'
+                                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
+                                    : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
+                                }`}>
+                                  {adj.adjustmentType || (adj.savedAmount > 0 ? 'SAVINGS' : 'ADJUSTMENT')}
+                                </span>
+                              </td>
+                              <td className="py-1.5 px-2 text-muted-foreground">
+                                {formatCurrency(adj.baselinePrice)}
+                              </td>
+                              <td className="py-1.5 px-2 font-bold text-foreground">
+                                {formatCurrency(adj.newPrice)}
+                              </td>
+                              <td className="py-1.5 px-2 font-extrabold text-foreground">
+                                {adj.adjustmentType === 'UPGRADE' ? `+${formatCurrency(adj.diffAmount)}` : `-${formatCurrency(adj.diffAmount)}`}
+                              </td>
+                              <td className="py-1.5 px-2 font-bold text-emerald-700 dark:text-emerald-400">
+                                {adj.additionalProfit > 0 && <span className="text-emerald-600">+{formatCurrency(adj.additionalProfit)}</span>}
+                                {adj.reducedProfit > 0 && <span className="text-rose-600">-{formatCurrency(adj.reducedProfit)}</span>}
+                                {adj.additionalProfit === 0 && adj.reducedProfit === 0 && <span>—</span>}
+                              </td>
+                              <td className="py-1.5 px-2 font-bold text-blue-600 dark:text-blue-400">
+                                {adj.additionalMargin > 0 && <span>+{formatCurrency(adj.additionalMargin)}</span>}
+                                {adj.reducedMargin > 0 && <span className="text-rose-600">-{formatCurrency(adj.reducedMargin)}</span>}
+                                {adj.additionalMargin === 0 && adj.reducedMargin === 0 && <span>—</span>}
+                              </td>
+                              <td className="py-1.5 px-2 text-muted-foreground">
+                                {adj.adjustedBy ? `${adj.adjustedBy.firstName} ${adj.adjustedBy.lastName}` : "Admin"}
+                              </td>
+                              <td className="py-1.5 px-2.5 text-right whitespace-nowrap">
+                                {adj.additionalMargin > 0 ? (
+                                  adj.additionalMarginPaid ? (
+                                    <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                                      Paid {adj.additionalMarginPaidAt && `(${new Date(adj.additionalMarginPaidAt).toLocaleDateString('en-GB')})`}
+                                    </span>
+                                  ) : (
+                                    isAdminUser && !isAgent ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => handlePayAdditionalMargin('additional', adj.id)}
+                                        className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+                                      >
+                                        Pay Margin
+                                      </button>
+                                    ) : (
+                                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                                        Unpaid
+                                      </span>
+                                    )
+                                  )
+                                ) : (
+                                  <span className="text-muted-foreground text-[10px]">—</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
                 )}
               </div>
             )}
@@ -4607,6 +5126,23 @@ export default function BookingManager({
           queryClient.invalidateQueries({ queryKey: ["hotel-cancellation-alerts"] });
         }}
       />
+
+      {adjustingService && (
+        <ServicePriceAdjustmentModal
+          isOpen={!!adjustingService}
+          onClose={() => setAdjustingService(null)}
+          booking={booking}
+          serviceType={adjustingService.type}
+          service={adjustingService.data}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ["booking", booking.id] });
+            queryClient.invalidateQueries({ queryKey: ["bookings"] });
+            queryClient.invalidateQueries({ queryKey: ["agent-margins"] });
+            queryClient.invalidateQueries({ queryKey: ["hotel-cancellation-alerts"] });
+            queryClient.invalidateQueries({ queryKey: ["transfer-cancellation-alerts"] });
+          }}
+        />
+      )}
 
       <TransportReservationModal
         key={editingTransport ? `edit-transport-${editingTransport.id}` : 'new-transport'}

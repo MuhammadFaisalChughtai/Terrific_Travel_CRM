@@ -597,4 +597,70 @@ export const payAdditionalHotelMargin = asyncHandler(async (req: AuthenticatedRe
   });
 });
 
+export const adjustTransportPrice = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const isAllowed = req.user!.roles.some((role: string) =>
+    ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'BRANCH_MANAGER'].includes(role.toUpperCase())
+  );
+  if (!isAllowed) {
+    res.status(403).json({ success: false, message: 'Only administrators or managers can adjust transport prices' });
+    return;
+  }
+  const { id, transportId } = req.params;
+  const result = await bookingsService.adjustTransportPrice(id, transportId, req.body, req.user!.id);
+  res.status(200).json({
+    success: true,
+    data: result,
+  });
+});
+
+export const adjustVisaPrice = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const isAllowed = req.user!.roles.some((role: string) =>
+    ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'BRANCH_MANAGER'].includes(role.toUpperCase())
+  );
+  if (!isAllowed) {
+    res.status(403).json({ success: false, message: 'Only administrators or managers can adjust visa prices' });
+    return;
+  }
+  const { id, visaId } = req.params;
+  const result = await bookingsService.adjustVisaPrice(id, visaId, req.body, req.user!.id);
+  res.status(200).json({
+    success: true,
+    data: result,
+  });
+});
+
+export const adjustAdditionalServicePrice = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const isAllowed = req.user!.roles.some((role: string) =>
+    ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'BRANCH_MANAGER'].includes(role.toUpperCase())
+  );
+  if (!isAllowed) {
+    res.status(403).json({ success: false, message: 'Only administrators or managers can adjust service prices' });
+    return;
+  }
+  const { id, additionalServiceId } = req.params;
+  const result = await bookingsService.adjustAdditionalServicePrice(id, additionalServiceId, req.body, req.user!.id);
+  res.status(200).json({
+    success: true,
+    data: result,
+  });
+});
+
+export const payAdditionalServiceMargin = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const isAllowed = req.user!.roles.some((role: string) =>
+    ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'BRANCH_MANAGER'].includes(role.toUpperCase())
+  );
+  if (!isAllowed) {
+    res.status(403).json({ success: false, message: 'Only administrators or managers can pay agent margins' });
+    return;
+  }
+  const { id, serviceType, adjustmentId } = req.params;
+  const { notes } = req.body;
+  const result = await bookingsService.payAdditionalServiceMargin(id, serviceType as any, adjustmentId, req.user!.id, notes);
+  res.status(200).json({
+    success: true,
+    message: 'Additional agent margin payout recorded successfully',
+    data: result,
+  });
+});
+
 

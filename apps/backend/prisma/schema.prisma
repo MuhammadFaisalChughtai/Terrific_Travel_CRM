@@ -108,8 +108,14 @@ model User {
   assignedIssuances       IssuanceTicket[] @relation("AssignedIssuances")
   workstationHeartbeats   AgentWorkstationHeartbeat[]
   clipboardLogs           DlpClipboardLog[]
-  adjustedHotelPrices     HotelPriceAdjustment[] @relation("AdjustedHotelPrices")
-  paidAdditionalMargins   HotelPriceAdjustment[] @relation("PaidAdditionalMargins")
+  adjustedHotelPrices              HotelPriceAdjustment[]             @relation("AdjustedHotelPrices")
+  paidAdditionalMargins            HotelPriceAdjustment[]             @relation("PaidAdditionalMargins")
+  adjustedTransportPrices          TransportPriceAdjustment[]         @relation("AdjustedTransportPrices")
+  paidAdditionalTransportMargins   TransportPriceAdjustment[]         @relation("PaidAdditionalTransportMargins")
+  adjustedVisaPrices               VisaPriceAdjustment[]              @relation("AdjustedVisaPrices")
+  paidAdditionalVisaMargins        VisaPriceAdjustment[]              @relation("PaidAdditionalVisaMargins")
+  adjustedAdditionalServicePrices  AdditionalServicePriceAdjustment[] @relation("AdjustedAdditionalServicePrices")
+  paidAdditionalOtherMargins       AdditionalServicePriceAdjustment[] @relation("PaidAdditionalOtherMargins")
 }
 
 enum LeadStatus {
@@ -356,7 +362,10 @@ model Booking {
   journalEntries      JournalEntry[]
   journalEntryLines   JournalEntryLine[]     @relation("LineBooking")
   issuanceTickets     IssuanceTicket[]
-  hotelPriceAdjustments HotelPriceAdjustment[]
+  hotelPriceAdjustments             HotelPriceAdjustment[]
+  transportPriceAdjustments         TransportPriceAdjustment[]
+  visaPriceAdjustments              VisaPriceAdjustment[]
+  additionalServicePriceAdjustments AdditionalServicePriceAdjustment[]
 
   @@index([bookingReference])
 }
@@ -623,9 +632,13 @@ model HotelPriceAdjustment {
   baselinePrice             Float
   newPrice                  Float
   savedAmount               Float
+  diffAmount                Float                @default(0.0)
   originalProfit            Float
-  additionalProfit          Float
-  additionalMargin          Float
+  additionalProfit          Float                @default(0.0)
+  additionalMargin          Float                @default(0.0)
+  reducedProfit             Float                @default(0.0)
+  reducedMargin             Float                @default(0.0)
+  adjustmentType            String               @default("UPGRADE") // "UPGRADE", "DOWNGRADE", "SAVINGS"
   marginRate                Float                @default(0.0)
   originalMarginPaid        Boolean              @default(false)
   additionalMarginPaid      Boolean              @default(false)
@@ -719,6 +732,44 @@ model TransportService {
   agentQuotedPrice     Float?
   confirmationNumber   String?
   lastCancellationDate DateTime?
+  originalPrice        Float?
+  originalBookingDate  DateTime?
+  isPriceAdjusted      Boolean                    @default(false)
+  totalSavedAmount     Float                      @default(0.0)
+  priceAdjustments     TransportPriceAdjustment[]
+}
+
+model TransportPriceAdjustment {
+  id                        String           @id @default(uuid())
+  bookingId                 String
+  booking                   Booking          @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  transportId               String
+  transport                 TransportService @relation(fields: [transportId], references: [id], onDelete: Cascade)
+  baselinePrice             Float
+  newPrice                  Float
+  diffAmount                Float            @default(0.0)
+  savedAmount               Float            @default(0.0)
+  originalProfit            Float
+  additionalProfit          Float            @default(0.0)
+  additionalMargin          Float            @default(0.0)
+  reducedProfit             Float            @default(0.0)
+  reducedMargin             Float            @default(0.0)
+  adjustmentType            String           @default("UPGRADE") // "UPGRADE", "DOWNGRADE"
+  marginRate                Float            @default(0.0)
+  originalMarginPaid        Boolean          @default(false)
+  additionalMarginPaid      Boolean          @default(false)
+  additionalMarginPaidAt    DateTime?
+  additionalMarginPaidById  String?
+  additionalMarginPaidBy    User?            @relation("PaidAdditionalTransportMargins", fields: [additionalMarginPaidById], references: [id])
+  adjustmentDate            DateTime         @default(now())
+  adjustedById              String
+  adjustedBy                User             @relation("AdjustedTransportPrices", fields: [adjustedById], references: [id])
+  notes                     String?
+  createdAt                 DateTime         @default(now())
+  updatedAt                 DateTime         @updatedAt
+
+  @@index([bookingId])
+  @@index([transportId])
 }
 
 model VisaService {
@@ -742,6 +793,44 @@ model VisaService {
   fineAmount     Float     @default(0.0)
   agentQuotedPrice Float?
   confirmationNumber String?
+  originalPrice        Float?
+  originalBookingDate  DateTime?
+  isPriceAdjusted      Boolean               @default(false)
+  totalSavedAmount     Float                 @default(0.0)
+  priceAdjustments     VisaPriceAdjustment[]
+}
+
+model VisaPriceAdjustment {
+  id                        String      @id @default(uuid())
+  bookingId                 String
+  booking                   Booking     @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  visaId                    String
+  visa                      VisaService @relation(fields: [visaId], references: [id], onDelete: Cascade)
+  baselinePrice             Float
+  newPrice                  Float
+  diffAmount                Float       @default(0.0)
+  savedAmount               Float       @default(0.0)
+  originalProfit            Float
+  additionalProfit          Float       @default(0.0)
+  additionalMargin          Float       @default(0.0)
+  reducedProfit             Float       @default(0.0)
+  reducedMargin             Float       @default(0.0)
+  adjustmentType            String      @default("UPGRADE") // "UPGRADE", "DOWNGRADE"
+  marginRate                Float       @default(0.0)
+  originalMarginPaid        Boolean     @default(false)
+  additionalMarginPaid      Boolean     @default(false)
+  additionalMarginPaidAt    DateTime?
+  additionalMarginPaidById  String?
+  additionalMarginPaidBy    User?       @relation("PaidAdditionalVisaMargins", fields: [additionalMarginPaidById], references: [id])
+  adjustmentDate            DateTime    @default(now())
+  adjustedById              String
+  adjustedBy                User        @relation("AdjustedVisaPrices", fields: [adjustedById], references: [id])
+  notes                     String?
+  createdAt                 DateTime    @default(now())
+  updatedAt                 DateTime    @updatedAt
+
+  @@index([bookingId])
+  @@index([visaId])
 }
 
 model VendorWallet {
@@ -860,8 +949,46 @@ model AdditionalService {
   serviceDescription String?
   agentQuotedPrice   Float?
   confirmationNumber String?
+  originalPrice      Float?
+  originalBookingDate DateTime?
+  isPriceAdjusted    Boolean                            @default(false)
+  totalSavedAmount   Float                              @default(0.0)
+  priceAdjustments   AdditionalServicePriceAdjustment[]
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
+}
+
+model AdditionalServicePriceAdjustment {
+  id                        String            @id @default(uuid())
+  bookingId                 String
+  booking                   Booking           @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  additionalServiceId       String
+  additionalService         AdditionalService @relation(fields: [additionalServiceId], references: [id], onDelete: Cascade)
+  baselinePrice             Float
+  newPrice                  Float
+  diffAmount                Float             @default(0.0)
+  savedAmount               Float             @default(0.0)
+  originalProfit            Float
+  additionalProfit          Float             @default(0.0)
+  additionalMargin          Float             @default(0.0)
+  reducedProfit             Float             @default(0.0)
+  reducedMargin             Float             @default(0.0)
+  adjustmentType            String            @default("UPGRADE") // "UPGRADE", "DOWNGRADE"
+  marginRate                Float             @default(0.0)
+  originalMarginPaid        Boolean           @default(false)
+  additionalMarginPaid      Boolean           @default(false)
+  additionalMarginPaidAt    DateTime?
+  additionalMarginPaidById  String?
+  additionalMarginPaidBy    User?             @relation("PaidAdditionalOtherMargins", fields: [additionalMarginPaidById], references: [id])
+  adjustmentDate            DateTime          @default(now())
+  adjustedById              String
+  adjustedBy                User              @relation("AdjustedAdditionalServicePrices", fields: [adjustedById], references: [id])
+  notes                     String?
+  createdAt                 DateTime          @default(now())
+  updatedAt                 DateTime          @updatedAt
+
+  @@index([bookingId])
+  @@index([additionalServiceId])
 }
 
 // ─────────────────────────────────────────────────────────────────

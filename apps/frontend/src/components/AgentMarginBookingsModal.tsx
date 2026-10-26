@@ -255,7 +255,13 @@ export default function AgentMarginBookingsModal({ margin, onClose }: Props) {
                               {b.cardPaymentCharges > 0 ? `-${formatCurrency(b.cardPaymentCharges)}` : '—'}
                             </td>
                             <td className={`px-4 py-3 text-right font-medium ${b.agentMarginVoided ? 'text-muted-foreground line-through' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                              {formatCurrency(b.profit)}
+                              <div>{formatCurrency(b.profit)}</div>
+                              {b.additionalProfit > 0 && (
+                                <div className="text-[10px] text-emerald-600 font-bold whitespace-nowrap">+Addl: {formatCurrency(b.additionalProfit)}</div>
+                              )}
+                              {b.reducedProfit > 0 && (
+                                <div className="text-[10px] text-rose-500 font-bold whitespace-nowrap">-Red: {formatCurrency(b.reducedProfit)}</div>
+                              )}
                             </td>
                             <td className="px-4 py-3 text-center">
                               {margin?.status === 'PAID' ? (
