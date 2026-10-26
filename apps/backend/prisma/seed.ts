@@ -110,6 +110,7 @@ async function main() {
     'customers:read', 'customers:create', 'customers:edit',
     'reports:read_all', 'reports:read_own',
     'users:read', 'roles:read', 'settings:read',
+    'agents:read', 'agents:manage',
     'attendance:read', 'attendance:log', 'attendance:manage',
     'vendors:read', 'vendors:manage', 'ledger:read', 'ledger:manage',
     'leads:read', 'leads:create', 'leads:manage'

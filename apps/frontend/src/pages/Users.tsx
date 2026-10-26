@@ -345,6 +345,8 @@ export default function UsersPage() {
         return "Bookings";
       case "payments":
         return "Payment Approvals";
+      case "agents":
+        return "Agent Access";
       case "invoices":
         return "Invoices";
       case "vendors":
@@ -387,6 +389,7 @@ export default function UsersPage() {
   const groupOrder = [
     "Bookings",
     "Payment Approvals",
+    "Agent Access",
     "Invoices",
     "Vendors",
     "Agent Margins",

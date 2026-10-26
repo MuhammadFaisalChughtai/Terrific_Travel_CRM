@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../api/client";
 import { useAuthStore } from "../store/auth.store";
+import { usePermission } from "../hooks/usePermission";
 import { formatCurrency } from "@tms/shared-utils";
 import {
   Users,
@@ -112,10 +113,14 @@ function FieldLabel({
 export default function AgentPage() {
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
+  const { can } = usePermission();
 
   const isAdmin = user?.roles?.some((r: string) =>
     ["ADMIN", "SUPER_ADMIN", "Admin", "Super Admin", "SUPERADMIN"].includes(r)
   );
+
+  const canManage = isAdmin || can("agents:manage");
+  const canDelete = isAdmin || can("agents:delete");
 
   // Search & Modals
   const [searchTerm, setSearchTerm] = useState("");
@@ -453,13 +458,15 @@ export default function AgentPage() {
             structures, and review wallet ledgers.
           </p>
         </div>
-        <button
-          onClick={handleAddClick}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground font-semibold rounded-lg text-xs hover:bg-primary/90 transition-all shadow-md shadow-primary/5 self-center shrink-0"
-        >
-          <Plus size={14} />
-          Register Agent
-        </button>
+        {canManage && (
+          <button
+            onClick={handleAddClick}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground font-semibold rounded-lg text-xs hover:bg-primary/90 transition-all shadow-md shadow-primary/5 self-center shrink-0"
+          >
+            <Plus size={14} />
+            Register Agent
+          </button>
+        )}
       </div>
 
       <div className="space-y-4">
@@ -584,20 +591,24 @@ export default function AgentPage() {
                               <Receipt size={12} />
                             </button>
                           )}
-                          <button
-                            onClick={() => handleEditClick(agent)}
-                            className="p-1 rounded-md text-muted-foreground hover:text-primary hover:bg-secondary/50 transition-colors"
-                            title="Update Profile"
-                          >
-                            <Pencil size={12} />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteClick(agent)}
-                            className="p-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                            title="Permanently Delete"
-                          >
-                            <Trash2 size={12} />
-                          </button>
+                          {canManage && (
+                            <button
+                              onClick={() => handleEditClick(agent)}
+                              className="p-1 rounded-md text-muted-foreground hover:text-primary hover:bg-secondary/50 transition-colors"
+                              title="Update Profile"
+                            >
+                              <Pencil size={12} />
+                            </button>
+                          )}
+                          {canDelete && (
+                            <button
+                              onClick={() => handleDeleteClick(agent)}
+                              className="p-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                              title="Permanently Delete"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

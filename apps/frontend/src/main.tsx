@@ -163,7 +163,7 @@ function AppRouter() {
           <Route
             path="agent"
             element={
-              <PermissionRoute permission={["users:read", "users:manage"]}>
+              <PermissionRoute permission={["agents:read", "agents:manage"]}>
                 <AgentPage />
               </PermissionRoute>
             }

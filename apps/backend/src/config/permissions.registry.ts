@@ -108,6 +108,26 @@ export const SYSTEM_PERMISSIONS: SystemPermissionDef[] = [
     description: 'Allows approving or rejecting customer payments and posting ledger entries.',
   },
 
+  // ── Agent Access & Registry ─────────────────────────────────────────
+  {
+    name: 'agents:read',
+    module: 'Agent Access',
+    displayName: 'View Agents & Timetables',
+    description: 'Allows viewing agent profiles, rosters, client mappings, and timetables to assign leads.',
+  },
+  {
+    name: 'agents:manage',
+    module: 'Agent Access',
+    displayName: 'Register & Edit Agents',
+    description: 'Allows registering agents and updating shift timetables and commission slabs.',
+  },
+  {
+    name: 'agents:delete',
+    module: 'Agent Access',
+    displayName: 'Delete Agents',
+    description: 'Allows permanently deleting or removing agent profiles.',
+  },
+
   // ── Vendors & Suppliers ────────────────────────────────────────────
   {
     name: 'vendors:read',

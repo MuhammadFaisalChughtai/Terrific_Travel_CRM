@@ -343,8 +343,8 @@ export default function DashboardLayout() {
       name: "Agent",
       path: "/agent",
       icon: Users,
-      permission: ["users:read", "users:manage"],
-      roles: ["Admin"],
+      permission: ["agents:read", "agents:manage"],
+      roles: ["Admin", "Manager", "Flight Executive"],
     },
     {
       name: "Vendors",
