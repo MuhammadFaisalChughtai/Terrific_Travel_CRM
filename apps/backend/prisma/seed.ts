@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import * as fs from 'fs';
 import * as path from 'path';
+import { SYSTEM_PERMISSIONS } from '../src/config/permissions.registry';
 
 const prisma = new PrismaClient();
 
@@ -62,161 +63,95 @@ async function main() {
     create: { name: 'CUSTOMER', description: 'Customer (Legacy)' },
   });
 
-  const permissionsList = [
-    // Bookings
-    { name: 'bookings:read', description: 'View all bookings' },
-    { name: 'bookings:create', description: 'Create bookings' },
-    { name: 'bookings:edit_any', description: 'Edit any booking' },
-    { name: 'bookings:edit_own', description: 'Edit own booking' },
-    { name: 'bookings:delete', description: 'Delete booking (soft-delete/archive)' },
-    // Invoices
-    { name: 'invoices:read', description: 'View all invoices' },
-    { name: 'invoices:edit', description: 'Edit invoices' },
-    { name: 'invoices:delete', description: 'Delete invoices (soft-delete/archive)' },
-    { name: 'invoices:download', description: 'Download invoices' },
-    { name: 'invoices:print', description: 'Print invoices' },
-    // Customers
-    { name: 'customers:read', description: 'View customers' },
-    { name: 'customers:create', description: 'Create customers' },
-    { name: 'customers:edit', description: 'Edit customers' },
-    { name: 'customers:delete', description: 'Delete customers (deactivate)' },
-    // Reports
-    { name: 'reports:read_all', description: 'View all company financial reports' },
-    { name: 'reports:read_own', description: 'View personal performance reports' },
-    // Users
-    { name: 'users:read', description: 'View all system operators' },
-    { name: 'users:manage', description: 'Create, edit, reset passwords, activate/deactivate users' },
-    // Roles & Permissions
-    { name: 'roles:read', description: 'View system roles and metadata' },
-    { name: 'roles:assign', description: 'Assign roles to operators' },
-    { name: 'permissions:manage', description: 'Manage access control policies and permission matrix' },
-    // Settings
-    { name: 'settings:read', description: 'View system configurations' },
-    { name: 'settings:manage', description: 'Edit system configurations' },
-    // Attendance
-    { name: 'attendance:read', description: 'View staff attendance records' },
-    { name: 'attendance:log', description: 'Log own attendance (check-in/check-out)' },
-    { name: 'attendance:manage', description: 'Edit and manage all staff attendance logs' },
-    // Vendors
-    { name: 'vendors:read', description: 'View vendors and SLAs' },
-    { name: 'vendors:manage', description: 'Create, edit, and deactivate vendors' },
-    // Ledger
-    { name: 'ledger:read', description: 'View financial ledger records' },
-    { name: 'ledger:manage', description: 'Create and edit financial ledger records' },
-    // Leads
-    { name: 'leads:read', description: 'View and search leads log book' },
-    { name: 'leads:create', description: 'Create and log new leads' },
-    { name: 'leads:manage', description: 'Manage, assign, update, and delete leads' },
-  ];
+  // 1. Upsert all system permissions from the unified SYSTEM_PERMISSIONS registry
+  for (const def of SYSTEM_PERMISSIONS) {
+    await prisma.permission.upsert({
+      where: { name: def.name },
+      update: {
+        module: def.module,
+        displayName: def.displayName,
+        description: def.description,
+      },
+      create: {
+        name: def.name,
+        module: def.module,
+        displayName: def.displayName,
+        description: def.description,
+      },
+    });
+  }
 
-  // Map permissions to roles
-  const adminPermissions = [
-    'bookings:read', 'bookings:create', 'bookings:edit_any', 'bookings:edit_own', 'bookings:delete',
-    'invoices:read', 'invoices:edit', 'invoices:delete', 'invoices:download', 'invoices:print',
-    'customers:read', 'customers:create', 'customers:edit', 'customers:delete',
-    'reports:read_all', 'reports:read_own',
-    'users:read', 'users:manage',
-    'roles:read', 'roles:assign', 'permissions:manage',
-    'settings:read', 'settings:manage',
-    'attendance:read', 'attendance:log', 'attendance:manage',
-    'vendors:read', 'vendors:manage',
-    'ledger:read', 'ledger:manage',
-    'leads:read', 'leads:create', 'leads:manage'
-  ];
-
-  const managerPermissions = [
-    'bookings:read', 'bookings:create', 'bookings:edit_any', 'bookings:edit_own',
-    'invoices:read', 'invoices:edit', 'invoices:download', 'invoices:print',
-    'customers:read', 'customers:create', 'customers:edit',
-    'reports:read_all', 'reports:read_own',
-    'users:read',
-    'roles:read',
-    'settings:read',
-    'attendance:read', 'attendance:log', 'attendance:manage',
-    'vendors:read', 'vendors:manage',
-    'ledger:read', 'ledger:manage',
-    'leads:read', 'leads:create', 'leads:manage'
-  ];
-
-  const agentPermissions = [
-    'bookings:read', 'bookings:create', 'bookings:edit_any', 'bookings:edit_own',
-    'invoices:read', 'invoices:edit', 'invoices:download', 'invoices:print',
-    'customers:read', 'customers:create', 'customers:edit',
-    'reports:read_all', 'reports:read_own',
-    'users:read',
-    'roles:read',
-    'settings:read',
-    'attendance:read', 'attendance:log', 'attendance:manage',
-    'vendors:read', 'vendors:manage',
-    'ledger:read', 'ledger:manage',
-    'leads:read'
-  ];
-
-  // Clean up existing permissions for Manager, Flight Executive, Agent, legacyAgent so we don't have dangling/stale mappings
-  await prisma.rolePermission.deleteMany({
+  // 2. Mark system roles as isSystem
+  await prisma.role.updateMany({
     where: {
-      roleId: {
-        in: [managerRole.id, flightExecutiveRole.id, agentRole.id, legacyAgentRole.id]
-      }
-    }
+      name: { in: ['SUPER_ADMIN', 'Admin', 'ADMIN', 'Manager', 'Flight Executive', 'Agent', 'TRAVEL_AGENT', 'Customer', 'CUSTOMER'] }
+    },
+    data: { isSystem: true }
   });
 
-  for (const perm of permissionsList) {
-    const createdPerm = await prisma.permission.upsert({
-      where: { name: perm.name },
-      update: { description: perm.description },
-      create: perm,
-    });
+  const allPermissions = await prisma.permission.findMany();
 
-    // Assign to Admin role
-    if (adminPermissions.includes(perm.name)) {
+  // 3. Admin roles always have access to all system permissions
+  const adminRoles = [superAdminRole, adminRole, legacyAdminRole];
+  for (const r of adminRoles) {
+    for (const p of allPermissions) {
       await prisma.rolePermission.upsert({
-        where: { roleId_permissionId: { roleId: adminRole.id, permissionId: createdPerm.id } },
+        where: { roleId_permissionId: { roleId: r.id, permissionId: p.id } },
         update: {},
-        create: { roleId: adminRole.id, permissionId: createdPerm.id },
-      });
-      // Legacy compatibility
-      await prisma.rolePermission.upsert({
-        where: { roleId_permissionId: { roleId: superAdminRole.id, permissionId: createdPerm.id } },
-        update: {},
-        create: { roleId: superAdminRole.id, permissionId: createdPerm.id },
-      });
-      await prisma.rolePermission.upsert({
-        where: { roleId_permissionId: { roleId: legacyAdminRole.id, permissionId: createdPerm.id } },
-        update: {},
-        create: { roleId: legacyAdminRole.id, permissionId: createdPerm.id },
-      });
-    }
-
-    // Assign to Manager and Flight Executive roles (Flight Executive inherits all Manager permissions)
-    if (managerPermissions.includes(perm.name)) {
-      await prisma.rolePermission.upsert({
-        where: { roleId_permissionId: { roleId: managerRole.id, permissionId: createdPerm.id } },
-        update: {},
-        create: { roleId: managerRole.id, permissionId: createdPerm.id },
-      });
-      await prisma.rolePermission.upsert({
-        where: { roleId_permissionId: { roleId: flightExecutiveRole.id, permissionId: createdPerm.id } },
-        update: {},
-        create: { roleId: flightExecutiveRole.id, permissionId: createdPerm.id },
-      });
-    }
-
-    // Assign to Agent role
-    if (agentPermissions.includes(perm.name)) {
-      await prisma.rolePermission.upsert({
-        where: { roleId_permissionId: { roleId: agentRole.id, permissionId: createdPerm.id } },
-        update: {},
-        create: { roleId: agentRole.id, permissionId: createdPerm.id },
-      });
-      // Legacy compatibility
-      await prisma.rolePermission.upsert({
-        where: { roleId_permissionId: { roleId: legacyAgentRole.id, permissionId: createdPerm.id } },
-        update: {},
-        create: { roleId: legacyAgentRole.id, permissionId: createdPerm.id },
+        create: { roleId: r.id, permissionId: p.id },
       });
     }
   }
+
+  // 4. Default permission sets for FRESH, uninitialized databases only
+  const defaultManagerPermNames = [
+    'bookings:read', 'bookings:read_own', 'bookings:create', 'bookings:edit_any', 'bookings:edit_own',
+    'invoices:read', 'invoices:edit', 'invoices:download', 'invoices:print',
+    'customers:read', 'customers:create', 'customers:edit',
+    'reports:read_all', 'reports:read_own',
+    'users:read', 'roles:read', 'settings:read',
+    'attendance:read', 'attendance:log', 'attendance:manage',
+    'vendors:read', 'vendors:manage', 'ledger:read', 'ledger:manage',
+    'leads:read', 'leads:create', 'leads:manage'
+  ];
+
+  const defaultAgentPermNames = [
+    'bookings:read', 'bookings:read_own', 'bookings:create', 'bookings:edit_own',
+    'invoices:read', 'invoices:download', 'invoices:print',
+    'customers:read', 'customers:create', 'customers:edit',
+    'reports:read_own', 'settings:read',
+    'attendance:read', 'attendance:log',
+    'leads:read', 'leads:create'
+  ];
+
+  // PERSISTENCE GUARANTEE: Never overwrite or delete configured permissions.
+  // Only seed default permissions on a brand-new, empty role installation.
+  const seedDefaultRolePermissionsIfEmpty = async (role: { id: string; name: string }, allowedPermissionNames: string[]) => {
+    const existingCount = await prisma.rolePermission.count({
+      where: { roleId: role.id },
+    });
+
+    if (existingCount > 0) {
+      console.log(`Role "${role.name}" (${role.id}) already has ${existingCount} permissions configured. Retaining customized PBAC matrix.`);
+      return;
+    }
+
+    const permsToAssign = allPermissions.filter((p) => allowedPermissionNames.includes(p.name));
+    for (const perm of permsToAssign) {
+      await prisma.rolePermission.create({
+        data: {
+          roleId: role.id,
+          permissionId: perm.id,
+        },
+      });
+    }
+    console.log(`Seeded ${permsToAssign.length} initial default permissions for role "${role.name}".`);
+  };
+
+  await seedDefaultRolePermissionsIfEmpty(managerRole, defaultManagerPermNames);
+  await seedDefaultRolePermissionsIfEmpty(flightExecutiveRole, defaultManagerPermNames);
+  await seedDefaultRolePermissionsIfEmpty(agentRole, defaultAgentPermNames);
+  await seedDefaultRolePermissionsIfEmpty(legacyAgentRole, defaultAgentPermNames);
 
 
   console.log('Roles, permissions, airports, and infrastructure seeded. No default users created.');
