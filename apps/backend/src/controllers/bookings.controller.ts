@@ -719,9 +719,16 @@ export const deleteInstallment = asyncHandler(async (req: AuthenticatedRequest, 
 
 export const autoSplitInstallments = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
-  const { numberOfInstallments } = req.body;
+  const { numberOfInstallments, splitMode } = req.body;
   await requireCanManageInstallments(id, req.user);
-  const result = await bookingsService.autoSplitInstallments(id, Number(numberOfInstallments) || 3, req.user!.id);
+  const result = await bookingsService.autoSplitInstallments(
+    id,
+    {
+      numberOfInstallments: Number(numberOfInstallments) || 3,
+      splitMode: splitMode === 'TOTAL' ? 'TOTAL' : 'PENDING',
+    },
+    req.user!.id
+  );
   res.status(200).json({
     success: true,
     message: 'Installment plan generated successfully',

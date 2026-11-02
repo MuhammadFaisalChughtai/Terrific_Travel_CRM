@@ -4929,43 +4929,70 @@ export class BookingsService {
   async toggleInstallmentPlan(bookingId: string, enabled: boolean, actorId?: string) {
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
-      include: { installments: true },
+      include: { installments: true, transactions: true },
     });
     if (!booking) throw new NotFoundException('Booking not found');
 
     await prisma.$transaction(async (tx) => {
-      // If enabling and no installments exist, create 2 smart installments:
-      // Part 1: Deposit / Initial Payment (e.g., 30% of total price or remaining)
-      // Part 2: Final Balance (remaining)
+      // If enabling and no installments exist, create smart installments matching total price exactly:
       if (enabled && (!booking.installments || booking.installments.length === 0)) {
         const total = booking.totalPrice || 0;
-        const deposit = Math.round(Math.max(100, total * 0.3) * 100) / 100;
-        const balance = Math.round(Math.max(0, total - deposit) * 100) / 100;
+        const clientTxSum = (booking.transactions || [])
+          .filter((tx: any) => tx.type === 'CLIENT' || tx.paymentType === 'CLIENT' || !tx.type)
+          .reduce((sum: number, tx: any) => sum + (Number(tx.amount) || 0), 0);
+        const paid = clientTxSum > 0 ? clientTxSum : (booking.paidAmount || 0);
+        const pending = Math.max(0, Math.round((total - paid) * 100) / 100);
 
         const depDate = booking.departureDate ? new Date(booking.departureDate) : new Date(Date.now() + 60 * 86400000);
         const finalDue = new Date(Math.max(Date.now() + 7 * 86400000, depDate.getTime() - 14 * 86400000));
         const depositDue = new Date(Date.now() + 3 * 86400000);
 
-        await tx.bookingInstallment.createMany({
-          data: [
-            {
-              bookingId,
-              installmentNumber: 1,
-              title: 'Deposit / Initial Payment',
-              amount: deposit,
-              dueDate: depositDue,
-              status: 'INCOMPLETE',
-            },
-            {
-              bookingId,
-              installmentNumber: 2,
-              title: 'Final Balance',
-              amount: balance,
-              dueDate: finalDue,
-              status: 'INCOMPLETE',
-            },
-          ],
-        });
+        if (paid > 0 && pending > 0) {
+          await tx.bookingInstallment.createMany({
+            data: [
+              {
+                bookingId,
+                installmentNumber: 1,
+                title: 'Deposit / Received Payment',
+                amount: Math.round(paid * 100) / 100,
+                dueDate: booking.createdAt ? new Date(booking.createdAt) : new Date(),
+                status: 'COMPLETE',
+              },
+              {
+                bookingId,
+                installmentNumber: 2,
+                title: 'Remaining Balance',
+                amount: pending,
+                dueDate: finalDue,
+                status: 'INCOMPLETE',
+              },
+            ],
+          });
+        } else {
+          const deposit = Math.round((total / 2) * 100) / 100;
+          const balance = Math.round((total - deposit) * 100) / 100;
+
+          await tx.bookingInstallment.createMany({
+            data: [
+              {
+                bookingId,
+                installmentNumber: 1,
+                title: 'Deposit / Initial Payment',
+                amount: deposit,
+                dueDate: depositDue,
+                status: paid >= deposit ? 'COMPLETE' : 'INCOMPLETE',
+              },
+              {
+                bookingId,
+                installmentNumber: 2,
+                title: 'Final Balance',
+                amount: balance,
+                dueDate: finalDue,
+                status: paid >= total ? 'COMPLETE' : 'INCOMPLETE',
+              },
+            ],
+          });
+        }
       }
 
       await tx.booking.update({
@@ -5126,44 +5153,105 @@ export class BookingsService {
   }
 
   /**
-   * Auto-split booking total (or remaining balance) across N installments.
+   * Auto-split booking total or client pending balance across N installments.
    */
-  async autoSplitInstallments(bookingId: string, numberOfInstallments: number, actorId?: string) {
+  async autoSplitInstallments(
+    bookingId: string,
+    options: number | { numberOfInstallments: number; splitMode?: 'PENDING' | 'TOTAL' },
+    actorId?: string
+  ) {
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
-      include: { installments: true },
+      include: { installments: true, transactions: true },
     });
     if (!booking) throw new NotFoundException('Booking not found');
 
-    const n = Math.max(2, Math.min(12, Number(numberOfInstallments) || 3));
+    const numberOfInstallments = typeof options === 'number' ? options : options.numberOfInstallments;
+    const splitMode = (typeof options === 'object' && options.splitMode) ? options.splitMode : 'PENDING';
+
+    const clientTxSum = (booking.transactions || [])
+      .filter((tx: any) => tx.type === 'CLIENT' || tx.paymentType === 'CLIENT' || !tx.type)
+      .reduce((sum: number, tx: any) => sum + (Number(tx.amount) || 0), 0);
+    const paid = clientTxSum > 0 ? clientTxSum : (booking.paidAmount || 0);
     const total = booking.totalPrice || 0;
-    const eachAmount = Math.round((total / n) * 100) / 100;
-    const finalAmount = Math.round((total - (eachAmount * (n - 1))) * 100) / 100;
+    const pending = Math.max(0, Math.round((total - paid) * 100) / 100);
 
     const depDate = booking.departureDate ? new Date(booking.departureDate) : new Date(Date.now() + 90 * 86400000);
     const nowMs = Date.now();
     const span = Math.max(86400000 * 7, depDate.getTime() - 14 * 86400000 - nowMs);
-    const step = span / n;
 
     await prisma.$transaction(async (tx) => {
       await tx.bookingInstallment.deleteMany({ where: { bookingId } });
 
       const newRows = [];
-      for (let i = 0; i < n; i++) {
-        const dueDate = new Date(nowMs + (i + 1) * step);
-        const amt = (i === n - 1) ? finalAmount : eachAmount;
-        let title = `Installment ${i + 1}`;
-        if (i === 0) title = 'Deposit / 1st Installment';
-        else if (i === n - 1) title = 'Final Balance';
 
+      if (splitMode === 'PENDING' && paid > 0 && pending > 0) {
+        // Part 1: Paid Deposit / Received Payment (COMPLETE)
         newRows.push({
           bookingId,
-          installmentNumber: i + 1,
-          title,
-          amount: amt,
-          dueDate,
-          status: 'INCOMPLETE',
+          installmentNumber: 1,
+          title: 'Deposit / Received Payment',
+          amount: Math.round(paid * 100) / 100,
+          dueDate: booking.createdAt ? new Date(booking.createdAt) : new Date(),
+          status: 'COMPLETE',
         });
+
+        // Split pending balance into N installments
+        const n = Math.max(1, Math.min(12, Number(numberOfInstallments) || 2));
+        const eachAmount = Math.round((pending / n) * 100) / 100;
+        const finalAmount = Math.round((pending - (eachAmount * (n - 1))) * 100) / 100;
+        const step = span / n;
+
+        for (let i = 0; i < n; i++) {
+          const dueDate = new Date(nowMs + (i + 1) * step);
+          const amt = (i === n - 1) ? finalAmount : eachAmount;
+          let title = `Installment ${i + 1}`;
+          if (n === 1) {
+            title = 'Remaining Balance';
+          } else if (i === n - 1) {
+            title = 'Final Balance';
+          }
+
+          newRows.push({
+            bookingId,
+            installmentNumber: i + 2,
+            title,
+            amount: amt,
+            dueDate,
+            status: 'INCOMPLETE',
+          });
+        }
+      } else {
+        // TOTAL mode, or pending is 0, or paid is 0
+        const n = Math.max(2, Math.min(12, Number(numberOfInstallments) || 3));
+        const eachAmount = Math.round((total / n) * 100) / 100;
+        const finalAmount = Math.round((total - (eachAmount * (n - 1))) * 100) / 100;
+        const step = span / n;
+
+        let remainingPaid = paid;
+
+        for (let i = 0; i < n; i++) {
+          const dueDate = new Date(nowMs + (i + 1) * step);
+          const amt = (i === n - 1) ? finalAmount : eachAmount;
+          let title = `Installment ${i + 1}`;
+          if (i === 0) title = 'Deposit / 1st Installment';
+          else if (i === n - 1) title = 'Final Balance';
+
+          let status = 'INCOMPLETE';
+          if (remainingPaid >= amt && amt > 0) {
+            status = 'COMPLETE';
+            remainingPaid -= amt;
+          }
+
+          newRows.push({
+            bookingId,
+            installmentNumber: i + 1,
+            title,
+            amount: amt,
+            dueDate,
+            status,
+          });
+        }
       }
 
       await tx.bookingInstallment.createMany({ data: newRows });
@@ -5178,7 +5266,7 @@ export class BookingsService {
       action: 'Update',
       module: 'Bookings',
       recordId: bookingId,
-      newValue: { autoSplit: n, total },
+      newValue: { autoSplit: numberOfInstallments, splitMode, total, paid, pending },
     });
 
     await rabbitMQService.publish('booking.updated', { bookingId });

@@ -50,6 +50,7 @@ import {
   Lock,
   Tag,
   Layers,
+  Minus,
 } from "lucide-react";
 // @ts-ignore
 import html2pdf from "html2pdf.js";
@@ -295,6 +296,7 @@ export default function BookingManager({
   });
   const [isAutoSplitModalOpen, setIsAutoSplitModalOpen] = useState(false);
   const [autoSplitCount, setAutoSplitCount] = useState<number>(3);
+  const [autoSplitMode, setAutoSplitMode] = useState<"PENDING" | "TOTAL">("PENDING");
 
   const handleUpdateFlightStatus = async (flightId: string, newStatus: string) => {
     if (!booking) return;
@@ -1170,9 +1172,9 @@ export default function BookingManager({
 
   // Mutation: Auto-split installment plan
   const autoSplitMutation = useMutation({
-    mutationFn: async (numberOfInstallments: number) => {
+    mutationFn: async (payload: { numberOfInstallments: number; splitMode: "PENDING" | "TOTAL" }) => {
       const bId = booking?.id || bookingId;
-      return apiClient.post(`/bookings/${bId}/installment-plan/auto-split`, { numberOfInstallments });
+      return apiClient.post(`/bookings/${bId}/installment-plan/auto-split`, payload);
     },
     onSuccess: () => {
       toast.success(`Generated ${autoSplitCount}-part installment plan.`);
@@ -1616,7 +1618,10 @@ export default function BookingManager({
   };
 
   const handleAutoSplit = () => {
-    autoSplitMutation.mutate(autoSplitCount);
+    autoSplitMutation.mutate({
+      numberOfInstallments: autoSplitCount,
+      splitMode: autoSplitMode,
+    });
   };
 
   return (
@@ -2663,9 +2668,16 @@ export default function BookingManager({
                             <div className="flex items-center gap-2">
                               <button
                                 type="button"
-                                onClick={() => setIsAutoSplitModalOpen(true)}
+                                onClick={() => {
+                                  if (paidAmount > 0 && remainingAmount > 0) {
+                                    setAutoSplitMode("PENDING");
+                                  } else {
+                                    setAutoSplitMode("TOTAL");
+                                  }
+                                  setIsAutoSplitModalOpen(true);
+                                }}
                                 className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold bg-secondary hover:bg-secondary/80 text-foreground border border-border rounded-md transition-all cursor-pointer"
-                                title="Automatically generate equal installment schedule"
+                                title="Automatically generate installment schedule"
                               >
                                 <Layers size={12} className="text-primary" />{" "}
                                 Auto-Split Plan
@@ -5964,50 +5976,242 @@ export default function BookingManager({
         isOpen={isAutoSplitModalOpen}
         onClose={() => setIsAutoSplitModalOpen(false)}
         title="Auto-Split Installment Plan"
-        maxWidth="md"
+        maxWidth="lg"
       >
-        <div className="p-4 space-y-4 text-left font-sans">
-          <p className="text-xs text-muted-foreground">
-            Automatically divide the total booking amount (
-            <strong className="text-foreground">
-              {formatCurrency(totalPrice)}
-            </strong>
-            ) into equal monthly installments starting from next month.
-          </p>
+        <div className="p-5 space-y-5 text-left font-sans">
+          <div>
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+              1. Select Amount to Split
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Option A: Client Pending Balance */}
+              <button
+                type="button"
+                disabled={remainingAmount <= 0}
+                onClick={() => setAutoSplitMode("PENDING")}
+                className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer relative flex flex-col justify-between ${
+                  autoSplitMode === "PENDING"
+                    ? "bg-primary/10 border-primary ring-1 ring-primary"
+                    : remainingAmount <= 0
+                    ? "opacity-50 cursor-not-allowed bg-secondary/20 border-border"
+                    : "bg-secondary/40 hover:bg-secondary/70 border-border"
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                      Client Pending Balance
+                    </span>
+                    {autoSplitMode === "PENDING" && (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-primary text-primary-foreground">
+                        <Check size={10} /> Selected
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-lg font-black text-foreground">
+                    {formatCurrency(remainingAmount)}
+                  </div>
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-2">
+                  {paidAmount > 0 ? (
+                    <>
+                      Keeps <strong>{formatCurrency(paidAmount)}</strong> as received payment (Complete), and splits remaining <strong>{formatCurrency(remainingAmount)}</strong> into installments.
+                    </>
+                  ) : (
+                    <>Splits remaining client pending balance across installments.</>
+                  )}
+                </p>
+              </button>
 
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-              Number of Installments
-            </label>
-            <div className="grid grid-cols-3 gap-2">
-              {[2, 3, 4].map((cnt) => (
+              {/* Option B: Total Booking Amount */}
+              <button
+                type="button"
+                onClick={() => setAutoSplitMode("TOTAL")}
+                className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer relative flex flex-col justify-between ${
+                  autoSplitMode === "TOTAL"
+                    ? "bg-primary/10 border-primary ring-1 ring-primary"
+                    : "bg-secondary/40 hover:bg-secondary/70 border-border"
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                      Total Booking Amount
+                    </span>
+                    {autoSplitMode === "TOTAL" && (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-primary text-primary-foreground">
+                        <Check size={10} /> Selected
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-lg font-black text-foreground">
+                    {formatCurrency(totalPrice)}
+                  </div>
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-2">
+                  Divides the entire booking total of <strong>{formatCurrency(totalPrice)}</strong> across {autoSplitCount} equal installments.
+                </p>
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                2. How Many Installments?
+              </h4>
+              <span className="text-xs font-bold text-primary">
+                {autoSplitCount} {autoSplitCount === 1 ? "part" : "parts"}
+                {autoSplitMode === "PENDING" && paidAmount > 0 && " (+ 1 paid deposit)"}
+              </span>
+            </div>
+
+            {/* Quick Presets */}
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {[2, 3, 4, 5, 6, 8, 10, 12].map((cnt) => (
                 <button
                   key={cnt}
                   type="button"
                   onClick={() => setAutoSplitCount(cnt)}
-                  className={`py-2 px-3 rounded-lg border text-xs font-bold flex flex-col items-center justify-center transition-all cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
                     autoSplitCount === cnt
                       ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                      : "bg-secondary/40 text-foreground border-border hover:bg-secondary"
+                      : "bg-secondary/50 text-foreground border-border hover:bg-secondary"
                   }`}
                 >
-                  <span>{cnt} Parts</span>
-                  <span
-                    className={`text-[10px] font-normal ${
-                      autoSplitCount === cnt
-                        ? "text-primary-foreground/80"
-                        : "text-muted-foreground"
-                    }`}
-                  >
-                    ~{formatCurrency(totalPrice / cnt)} / mo
-                  </span>
+                  {cnt} Parts
                 </button>
               ))}
             </div>
+
+            {/* Custom Stepper */}
+            <div className="flex items-center gap-3">
+              <div className="flex items-center border border-border rounded-lg overflow-hidden bg-background">
+                <button
+                  type="button"
+                  onClick={() => setAutoSplitCount(Math.max(autoSplitMode === "PENDING" ? 1 : 2, autoSplitCount - 1))}
+                  className="px-3 py-1.5 text-xs font-bold bg-secondary/50 hover:bg-secondary text-foreground transition-all cursor-pointer"
+                >
+                  <Minus size={14} />
+                </button>
+                <input
+                  type="number"
+                  min={autoSplitMode === "PENDING" ? 1 : 2}
+                  max={12}
+                  value={autoSplitCount}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value) || (autoSplitMode === "PENDING" ? 1 : 2);
+                    setAutoSplitCount(Math.max(autoSplitMode === "PENDING" ? 1 : 2, Math.min(12, val)));
+                  }}
+                  className="w-16 text-center text-xs font-black bg-transparent border-0 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => setAutoSplitCount(Math.min(12, autoSplitCount + 1))}
+                  className="px-3 py-1.5 text-xs font-bold bg-secondary/50 hover:bg-secondary text-foreground transition-all cursor-pointer"
+                >
+                  <Plus size={14} />
+                </button>
+              </div>
+              <span className="text-xs text-muted-foreground">
+                Base to divide:{" "}
+                <strong className="text-foreground">
+                  {formatCurrency(autoSplitMode === "PENDING" ? remainingAmount : totalPrice)}
+                </strong>{" "}
+                (approx.{" "}
+                <strong className="text-foreground">
+                  {formatCurrency(
+                    (autoSplitMode === "PENDING" ? remainingAmount : totalPrice) / (autoSplitCount || 1)
+                  )}
+                </strong>{" "}
+                per installment)
+              </span>
+            </div>
           </div>
 
-          <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-700 dark:text-amber-300">
-            <strong>Note:</strong> Auto-split will replace existing installments with {autoSplitCount} newly scheduled equal monthly parts.
+          {/* Schedule Preview */}
+          <div className="rounded-xl border border-border bg-card p-3.5 space-y-2.5">
+            <div className="flex items-center justify-between text-xs font-bold">
+              <span className="text-muted-foreground flex items-center gap-1.5">
+                <Calendar size={14} className="text-primary" /> Projected Schedule Preview
+              </span>
+              <span className="text-emerald-600 dark:text-emerald-400 font-black flex items-center gap-1">
+                <CheckCircle2 size={13} /> Scheduled Total: {formatCurrency(totalPrice)} (100% Match)
+              </span>
+            </div>
+
+            <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+              {(() => {
+                const previewRows: any[] = [];
+                if (autoSplitMode === "PENDING" && paidAmount > 0 && remainingAmount > 0) {
+                  previewRows.push({
+                    title: "Deposit / Received Payment",
+                    amount: paidAmount,
+                    status: "COMPLETE",
+                    badge: "Received",
+                  });
+                  const n = Math.max(1, autoSplitCount);
+                  const each = Math.round((remainingAmount / n) * 100) / 100;
+                  const finalAmt = Math.round((remainingAmount - each * (n - 1)) * 100) / 100;
+                  for (let i = 0; i < n; i++) {
+                    const amt = i === n - 1 ? finalAmt : each;
+                    previewRows.push({
+                      title: n === 1 ? "Remaining Balance" : i === n - 1 ? "Final Balance" : `Installment ${i + 1}`,
+                      amount: amt,
+                      status: "INCOMPLETE",
+                      badge: "Scheduled",
+                    });
+                  }
+                } else {
+                  const n = Math.max(1, autoSplitCount);
+                  const base = autoSplitMode === "PENDING" ? remainingAmount : totalPrice;
+                  const each = Math.round((base / n) * 100) / 100;
+                  const finalAmt = Math.round((base - each * (n - 1)) * 100) / 100;
+                  let remPaid = paidAmount;
+                  for (let i = 0; i < n; i++) {
+                    const amt = i === n - 1 ? finalAmt : each;
+                    const isPaid = remPaid >= amt && amt > 0;
+                    if (isPaid) remPaid -= amt;
+                    previewRows.push({
+                      title: i === 0 ? "Deposit / 1st Installment" : i === n - 1 ? "Final Balance" : `Installment ${i + 1}`,
+                      amount: amt,
+                      status: isPaid ? "COMPLETE" : "INCOMPLETE",
+                      badge: isPaid ? "Covered" : "Scheduled",
+                    });
+                  }
+                }
+
+                return previewRows.map((row, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between px-3 py-1.5 rounded-lg bg-secondary/30 text-xs"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-secondary flex items-center justify-center text-[10px] font-bold text-muted-foreground">
+                        {idx + 1}
+                      </span>
+                      <span className="font-medium text-foreground">{row.title}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-foreground">{formatCurrency(row.amount)}</span>
+                      <span
+                        className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                          row.status === "COMPLETE"
+                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                            : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                        }`}
+                      >
+                        {row.badge}
+                      </span>
+                    </div>
+                  </div>
+                ));
+              })()}
+            </div>
+          </div>
+
+          <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-[11px] text-blue-700 dark:text-blue-300">
+            <strong>Note:</strong> Generating this plan will replace existing installments with this exact schedule totaling <strong>{formatCurrency(totalPrice)}</strong> with zero discrepancy.
           </div>
 
           <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
@@ -6027,7 +6231,7 @@ export default function BookingManager({
               {autoSplitMutation.isPending && (
                 <Loader2 size={12} className="animate-spin" />
               )}
-              Generate {autoSplitCount}-Part Schedule
+              Generate Installment Plan
             </button>
           </div>
         </div>
