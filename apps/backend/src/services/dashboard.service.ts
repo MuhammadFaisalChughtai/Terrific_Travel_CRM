@@ -1171,6 +1171,155 @@ export class DashboardService {
 
     return updated;
   }
+
+  /**
+   * Urgent Customer Payment Pending Alerts:
+   * Returns bookings whose customer travel date (departureDate) is within the next 5 days
+   * and the customer pending payment balance has not been cleared (pendingAmount > 0).
+   */
+  async getCustomerPaymentPendingAlerts(filters: {
+    isAdmin?: boolean;
+    isManager?: boolean;
+    isAgent?: boolean;
+    agentId?: string;
+    userId?: string;
+    search?: string;
+  } = {}) {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const fiveDaysFromNow = new Date(startOfToday.getTime() + 5 * 24 * 60 * 60 * 1000 + 23 * 60 * 60 * 1000 + 59 * 60 * 1000 + 999);
+
+    const bookingWhere: any = {
+      status: { not: 'CANCELLED' },
+      departureDate: {
+        not: null,
+        lte: fiveDaysFromNow,
+      },
+    };
+
+    // If not Admin or Manager, restrict to bookings owned/assigned to this agent
+    if (!filters.isAdmin && !filters.isManager) {
+      const ownerConditions: any[] = [];
+      if (filters.agentId) {
+        ownerConditions.push({ agentId: filters.agentId });
+      }
+      if (filters.userId) {
+        ownerConditions.push({ createdById: filters.userId });
+        ownerConditions.push({ assignedToId: filters.userId });
+      }
+
+      if (ownerConditions.length > 0) {
+        bookingWhere.OR = ownerConditions;
+      } else {
+        return {
+          items: [],
+          counts: { total: 0, today: 0, tomorrow: 0, soon: 0, totalPendingAmount: 0 },
+        };
+      }
+    }
+
+    const bookings = await prisma.booking.findMany({
+      where: bookingWhere,
+      include: {
+        agent: { select: { id: true, name: true, email: true, phoneNumber: true } },
+        createdBy: { select: { id: true, firstName: true, lastName: true, email: true } },
+        passengers: {
+          select: { id: true, role: true, firstName: true, lastName: true, phoneNumber: true, email: true },
+        },
+        transactions: true,
+        installments: {
+          orderBy: { installmentNumber: 'asc' },
+        },
+      },
+      orderBy: { departureDate: 'asc' },
+    });
+
+    const items = bookings
+      .map((b: any) => {
+        const { clientPaid, pendingAmount, effectivePrice } = calculateCustomerPending(b);
+        if (pendingAmount <= 0.01) return null;
+
+        const travelDate = b.departureDate;
+        if (!travelDate) return null;
+
+        const dep = new Date(travelDate);
+        const diffMs = dep.getTime() - now.getTime();
+        const daysUntilTravel = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+        const hoursUntilTravel = Math.ceil(diffMs / (1000 * 60 * 60));
+
+        let urgencyTag: 'TODAY' | 'TOMORROW' | 'NEXT_5_DAYS' | 'OVERDUE' = 'NEXT_5_DAYS';
+        if (daysUntilTravel < 0) {
+          urgencyTag = 'OVERDUE';
+        } else if (daysUntilTravel === 0) {
+          urgencyTag = 'TODAY';
+        } else if (daysUntilTravel === 1) {
+          urgencyTag = 'TOMORROW';
+        }
+
+        const leader = b.passengers?.find((p: any) => p.role === 'Leader') || b.passengers?.[0];
+        const customerName = leader
+          ? `${leader.firstName || ''} ${leader.lastName || ''}`.trim()
+          : 'N/A';
+
+        const agentName =
+          b.agent?.name ||
+          (b.createdBy
+            ? `${b.createdBy.firstName || ''} ${b.createdBy.lastName || ''}`.trim()
+            : 'Unassigned');
+
+        const nextIncompleteInstallment = b.installments?.find((i: any) => i.status !== 'COMPLETE');
+
+        return {
+          id: b.id,
+          bookingReference: b.bookingReference || 'N/A',
+          bookingStatus: b.status || 'CONFIRMED',
+          bookingDate: b.bookingDate || b.createdAt,
+          departureDate: travelDate,
+          daysUntilTravel,
+          hoursUntilTravel,
+          urgencyTag,
+          customerName: customerName || 'N/A',
+          customerPhone: leader?.phoneNumber || null,
+          customerEmail: leader?.email || null,
+          agentName,
+          agentId: b.agentId,
+          agentEmail: b.agent?.email || b.createdBy?.email || null,
+          agentPhone: b.agent?.phoneNumber || null,
+          totalPrice: b.totalPrice || effectivePrice,
+          paidAmount: clientPaid,
+          pendingAmount,
+          currency: 'GBP',
+          paymentStatus: b.paymentStatus || 'PARTIALLY_PAID',
+          hasInstallments: Boolean(b.hasInstallments),
+          nextDueDate: nextIncompleteInstallment?.dueDate || null,
+          nextDueAmount: nextIncompleteInstallment?.amount || 0,
+        };
+      })
+      .filter(Boolean) as any[];
+
+    let filteredItems = items;
+    if (filters.search && filters.search.trim()) {
+      const s = filters.search.trim().toLowerCase();
+      filteredItems = items.filter(
+        (item) =>
+          item.bookingReference.toLowerCase().includes(s) ||
+          item.customerName.toLowerCase().includes(s) ||
+          (item.customerPhone && item.customerPhone.toLowerCase().includes(s)) ||
+          (item.customerEmail && item.customerEmail.toLowerCase().includes(s)) ||
+          item.agentName.toLowerCase().includes(s)
+      );
+    }
+
+    const counts = {
+      total: filteredItems.length,
+      today: filteredItems.filter((i) => i.urgencyTag === 'TODAY' || i.urgencyTag === 'OVERDUE').length,
+      tomorrow: filteredItems.filter((i) => i.urgencyTag === 'TOMORROW').length,
+      soon: filteredItems.filter((i) => i.urgencyTag === 'NEXT_5_DAYS').length,
+      totalPendingAmount: Math.round(filteredItems.reduce((sum, i) => sum + i.pendingAmount, 0) * 100) / 100,
+    };
+
+    return { items: filteredItems, counts };
+  }
 }
 
 export const dashboardService = new DashboardService();

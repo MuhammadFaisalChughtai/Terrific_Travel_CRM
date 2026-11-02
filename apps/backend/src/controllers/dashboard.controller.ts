@@ -201,3 +201,23 @@ export const updateHotelConfirmationNumber = asyncHandler(async (req: Request, r
   });
 });
 
+export const getCustomerPaymentPendingAlerts = asyncHandler(async (req: Request, res: Response) => {
+  const user = (req as AuthenticatedRequest).user;
+  const userFilters = await resolveUserFilter(user);
+  const search = req.query.search as string | undefined;
+
+  const result = await dashboardService.getCustomerPaymentPendingAlerts({
+    isAdmin: userFilters.isAdmin,
+    isManager: userFilters.isManager,
+    isAgent: userFilters.isAgent,
+    agentId: userFilters.agentId,
+    userId: userFilters.userId,
+    search,
+  });
+
+  res.status(200).json({
+    success: true,
+    data: result,
+  });
+});
+

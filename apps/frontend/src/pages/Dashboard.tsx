@@ -7,6 +7,7 @@ import Modal from "../components/Modal";
 import BookingManager from "../components/BookingManager";
 import DashboardDangerCancellationWidget from "../components/DashboardDangerCancellationWidget";
 import DashboardMissingHotelConfirmationWidget from "../components/DashboardMissingHotelConfirmationWidget";
+import DashboardCustomerPendingPaymentWidget from "../components/DashboardCustomerPendingPaymentWidget";
 import {
   TrendingUp,
   Users,
@@ -372,6 +373,15 @@ export default function Dashboard() {
 
       {/* Urgent Missing Hotel Confirmation Alerts (Check-in ≤ 5 Days) */}
       <DashboardMissingHotelConfirmationWidget
+        onOpenBooking={(bId, bRef) => {
+          setSelectedBookingId(bId);
+          setSelectedBookingRef(bRef || null);
+        }}
+        isAdmin={isAdmin}
+      />
+
+      {/* Urgent Customer Payment Pending Alerts (Travel Date ≤ 5 Days) */}
+      <DashboardCustomerPendingPaymentWidget
         onOpenBooking={(bId, bRef) => {
           setSelectedBookingId(bId);
           setSelectedBookingRef(bRef || null);

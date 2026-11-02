@@ -34,6 +34,7 @@ import IssuancePage from "./pages/Issuance";
 import SecurityAuditPage from "./pages/SecurityAudit";
 import CatalogPage from "./pages/Catalog";
 import FreeCancellationPage from "./pages/FreeCancellationPage";
+import PendingPaymentsPage from "./pages/PendingPayments";
 import { PermissionRoute } from "./components/PermissionRoute";
 import { useAuthStore } from "./store/auth.store";
 import { apiClient } from "./api/client";
@@ -273,6 +274,14 @@ function AppRouter() {
             }
           />
           <Route path="free-cancellation" element={<Navigate to="/cancellation-deadlines" replace />} />
+          <Route
+            path="pending-payments"
+            element={
+              <PermissionRoute permission={["bookings:read", "bookings:read_own"]}>
+                <PendingPaymentsPage />
+              </PermissionRoute>
+            }
+          />
         </Route>
 
         <Route path="*" element={<Navigate to="/" />} />

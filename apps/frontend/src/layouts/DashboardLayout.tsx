@@ -117,6 +117,20 @@ export default function DashboardLayout() {
 
   const urgentMissingHotelCount = missingHotelData?.counts?.total || 0;
 
+  const { data: pendingPaymentAlertsData } = useQuery<{
+    counts?: { total?: number };
+  }>({
+    queryKey: ["customer-pending-alerts"],
+    queryFn: async () => {
+      const res = await apiClient.get("/dashboard/customer-pending-alerts");
+      return res.data.data;
+    },
+    enabled: !!user,
+    refetchInterval: 60000,
+  });
+
+  const urgentPendingPaymentCount = pendingPaymentAlertsData?.counts?.total || 0;
+
   const queryClient = useQueryClient();
   const { data: todayAttendance } = useQuery({
     queryKey: ["attendance", "today"],
@@ -320,6 +334,12 @@ export default function DashboardLayout() {
       path: "/hotels",
       icon: Hotel,
       permission: ["bookings:read", "bookings:read_own", "catalog:manage"],
+    },
+    {
+      name: "Pending Payments",
+      path: "/pending-payments",
+      icon: CreditCard,
+      permission: ["bookings:read", "bookings:read_own"],
     },
     {
       name: "Leads Log Book",
@@ -536,6 +556,16 @@ export default function DashboardLayout() {
                           {urgentMissingHotelCount}
                         </span>
                       )}
+                    {item.name === "Pending Payments" &&
+                      urgentPendingPaymentCount > 0 && (
+                        <span
+                          className={`ml-2 px-1.5 py-0.5 rounded-full text-[10px] font-black leading-none flex items-center justify-center ${
+                            isActive ? "bg-white text-amber-600" : "bg-amber-600 text-white animate-pulse"
+                          }`}
+                        >
+                          {urgentPendingPaymentCount}
+                        </span>
+                      )}
                   </span>
                 ) : (
                   <>
@@ -551,6 +581,10 @@ export default function DashboardLayout() {
                     {item.name === "Hotel Confirmations" &&
                       urgentMissingHotelCount > 0 && (
                         <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-600 ring-2 ring-card shadow-sm animate-ping" />
+                      )}
+                    {item.name === "Pending Payments" &&
+                      urgentPendingPaymentCount > 0 && (
+                        <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-amber-600 ring-2 ring-card shadow-sm animate-ping" />
                       )}
                   </>
                 )}
