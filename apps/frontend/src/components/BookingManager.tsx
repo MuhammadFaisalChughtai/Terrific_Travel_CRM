@@ -49,6 +49,7 @@ import {
   Eye,
   Lock,
   Tag,
+  Layers,
 } from "lucide-react";
 // @ts-ignore
 import html2pdf from "html2pdf.js";
@@ -80,6 +81,7 @@ import {
   renderTransportVoucher,
   renderVisaInvoice,
   renderSpecialServicesInvoice,
+  computeBookingInstallments,
 } from "../utils/invoiceTemplates";
 
 const getIsConnectingFlight = (
@@ -283,6 +285,16 @@ export default function BookingManager({
   const [ticketOrderNotes, setTicketOrderNotes] = useState("");
   const [isSendingTicketOrder, setIsSendingTicketOrder] = useState(false);
   const ticketOrderPrintRef = useRef<HTMLDivElement>(null);
+  const [isInstallmentModalOpen, setIsInstallmentModalOpen] = useState(false);
+  const [editingInstallment, setEditingInstallment] = useState<any | null>(null);
+  const [installmentForm, setInstallmentForm] = useState({
+    title: "",
+    amount: "",
+    dueDate: "",
+    notes: "",
+  });
+  const [isAutoSplitModalOpen, setIsAutoSplitModalOpen] = useState(false);
+  const [autoSplitCount, setAutoSplitCount] = useState<number>(3);
 
   const handleUpdateFlightStatus = async (flightId: string, newStatus: string) => {
     if (!booking) return;
@@ -991,6 +1003,24 @@ export default function BookingManager({
     };
   }, [booking?.passengers]);
 
+  const installmentInfo = useMemo(() => {
+    if (!booking) {
+      return {
+        hasInstallments: false,
+        installments: [],
+        nextDueDate: null,
+        nextDueAmount: 0,
+        nextDueTitle: null,
+        planStatus: "INCOMPLETE",
+        completedCount: 0,
+        totalCount: 0,
+        allCompleted: false,
+        hasOverdue: false,
+      };
+    }
+    return computeBookingInstallments(booking);
+  }, [booking]);
+
   // Sync edit state when booking loads
   useEffect(() => {
     if (booking) {
@@ -1047,6 +1077,112 @@ export default function BookingManager({
     onError: (err: any) => {
       toast.error(
         err.response?.data?.message || "Failed to update booking void status."
+      );
+    },
+  });
+
+  // Mutation: Toggle installment plan
+  const toggleInstallmentPlanMutation = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      const bId = booking?.id || bookingId;
+      return apiClient.patch(`/bookings/${bId}/installment-plan/toggle`, { enabled });
+    },
+    onSuccess: (res) => {
+      toast.success(
+        res.data?.data?.hasInstallments
+          ? "Installment plan enabled."
+          : "Installment plan disabled."
+      );
+      queryClient.invalidateQueries({ queryKey: ["booking", bookingId] });
+      queryClient.invalidateQueries({ queryKey: ["bookings"] });
+    },
+    onError: (err: any) => {
+      toast.error(
+        err.response?.data?.message || "Failed to toggle installment plan."
+      );
+    },
+  });
+
+  // Mutation: Create installment
+  const createInstallmentMutation = useMutation({
+    mutationFn: async (data: { title: string; amount: number; dueDate: string; notes?: string }) => {
+      const bId = booking?.id || bookingId;
+      return apiClient.post(`/bookings/${bId}/installments`, data);
+    },
+    onSuccess: () => {
+      toast.success("Installment created successfully.");
+      setIsInstallmentModalOpen(false);
+      setInstallmentForm({ title: "", amount: "", dueDate: "", notes: "" });
+      queryClient.invalidateQueries({ queryKey: ["booking", bookingId] });
+      queryClient.invalidateQueries({ queryKey: ["bookings"] });
+    },
+    onError: (err: any) => {
+      toast.error(
+        err.response?.data?.message || "Failed to create installment."
+      );
+    },
+  });
+
+  // Mutation: Update installment
+  const updateInstallmentMutation = useMutation({
+    mutationFn: async ({
+      installmentId,
+      data,
+    }: {
+      installmentId: string;
+      data: { title?: string; amount?: number; dueDate?: string; notes?: string };
+    }) => {
+      const bId = booking?.id || bookingId;
+      return apiClient.put(`/bookings/${bId}/installments/${installmentId}`, data);
+    },
+    onSuccess: () => {
+      toast.success("Installment updated successfully.");
+      setIsInstallmentModalOpen(false);
+      setEditingInstallment(null);
+      setInstallmentForm({ title: "", amount: "", dueDate: "", notes: "" });
+      queryClient.invalidateQueries({ queryKey: ["booking", bookingId] });
+      queryClient.invalidateQueries({ queryKey: ["bookings"] });
+    },
+    onError: (err: any) => {
+      toast.error(
+        err.response?.data?.message || "Failed to update installment."
+      );
+    },
+  });
+
+  // Mutation: Delete installment
+  const deleteInstallmentMutation = useMutation({
+    mutationFn: async (installmentId: string) => {
+      const bId = booking?.id || bookingId;
+      return apiClient.delete(`/bookings/${bId}/installments/${installmentId}`);
+    },
+    onSuccess: () => {
+      toast.success("Installment removed.");
+      queryClient.invalidateQueries({ queryKey: ["booking", bookingId] });
+      queryClient.invalidateQueries({ queryKey: ["bookings"] });
+    },
+    onError: (err: any) => {
+      toast.error(
+        err.response?.data?.message || "Failed to delete installment."
+      );
+    },
+  });
+
+  // Mutation: Auto-split installment plan
+  const autoSplitMutation = useMutation({
+    mutationFn: async (numberOfInstallments: number) => {
+      const bId = booking?.id || bookingId;
+      return apiClient.post(`/bookings/${bId}/installment-plan/auto-split`, { numberOfInstallments });
+    },
+    onSuccess: () => {
+      toast.success(`Generated ${autoSplitCount}-part installment plan.`);
+      setIsAutoSplitModalOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["booking", bookingId] });
+      queryClient.invalidateQueries({ queryKey: ["bookings"] });
+    },
+    onError: (err: any) => {
+      toast.error(
+        err.response?.data?.message || "Failed to auto-split installment plan."
       );
     },
   });
@@ -1392,6 +1528,96 @@ export default function BookingManager({
       : hasAgentPayout
         ? rawProfit - actualAgentPayout
         : rawProfit - originalAgentMargin;
+
+  const formatDisplayDate = (d: string | Date | null | undefined) => {
+    if (!d) return "—";
+    try {
+      const date = new Date(d);
+      return isNaN(date.getTime())
+        ? "—"
+        : date.toLocaleDateString("en-GB", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          });
+    } catch {
+      return "—";
+    }
+  };
+
+  const handleOpenEditInstallment = (inst: any) => {
+    setEditingInstallment(inst);
+    let formattedDue = "";
+    if (inst.dueDate) {
+      try {
+        const d = new Date(inst.dueDate);
+        formattedDue = d.toISOString().split("T")[0];
+      } catch (e) {
+        formattedDue = "";
+      }
+    }
+    setInstallmentForm({
+      title: inst.title || "",
+      amount: inst.amount != null ? String(inst.amount) : "",
+      dueDate: formattedDue,
+      notes: inst.notes || "",
+    });
+    setIsInstallmentModalOpen(true);
+  };
+
+  const handleOpenAddInstallment = () => {
+    setEditingInstallment(null);
+    const instCount = (booking?.installments || []).length;
+    setInstallmentForm({
+      title: `Installment ${instCount + 1}`,
+      amount: "",
+      dueDate: new Date().toISOString().split("T")[0],
+      notes: "",
+    });
+    setIsInstallmentModalOpen(true);
+  };
+
+  const handleSaveInstallment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const parsedAmount = parseFloat(installmentForm.amount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      toast.error("Please enter a valid installment amount greater than 0");
+      return;
+    }
+    if (!installmentForm.dueDate) {
+      toast.error("Please select a due date");
+      return;
+    }
+
+    if (editingInstallment) {
+      updateInstallmentMutation.mutate({
+        installmentId: editingInstallment.id,
+        data: {
+          title: installmentForm.title || undefined,
+          amount: Math.round(parsedAmount * 100) / 100,
+          dueDate: installmentForm.dueDate,
+          notes: installmentForm.notes || undefined,
+        },
+      });
+    } else {
+      createInstallmentMutation.mutate({
+        title: installmentForm.title || `Installment ${(booking?.installments || []).length + 1}`,
+        amount: Math.round(parsedAmount * 100) / 100,
+        dueDate: installmentForm.dueDate,
+        notes: installmentForm.notes || undefined,
+      });
+    }
+  };
+
+  const handleDeleteInstallment = (instId: string, instTitle: string) => {
+    if (window.confirm(`Are you sure you want to delete "${instTitle}"?`)) {
+      deleteInstallmentMutation.mutate(instId);
+    }
+  };
+
+  const handleAutoSplit = () => {
+    autoSplitMutation.mutate(autoSplitCount);
+  };
 
   return (
     <Modal
@@ -2201,6 +2427,398 @@ export default function BookingManager({
                       </div>
                     );
                   })()}
+
+                {/* ── Installment Plan Section ── */}
+                <div className="mt-3 pt-3 border-t border-border space-y-3">
+                  {/* Header & Toggle */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-secondary/30 rounded-lg border border-border">
+                    <div className="flex items-start sm:items-center gap-3">
+                      <div
+                        className={`p-2 rounded-lg shrink-0 ${
+                          booking.hasInstallments
+                            ? "bg-primary/10 text-primary"
+                            : "bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        <CalendarRange size={18} />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-[13px] font-bold text-foreground">
+                            Enable Installment Plan
+                          </span>
+                          {booking.hasInstallments ? (
+                            <span className="px-2 py-0.5 text-[10px] font-extrabold rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                              Active
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-muted text-muted-foreground border border-border">
+                              Disabled
+                            </span>
+                          )}
+                          {!isOwner && (
+                            <span
+                              className="flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400 font-semibold"
+                              title="Only the assigned agent or admin can create or modify installment plans"
+                            >
+                              <Lock size={11} /> Agent / Admin Only
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          Break booking balance into customized payment dates and track due milestones.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Toggle button */}
+                    <div className="flex items-center gap-3 self-end sm:self-center shrink-0">
+                      <span className="text-xs font-semibold text-muted-foreground">
+                        {booking.hasInstallments ? "Enabled" : "Disabled"}
+                      </span>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={Boolean(booking.hasInstallments)}
+                        disabled={!isOwner || toggleInstallmentPlanMutation.isPending}
+                        onClick={() =>
+                          toggleInstallmentPlanMutation.mutate(!booking.hasInstallments)
+                        }
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                          !isOwner ? "opacity-50 cursor-not-allowed" : ""
+                        } ${
+                          booking.hasInstallments
+                            ? "bg-primary"
+                            : "bg-muted-foreground/30"
+                        }`}
+                        title={
+                          !isOwner
+                            ? "Only the assigned agent or admin can toggle installment plans"
+                            : "Toggle Installment Plan"
+                        }
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                            booking.hasInstallments
+                              ? "translate-x-5"
+                              : "translate-x-0"
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Active Installment Plan Details */}
+                  {booking.hasInstallments && (
+                    <div className="space-y-3">
+                      {/* Summary Cards Grid */}
+                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+                        {/* Card 1: Next Due Date */}
+                        <div className="bg-card p-3 rounded-lg border border-border flex flex-col justify-between">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                              <Clock
+                                size={12}
+                                className={
+                                  installmentInfo.hasOverdue
+                                    ? "text-rose-500"
+                                    : "text-primary"
+                                }
+                              />
+                              Next Due Date
+                            </span>
+                            {installmentInfo.hasOverdue && (
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-500/10 text-rose-600 border border-rose-500/20">
+                                Overdue
+                              </span>
+                            )}
+                          </div>
+                          <div>
+                            <div
+                              className={`text-[14px] font-bold ${
+                                installmentInfo.hasOverdue
+                                  ? "text-rose-600 dark:text-rose-400"
+                                  : "text-foreground"
+                              }`}
+                            >
+                              {installmentInfo.nextDueDate
+                                ? formatDisplayDate(installmentInfo.nextDueDate)
+                                : "All Paid"}
+                            </div>
+                            <div className="text-[10px] text-muted-foreground truncate font-medium mt-0.5">
+                              {installmentInfo.nextDueTitle || "Plan completed"}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Card 2: Next Payment Amount */}
+                        <div className="bg-card p-3 rounded-lg border border-border flex flex-col justify-between">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                              <Wallet size={12} className="text-primary" />
+                              Next Amount
+                            </span>
+                          </div>
+                          <div>
+                            <div className="text-[14px] font-bold text-foreground">
+                              {formatCurrency(installmentInfo.nextDueAmount || 0)}
+                            </div>
+                            <div className="text-[10px] text-muted-foreground font-medium mt-0.5">
+                              Due from client
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Card 3: Installment Progress */}
+                        <div className="bg-card p-3 rounded-lg border border-border flex flex-col justify-between">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                              <CheckCircle size={12} className="text-emerald-500" />
+                              Installment Status
+                            </span>
+                            <span
+                              className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                                installmentInfo.allCompleted
+                                  ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
+                                  : installmentInfo.hasOverdue
+                                  ? "bg-rose-500/10 text-rose-600 border border-rose-500/20"
+                                  : "bg-amber-500/10 text-amber-600 border border-amber-500/20"
+                              }`}
+                            >
+                              {installmentInfo.allCompleted
+                                ? "Complete"
+                                : installmentInfo.hasOverdue
+                                ? "Overdue"
+                                : "In Progress"}
+                            </span>
+                          </div>
+                          <div>
+                            <div className="text-[14px] font-bold text-foreground">
+                              {installmentInfo.completedCount} /{" "}
+                              {installmentInfo.totalCount} Complete
+                            </div>
+                            <div className="text-[10px] text-muted-foreground font-medium mt-0.5">
+                              Cumulative Paid: {formatCurrency(paidAmount)}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Card 4: Total Scheduled */}
+                        {(() => {
+                          const scheduledTotal =
+                            installmentInfo.installments.reduce(
+                              (sum: number, it: any) => sum + (it.amount || 0),
+                              0,
+                            );
+                          const diff =
+                            Math.round((scheduledTotal - totalPrice) * 100) / 100;
+                          return (
+                            <div className="bg-card p-3 rounded-lg border border-border flex flex-col justify-between">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                                  <Calendar size={12} className="text-primary" />
+                                  Scheduled Total
+                                </span>
+                              </div>
+                              <div>
+                                <div className="text-[14px] font-bold text-foreground">
+                                  {formatCurrency(scheduledTotal)}
+                                </div>
+                                <div
+                                  className={`text-[10px] font-semibold mt-0.5 ${
+                                    diff === 0
+                                      ? "text-emerald-600 dark:text-emerald-400"
+                                      : "text-amber-600 dark:text-amber-400"
+                                  }`}
+                                >
+                                  {diff === 0
+                                    ? "100% of Booking Total"
+                                    : diff < 0
+                                    ? `Unscheduled: ${formatCurrency(Math.abs(diff))}`
+                                    : `Exceeds: +${formatCurrency(diff)}`}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </div>
+
+                      {/* Installments Table */}
+                      <div className="bg-card rounded-lg border border-border overflow-hidden">
+                        <div className="px-3.5 py-2.5 bg-secondary/15 border-b border-border flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[12px] font-bold text-foreground uppercase tracking-wider">
+                              Payment Schedule
+                            </span>
+                            <span className="text-[11px] text-muted-foreground font-medium">
+                              ({installmentInfo.installments.length}{" "}
+                              {installmentInfo.installments.length === 1
+                                ? "part"
+                                : "parts"}
+                              )
+                            </span>
+                          </div>
+
+                          {isOwner && (
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setIsAutoSplitModalOpen(true)}
+                                className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold bg-secondary hover:bg-secondary/80 text-foreground border border-border rounded-md transition-all cursor-pointer"
+                                title="Automatically generate equal installment schedule"
+                              >
+                                <Layers size={12} className="text-primary" />{" "}
+                                Auto-Split Plan
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleOpenAddInstallment}
+                                className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold bg-primary text-primary-foreground hover:bg-primary/90 rounded-md transition-all shadow-sm cursor-pointer"
+                              >
+                                <Plus size={12} /> Add Installment
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left text-[12px]">
+                            <thead>
+                              <tr className="bg-secondary/10 border-b border-border text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
+                                <th className="px-3 py-2 w-12 text-center">#</th>
+                                <th className="px-3 py-2">Installment Title</th>
+                                <th className="px-3 py-2">Due Date</th>
+                                <th className="px-3 py-2 text-right">Amount</th>
+                                <th className="px-3 py-2 text-right">
+                                  Allocated Paid
+                                </th>
+                                <th className="px-3 py-2 text-right">
+                                  Remaining Due
+                                </th>
+                                <th className="px-3 py-2 text-center">Status</th>
+                                <th className="px-3 py-2">Notes</th>
+                                {isOwner && (
+                                  <th className="px-3 py-2 text-center w-20">
+                                    Actions
+                                  </th>
+                                )}
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-border">
+                              {installmentInfo.installments.length === 0 ? (
+                                <tr>
+                                  <td
+                                    colSpan={isOwner ? 9 : 8}
+                                    className="px-4 py-6 text-center text-muted-foreground text-xs"
+                                  >
+                                    No installments created yet. Click{" "}
+                                    <strong className="text-foreground">
+                                      "Add Installment"
+                                    </strong>{" "}
+                                    or{" "}
+                                    <strong className="text-foreground">
+                                      "Auto-Split Plan"
+                                    </strong>{" "}
+                                    to configure payment schedule.
+                                  </td>
+                                </tr>
+                              ) : (
+                                installmentInfo.installments.map(
+                                  (inst: any, idx: number) => {
+                                    return (
+                                      <tr
+                                        key={inst.id || idx}
+                                        className="hover:bg-secondary/10 transition-colors"
+                                      >
+                                        <td className="px-3 py-2.5 text-center font-bold text-muted-foreground">
+                                          {inst.installmentNumber || idx + 1}
+                                        </td>
+                                        <td className="px-3 py-2.5 font-bold text-foreground">
+                                          {inst.title || `Installment ${idx + 1}`}
+                                        </td>
+                                        <td className="px-3 py-2.5 font-medium whitespace-nowrap">
+                                          <span
+                                            className={
+                                              inst.status === "OVERDUE"
+                                                ? "text-rose-600 dark:text-rose-400 font-bold flex items-center gap-1"
+                                                : ""
+                                            }
+                                          >
+                                            {inst.status === "OVERDUE" && (
+                                              <AlertTriangle size={12} />
+                                            )}
+                                            {formatDisplayDate(inst.dueDate)}
+                                          </span>
+                                        </td>
+                                        <td className="px-3 py-2.5 text-right font-bold text-foreground">
+                                          {formatCurrency(inst.amount)}
+                                        </td>
+                                        <td className="px-3 py-2.5 text-right font-semibold text-emerald-600 dark:text-emerald-400">
+                                          {formatCurrency(inst.paidAmount || 0)}
+                                        </td>
+                                        <td className="px-3 py-2.5 text-right font-semibold text-foreground">
+                                          {formatCurrency(inst.remainingDue || 0)}
+                                        </td>
+                                        <td className="px-3 py-2.5 text-center whitespace-nowrap">
+                                          {inst.status === "COMPLETE" ? (
+                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                                              <CheckCircle2 size={11} /> Complete
+                                            </span>
+                                          ) : inst.status === "OVERDUE" ? (
+                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+                                              <Clock size={11} /> Overdue
+                                            </span>
+                                          ) : (
+                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+                                              <Clock size={11} /> Incomplete
+                                            </span>
+                                          )}
+                                        </td>
+                                        <td className="px-3 py-2.5 text-[11px] text-muted-foreground max-w-xs truncate">
+                                          {inst.notes || "—"}
+                                        </td>
+                                        {isOwner && (
+                                          <td className="px-3 py-2.5 text-center whitespace-nowrap">
+                                            <div className="flex items-center justify-center gap-1">
+                                              <button
+                                                type="button"
+                                                onClick={() =>
+                                                  handleOpenEditInstallment(inst)
+                                                }
+                                                className="p-1 text-muted-foreground hover:text-primary hover:bg-secondary rounded transition-colors"
+                                                title="Edit Installment"
+                                              >
+                                                <Pencil size={13} />
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() =>
+                                                  handleDeleteInstallment(
+                                                    inst.id,
+                                                    inst.title ||
+                                                      `Installment ${idx + 1}`,
+                                                  )
+                                                }
+                                                className="p-1 text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 rounded transition-colors"
+                                                title="Delete Installment"
+                                              >
+                                                <Trash2 size={13} />
+                                              </button>
+                                            </div>
+                                          </td>
+                                        )}
+                                      </tr>
+                                    );
+                                  },
+                                )
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </section>
@@ -5197,6 +5815,196 @@ export default function BookingManager({
           queryClient.invalidateQueries({ queryKey: ["booking", booking.id] });
         }}
       />
+
+      {/* Installment Add / Edit Modal */}
+      <Modal
+        isOpen={isInstallmentModalOpen}
+        onClose={() => {
+          setIsInstallmentModalOpen(false);
+          setEditingInstallment(null);
+        }}
+        title={editingInstallment ? "Edit Installment" : "Add Installment"}
+        maxWidth="md"
+      >
+        <form
+          onSubmit={handleSaveInstallment}
+          className="p-4 space-y-4 text-left font-sans"
+        >
+          <p className="text-xs text-muted-foreground">
+            Configure installment milestone amount and deadline date. Paid allocation updates automatically as client payments are logged.
+          </p>
+
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+              Installment Title / Milestone
+            </label>
+            <input
+              type="text"
+              required
+              value={installmentForm.title}
+              onChange={(e) =>
+                setInstallmentForm({ ...installmentForm, title: e.target.value })
+              }
+              placeholder="e.g. Deposit, 2nd Installment, Final Balance"
+              className="text-xs py-2 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary w-full font-medium"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                Installment Amount (£)
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="0.01"
+                required
+                value={installmentForm.amount}
+                onChange={(e) =>
+                  setInstallmentForm({ ...installmentForm, amount: e.target.value })
+                }
+                placeholder="0.00"
+                className="text-xs py-2 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary w-full font-bold"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                Due Date
+              </label>
+              <input
+                type="date"
+                required
+                value={installmentForm.dueDate}
+                onChange={(e) =>
+                  setInstallmentForm({
+                    ...installmentForm,
+                    dueDate: e.target.value,
+                  })
+                }
+                className="text-xs py-2 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary w-full font-medium"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+              Notes (Optional)
+            </label>
+            <textarea
+              rows={2}
+              value={installmentForm.notes}
+              onChange={(e) =>
+                setInstallmentForm({ ...installmentForm, notes: e.target.value })
+              }
+              placeholder="Add payment method instructions or conditions..."
+              className="text-xs py-2 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary w-full resize-none font-medium"
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+            <button
+              type="button"
+              onClick={() => {
+                setIsInstallmentModalOpen(false);
+                setEditingInstallment(null);
+              }}
+              className="px-3 py-1.5 text-xs font-bold bg-secondary hover:bg-secondary/80 text-foreground rounded-lg transition-all cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={
+                createInstallmentMutation.isPending ||
+                updateInstallmentMutation.isPending
+              }
+              className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg transition-all shadow-sm cursor-pointer"
+            >
+              {(createInstallmentMutation.isPending ||
+                updateInstallmentMutation.isPending) && (
+                <Loader2 size={12} className="animate-spin" />
+              )}
+              {editingInstallment ? "Update Installment" : "Save Installment"}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Auto-Split Plan Modal */}
+      <Modal
+        isOpen={isAutoSplitModalOpen}
+        onClose={() => setIsAutoSplitModalOpen(false)}
+        title="Auto-Split Installment Plan"
+        maxWidth="md"
+      >
+        <div className="p-4 space-y-4 text-left font-sans">
+          <p className="text-xs text-muted-foreground">
+            Automatically divide the total booking amount (
+            <strong className="text-foreground">
+              {formatCurrency(totalPrice)}
+            </strong>
+            ) into equal monthly installments starting from next month.
+          </p>
+
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+              Number of Installments
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {[2, 3, 4].map((cnt) => (
+                <button
+                  key={cnt}
+                  type="button"
+                  onClick={() => setAutoSplitCount(cnt)}
+                  className={`py-2 px-3 rounded-lg border text-xs font-bold flex flex-col items-center justify-center transition-all cursor-pointer ${
+                    autoSplitCount === cnt
+                      ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                      : "bg-secondary/40 text-foreground border-border hover:bg-secondary"
+                  }`}
+                >
+                  <span>{cnt} Parts</span>
+                  <span
+                    className={`text-[10px] font-normal ${
+                      autoSplitCount === cnt
+                        ? "text-primary-foreground/80"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    ~{formatCurrency(totalPrice / cnt)} / mo
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-700 dark:text-amber-300">
+            <strong>Note:</strong> Auto-split will replace existing installments with {autoSplitCount} newly scheduled equal monthly parts.
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+            <button
+              type="button"
+              onClick={() => setIsAutoSplitModalOpen(false)}
+              className="px-3 py-1.5 text-xs font-bold bg-secondary hover:bg-secondary/80 text-foreground rounded-lg transition-all cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={autoSplitMutation.isPending}
+              onClick={handleAutoSplit}
+              className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg transition-all shadow-sm cursor-pointer"
+            >
+              {autoSplitMutation.isPending && (
+                <Loader2 size={12} className="animate-spin" />
+              )}
+              Generate {autoSplitCount}-Part Schedule
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       <Modal
         isOpen={isPrintTicketModalOpen}

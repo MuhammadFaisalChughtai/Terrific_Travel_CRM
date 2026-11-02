@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import multer from 'multer';
-import { create, getNextReference, findAll, findOne, updateStatus, updateBookingDetails, toggleLock, cancel, finalizeMargin, addFlightService, updateFlightService, updateFlightsStatus, deleteFlightService, addAccommodationService, updateAccommodationService, deleteAccommodationService, addPassenger, updatePassenger, deletePassenger, getPassengerForm, submitPassengerForm, sendPassengerLink, sendTicketOrder, uploadPassengerPassportScan, getPassengerPassportScan, deletePassengerPassportScan, addPassengerDocument, getPassengerDocumentFile, deletePassengerDocument, addPassengerByFormToken, deletePassengerByFormToken, adminUploadPassportScan, adminGetPassportScan, adminDeletePassportScan, adminAddPassengerDocument, adminGetPassengerDocumentFile, adminDeletePassengerDocument, searchAllPassengers, addTransportService, updateTransportService, deleteTransportService, addVisaService, updateVisaService, deleteVisaService, addAdditionalService, updateAdditionalService, deleteAdditionalService, deleteVendorPayment, deleteTransaction, getUniqueHotels, getBookedServices, toggleBookedServiceDone, updateVendorPaymentStatus, triggerMissingDetailsReminders, getHotelCancellationAlerts, markHotelBooked, getTransferCancellationAlerts, markTransferBooked, adjustHotelPrice, payAdditionalHotelMargin, adjustTransportPrice, adjustVisaPrice, adjustAdditionalServicePrice, payAdditionalServiceMargin } from '../controllers/bookings.controller';
+import { create, getNextReference, findAll, findOne, updateStatus, updateBookingDetails, toggleLock, cancel, finalizeMargin, addFlightService, updateFlightService, updateFlightsStatus, deleteFlightService, addAccommodationService, updateAccommodationService, deleteAccommodationService, addPassenger, updatePassenger, deletePassenger, getPassengerForm, submitPassengerForm, sendPassengerLink, sendTicketOrder, uploadPassengerPassportScan, getPassengerPassportScan, deletePassengerPassportScan, addPassengerDocument, getPassengerDocumentFile, deletePassengerDocument, addPassengerByFormToken, deletePassengerByFormToken, adminUploadPassportScan, adminGetPassportScan, adminDeletePassportScan, adminAddPassengerDocument, adminGetPassengerDocumentFile, adminDeletePassengerDocument, searchAllPassengers, addTransportService, updateTransportService, deleteTransportService, addVisaService, updateVisaService, deleteVisaService, addAdditionalService, updateAdditionalService, deleteAdditionalService, deleteVendorPayment, deleteTransaction, getUniqueHotels, getBookedServices, toggleBookedServiceDone, updateVendorPaymentStatus, triggerMissingDetailsReminders, getHotelCancellationAlerts, markHotelBooked, getTransferCancellationAlerts, markTransferBooked, adjustHotelPrice, payAdditionalHotelMargin, adjustTransportPrice, adjustVisaPrice, adjustAdditionalServicePrice, payAdditionalServiceMargin, toggleInstallmentPlan, createInstallment, updateInstallment, deleteInstallment, autoSplitInstallments } from '../controllers/bookings.controller';
 import { authMiddleware } from '../middleware/auth.middleware';
 import { requireRoles, requirePermissions, requireBookingOwnership } from '../middleware/rbac.middleware';
 
@@ -79,6 +79,13 @@ router.post('/:id/additional-services/:additionalServiceId/adjust-price', requir
 router.delete('/:id/additional-services/:serviceId', requireBookingOwnership as any, deleteAdditionalService);
 
 router.post('/:id/adjustments/:serviceType/:adjustmentId/pay-margin', requireBookingOwnership as any, payAdditionalServiceMargin);
+
+// Installment Plan (Agent ownership / Admin enforced)
+router.patch('/:id/installment-plan/toggle', requireBookingOwnership as any, toggleInstallmentPlan);
+router.post('/:id/installments', requireBookingOwnership as any, createInstallment);
+router.put('/:id/installments/:installmentId', requireBookingOwnership as any, updateInstallment);
+router.delete('/:id/installments/:installmentId', requireBookingOwnership as any, deleteInstallment);
+router.post('/:id/installment-plan/auto-split', requireBookingOwnership as any, autoSplitInstallments);
 
 // Passenger CRUD require ownership
 router.post('/:id/passengers', requireBookingOwnership as any, addPassenger);

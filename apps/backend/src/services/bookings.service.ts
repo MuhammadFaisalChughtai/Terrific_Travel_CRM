@@ -940,6 +940,9 @@ export class BookingsService {
           },
           orderBy: { adjustmentDate: 'desc' },
         },
+        installments: {
+          orderBy: { installmentNumber: 'asc' },
+        },
       },
     });
     if (!booking) throw new NotFoundException('Booking not found');
@@ -982,6 +985,25 @@ export class BookingsService {
           }
         }).catch(err => logger.error("Error auto-syncing booking paidAmount:", err));
       }
+    }
+
+    if (booking.installments && booking.installments.length > 0) {
+      const summary = this.computeInstallmentSummary(booking.installments, booking.paidAmount || 0);
+      (booking as any).installments = summary.installments;
+      (booking as any).installmentPlanSummary = summary.planSummary;
+    } else {
+      (booking as any).installmentPlanSummary = {
+        totalPlanAmount: 0,
+        completedCount: 0,
+        totalCount: 0,
+        nextDueDate: null,
+        nextDueAmount: 0,
+        nextDueInstallmentNumber: null,
+        nextDueTitle: null,
+        planStatus: 'NONE',
+        allCompleted: false,
+        hasOverdue: false,
+      };
     }
 
     return booking;
@@ -4801,6 +4823,360 @@ export class BookingsService {
     notes?: string
   ) {
     return this.payAdditionalServiceMargin(bookingId, 'hotel', adjustmentId, actorId, notes);
+  }
+
+  /**
+   * Helper: Calculate installment statuses based on waterfall payment allocation and due date
+   */
+  computeInstallmentSummary(rawInstallments: any[], totalPaid: number) {
+    const sorted = [...rawInstallments].sort((a, b) => {
+      const dateA = a.dueDate ? new Date(a.dueDate).getTime() : 0;
+      const dateB = b.dueDate ? new Date(b.dueDate).getTime() : 0;
+      if (dateA !== dateB) return dateA - dateB;
+      return (a.installmentNumber || 0) - (b.installmentNumber || 0);
+    });
+
+    let runningPaid = Math.max(0, totalPaid);
+    const now = new Date();
+    // Compare up to end of due date day (23:59:59.999)
+    const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+    let nextDueDate: Date | null = null;
+    let nextDueAmount = 0;
+    let nextDueInstallmentNumber: number | null = null;
+    let nextDueTitle: string | null = null;
+    let completedCount = 0;
+    let hasOverdue = false;
+
+    const computed = sorted.map((inst, index) => {
+      const amount = Math.round((Number(inst.amount) || 0) * 100) / 100;
+      const allocated = Math.min(amount, runningPaid);
+      runningPaid = Math.max(0, Math.round((runningPaid - allocated) * 100) / 100);
+      const remainingDue = Math.max(0, Math.round((amount - allocated) * 100) / 100);
+
+      const isCompleted = remainingDue <= 0.001;
+      const dueDateObj = inst.dueDate ? new Date(inst.dueDate) : null;
+      const isPastDue = dueDateObj ? dueDateObj.getTime() < todayMidnight.getTime() : false;
+
+      let status = "INCOMPLETE";
+      if (isCompleted) {
+        status = "COMPLETE";
+        completedCount++;
+      } else if (isPastDue) {
+        status = "OVERDUE";
+        hasOverdue = true;
+      } else {
+        status = "INCOMPLETE";
+      }
+
+      if (!isCompleted && !nextDueDate) {
+        nextDueDate = dueDateObj;
+        nextDueAmount = remainingDue;
+        nextDueInstallmentNumber = inst.installmentNumber || index + 1;
+        nextDueTitle = inst.title || `Installment ${inst.installmentNumber || index + 1}`;
+      }
+
+      return {
+        ...inst,
+        amount,
+        paidAmount: allocated,
+        remainingDue,
+        status,
+        isCompleted,
+        isOverdue: status === "OVERDUE",
+      };
+    });
+
+    const totalPlanAmount = Math.round(computed.reduce((s, i) => s + i.amount, 0) * 100) / 100;
+    const allCompleted = computed.length > 0 && completedCount === computed.length;
+
+    let planStatus = "IN_PROGRESS";
+    if (allCompleted) {
+      planStatus = "COMPLETE";
+    } else if (hasOverdue) {
+      planStatus = "OVERDUE";
+    } else {
+      planStatus = "IN_PROGRESS";
+    }
+
+    return {
+      installments: computed,
+      planSummary: {
+        totalPlanAmount,
+        completedCount,
+        totalCount: computed.length,
+        nextDueDate,
+        nextDueAmount,
+        nextDueInstallmentNumber,
+        nextDueTitle,
+        planStatus,
+        allCompleted,
+        hasOverdue,
+      },
+    };
+  }
+
+  /**
+   * Toggle Installment Plan on a booking.
+   * If enabling and no installments exist, auto-generates a 2-part schedule.
+   */
+  async toggleInstallmentPlan(bookingId: string, enabled: boolean, actorId?: string) {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: { installments: true },
+    });
+    if (!booking) throw new NotFoundException('Booking not found');
+
+    await prisma.$transaction(async (tx) => {
+      // If enabling and no installments exist, create 2 smart installments:
+      // Part 1: Deposit / Initial Payment (e.g., 30% of total price or remaining)
+      // Part 2: Final Balance (remaining)
+      if (enabled && (!booking.installments || booking.installments.length === 0)) {
+        const total = booking.totalPrice || 0;
+        const deposit = Math.round(Math.max(100, total * 0.3) * 100) / 100;
+        const balance = Math.round(Math.max(0, total - deposit) * 100) / 100;
+
+        const depDate = booking.departureDate ? new Date(booking.departureDate) : new Date(Date.now() + 60 * 86400000);
+        const finalDue = new Date(Math.max(Date.now() + 7 * 86400000, depDate.getTime() - 14 * 86400000));
+        const depositDue = new Date(Date.now() + 3 * 86400000);
+
+        await tx.bookingInstallment.createMany({
+          data: [
+            {
+              bookingId,
+              installmentNumber: 1,
+              title: 'Deposit / Initial Payment',
+              amount: deposit,
+              dueDate: depositDue,
+              status: 'INCOMPLETE',
+            },
+            {
+              bookingId,
+              installmentNumber: 2,
+              title: 'Final Balance',
+              amount: balance,
+              dueDate: finalDue,
+              status: 'INCOMPLETE',
+            },
+          ],
+        });
+      }
+
+      await tx.booking.update({
+        where: { id: bookingId },
+        data: { hasInstallments: enabled },
+      });
+    });
+
+    await auditLogService.log({
+      userId: actorId || null,
+      action: 'Update',
+      module: 'Bookings',
+      recordId: bookingId,
+      oldValue: { hasInstallments: booking.hasInstallments },
+      newValue: { hasInstallments: enabled },
+    });
+
+    await rabbitMQService.publish('booking.updated', { bookingId });
+    return this.findOne(bookingId);
+  }
+
+  /**
+   * Create an installment for a booking.
+   */
+  async createInstallment(
+    bookingId: string,
+    data: { title?: string; amount: number; dueDate: string | Date; notes?: string },
+    actorId?: string
+  ) {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: { installments: true },
+    });
+    if (!booking) throw new NotFoundException('Booking not found');
+
+    const amount = Number(data.amount);
+    if (isNaN(amount) || amount <= 0) {
+      throw new Error('Installment amount must be greater than 0');
+    }
+    if (!data.dueDate) {
+      throw new Error('Due date is required');
+    }
+
+    const currentMax = booking.installments.reduce((max, i) => Math.max(max, i.installmentNumber), 0);
+    const nextNumber = currentMax + 1;
+
+    const installment = await prisma.bookingInstallment.create({
+      data: {
+        bookingId,
+        installmentNumber: nextNumber,
+        title: data.title?.trim() || `Installment ${nextNumber}`,
+        amount: Math.round(amount * 100) / 100,
+        dueDate: new Date(data.dueDate),
+        notes: data.notes?.trim() || null,
+        status: 'INCOMPLETE',
+      },
+    });
+
+    // Ensure hasInstallments is true
+    if (!booking.hasInstallments) {
+      await prisma.booking.update({
+        where: { id: bookingId },
+        data: { hasInstallments: true },
+      });
+    }
+
+    await auditLogService.log({
+      userId: actorId || null,
+      action: 'Create',
+      module: 'Bookings',
+      recordId: installment.id,
+      newValue: installment,
+    });
+
+    await rabbitMQService.publish('booking.updated', { bookingId });
+    return this.findOne(bookingId);
+  }
+
+  /**
+   * Update an existing installment.
+   */
+  async updateInstallment(
+    bookingId: string,
+    installmentId: string,
+    data: { title?: string; amount?: number; dueDate?: string | Date; notes?: string },
+    actorId?: string
+  ) {
+    const installment = await prisma.bookingInstallment.findFirst({
+      where: { id: installmentId, bookingId },
+    });
+    if (!installment) throw new NotFoundException('Installment not found');
+
+    const updateData: any = {};
+    if (data.title !== undefined) updateData.title = data.title.trim();
+    if (data.amount !== undefined) {
+      const amount = Number(data.amount);
+      if (isNaN(amount) || amount <= 0) throw new Error('Installment amount must be greater than 0');
+      updateData.amount = Math.round(amount * 100) / 100;
+    }
+    if (data.dueDate !== undefined) updateData.dueDate = new Date(data.dueDate);
+    if (data.notes !== undefined) updateData.notes = data.notes.trim() || null;
+
+    const updated = await prisma.bookingInstallment.update({
+      where: { id: installmentId },
+      data: updateData,
+    });
+
+    await auditLogService.log({
+      userId: actorId || null,
+      action: 'Update',
+      module: 'Bookings',
+      recordId: installmentId,
+      oldValue: installment,
+      newValue: updated,
+    });
+
+    await rabbitMQService.publish('booking.updated', { bookingId });
+    return this.findOne(bookingId);
+  }
+
+  /**
+   * Delete an installment from a booking and re-number remaining installments.
+   */
+  async deleteInstallment(bookingId: string, installmentId: string, actorId?: string) {
+    const installment = await prisma.bookingInstallment.findFirst({
+      where: { id: installmentId, bookingId },
+    });
+    if (!installment) throw new NotFoundException('Installment not found');
+
+    await prisma.$transaction(async (tx) => {
+      await tx.bookingInstallment.delete({ where: { id: installmentId } });
+
+      const remaining = await tx.bookingInstallment.findMany({
+        where: { bookingId },
+        orderBy: { installmentNumber: 'asc' },
+      });
+
+      for (let i = 0; i < remaining.length; i++) {
+        if (remaining[i].installmentNumber !== i + 1) {
+          await tx.bookingInstallment.update({
+            where: { id: remaining[i].id },
+            data: { installmentNumber: i + 1 },
+          });
+        }
+      }
+    });
+
+    await auditLogService.log({
+      userId: actorId || null,
+      action: 'Archive',
+      module: 'Bookings',
+      recordId: installmentId,
+      oldValue: installment,
+    });
+
+    await rabbitMQService.publish('booking.updated', { bookingId });
+    return this.findOne(bookingId);
+  }
+
+  /**
+   * Auto-split booking total (or remaining balance) across N installments.
+   */
+  async autoSplitInstallments(bookingId: string, numberOfInstallments: number, actorId?: string) {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: { installments: true },
+    });
+    if (!booking) throw new NotFoundException('Booking not found');
+
+    const n = Math.max(2, Math.min(12, Number(numberOfInstallments) || 3));
+    const total = booking.totalPrice || 0;
+    const eachAmount = Math.round((total / n) * 100) / 100;
+    const finalAmount = Math.round((total - (eachAmount * (n - 1))) * 100) / 100;
+
+    const depDate = booking.departureDate ? new Date(booking.departureDate) : new Date(Date.now() + 90 * 86400000);
+    const nowMs = Date.now();
+    const span = Math.max(86400000 * 7, depDate.getTime() - 14 * 86400000 - nowMs);
+    const step = span / n;
+
+    await prisma.$transaction(async (tx) => {
+      await tx.bookingInstallment.deleteMany({ where: { bookingId } });
+
+      const newRows = [];
+      for (let i = 0; i < n; i++) {
+        const dueDate = new Date(nowMs + (i + 1) * step);
+        const amt = (i === n - 1) ? finalAmount : eachAmount;
+        let title = `Installment ${i + 1}`;
+        if (i === 0) title = 'Deposit / 1st Installment';
+        else if (i === n - 1) title = 'Final Balance';
+
+        newRows.push({
+          bookingId,
+          installmentNumber: i + 1,
+          title,
+          amount: amt,
+          dueDate,
+          status: 'INCOMPLETE',
+        });
+      }
+
+      await tx.bookingInstallment.createMany({ data: newRows });
+      await tx.booking.update({
+        where: { id: bookingId },
+        data: { hasInstallments: true },
+      });
+    });
+
+    await auditLogService.log({
+      userId: actorId || null,
+      action: 'Update',
+      module: 'Bookings',
+      recordId: bookingId,
+      newValue: { autoSplit: n, total },
+    });
+
+    await rabbitMQService.publish('booking.updated', { bookingId });
+    return this.findOne(bookingId);
   }
 }
 

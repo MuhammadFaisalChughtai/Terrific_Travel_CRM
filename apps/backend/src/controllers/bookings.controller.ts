@@ -29,6 +29,15 @@ async function requireCanEditFlights(bookingId: string, user: any): Promise<void
   }
 }
 
+/** Helper: enforce canManageInstallments or throw 403 */
+async function requireCanManageInstallments(bookingId: string, user: any): Promise<void> {
+  const booking = await bookingsService.findOne(bookingId);
+  if (!BookingsPolicy.canManageInstallments(user, booking)) {
+    const err = new ForbiddenException('Forbidden: Only the assigned agent or an administrator can create, modify, or delete the installment plan.');
+    throw err;
+  }
+}
+
 export const create = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const result = await bookingsService.create(req.user!.id, req.body);
   res.status(201).json({
@@ -659,6 +668,63 @@ export const payAdditionalServiceMargin = asyncHandler(async (req: Authenticated
   res.status(200).json({
     success: true,
     message: 'Additional agent margin payout recorded successfully',
+    data: result,
+  });
+});
+
+export const toggleInstallmentPlan = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id } = req.params;
+  const { enabled } = req.body;
+  await requireCanManageInstallments(id, req.user);
+  const result = await bookingsService.toggleInstallmentPlan(id, Boolean(enabled), req.user!.id);
+  res.status(200).json({
+    success: true,
+    message: enabled ? 'Installment plan enabled successfully' : 'Installment plan disabled successfully',
+    data: result,
+  });
+});
+
+export const createInstallment = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id } = req.params;
+  await requireCanManageInstallments(id, req.user);
+  const result = await bookingsService.createInstallment(id, req.body, req.user!.id);
+  res.status(201).json({
+    success: true,
+    message: 'Installment created successfully',
+    data: result,
+  });
+});
+
+export const updateInstallment = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id, installmentId } = req.params;
+  await requireCanManageInstallments(id, req.user);
+  const result = await bookingsService.updateInstallment(id, installmentId, req.body, req.user!.id);
+  res.status(200).json({
+    success: true,
+    message: 'Installment updated successfully',
+    data: result,
+  });
+});
+
+export const deleteInstallment = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id, installmentId } = req.params;
+  await requireCanManageInstallments(id, req.user);
+  const result = await bookingsService.deleteInstallment(id, installmentId, req.user!.id);
+  res.status(200).json({
+    success: true,
+    message: 'Installment deleted successfully',
+    data: result,
+  });
+});
+
+export const autoSplitInstallments = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id } = req.params;
+  const { numberOfInstallments } = req.body;
+  await requireCanManageInstallments(id, req.user);
+  const result = await bookingsService.autoSplitInstallments(id, Number(numberOfInstallments) || 3, req.user!.id);
+  res.status(200).json({
+    success: true,
+    message: 'Installment plan generated successfully',
     data: result,
   });
 });

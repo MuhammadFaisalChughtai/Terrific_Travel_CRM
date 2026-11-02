@@ -930,6 +930,215 @@ function generateTimelineHtml(booking: any): string {
   `;
 }
 
+// ──────────────────────────────────────────────────────────────────────────
+// Installment Plan Helpers for Invoices
+// ──────────────────────────────────────────────────────────────────────────
+
+export function computeBookingInstallments(booking: any) {
+  if (!booking?.installments || booking.installments.length === 0) {
+    return {
+      hasInstallments: false,
+      installments: [],
+      nextDueDate: null,
+      nextDueAmount: 0,
+      nextDueTitle: null,
+      planStatus: 'NONE',
+      completedCount: 0,
+      totalCount: 0,
+      allCompleted: false,
+      hasOverdue: false,
+    };
+  }
+
+  const sorted = [...booking.installments].sort((a: any, b: any) => {
+    const dateA = a.dueDate ? new Date(a.dueDate).getTime() : 0;
+    const dateB = b.dueDate ? new Date(b.dueDate).getTime() : 0;
+    if (dateA !== dateB) return dateA - dateB;
+    return (a.installmentNumber || 0) - (b.installmentNumber || 0);
+  });
+
+  let runningPaid = Math.max(0, Number(booking.paidAmount) || 0);
+  const now = new Date();
+  const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+  let nextDueDate: Date | null = null;
+  let nextDueAmount = 0;
+  let nextDueTitle: string | null = null;
+  let completedCount = 0;
+  let hasOverdue = false;
+
+  const computed = sorted.map((inst: any, idx: number) => {
+    const amount = Math.round((Number(inst.amount) || 0) * 100) / 100;
+    const allocated = Math.min(amount, runningPaid);
+    runningPaid = Math.max(0, Math.round((runningPaid - allocated) * 100) / 100);
+    const remainingDue = Math.max(0, Math.round((amount - allocated) * 100) / 100);
+
+    const isCompleted = remainingDue <= 0.001;
+    const dueDateObj = inst.dueDate ? new Date(inst.dueDate) : null;
+    const isPastDue = dueDateObj ? dueDateObj.getTime() < todayMidnight.getTime() : false;
+
+    let status = "INCOMPLETE";
+    if (isCompleted) {
+      status = "COMPLETE";
+      completedCount++;
+    } else if (isPastDue) {
+      status = "OVERDUE";
+      hasOverdue = true;
+    } else {
+      status = "INCOMPLETE";
+    }
+
+    if (!isCompleted && !nextDueDate) {
+      nextDueDate = dueDateObj;
+      nextDueAmount = remainingDue;
+      nextDueTitle = inst.title || `Installment ${inst.installmentNumber || idx + 1}`;
+    }
+
+    return {
+      ...inst,
+      amount,
+      paidAmount: allocated,
+      remainingDue,
+      status,
+      isCompleted,
+      isOverdue: status === "OVERDUE",
+    };
+  });
+
+  const allCompleted = computed.length > 0 && completedCount === computed.length;
+  let planStatus = "IN_PROGRESS";
+  if (allCompleted) planStatus = "COMPLETE";
+  else if (hasOverdue) planStatus = "OVERDUE";
+
+  return {
+    hasInstallments: Boolean(booking.hasInstallments || computed.length > 0),
+    installments: computed,
+    nextDueDate,
+    nextDueAmount,
+    nextDueTitle,
+    planStatus,
+    completedCount,
+    totalCount: computed.length,
+    allCompleted,
+    hasOverdue,
+  };
+}
+
+export function generateInstallmentPlanHtml(booking: any): string {
+  if (!booking?.hasInstallments && (!booking?.installments || booking.installments.length === 0)) {
+    return "";
+  }
+
+  const { installments, nextDueDate, nextDueAmount, allCompleted, hasOverdue } = computeBookingInstallments(booking);
+  if (installments.length === 0) return "";
+
+  const nextDueFormatted = nextDueDate ? formatDate(nextDueDate) : "—";
+  const statusColor = allCompleted
+    ? "#15803D"
+    : hasOverdue
+      ? "#B91C1C"
+      : "#D97706";
+  const statusBg = allCompleted
+    ? "#DCFCE7"
+    : hasOverdue
+      ? "#FEE2E2"
+      : "#FEF3C7";
+  const statusText = allCompleted
+    ? "All Installments Completed"
+    : hasOverdue
+      ? "Payment Overdue"
+      : "Payment In Progress";
+
+  return `
+    <div class="installment-plan-section" style="margin-top: 24px; margin-bottom: 24px; padding: 18px; background: #FFFFFF; border: 1.5px solid #CBD5E1; border-radius: 8px; page-break-inside: avoid;">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px solid #E2E8F0; padding-bottom: 10px; margin-bottom: 14px;">
+        <div>
+          <h3 style="margin: 0; font-family: 'Outfit', sans-serif; font-size: 12px; color: #0F172A; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 6px;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: middle;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            Scheduled Payment &amp; Installment Plan
+          </h3>
+          <p style="margin: 3px 0 0; font-size: 9.5px; color: #64748B;">
+            Agreed payment plan arranged with assigned agent <strong>${booking.agent?.name || "Terrific Travel Direct"}</strong>
+          </p>
+        </div>
+        <div>
+          <span style="display: inline-block; font-size: 9px; font-weight: 800; padding: 3px 10px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.5px; background: ${statusBg}; color: ${statusColor};">
+            ${statusText}
+          </span>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px;">
+        <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; padding: 10px;">
+          <p style="margin: 0; font-size: 8.5px; text-transform: uppercase; font-weight: 800; color: #64748B; letter-spacing: 0.5px;">Next Due Date</p>
+          <p style="margin: 3px 0 0; font-size: 13px; font-weight: 800; color: ${hasOverdue ? "#DC2626" : "#0F172A"};">
+            ${allCompleted ? "Paid in Full" : nextDueFormatted}
+          </p>
+        </div>
+        <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; padding: 10px;">
+          <p style="margin: 0; font-size: 8.5px; text-transform: uppercase; font-weight: 800; color: #64748B; letter-spacing: 0.5px;">Next Payment Amount</p>
+          <p style="margin: 3px 0 0; font-size: 13px; font-weight: 800; color: #2563EB;">
+            ${allCompleted ? formatCurrency(0) : formatCurrency(nextDueAmount)}
+          </p>
+        </div>
+        <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; padding: 10px;">
+          <p style="margin: 0; font-size: 8.5px; text-transform: uppercase; font-weight: 800; color: #64748B; letter-spacing: 0.5px;">Assigned Agent</p>
+          <p style="margin: 3px 0 0; font-size: 12px; font-weight: 700; color: #0F172A;">
+            ${booking.agent?.name || "Terrific Travel Direct"}
+          </p>
+          ${booking.agent?.phoneNumber ? `<p style="margin: 1px 0 0; font-size: 9px; color: #64748B;">Phone: ${booking.agent.phoneNumber}</p>` : ""}
+        </div>
+      </div>
+
+      <table class="data-table" style="width: 100%; border-collapse: collapse; font-size: 10px;">
+        <thead>
+          <tr style="background: #1E293B; color: #FFFFFF;">
+            <th style="padding: 7px 10px; text-align: left; font-size: 8.5px; text-transform: uppercase;"># / Description</th>
+            <th style="padding: 7px 10px; text-align: left; font-size: 8.5px; text-transform: uppercase;">Due Date</th>
+            <th style="padding: 7px 10px; text-align: right; font-size: 8.5px; text-transform: uppercase;">Scheduled Amount</th>
+            <th style="padding: 7px 10px; text-align: right; font-size: 8.5px; text-transform: uppercase;">Amount Paid</th>
+            <th style="padding: 7px 10px; text-align: right; font-size: 8.5px; text-transform: uppercase;">Balance Due</th>
+            <th style="padding: 7px 10px; text-align: center; font-size: 8.5px; text-transform: uppercase;">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${installments
+            .map((inst: any) => {
+              const rowStatusBg = inst.status === "COMPLETE" ? "#DCFCE7" : inst.status === "OVERDUE" ? "#FEE2E2" : "#FEF3C7";
+              const rowStatusColor = inst.status === "COMPLETE" ? "#15803D" : inst.status === "OVERDUE" ? "#B91C1C" : "#B45309";
+              return `
+              <tr style="border-bottom: 1px solid #F1F5F9;">
+                <td style="padding: 8px 10px;">
+                  <strong style="color: #0F172A;">${inst.installmentNumber}. ${inst.title || "Installment"}</strong>
+                  ${inst.notes ? `<div style="font-size: 8.5px; color: #64748B; font-style: italic;">${inst.notes}</div>` : ""}
+                </td>
+                <td style="padding: 8px 10px; font-weight: 600; color: ${inst.status === "OVERDUE" ? "#DC2626" : "#334155"};">
+                  ${inst.dueDate ? formatDate(inst.dueDate) : "—"}
+                </td>
+                <td style="padding: 8px 10px; text-align: right; font-weight: 700; color: #0F172A;">
+                  ${formatCurrency(inst.amount)}
+                </td>
+                <td style="padding: 8px 10px; text-align: right; font-weight: 700; color: #16A34A;">
+                  ${formatCurrency(inst.paidAmount)}
+                </td>
+                <td style="padding: 8px 10px; text-align: right; font-weight: 700; color: ${inst.remainingDue > 0 ? (inst.status === "OVERDUE" ? "#DC2626" : "#D97706") : "#64748B"};">
+                  ${formatCurrency(inst.remainingDue)}
+                </td>
+                <td style="padding: 8px 10px; text-align: center;">
+                  <span style="display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 8.5px; font-weight: 800; text-transform: uppercase; background: ${rowStatusBg}; color: ${rowStatusColor};">
+                    ${inst.status}
+                  </span>
+                </td>
+              </tr>
+            `;
+            })
+            .join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
 // 1. GENERATE BOOKING INVOICE
 export function generateBookingInvoiceHtml(booking: any) {
   const leader =
@@ -970,6 +1179,21 @@ export function generateBookingInvoiceHtml(booking: any) {
   const totalPrice = booking.totalPrice || totalCalculated;
   const paidAmount = booking.paidAmount || 0;
   const balanceDue = Math.max(0, totalPrice - paidAmount);
+
+  const installmentInfo = computeBookingInstallments(booking);
+  const agentInstallmentSnippet = installmentInfo.hasInstallments
+    ? `
+      <div style="margin-top: 8px; padding: 6px 10px; background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 6px;">
+        <p style="margin: 0; font-size: 8.5px; font-weight: 800; color: #1D4ED8; text-transform: uppercase; letter-spacing: 0.5px;">Installment Plan Active</p>
+        <p style="margin: 2px 0 0; font-size: 9.5px; color: #1E293B;">
+          Next Due: <strong>${installmentInfo.nextDueDate ? formatDate(installmentInfo.nextDueDate) : "Paid in Full"}</strong> | Amount: <strong>${formatCurrency(installmentInfo.nextDueAmount)}</strong>
+        </p>
+        <p style="margin: 2px 0 0; font-size: 8.5px; font-weight: 700; color: ${installmentInfo.allCompleted ? "#15803D" : installmentInfo.hasOverdue ? "#B91C1C" : "#B45309"};">
+          Status: ${installmentInfo.allCompleted ? "COMPLETED" : installmentInfo.hasOverdue ? "OVERDUE" : "INCOMPLETE"}
+        </p>
+      </div>
+    `
+    : "";
 
   return `
     <div class="document-container">
@@ -1017,6 +1241,7 @@ export function generateBookingInvoiceHtml(booking: any) {
           <p><strong>${booking.agent?.name || "Terrific Travel Direct Office"}</strong></p>
           ${booking.agent?.phoneNumber ? `<p>Phone: ${booking.agent.phoneNumber}</p>` : ""}
           ${booking.agent?.email ? `<p>Email: ${booking.agent.email}</p>` : ""}
+          ${agentInstallmentSnippet}
         </div>
       </div>
 
@@ -1071,6 +1296,8 @@ export function generateBookingInvoiceHtml(booking: any) {
           </tr>
         </table>
       </div>
+
+      ${generateInstallmentPlanHtml(booking)}
 
       ${(() => {
         const cancelledFlights = (booking.flightServices || []).filter(
@@ -2803,10 +3030,26 @@ export function renderBookingInvoice(
     ${leader && leader.phoneNumber ? `<p>Phone: ${leader.phoneNumber}</p>` : ""}
   `;
 
+  const installmentInfo = computeBookingInstallments(booking);
+  const agentInstallmentSnippet = installmentInfo.hasInstallments
+    ? `
+      <div style="margin-top: 8px; padding: 6px 10px; background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 6px;">
+        <p style="margin: 0; font-size: 8.5px; font-weight: 800; color: #1D4ED8; text-transform: uppercase; letter-spacing: 0.5px;">Installment Plan Active</p>
+        <p style="margin: 2px 0 0; font-size: 9.5px; color: #1E293B;">
+          Next Due: <strong>${installmentInfo.nextDueDate ? formatDate(installmentInfo.nextDueDate) : "Paid in Full"}</strong> | Amount: <strong>${formatCurrency(installmentInfo.nextDueAmount)}</strong>
+        </p>
+        <p style="margin: 2px 0 0; font-size: 8.5px; font-weight: 700; color: ${installmentInfo.allCompleted ? "#15803D" : installmentInfo.hasOverdue ? "#B91C1C" : "#B45309"};">
+          Status: ${installmentInfo.allCompleted ? "COMPLETED" : installmentInfo.hasOverdue ? "OVERDUE" : "INCOMPLETE"}
+        </p>
+      </div>
+    `
+    : "";
+
   const agentBlock = `
     <p><strong>${booking.agent?.name || "Terrific Travel Direct Office"}</strong></p>
     ${booking.agent?.phoneNumber ? `<p>Phone: ${booking.agent.phoneNumber}</p>` : ""}
     ${booking.agent?.email ? `<p>Email: ${booking.agent.email}</p>` : ""}
+    ${agentInstallmentSnippet}
   `;
 
   const passengersRows =
@@ -2909,6 +3152,28 @@ export function renderBookingInvoice(
   html = html.replace(/{{TOTAL_PRICE}}/g, formatCurrency(totalPrice));
   html = html.replace(/{{PAID_AMOUNT}}/g, formatCurrency(paidAmount));
   html = html.replace(/{{BALANCE_DUE}}/g, formatCurrency(balanceDue));
+
+  // Installment plan section replacement or injection
+  const installmentPlanHtml = generateInstallmentPlanHtml(booking);
+  if (html.includes("{{INSTALLMENT_PLAN_SECTION}}")) {
+    html = html.replace(/{{INSTALLMENT_PLAN_SECTION}}/g, installmentPlanHtml);
+  } else if (installmentPlanHtml) {
+    if (html.match(/<div class="financial-panel">[\s\S]*?<\/div>/i)) {
+      html = html.replace(
+        /(<div class="financial-panel">[\s\S]*?<\/div>)/i,
+        `$1\n${installmentPlanHtml}`,
+      );
+    } else if (html.match(/<\/table>/i)) {
+      // Find the last table (typically the itemized/financial table) and append after it
+      const lastIndex = html.lastIndexOf("</table>");
+      if (lastIndex !== -1) {
+        html =
+          html.substring(0, lastIndex + 8) +
+          `\n${installmentPlanHtml}\n` +
+          html.substring(lastIndex + 8);
+      }
+    }
+  }
 
   // Dynamically inject the Cancelled Flights section if there are any cancelled flights
   const cancelledFlights = (booking.flightServices || []).filter(

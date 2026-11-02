@@ -367,7 +367,29 @@ model Booking {
   visaPriceAdjustments              VisaPriceAdjustment[]
   additionalServicePriceAdjustments AdditionalServicePriceAdjustment[]
 
+  hasInstallments     Boolean                @default(false)
+  installments        BookingInstallment[]
+
   @@index([bookingReference])
+}
+
+model BookingInstallment {
+  id                String    @id @default(uuid())
+  bookingId         String
+  booking           Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  installmentNumber Int
+  title             String?
+  amount            Float
+  dueDate           DateTime
+  paidAmount        Float     @default(0.0)
+  status            String    @default("INCOMPLETE")
+  paidAt            DateTime?
+  notes             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([bookingId])
+  @@index([dueDate])
 }
 
 model BookingItem {

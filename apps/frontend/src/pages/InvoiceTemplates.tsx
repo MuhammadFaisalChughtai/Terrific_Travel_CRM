@@ -131,6 +131,8 @@ tbody tr:nth-child(even) { background: #F8FAFC; }
     </tbody>
   </table>
 
+  {{INSTALLMENT_PLAN_SECTION}}
+
   <div class="footer-bar">
     Terrific Travel &amp; Tours Ltd | Registered in England &amp; Wales | Company No: 12345678<br>
     Thank you for booking with us. All prices include applicable taxes unless stated otherwise.
@@ -609,6 +611,10 @@ const PLACEHOLDERS_BY_TYPE: Record<
     { key: "{{TOTAL_PRICE}}", description: "Total price of the booking" },
     { key: "{{PAID_AMOUNT}}", description: "Total client payments received" },
     { key: "{{BALANCE_DUE}}", description: "Remaining balance client owes" },
+    {
+      key: "{{INSTALLMENT_PLAN_SECTION}}",
+      description: "HTML table for installment schedule & next due date",
+    },
   ],
   flight_ticket: [
     { key: "{{BOOKING_REF}}", description: "Booking unique reference" },

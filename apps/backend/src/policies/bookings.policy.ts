@@ -126,4 +126,16 @@ export class BookingsPolicy {
   static canFinalizeMargin(user: any): boolean {
     return this.isAdmin(user);
   }
+
+  /**
+   * Installment Plan Ownership:
+   * Only the booking's assigned agent (or admin) can create, modify, or delete
+   * the installment amounts and dates.
+   */
+  static canManageInstallments(user: any, booking: any): boolean {
+    if (!user || !booking) return false;
+    if (this.isAdmin(user)) return true;
+    if (this.isLocked(booking)) return false;
+    return this.isOwner(user, booking);
+  }
 }
