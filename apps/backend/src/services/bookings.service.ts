@@ -987,7 +987,7 @@ export class BookingsService {
       }
     }
 
-    if (booking.installments && booking.installments.length > 0) {
+    if (booking.hasInstallments && booking.installments && booking.installments.length > 0) {
       const summary = this.computeInstallmentSummary(booking.installments, booking.paidAmount || 0);
       (booking as any).installments = summary.installments;
       (booking as any).installmentPlanSummary = summary.planSummary;

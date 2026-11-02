@@ -944,7 +944,7 @@ function generateTimelineHtml(booking: any): string {
 // ──────────────────────────────────────────────────────────────────────────
 
 export function computeBookingInstallments(booking: any) {
-  if (!booking?.installments || booking.installments.length === 0) {
+  if (!booking?.hasInstallments || !booking?.installments || booking.installments.length === 0) {
     return {
       hasInstallments: false,
       installments: [],
@@ -1020,7 +1020,7 @@ export function computeBookingInstallments(booking: any) {
   else if (hasOverdue) planStatus = "OVERDUE";
 
   return {
-    hasInstallments: Boolean(booking.hasInstallments || computed.length > 0),
+    hasInstallments: Boolean(booking.hasInstallments && computed.length > 0),
     installments: computed,
     nextDueDate,
     nextDueAmount,
@@ -1034,12 +1034,13 @@ export function computeBookingInstallments(booking: any) {
 }
 
 export function generateInstallmentPlanHtml(booking: any): string {
-  if (!booking?.hasInstallments && (!booking?.installments || booking.installments.length === 0)) {
+  // Only display installment plan section in invoices if installments are enabled on the booking
+  if (!booking?.hasInstallments) {
     return "";
   }
 
   const { installments, nextDueDate, nextDueAmount, allCompleted, hasOverdue } = computeBookingInstallments(booking);
-  if (installments.length === 0) return "";
+  if (!installments || installments.length === 0) return "";
 
   const nextDueFormatted = nextDueDate ? formatDate(nextDueDate) : "—";
   const statusColor = allCompleted
@@ -1190,7 +1191,7 @@ export function generateBookingInvoiceHtml(booking: any) {
   const balanceDue = Math.max(0, totalPrice - paidAmount);
 
   const installmentInfo = computeBookingInstallments(booking);
-  const agentInstallmentSnippet = installmentInfo.hasInstallments
+  const agentInstallmentSnippet = (booking?.hasInstallments && installmentInfo.hasInstallments)
     ? `
       <div style="margin-top: 8px; padding: 6px 10px; background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 6px;">
         <p style="margin: 0; font-size: 8.5px; font-weight: 800; color: #1D4ED8; text-transform: uppercase; letter-spacing: 0.5px;">Installment Plan Active</p>
@@ -3040,7 +3041,7 @@ export function renderBookingInvoice(
   `;
 
   const installmentInfo = computeBookingInstallments(booking);
-  const agentInstallmentSnippet = installmentInfo.hasInstallments
+  const agentInstallmentSnippet = (booking?.hasInstallments && installmentInfo.hasInstallments)
     ? `
       <div style="margin-top: 8px; padding: 6px 10px; background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 6px;">
         <p style="margin: 0; font-size: 8.5px; font-weight: 800; color: #1D4ED8; text-transform: uppercase; letter-spacing: 0.5px;">Installment Plan Active</p>
