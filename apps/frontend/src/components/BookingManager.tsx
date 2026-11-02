@@ -809,6 +809,16 @@ export default function BookingManager({
   const calculateBookingAmounts = (b: any) => {
     if (!b) return { total: 0, paid: 0, remaining: 0, refund: 0 };
     const isCustomerTx = (tx: any) => {
+      if (!tx) return false;
+      const methodLower = (tx.paymentMethod || tx.method || "").toLowerCase();
+      if (
+        methodLower.includes("vendor") ||
+        methodLower.includes("discount") ||
+        methodLower.includes("agent") ||
+        methodLower.includes("payout")
+      ) {
+        return false;
+      }
       if (!tx.notes) return true;
       const notesLower = tx.notes.toLowerCase();
       if (

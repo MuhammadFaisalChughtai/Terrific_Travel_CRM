@@ -6,6 +6,7 @@ import {
   BadRequestException,
 } from "../middleware/error.middleware";
 import { vendorsService } from "./vendors.service";
+import { isCustomerTransaction } from "../utils/booking-financials";
 
 export class PaymentsService {
   async checkout(data: any) {
@@ -148,11 +149,9 @@ export class PaymentsService {
           const existingTxs = await tx.bookingTransaction.findMany({
             where: { bookingId: data.bookingId },
           });
-          const existingClientPaid = existingTxs.reduce((sum, t) => {
-            const notesLower = (t.notes || '').toLowerCase();
-            if (notesLower.includes('vendor payment')) return sum;
-            return sum + (t.amount || 0);
-          }, 0);
+          const existingClientPaid = existingTxs
+            .filter(isCustomerTransaction)
+            .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
 
           const newPaidAmount = Math.round((existingClientPaid + amount) * 100) / 100;
           const netTotalPrice = Math.round(((booking.totalPrice || 0) - (booking.refundAmount || 0)) * 100) / 100;

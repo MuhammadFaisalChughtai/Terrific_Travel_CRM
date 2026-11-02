@@ -1,5 +1,8 @@
 import { prisma } from '../config';
 import { BadRequestException, NotFoundException, ForbiddenException } from '../middleware/error.middleware';
+import { calculateCustomerPending, isCustomerTransaction } from '../utils/booking-financials';
+
+export { calculateCustomerPending, isCustomerTransaction };
 
 // Shared helper to calculate net profit and margin for a single booking
 function calculateBookingFinancials(b: any): { vendorCost: number; margin: number; netProfit: number } {
@@ -45,32 +48,6 @@ function calculateBookingFinancials(b: any): { vendorCost: number; margin: numbe
     vendorCost: totalVendorCost,
     margin,
     netProfit: rawProfit - margin,
-  };
-}
-
-// Shared helper to calculate customer pending balance for a booking
-function calculateCustomerPending(b: any): { clientPaid: number; pendingAmount: number; effectivePrice: number } {
-  let clientPaid = 0;
-  if (b.transactions && b.transactions.length > 0) {
-    const clientTransactions = b.transactions.filter((tx: any) => {
-      const pm = (tx.paymentMethod || '').toUpperCase();
-      const notes = (tx.notes || '').toLowerCase();
-      return pm !== 'AGENT PAYOUT' && pm !== 'AGENT_PAYOUT' && !notes.includes('vendor payment');
-    });
-    clientPaid = clientTransactions.reduce((sum: number, tx: any) => sum + (tx.amount || 0), 0);
-  }
-
-  if (clientPaid <= 0 && b.paidAmount > 0) {
-    clientPaid = b.paidAmount;
-  }
-
-  const effectivePrice = Math.max(0, (b.totalPrice || 0) - (b.refundAmount || 0));
-  const pendingAmount = Math.max(0, Math.round((effectivePrice - clientPaid) * 100) / 100);
-
-  return {
-    clientPaid: Math.round(clientPaid * 100) / 100,
-    pendingAmount,
-    effectivePrice: Math.round(effectivePrice * 100) / 100,
   };
 }
 

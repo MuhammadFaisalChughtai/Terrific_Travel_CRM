@@ -8,6 +8,7 @@ import { minioService } from './minio.service';
 import { vendorsService } from './vendors.service';
 import { auditLogService } from './audit.service';
 import { agentMarginService } from './agent-margin.service';
+import { isCustomerTransaction } from '../utils/booking-financials';
 
 /**
  * Resolves a bookingDate according to UK (Europe/London) timezone.
@@ -805,11 +806,11 @@ export class BookingsService {
       }
 
       if (item.transactions && item.transactions.length > 0) {
-        const clientPaidSum = item.transactions.reduce((sum: number, t: any) => {
-          const notesLower = (t.notes || '').toLowerCase();
-          if (notesLower.includes('vendor payment')) return sum;
-          return sum + (t.amount || 0);
-        }, 0);
+        const clientPaidSum = Math.round(
+          item.transactions
+            .filter(isCustomerTransaction)
+            .reduce((sum: number, t: any) => sum + (Number(t.amount) || 0), 0) * 100
+        ) / 100;
 
         if (clientPaidSum > 0 && Math.abs(clientPaidSum - (item.paidAmount || 0)) > 0.01) {
           const newRemaining = Math.max(0, Math.round(((item.totalPrice || 0) - clientPaidSum) * 100) / 100);
@@ -956,11 +957,11 @@ export class BookingsService {
     }
 
     if (booking.transactions && booking.transactions.length > 0) {
-      const clientPaidSum = booking.transactions.reduce((sum, t) => {
-        const notesLower = (t.notes || '').toLowerCase();
-        if (notesLower.includes('vendor payment')) return sum;
-        return sum + (t.amount || 0);
-      }, 0);
+      const clientPaidSum = Math.round(
+        booking.transactions
+          .filter(isCustomerTransaction)
+          .reduce((sum: number, t: any) => sum + (Number(t.amount) || 0), 0) * 100
+      ) / 100;
 
       if (clientPaidSum > 0 && Math.abs(clientPaidSum - (booking.paidAmount || 0)) > 0.01) {
         const newRemaining = Math.max(0, Math.round(((booking.totalPrice || 0) - clientPaidSum) * 100) / 100);
@@ -2227,17 +2228,12 @@ export class BookingsService {
       ? targetPnrScope
       : (uniquePnrsInFlights.length > 0 ? uniquePnrsInFlights.join(', ') : 'PENDING');
 
-    // Calculate amounts accurately (excluding vendor payments / agent payouts)
-    const clientTransactions = (booking.transactions || []).filter((tx: any) => {
-      const pm = (tx.paymentMethod || '').toUpperCase();
-      const notes = (tx.notes || '').toLowerCase();
-      return pm !== 'AGENT PAYOUT' && pm !== 'AGENT_PAYOUT' && !notes.includes('vendor payment');
-    });
-    const clientTxSum = clientTransactions.reduce((sum: number, tx: any) => sum + (tx.amount || 0), 0);
-    const paidAmount = clientTxSum > 0 ? clientTxSum : (booking.paidAmount || 0);
-    const totalAmount = booking.totalPrice || 0;
-    const refundAmount = booking.refundAmount || 0;
-    const amountLeft = Math.max(0, Math.round(((totalAmount - refundAmount) - paidAmount) * 100) / 100);
+    // Calculate amounts accurately (excluding vendor payments / agent payouts / discounts)
+    const clientTransactions = (booking.transactions || []).filter(isCustomerTransaction);
+    const clientTxSum = Math.round(clientTransactions.reduce((sum: number, tx: any) => sum + (Number(tx.amount) || 0), 0) * 100) / 100;
+    const paidAmount = clientTxSum > 0 ? clientTxSum : (Number(booking.paidAmount) || 0);
+    const totalAmount = Number(booking.totalPrice) || 0;
+    const amountLeft = Math.max(0, Math.round((totalAmount - paidAmount) * 100) / 100);
 
     const emailResult = await emailService.sendTicketOrderEmail({
       bookingRef: booking.bookingReference,
@@ -2781,19 +2777,12 @@ export class BookingsService {
     const remainingTxs = await prisma.bookingTransaction.findMany({
       where: { bookingId }
     });
-    const isCustomerTx = (t: any) => {
-      const methodLower = (t.paymentMethod || '').toLowerCase();
-      if (methodLower.includes('vendor') || methodLower.includes('discount') || methodLower.includes('agent') || methodLower.includes('payout')) return false;
-      const notesLower = (t.notes || '').toLowerCase();
-      if (notesLower.includes('vendor payment') || notesLower.includes('agent payout') || notesLower.includes('refund from vendor')) return false;
-      return true;
-    };
-    const clientTxs = remainingTxs.filter(isCustomerTx);
-    const newPaidAmount = Math.round(clientTxs.reduce((sum, tx) => sum + (tx.amount || 0), 0) * 100) / 100;
+    const clientTxs = remainingTxs.filter(isCustomerTransaction);
+    const newPaidAmount = Math.round(clientTxs.reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0) * 100) / 100;
     
     // Calculate total customer refund if transaction had negative amount or was refund
-    const refundTxs = remainingTxs.filter(tx => (tx.amount || 0) < 0 && isCustomerTx(tx));
-    const newRefundAmount = Math.round(Math.abs(refundTxs.reduce((sum, tx) => sum + (tx.amount || 0), 0)) * 100) / 100;
+    const refundTxs = remainingTxs.filter(tx => (Number(tx.amount) || 0) < 0 && isCustomerTransaction(tx));
+    const newRefundAmount = Math.round(Math.abs(refundTxs.reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0)) * 100) / 100;
 
     const newRemainingAmount = Math.max(0, Math.round(((booking.totalPrice || 0) - newPaidAmount) * 100) / 100);
     let newPaymentStatus = 'UNPAID';
