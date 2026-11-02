@@ -556,6 +556,15 @@ function formatNotes(notesString: string | null | undefined): string {
   return notesString;
 }
 
+function formatFlightPnrSnippet(f: any): string {
+  const parts: string[] = [];
+  const gds = f.gdsPnr || f.pnr;
+  if (gds) parts.push(`PNR: ${gds}`);
+  if (f.airlinePnr) parts.push(`Airline: ${f.airlinePnr}`);
+  if (f.thirdPartyBookingReference) parts.push(`Ref: ${f.thirdPartyBookingReference}`);
+  return parts.length > 0 ? parts.join(" | ") : "PNR: —";
+}
+
 function generateTimelineHtml(booking: any): string {
   const items: any[] = [];
 
@@ -672,7 +681,7 @@ function generateTimelineHtml(booking: any): string {
           icon: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-1.1.1-1.4.5l-.3.3c-.4.4-.4 1.1 0 1.5L9 12l-5.5 5.5H2v2l2 2h2v-1.5L11.5 15l3.5 5.7c.4.4 1.1.4 1.5 0l.3-.3c.4-.3.6-.9.5-1.4Z"/></svg>`,
           badgeClass: "flight",
           details: `
-            <div class="timeline-detail-item" ${strikeStyle}>Flight: <strong>${f.flightNo}</strong> (PNR: ${f.pnr || "—"})</div>
+            <div class="timeline-detail-item" ${strikeStyle}>Flight: <strong>${f.flightNo}</strong> (${formatFlightPnrSnippet(f)})</div>
             <div class="timeline-detail-item" ${strikeStyle}>Departure: <strong>${f.departTime || "—"}</strong> | Arrival: <strong>${f.arrivalTime || "—"}</strong></div>
             <div class="timeline-detail-item" ${strikeStyle}>Class: <strong>${f.flightClass || "Economy"}</strong> | Baggage: <strong>${f.baggage || "23 KG"}</strong></div>
           `,
@@ -3080,7 +3089,7 @@ export function renderBookingInvoice(
       (f: any) => `
       <tr>
         <td><span style="font-weight: 700; color: #0284C7;">FLIGHT</span></td>
-        <td>Flight No: <strong>${f.flightNo}</strong> (PNR: ${f.pnr || "—"}) - ${f.departedFrom} to ${f.arrivedAt} on ${formatDate(f.date)}</td>
+        <td>Flight No: <strong>${f.flightNo}</strong> (${formatFlightPnrSnippet(f)}) - ${f.departedFrom} to ${f.arrivedAt} on ${formatDate(f.date)}</td>
       </tr>
     `,
     ) || []),

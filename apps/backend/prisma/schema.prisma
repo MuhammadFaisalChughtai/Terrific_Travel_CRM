@@ -679,52 +679,58 @@ model HotelPriceAdjustment {
 }
 
 model FlightReservation {
-  id          String          @id @default(uuid())
-  bookingId   String
-  booking     Booking         @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  vendorId    String?
-  vendor      Vendor?         @relation(fields: [vendorId], references: [id])
-  pnr         String
-  issueDate   DateTime?
-  currency    String          @default("GBP")
-  price       Float           @default(0.0)
-  notes       String?
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-  legs        FlightService[]
+  id                         String          @id @default(uuid())
+  bookingId                  String
+  booking                    Booking         @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  vendorId                   String?
+  vendor                     Vendor?         @relation(fields: [vendorId], references: [id])
+  pnr                        String
+  gdsPnr                     String?
+  airlinePnr                 String?
+  thirdPartyBookingReference String?
+  issueDate                  DateTime?
+  currency                   String          @default("GBP")
+  price                      Float           @default(0.0)
+  notes                      String?
+  createdAt                  DateTime        @default(now())
+  updatedAt                  DateTime        @updatedAt
+  legs                       FlightService[]
 
   @@index([bookingId])
 }
 
 model FlightService {
-  id                   String             @id @default(uuid())
-  bookingId            String
-  booking              Booking            @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  flightReservationId  String?
-  flightReservation    FlightReservation? @relation(fields: [flightReservationId], references: [id], onDelete: Cascade)
-  date                 DateTime
-  vendorId             String?
-  vendor               Vendor?            @relation(fields: [vendorId], references: [id])
-  flightNo             String
-  pnr                  String             @default("")
-  departedFrom         String
-  arrivedAt            String
-  departTime           String
-  arrivalTime          String
-  price                Float
-  currency             String
-  issueDate            DateTime?
-  refundAmount         Float              @default(0.0)
-  fineAmount           Float              @default(0.0)
-  baggage              String?
-  carryOnBaggage       String?
-  checkedBaggage       String?
-  personalItem         String?
-  flightClass          String?
-  notes                String?
-  status               String             @default("CONFIRMED")
-  agentQuotedPrice     Float?
-  confirmationNumber   String?
+  id                         String             @id @default(uuid())
+  bookingId                  String
+  booking                    Booking            @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  flightReservationId        String?
+  flightReservation          FlightReservation? @relation(fields: [flightReservationId], references: [id], onDelete: Cascade)
+  date                       DateTime
+  vendorId                   String?
+  vendor                     Vendor?            @relation(fields: [vendorId], references: [id])
+  flightNo                   String
+  pnr                        String             @default("")
+  gdsPnr                     String?
+  airlinePnr                 String?
+  thirdPartyBookingReference String?
+  departedFrom               String
+  arrivedAt                  String
+  departTime                 String
+  arrivalTime                String
+  price                      Float
+  currency                   String
+  issueDate                  DateTime?
+  refundAmount               Float              @default(0.0)
+  fineAmount                 Float              @default(0.0)
+  baggage                    String?
+  carryOnBaggage             String?
+  checkedBaggage             String?
+  personalItem               String?
+  flightClass                String?
+  notes                      String?
+  status                     String             @default("CONFIRMED")
+  agentQuotedPrice           Float?
+  confirmationNumber         String?
 }
 
 model TransportService {

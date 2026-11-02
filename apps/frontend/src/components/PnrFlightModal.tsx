@@ -197,6 +197,9 @@ export default function PnrFlightModal({
   const [vendorId, setVendorId] = useState('');
   const [flightNo, setFlightNo] = useState('');
   const [pnr, setPnr] = useState('');
+  const [gdsPnr, setGdsPnr] = useState('');
+  const [airlinePnr, setAirlinePnr] = useState('');
+  const [thirdPartyBookingReference, setThirdPartyBookingReference] = useState('');
   const [departedFrom, setDepartedFrom] = useState('');
   const [arrivedAt, setArrivedAt] = useState('');
   const [departTime, setDepartTime] = useState('');
@@ -228,7 +231,11 @@ export default function PnrFlightModal({
         setStep('form');
         setVendorId(flightToEdit.vendorId || '');
         setFlightNo(flightToEdit.flightNo || '');
-        setPnr(flightToEdit.pnr || '');
+        const initialGds = flightToEdit.gdsPnr || flightToEdit.pnr || '';
+        setPnr(flightToEdit.pnr || initialGds);
+        setGdsPnr(initialGds);
+        setAirlinePnr(flightToEdit.airlinePnr || '');
+        setThirdPartyBookingReference(flightToEdit.thirdPartyBookingReference || '');
         const initialDeparted = flightToEdit.departedFrom || '';
         const initialArrived = flightToEdit.arrivedAt || '';
         setDepartedFrom(initialDeparted);
@@ -320,6 +327,9 @@ export default function PnrFlightModal({
         setVendorId('');
         setFlightNo('');
         setPnr('');
+        setGdsPnr('');
+        setAirlinePnr('');
+        setThirdPartyBookingReference('');
         setDepartedFrom('');
         setArrivedAt('');
         setDepartTime('');
@@ -493,6 +503,9 @@ export default function PnrFlightModal({
           vendorId: defaultVendorId,
           flightNo: parsed.flightNo,
           pnr: parsed.pnr,
+          gdsPnr: parsed.pnr,
+          airlinePnr: null,
+          thirdPartyBookingReference: null,
           departedFrom: finalDeparted,
           arrivedAt: finalArrived,
           departTime: parsed.departTime,
@@ -551,6 +564,9 @@ export default function PnrFlightModal({
           vendorId: fs.vendorId,
           flightNo: fs.flightNo,
           pnr: fs.pnr,
+          gdsPnr: fs.gdsPnr || fs.pnr,
+          airlinePnr: fs.airlinePnr || null,
+          thirdPartyBookingReference: fs.thirdPartyBookingReference || null,
           departedFrom: fs.departedFrom,
           arrivedAt: fs.arrivedAt,
           departTime: fs.departTime,
@@ -601,7 +617,10 @@ export default function PnrFlightModal({
       const payload = {
         vendorId,
         flightNo,
-        pnr,
+        pnr: gdsPnr || pnr || airlinePnr || "",
+        gdsPnr: gdsPnr || null,
+        airlinePnr: airlinePnr || null,
+        thirdPartyBookingReference: thirdPartyBookingReference || null,
         departedFrom,
         arrivedAt,
         departTime,
@@ -635,13 +654,16 @@ export default function PnrFlightModal({
           if (otherFs) {
             await apiClient.patch(`/bookings/${bookingId}/flights/${otherId}`, {
               vendorId: vendorId,
-              pnr: pnr,
+              pnr: gdsPnr || pnr || airlinePnr || "",
+              gdsPnr: gdsPnr || null,
+              airlinePnr: airlinePnr || null,
+              thirdPartyBookingReference: thirdPartyBookingReference || null,
             });
             updatedCount++;
           }
         }
         toast.success(
-          `Successfully saved flight service and applied Vendor & PNR to ${updatedCount} other segment(s)!`
+          `Successfully saved flight service and applied Vendor, PNRs & References to ${updatedCount} other segment(s)!`
         );
       } else {
         toast.success(
@@ -660,6 +682,9 @@ export default function PnrFlightModal({
       setVendorId('');
       setFlightNo('');
       setPnr('');
+      setGdsPnr('');
+      setAirlinePnr('');
+      setThirdPartyBookingReference('');
       setDepartedFrom('');
       setArrivedAt('');
       setDepartTime('');
@@ -942,17 +967,49 @@ export default function PnrFlightModal({
                   />
                 </div>
 
-                {/* PNR */}
+                {/* GDS PNR */}
                 <div className="flex flex-col gap-1">
                   <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                    PNR / Record Locator
+                    GDS PNR
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. ABCD12"
-                    value={pnr}
-                    onChange={(e) => setPnr(e.target.value.toUpperCase())}
+                    placeholder="e.g. 3J63XY"
+                    value={gdsPnr}
+                    onChange={(e) => {
+                      const val = e.target.value.toUpperCase();
+                      setGdsPnr(val);
+                      setPnr(val);
+                    }}
                     className="text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary font-mono uppercase"
+                  />
+                </div>
+
+                {/* Airline PNR */}
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                    Airline PNR
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. FV63LM"
+                    value={airlinePnr}
+                    onChange={(e) => setAirlinePnr(e.target.value.toUpperCase())}
+                    className="text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary font-mono uppercase"
+                  />
+                </div>
+
+                {/* Third Party Booking Reference */}
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                    Third Party Booking Reference
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. POL-982341"
+                    value={thirdPartyBookingReference}
+                    onChange={(e) => setThirdPartyBookingReference(e.target.value)}
+                    className="text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary font-mono"
                   />
                 </div>
 
@@ -961,7 +1018,7 @@ export default function PnrFlightModal({
                   <div className="col-span-2 p-3 bg-primary/5 rounded-xl border border-primary/20 space-y-2.5 my-1">
                     <div className="flex items-center justify-between gap-2 flex-wrap">
                       <label className="text-[11px] font-extrabold text-primary flex items-center gap-1.5 uppercase tracking-wide">
-                        <RefreshCw size={13} className="text-primary" /> Apply Same Vendor &amp; PNR to Other Segments
+                        <RefreshCw size={13} className="text-primary" /> Apply Same Vendor, PNRs &amp; References to Other Segments
                       </label>
                       <span className="text-[9px] bg-primary/10 text-primary font-bold px-2 py-0.5 rounded-full uppercase border border-primary/20">
                         {otherSegments.length} Other Segment(s) Available
@@ -972,8 +1029,26 @@ export default function PnrFlightModal({
                       Select which other flight legs in this booking should also update to Vendor:{" "}
                       <strong className="text-foreground">
                         {flightVendors.find((v: any) => v.id === vendorId)?.name || "Selected Vendor"}
-                      </strong>{" "}
-                      and PNR: <strong className="font-mono text-primary font-bold">{pnr || "—"}</strong>
+                      </strong>
+                      {gdsPnr ? (
+                        <>
+                          {" "}and GDS PNR: <strong className="font-mono text-primary font-bold">{gdsPnr}</strong>
+                        </>
+                      ) : pnr ? (
+                        <>
+                          {" "}and PNR: <strong className="font-mono text-primary font-bold">{pnr}</strong>
+                        </>
+                      ) : null}
+                      {airlinePnr ? (
+                        <>
+                          {", "}Airline PNR: <strong className="font-mono text-primary font-bold">{airlinePnr}</strong>
+                        </>
+                      ) : null}
+                      {thirdPartyBookingReference ? (
+                        <>
+                          {", "}3rd Party Ref: <strong className="font-mono text-primary font-bold">{thirdPartyBookingReference}</strong>
+                        </>
+                      ) : null}
                     </p>
 
                     <div className="flex items-center gap-2 text-[10px] font-bold">
@@ -1029,7 +1104,9 @@ export default function PnrFlightModal({
                                 ✈️ {sectorLabel}
                               </span>
                               <span className="text-[9px] text-muted-foreground font-mono truncate">
-                                {s.flightNo || "Flight"} · PNR: {s.pnr || "—"}
+                                {s.flightNo || "Flight"} · {s.gdsPnr ? `GDS: ${s.gdsPnr}` : (s.pnr ? `PNR: ${s.pnr}` : "No PNR")}
+                                {s.airlinePnr ? ` · Air: ${s.airlinePnr}` : ""}
+                                {s.thirdPartyBookingReference ? ` · Ref: ${s.thirdPartyBookingReference}` : ""}
                               </span>
                             </div>
                           </label>

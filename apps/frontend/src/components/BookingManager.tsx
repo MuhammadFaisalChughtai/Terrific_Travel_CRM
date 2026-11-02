@@ -3874,15 +3874,42 @@ export default function BookingManager({
                                             )}
 
                                             <div className="flex flex-wrap items-center gap-1.5 mt-2">
-                                              {/* PNR Micro-Pill */}
+                                              {/* PNR & Reference Pills */}
                                               {(() => {
-                                                const pnrs = (fs.pnr || "").split(/[,;\s]+/).map((s: string) => s.trim()).filter(Boolean);
-                                                if (pnrs.length === 0) return null;
-                                                return pnrs.map((pnrItem: string) => (
-                                                  <span key={pnrItem} className="bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded font-mono font-bold text-[10px] tracking-wide">
-                                                    {pnrItem}
-                                                  </span>
-                                                ));
+                                                const gds = fs.gdsPnr || fs.pnr;
+                                                const air = fs.airlinePnr;
+                                                const ref = fs.thirdPartyBookingReference;
+
+                                                if (!gds && !air && !ref) return null;
+
+                                                return (
+                                                  <>
+                                                    {gds && (
+                                                      <span
+                                                        className="bg-primary/10 text-primary border border-primary/25 px-1.5 py-0.5 rounded font-mono font-bold text-[10px] tracking-wide"
+                                                        title="GDS PNR / Record Locator"
+                                                      >
+                                                        {fs.gdsPnr ? `GDS: ${fs.gdsPnr}` : gds}
+                                                      </span>
+                                                    )}
+                                                    {air && (
+                                                      <span
+                                                        className="bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/25 px-1.5 py-0.5 rounded font-mono font-bold text-[10px] tracking-wide"
+                                                        title="Airline PNR"
+                                                      >
+                                                        Air: {air}
+                                                      </span>
+                                                    )}
+                                                    {ref && (
+                                                      <span
+                                                        className="bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/25 px-1.5 py-0.5 rounded font-mono font-bold text-[10px] tracking-wide"
+                                                        title="Third Party Booking Reference"
+                                                      >
+                                                        Ref: {ref}
+                                                      </span>
+                                                    )}
+                                                  </>
+                                                );
                                               })()}
 
                                               {/* Interactive Flight Status Badge */}
