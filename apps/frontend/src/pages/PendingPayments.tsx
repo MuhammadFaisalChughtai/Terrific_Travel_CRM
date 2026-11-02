@@ -31,7 +31,7 @@ import { CustomerPendingPaymentAlertItem } from '../components/DashboardCustomer
 
 export default function PendingPaymentsPage() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeTab, setActiveTab] = useState<'ALL' | 'TODAY' | 'TOMORROW' | 'SOON'>('ALL');
+  const [activeTab, setActiveTab] = useState<'ALL' | 'NEXT_5_DAYS' | 'TODAY' | 'TOMORROW' | 'SOON' | 'OVERDUE'>('ALL');
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
   const [selectedBookingRef, setSelectedBookingRef] = useState<string | null>(null);
 
@@ -39,10 +39,13 @@ export default function PendingPaymentsPage() {
     items: CustomerPendingPaymentAlertItem[];
     counts: {
       total: number;
+      upcoming5Days: number;
       today: number;
       tomorrow: number;
       soon: number;
+      overdue: number;
       totalPendingAmount: number;
+      upcomingPendingAmount: number;
     };
   }>({
     queryKey: ['customer-pending-alerts'],
@@ -54,15 +57,17 @@ export default function PendingPaymentsPage() {
   });
 
   const rawItems = data?.items || [];
-  const counts = data?.counts || { total: 0, today: 0, tomorrow: 0, soon: 0, totalPendingAmount: 0 };
+  const counts = data?.counts || { total: 0, upcoming5Days: 0, today: 0, tomorrow: 0, soon: 0, overdue: 0, totalPendingAmount: 0, upcomingPendingAmount: 0 };
 
   // Filter items by tab and search
   const filteredItems = useMemo(() => {
     return rawItems.filter((item) => {
       // Tab filter
-      if (activeTab === 'TODAY' && item.urgencyTag !== 'TODAY' && item.urgencyTag !== 'OVERDUE') return false;
+      if (activeTab === 'NEXT_5_DAYS' && (item.daysUntilTravel < 0 || item.daysUntilTravel > 5)) return false;
+      if (activeTab === 'TODAY' && item.urgencyTag !== 'TODAY') return false;
       if (activeTab === 'TOMORROW' && item.urgencyTag !== 'TOMORROW') return false;
       if (activeTab === 'SOON' && item.urgencyTag !== 'NEXT_5_DAYS') return false;
+      if (activeTab === 'OVERDUE' && item.urgencyTag !== 'OVERDUE') return false;
 
       // Search filter
       if (searchTerm.trim()) {
@@ -247,6 +252,17 @@ export default function PendingPaymentsPage() {
           </button>
           <button
             type="button"
+            onClick={() => setActiveTab('NEXT_5_DAYS')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              activeTab === 'NEXT_5_DAYS'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'bg-secondary text-foreground hover:bg-secondary/80'
+            }`}
+          >
+            Next 5 Days ({counts.upcoming5Days})
+          </button>
+          <button
+            type="button"
             onClick={() => setActiveTab('TODAY')}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
               activeTab === 'TODAY'
@@ -254,7 +270,7 @@ export default function PendingPaymentsPage() {
                 : 'bg-secondary text-foreground hover:bg-secondary/80'
             }`}
           >
-            Today / Overdue ({counts.today})
+            Today ({counts.today})
           </button>
           <button
             type="button"
@@ -277,6 +293,17 @@ export default function PendingPaymentsPage() {
             }`}
           >
             In 2-5 Days ({counts.soon})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('OVERDUE')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              activeTab === 'OVERDUE'
+                ? 'bg-purple-600 text-white shadow-xs'
+                : 'bg-secondary text-foreground hover:bg-secondary/80'
+            }`}
+          >
+            Departed / Overdue ({counts.overdue})
           </button>
         </div>
 
@@ -330,14 +357,15 @@ export default function PendingPaymentsPage() {
               </thead>
               <tbody className="divide-y divide-border">
                 {filteredItems.map((item) => {
-                  const isToday = item.urgencyTag === 'TODAY' || item.urgencyTag === 'OVERDUE';
+                  const isToday = item.urgencyTag === 'TODAY';
                   const isTomorrow = item.urgencyTag === 'TOMORROW';
+                  const isOverdue = item.urgencyTag === 'OVERDUE';
 
                   return (
                     <tr
                       key={item.id}
                       className={`hover:bg-muted/40 transition-colors ${
-                        isToday ? 'bg-rose-500/5' : isTomorrow ? 'bg-amber-500/5' : ''
+                        isToday ? 'bg-rose-500/10' : isTomorrow ? 'bg-amber-500/10' : isOverdue ? 'bg-purple-500/5' : ''
                       }`}
                     >
                       {/* Booking Reference */}
@@ -407,13 +435,17 @@ export default function PendingPaymentsPage() {
                                 ? 'bg-rose-600 text-white animate-pulse'
                                 : isTomorrow
                                 ? 'bg-amber-500 text-white'
-                                : 'bg-secondary text-foreground border border-border'
+                                : isOverdue
+                                ? 'bg-purple-600/90 text-white'
+                                : 'bg-blue-600 text-white'
                             }`}
                           >
                             {isToday
                               ? 'Departs Today'
                               : isTomorrow
                               ? 'Departs Tomorrow'
+                              : isOverdue
+                              ? `Departed (${Math.abs(item.daysUntilTravel)}d ago)`
                               : `In ${item.daysUntilTravel} Days`}
                           </span>
                         </div>

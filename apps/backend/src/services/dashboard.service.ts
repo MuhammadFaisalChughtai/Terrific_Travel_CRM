@@ -1242,10 +1242,11 @@ export class DashboardService {
         const travelDate = b.departureDate;
         if (!travelDate) return null;
 
-        const dep = new Date(travelDate);
-        const diffMs = dep.getTime() - now.getTime();
-        const daysUntilTravel = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-        const hoursUntilTravel = Math.ceil(diffMs / (1000 * 60 * 60));
+        const depDate = new Date(travelDate);
+        const depStartOfDay = new Date(depDate.getFullYear(), depDate.getMonth(), depDate.getDate()).getTime();
+        const todayStartOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const daysUntilTravel = Math.round((depStartOfDay - todayStartOfDay) / (1000 * 60 * 60 * 24));
+        const hoursUntilTravel = Math.ceil((depDate.getTime() - now.getTime()) / (1000 * 60 * 60));
 
         let urgencyTag: 'TODAY' | 'TOMORROW' | 'NEXT_5_DAYS' | 'OVERDUE' = 'NEXT_5_DAYS';
         if (daysUntilTravel < 0) {
@@ -1297,6 +1298,29 @@ export class DashboardService {
       })
       .filter(Boolean) as any[];
 
+    // Sort: Bookings departing within next 5 days MUST BE ON TOP (Today 0 -> Tomorrow 1 -> 2d -> 3d -> 4d -> 5d)
+    // Followed by past departed bookings with pending balance (most recent departure first)
+    items.sort((a, b) => {
+      const isANext5 = a.daysUntilTravel >= 0 && a.daysUntilTravel <= 5;
+      const isBNext5 = b.daysUntilTravel >= 0 && b.daysUntilTravel <= 5;
+
+      if (isANext5 && !isBNext5) return -1;
+      if (!isANext5 && isBNext5) return 1;
+
+      if (isANext5 && isBNext5) {
+        if (a.daysUntilTravel !== b.daysUntilTravel) {
+          return a.daysUntilTravel - b.daysUntilTravel;
+        }
+        return b.pendingAmount - a.pendingAmount;
+      }
+
+      // Past departed bookings: most recent first (-1 before -100)
+      if (a.daysUntilTravel !== b.daysUntilTravel) {
+        return b.daysUntilTravel - a.daysUntilTravel;
+      }
+      return b.pendingAmount - a.pendingAmount;
+    });
+
     let filteredItems = items;
     if (filters.search && filters.search.trim()) {
       const s = filters.search.trim().toLowerCase();
@@ -1312,10 +1336,17 @@ export class DashboardService {
 
     const counts = {
       total: filteredItems.length,
-      today: filteredItems.filter((i) => i.urgencyTag === 'TODAY' || i.urgencyTag === 'OVERDUE').length,
+      upcoming5Days: filteredItems.filter((i) => i.daysUntilTravel >= 0 && i.daysUntilTravel <= 5).length,
+      today: filteredItems.filter((i) => i.urgencyTag === 'TODAY').length,
       tomorrow: filteredItems.filter((i) => i.urgencyTag === 'TOMORROW').length,
       soon: filteredItems.filter((i) => i.urgencyTag === 'NEXT_5_DAYS').length,
+      overdue: filteredItems.filter((i) => i.urgencyTag === 'OVERDUE').length,
       totalPendingAmount: Math.round(filteredItems.reduce((sum, i) => sum + i.pendingAmount, 0) * 100) / 100,
+      upcomingPendingAmount: Math.round(
+        filteredItems
+          .filter((i) => i.daysUntilTravel >= 0 && i.daysUntilTravel <= 5)
+          .reduce((sum, i) => sum + i.pendingAmount, 0) * 100
+      ) / 100,
     };
 
     return { items: filteredItems, counts };

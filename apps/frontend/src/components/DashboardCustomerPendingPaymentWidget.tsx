@@ -224,10 +224,10 @@ export default function DashboardCustomerPendingPaymentWidget({
       </div>
 
       {/* Quick Summary Strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-3 bg-secondary/25 border-b border-border text-xs">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 p-3 bg-secondary/25 border-b border-border text-xs">
         <div className="flex items-center gap-2 px-3 py-1.5 bg-card/60 rounded-lg border border-border/60">
           <span className="w-2 h-2 rounded-full bg-rose-600 animate-ping" />
-          <span className="text-muted-foreground">Departing Today / Overdue:</span>
+          <span className="text-muted-foreground">Departing Today:</span>
           <strong className="text-rose-600 dark:text-rose-400 font-black">{counts.today}</strong>
         </div>
         <div className="flex items-center gap-2 px-3 py-1.5 bg-card/60 rounded-lg border border-border/60">
@@ -241,8 +241,13 @@ export default function DashboardCustomerPendingPaymentWidget({
           <strong className="text-blue-600 dark:text-blue-400 font-black">{counts.soon}</strong>
         </div>
         <div className="flex items-center gap-2 px-3 py-1.5 bg-card/60 rounded-lg border border-border/60">
+          <span className="w-2 h-2 rounded-full bg-purple-500" />
+          <span className="text-muted-foreground">Departed / Overdue:</span>
+          <strong className="text-purple-600 dark:text-purple-400 font-black">{(counts as any).overdue || 0}</strong>
+        </div>
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-card/60 rounded-lg border border-border/60 col-span-2 sm:col-span-1">
           <CreditCard className="w-3.5 h-3.5 text-primary" />
-          <span className="text-muted-foreground">Pending Balance:</span>
+          <span className="text-muted-foreground">Pending Total:</span>
           <strong className="text-foreground font-black">{formatCurrency(counts.totalPendingAmount)}</strong>
         </div>
       </div>
@@ -264,14 +269,15 @@ export default function DashboardCustomerPendingPaymentWidget({
           </thead>
           <tbody className="divide-y divide-border">
             {displayedItems.map((item) => {
-              const isToday = item.urgencyTag === 'TODAY' || item.urgencyTag === 'OVERDUE';
+              const isToday = item.urgencyTag === 'TODAY';
               const isTomorrow = item.urgencyTag === 'TOMORROW';
+              const isOverdue = item.urgencyTag === 'OVERDUE';
 
               return (
                 <tr
                   key={item.id}
                   className={`hover:bg-muted/40 transition-colors ${
-                    isToday ? 'bg-rose-500/5' : isTomorrow ? 'bg-amber-500/5' : ''
+                    isToday ? 'bg-rose-500/10' : isTomorrow ? 'bg-amber-500/10' : isOverdue ? 'bg-purple-500/5' : ''
                   }`}
                 >
                   {/* Booking Ref */}
@@ -327,13 +333,17 @@ export default function DashboardCustomerPendingPaymentWidget({
                             ? 'bg-rose-600 text-white animate-pulse'
                             : isTomorrow
                             ? 'bg-amber-500 text-white'
-                            : 'bg-secondary text-foreground border border-border'
+                            : isOverdue
+                            ? 'bg-purple-600/90 text-white'
+                            : 'bg-blue-600 text-white'
                         }`}
                       >
                         {isToday
                           ? 'Departs Today'
                           : isTomorrow
                           ? 'Departs Tomorrow'
+                          : isOverdue
+                          ? `Departed (${Math.abs(item.daysUntilTravel)}d ago)`
                           : `Departs in ${item.daysUntilTravel}d`}
                       </span>
                     </div>
