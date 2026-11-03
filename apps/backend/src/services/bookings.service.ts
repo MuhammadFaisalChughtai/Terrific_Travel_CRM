@@ -989,7 +989,11 @@ export class BookingsService {
     }
 
     if (booking.hasInstallments && booking.installments && booking.installments.length > 0) {
-      const summary = this.computeInstallmentSummary(booking.installments, booking.paidAmount || 0);
+      const clientTxList = (booking.transactions || []).filter(isCustomerTransaction);
+      const actualClientPaid = clientTxList.length > 0
+        ? clientTxList.reduce((sum: number, tx: any) => sum + (Number(tx.amount) || 0), 0)
+        : (booking.paidAmount || 0);
+      const summary = this.computeInstallmentSummary(booking.installments, actualClientPaid);
       (booking as any).installments = summary.installments;
       (booking as any).installmentPlanSummary = summary.planSummary;
     } else {
@@ -5002,10 +5006,9 @@ export class BookingsService {
       // If enabling and no installments exist, create smart installments matching total price exactly:
       if (enabled && (!booking.installments || booking.installments.length === 0)) {
         const total = booking.totalPrice || 0;
-        const clientTxSum = (booking.transactions || [])
-          .filter((tx: any) => tx.type === 'CLIENT' || tx.paymentType === 'CLIENT' || !tx.type)
-          .reduce((sum: number, tx: any) => sum + (Number(tx.amount) || 0), 0);
-        const paid = clientTxSum > 0 ? clientTxSum : (booking.paidAmount || 0);
+        const clientTransactions = (booking.transactions || []).filter(isCustomerTransaction);
+        const clientTxSum = clientTransactions.reduce((sum: number, tx: any) => sum + (Number(tx.amount) || 0), 0);
+        const paid = clientTransactions.length > 0 ? clientTxSum : (booking.paidAmount || 0);
         const pending = Math.max(0, Math.round((total - paid) * 100) / 100);
 
         const depDate = booking.departureDate ? new Date(booking.departureDate) : new Date(Date.now() + 60 * 86400000);
@@ -5234,10 +5237,9 @@ export class BookingsService {
     const numberOfInstallments = typeof options === 'number' ? options : options.numberOfInstallments;
     const splitMode = (typeof options === 'object' && options.splitMode) ? options.splitMode : 'PENDING';
 
-    const clientTxSum = (booking.transactions || [])
-      .filter((tx: any) => tx.type === 'CLIENT' || tx.paymentType === 'CLIENT' || !tx.type)
-      .reduce((sum: number, tx: any) => sum + (Number(tx.amount) || 0), 0);
-    const paid = clientTxSum > 0 ? clientTxSum : (booking.paidAmount || 0);
+    const clientTransactions = (booking.transactions || []).filter(isCustomerTransaction);
+    const clientTxSum = clientTransactions.reduce((sum: number, tx: any) => sum + (Number(tx.amount) || 0), 0);
+    const paid = clientTransactions.length > 0 ? clientTxSum : (booking.paidAmount || 0);
     const total = booking.totalPrice || 0;
     const pending = Math.max(0, Math.round((total - paid) * 100) / 100);
 

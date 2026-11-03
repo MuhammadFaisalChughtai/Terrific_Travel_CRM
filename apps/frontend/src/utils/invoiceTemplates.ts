@@ -968,12 +968,55 @@ export function computeBookingInstallments(booking: any) {
   });
 
   let runningPaid = Math.max(0, Number(booking.paidAmount) || 0);
+  let custTx: any[] = [];
   if (booking.transactions && Array.isArray(booking.transactions) && booking.transactions.length > 0) {
-    const custTx = booking.transactions.filter(isCustomerTransaction);
+    custTx = booking.transactions.filter(isCustomerTransaction);
     if (custTx.length > 0) {
       runningPaid = Math.max(0, custTx.reduce((sum: number, tx: any) => sum + (Number(tx.amount) || 0), 0));
     }
   }
+
+  // Ensure credit card charges do not inflate the deposit installment
+  const feeTxs = (booking.transactions || []).filter((tx: any) => {
+    const method = (tx.paymentMethod || "").toLowerCase();
+    const notes = (tx.notes || "").toLowerCase();
+    return (
+      method.includes("fee") ||
+      notes.includes("credit card charge") ||
+      notes.includes("card payment charge") ||
+      notes.includes("cc charge")
+    );
+  });
+  const totalFees = feeTxs.reduce((sum: number, tx: any) => sum + Math.abs(Number(tx.amount) || 0), 0);
+
+  if (totalFees > 0 && sorted.length > 1) {
+    const firstInst = sorted[0];
+    const isDeposit = (firstInst.title || "").toLowerCase().includes("deposit") || (firstInst.title || "").toLowerCase().includes("received");
+    if (isDeposit && custTx.length > 0) {
+      for (const feeTx of feeTxs) {
+        const feeAmt = Math.abs(Number(feeTx.amount) || 0);
+        if (feeAmt > 0) {
+          const matchingCust = custTx.find((c: any) => Math.abs(Number(c.amount) - (firstInst.amount - feeAmt)) < 0.05);
+          if (matchingCust) {
+            const correctDeposit = Math.round(Number(matchingCust.amount) * 100) / 100;
+            firstInst.amount = correctDeposit;
+
+            const remainingInsts = sorted.slice(1);
+            const rawTotal = Number(booking.totalPrice) || 0;
+            const totalRemaining = Math.max(0, Math.round((rawTotal - correctDeposit) * 100) / 100);
+            const n = remainingInsts.length;
+            const each = Math.round((totalRemaining / n) * 100) / 100;
+            const finalAmt = Math.round((totalRemaining - each * (n - 1)) * 100) / 100;
+            for (let i = 0; i < n; i++) {
+              remainingInsts[i].amount = (i === n - 1) ? finalAmt : each;
+            }
+            break;
+          }
+        }
+      }
+    }
+  }
+
   const now = new Date();
   const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 

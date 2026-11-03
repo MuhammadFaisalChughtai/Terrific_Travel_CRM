@@ -12,6 +12,7 @@ import { startAttendanceCron } from './cron/attendance.cron';
 import { startMissingDetailsReminderCron } from './cron/missing-details-reminder.cron';
 import { startLeadFollowUpReminderCron } from './cron/lead-followup-reminder.cron';
 import { TERRIFIC_LOGO_BASE64 } from './assets/logo.constant';
+import { isCustomerTransaction } from './utils/booking-financials';
 
 async function bootstrap() {
   const app = express();
@@ -213,6 +214,79 @@ async function bootstrap() {
       }
     } catch (cleanCcErr) {
       logger.warn('Failed to clean up orphaned cardPaymentCharges:', cleanCcErr);
+    }
+
+    // Reconcile and fix installments where Deposit / Received Payment was inflated by credit card fees
+    try {
+      const bookingsWithInstallments = await prisma.booking.findMany({
+        where: { hasInstallments: true },
+        include: {
+          installments: { orderBy: { installmentNumber: 'asc' } },
+          transactions: true,
+        },
+      });
+
+      for (const b of bookingsWithInstallments) {
+        if (!b.installments || b.installments.length <= 1) continue;
+        const depositInst = b.installments.find(
+          (i: any) =>
+            i.installmentNumber === 1 &&
+            ((i.title || '').toLowerCase().includes('deposit') || (i.title || '').toLowerCase().includes('received'))
+        );
+        if (!depositInst) continue;
+
+        const custTxs = (b.transactions || []).filter(isCustomerTransaction);
+        if (custTxs.length === 0) continue;
+
+        const feeTxs = (b.transactions || []).filter((tx: any) => {
+          const method = (tx.paymentMethod || '').toLowerCase();
+          const notes = (tx.notes || '').toLowerCase();
+          return (
+            method.includes('fee') ||
+            notes.includes('credit card charge') ||
+            notes.includes('card payment charge') ||
+            notes.includes('cc charge')
+          );
+        });
+
+        for (const feeTx of feeTxs) {
+          const feeAmt = Math.abs(Number(feeTx.amount) || 0);
+          if (feeAmt <= 0) continue;
+
+          const matchingCust = custTxs.find(
+            (c: any) => Math.abs(Number(c.amount) - (depositInst.amount - feeAmt)) < 0.05
+          );
+
+          if (matchingCust) {
+            const correctDeposit = Math.round(Number(matchingCust.amount) * 100) / 100;
+            const remainingInsts = b.installments.filter((i: any) => i.id !== depositInst.id);
+            const rawTotal = Number(b.totalPrice) || 0;
+            const totalRemaining = Math.max(0, Math.round((rawTotal - correctDeposit) * 100) / 100);
+            const n = remainingInsts.length;
+            const each = Math.round((totalRemaining / n) * 100) / 100;
+            const finalAmt = Math.round((totalRemaining - each * (n - 1)) * 100) / 100;
+
+            await prisma.bookingInstallment.update({
+              where: { id: depositInst.id },
+              data: { amount: correctDeposit },
+            });
+
+            for (let idx = 0; idx < n; idx++) {
+              await prisma.bookingInstallment.update({
+                where: { id: remainingInsts[idx].id },
+                data: { amount: idx === n - 1 ? finalAmt : each },
+              });
+            }
+
+            logger.info(
+              `Reconciled installments for booking ${b.bookingReference}: corrected deposit from ${depositInst.amount} to ${correctDeposit} (removed ${feeAmt} fee inflation)`
+            );
+            break;
+          }
+        }
+      }
+    } catch (instReconcileErr) {
+      logger.warn('Failed to reconcile installments with credit card charges:', instReconcileErr);
     }
   } catch (err) {
     logger.error('Failed to connect to database:', err);
