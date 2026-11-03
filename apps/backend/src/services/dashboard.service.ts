@@ -1,55 +1,8 @@
 import { prisma } from '../config';
 import { BadRequestException, NotFoundException, ForbiddenException } from '../middleware/error.middleware';
-import { calculateCustomerPending, isCustomerTransaction } from '../utils/booking-financials';
+import { calculateCustomerPending, isCustomerTransaction, calculateBookingFinancials } from '../utils/booking-financials';
 
-export { calculateCustomerPending, isCustomerTransaction };
-
-// Shared helper to calculate net profit and margin for a single booking
-function calculateBookingFinancials(b: any): { vendorCost: number; margin: number; netProfit: number } {
-  const price = b.totalPrice;
-  let totalVendorCost = 0;
-  if (b.bookingVendorPayments && b.bookingVendorPayments.length > 0) {
-    totalVendorCost = b.bookingVendorPayments.reduce((sum: number, item: any) => sum + (item.originalCost || 0), 0);
-  } else {
-    const accommodationsCost = b.accommodations?.reduce((sum: number, item: any) => sum + item.price, 0) || 0;
-    const flightsCost = b.flightServices?.reduce((sum: number, item: any) => sum + item.price, 0) || 0;
-    const transportsCost = b.transportServices?.reduce((sum: number, item: any) => sum + item.price, 0) || 0;
-    const visasCost = b.visaServices?.reduce((sum: number, item: any) => sum + item.price, 0) || 0;
-    const additionalCost = b.additionalServices?.reduce((sum: number, item: any) => sum + item.servicePrice, 0) || 0;
-    totalVendorCost = accommodationsCost + flightsCost + transportsCost + visasCost + additionalCost;
-  }
-  const rawProfit = price - totalVendorCost;
-
-  let margin = 0.0;
-  if (b.agent) {
-    let slab = b.agent.slabs.find(
-      (s: any) => price >= s.minSales && (s.maxSales === null || price <= s.maxSales)
-    );
-    if (!slab && b.agent.slabs.length > 0) {
-      const highestSlab = b.agent.slabs.reduce((prev: any, current: any) =>
-        prev.minSales > current.minSales ? prev : current
-      );
-      if (price > highestSlab.minSales) {
-        slab = highestSlab;
-      }
-    }
-    const rate = slab ? slab.commissionRate : 0.0;
-    const potentialMargin = rawProfit * (rate / 100.0);
-    if (rawProfit > 0) {
-      if (rawProfit - potentialMargin <= 0) {
-        margin = 0.0;
-      } else {
-        margin = potentialMargin;
-      }
-    }
-  }
-
-  return {
-    vendorCost: totalVendorCost,
-    margin,
-    netProfit: rawProfit - margin,
-  };
-}
+export { calculateCustomerPending, isCustomerTransaction, calculateBookingFinancials };
 
 // Helper to build the booking include payload
 const bookingInclude = {

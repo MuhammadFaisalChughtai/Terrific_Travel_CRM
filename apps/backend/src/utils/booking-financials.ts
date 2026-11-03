@@ -51,3 +51,64 @@ export function calculateCustomerPending(b: any): { clientPaid: number; pendingA
     effectivePrice: Math.round(totalPrice * 100) / 100,
   };
 }
+
+/**
+ * Shared helper to calculate net profit, vendor cost, and agent margin for a single booking,
+ * taking into account vendor costs, vendor refunds, client refunds, card payment charges,
+ * and agent slab commissions.
+ */
+export function calculateBookingFinancials(b: any): { vendorCost: number; margin: number; netProfit: number } {
+  const price = Number(b.totalPrice) || 0;
+  let totalVendorCost = 0;
+  if (b.bookingVendorPayments && b.bookingVendorPayments.length > 0) {
+    totalVendorCost = b.bookingVendorPayments.reduce((sum: number, item: any) => sum + (Number(item.originalCost) || 0), 0);
+  } else {
+    const accommodationsCost = b.accommodations?.reduce((sum: number, item: any) => sum + (Number(item.price) || 0), 0) || 0;
+    const flightsCost = b.flightServices?.reduce((sum: number, item: any) => sum + (Number(item.price) || 0), 0) || 0;
+    const transportsCost = b.transportServices?.reduce((sum: number, item: any) => sum + (Number(item.price) || 0), 0) || 0;
+    const visasCost = b.visaServices?.reduce((sum: number, item: any) => sum + (Number(item.price) || 0), 0) || 0;
+    const additionalCost = b.additionalServices?.reduce((sum: number, item: any) => sum + (Number(item.servicePrice) || 0), 0) || 0;
+    totalVendorCost = accommodationsCost + flightsCost + transportsCost + visasCost + additionalCost;
+  }
+
+  const accommodationsRefund = b.accommodations?.reduce((sum: number, acc: any) => sum + (Number(acc.refundAmount) || 0), 0) || 0;
+  const flightsRefund = b.flightServices?.reduce((sum: number, fs: any) => sum + (Number(fs.refundAmount) || 0), 0) || 0;
+  const transportsRefund = b.transportServices?.reduce((sum: number, ts: any) => sum + (Number(ts.refundAmount) || 0), 0) || 0;
+  const visasRefund = b.visaServices?.reduce((sum: number, vs: any) => sum + (Number(vs.refundAmount) || 0), 0) || 0;
+  const totalVendorRefund = accommodationsRefund + flightsRefund + transportsRefund + visasRefund;
+
+  const clientRefund = Number(b.refundAmount) || 0;
+  const cardPaymentCharges = Number(b.cardPaymentCharges) || 0;
+
+  const rawProfit = price - clientRefund - (totalVendorCost - totalVendorRefund) - cardPaymentCharges;
+
+  let margin = 0.0;
+  if (b.agent) {
+    let slab = b.agent.slabs?.find(
+      (s: any) => price >= s.minSales && (s.maxSales === null || price <= s.maxSales)
+    );
+    if (!slab && b.agent.slabs && b.agent.slabs.length > 0) {
+      const highestSlab = b.agent.slabs.reduce((prev: any, current: any) =>
+        prev.minSales > current.minSales ? prev : current
+      );
+      if (price > highestSlab.minSales) {
+        slab = highestSlab;
+      }
+    }
+    const rate = slab ? slab.commissionRate : 0.0;
+    const potentialMargin = rawProfit * (rate / 100.0);
+    if (rawProfit > 0) {
+      if (rawProfit - potentialMargin <= 0) {
+        margin = 0.0;
+      } else {
+        margin = potentialMargin;
+      }
+    }
+  }
+
+  return {
+    vendorCost: Math.round(totalVendorCost * 100) / 100,
+    margin: Math.round(margin * 100) / 100,
+    netProfit: Math.round((rawProfit - margin) * 100) / 100,
+  };
+}

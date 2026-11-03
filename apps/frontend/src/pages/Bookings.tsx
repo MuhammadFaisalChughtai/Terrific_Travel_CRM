@@ -28,6 +28,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
+import { computeBookingFinancials } from "../utils/bookingFinancials";
 import Pagination from "../components/Pagination";
 import Modal from "../components/Modal";
 import BookingManager from "../components/BookingManager";
@@ -662,135 +663,20 @@ export default function Bookings() {
                       );
                       const travelDate = formatDate(booking.departureDate);
 
-                      // Dynamic Vendor Payment calculations
-                      const accommodationsCost =
-                        booking.accommodations?.reduce(
-                          (sum: number, acc: any) => sum + acc.price,
-                          0,
-                        ) || 0;
-                      const flightsCost =
-                        booking.flightServices?.reduce(
-                          (sum: number, fs: any) => sum + fs.price,
-                          0,
-                        ) || 0;
-                      const transportsCost =
-                        booking.transportServices?.reduce(
-                          (sum: number, ts: any) => sum + ts.price,
-                          0,
-                        ) || 0;
-                      const visasCost =
-                        booking.visaServices?.reduce(
-                          (sum: number, vs: any) => sum + vs.price,
-                          0,
-                        ) || 0;
-                      const additionalCost =
-                        booking.additionalServices?.reduce(
-                          (sum: number, as: any) =>
-                            sum + (as.servicePrice || 0),
-                          0,
-                        ) || 0;
-
-                      const totalVendorCost =
-                        booking.bookingVendorPayments &&
-                        booking.bookingVendorPayments.length > 0
-                          ? booking.bookingVendorPayments.reduce(
-                              (sum: number, bvp: any) =>
-                                sum + (bvp.originalCost || 0),
-                              0,
-                            )
-                          : accommodationsCost +
-                            flightsCost +
-                            transportsCost +
-                            visasCost +
-                            additionalCost;
-                      const totalPaidToVendors =
-                        booking.bookingVendorPayments?.reduce(
-                          (sum: number, bvp: any) =>
-                            sum + (bvp.amountPaid || 0),
-                          0,
-                        ) || 0;
-                      const vendorRemaining =
-                        booking.bookingVendorPayments &&
-                        booking.bookingVendorPayments.length > 0
-                          ? booking.bookingVendorPayments.reduce(
-                              (sum: number, bvp: any) =>
-                                sum + (bvp.remainingBalance || 0),
-                              0,
-                            )
-                          : totalVendorCost - totalPaidToVendors;
-
-                      const rawProfit = booking.totalPrice - totalVendorCost;
-
-                      // Agent Margin calculation
-                      let agentMargin =
-                        booking.agentId && booking.agent
-                          ? calculateMargin(
-                              booking.totalPrice,
-                              rawProfit,
-                              booking.agent.slabs,
-                            )
-                          : null;
-
-                      const hasAgentPayout =
-                        booking.transactions?.some(
-                          (tx: any) =>
-                            tx.paymentMethod === "AGENT PAYOUT" ||
-                            tx.paymentMethod === "AGENT_PAYOUT",
-                        ) ||
-                        (booking.agentMargin &&
-                          booking.agentMargin.status === "PAID") ||
-                        booking.agentMarginVoided;
-
-                      if (
-                        (hasAgentPayout || booking.agentMarginVoided) &&
-                        agentMargin !== null
-                      ) {
-                        agentMargin = 0;
-                      }
-
+                      // Calculate accurate financial overview matching Booking Manager modal
+                      const fin = computeBookingFinancials(booking);
+                      const totalVendorCost = fin.totalVendorCost;
+                      const vendorRemaining = fin.vendorRemaining;
+                      const rawProfit = fin.rawProfit;
+                      const netProfit = fin.profit;
+                      const agentMargin = booking.agentId && booking.agent ? fin.agentMargin : null;
+                      const displayPaidAmount = fin.paidAmount;
+                      const displayRemainingAmount = fin.remainingAmount;
                       // Lock Status Styling - matching user image (dark teal-green or rose-red block)
                       const isLocked = booking.lockedStatus === "LOCKED";
                       const lockBadge = isLocked
                         ? "bg-[#be123c] text-white font-bold px-2.5 py-0.5 rounded-full text-[10px]"
                         : "bg-[#0f766e] text-white font-bold px-2.5 py-0.5 rounded-full text-[10px]";
-
-                      const clientTxList =
-                        booking.transactions?.filter((tx: any) => {
-                          if (!tx) return false;
-                          const methodLower = (tx.paymentMethod || tx.method || "").toLowerCase();
-                          if (
-                            methodLower.includes("vendor") ||
-                            methodLower.includes("discount") ||
-                            methodLower.includes("agent") ||
-                            methodLower.includes("payout")
-                          ) {
-                            return false;
-                          }
-                          if (!tx.notes) return true;
-                          const notesLower = tx.notes.toLowerCase();
-                          if (
-                            notesLower.includes("vendor") ||
-                            notesLower.includes("discount") ||
-                            notesLower.includes("agent") ||
-                            notesLower.includes("payout") ||
-                            notesLower.includes("refund from vendor")
-                          ) {
-                            return false;
-                          }
-                          return true;
-                        }) || [];
-
-                      const clientTxSum = clientTxList.reduce(
-                        (sum: number, tx: any) => sum + (Number(tx.amount) || 0),
-                        0,
-                      );
-
-                      const displayPaidAmount =
-                        clientTxSum > 0 ? clientTxSum : (booking.paidAmount || 0);
-                      const displayRemainingAmount = Math.max(
-                        0,
-                        (booking.totalPrice - (booking.refundAmount || 0)) - displayPaidAmount,
-                      );
 
                       // Payment Status Styling - matching user image (UNPAID gold block)
                       const payStatus =
@@ -883,7 +769,7 @@ export default function Bookings() {
                             {formatCurrency(displayRemainingAmount)}
                           </td>
                           <td className="px-4 py-3.5 whitespace-nowrap text-right font-bold text-emerald-600 dark:text-emerald-400 align-middle">
-                            {canViewRowMarginProfit ? formatCurrency(rawProfit) : "—"}
+                            {canViewRowMarginProfit ? formatCurrency(netProfit) : "—"}
                           </td>
                           <td className="px-4 py-3.5 whitespace-nowrap text-right font-semibold text-violet-600 dark:text-violet-400 align-middle">
                             {!canViewRowMarginProfit ? (
@@ -1218,45 +1104,14 @@ export default function Bookings() {
             {selectedAgentId &&
               selectedAgent &&
               (() => {
-                const accsCost =
-                  selectedBooking.accommodations?.reduce(
-                    (sum: number, acc: any) => sum + acc.price,
-                    0,
-                  ) || 0;
-                const flsCost =
-                  selectedBooking.flightServices?.reduce(
-                    (sum: number, fs: any) => sum + fs.price,
-                    0,
-                  ) || 0;
-                const trsCost =
-                  selectedBooking.transportServices?.reduce(
-                    (sum: number, ts: any) => sum + ts.price,
-                    0,
-                  ) || 0;
-                const vssCost =
-                  selectedBooking.visaServices?.reduce(
-                    (sum: number, vs: any) => sum + vs.price,
-                    0,
-                  ) || 0;
-                const addCost =
-                  selectedBooking.additionalServices?.reduce(
-                    (sum: number, as: any) => sum + (as.servicePrice || 0),
-                    0,
-                  ) || 0;
-
-                const selectedVendorCost =
-                  accsCost + flsCost + trsCost + vssCost + addCost;
-                const selectedRawProfit =
-                  selectedBooking.totalPrice - selectedVendorCost;
+                const selectedFin = computeBookingFinancials(selectedBooking);
+                const selectedVendorCost = selectedFin.totalVendorCost;
+                const selectedRawProfit = selectedFin.rawProfit;
                 const rate = getCommissionRate(
                   selectedBooking.totalPrice,
                   selectedAgent.slabs,
                 );
-                const marginAmount = calculateMargin(
-                  selectedBooking.totalPrice,
-                  selectedRawProfit,
-                  selectedAgent.slabs,
-                );
+                const marginAmount = selectedFin.potentialMargin;
 
                 return (
                   <div className="border border-border/80 rounded-xl p-4 bg-secondary/10 space-y-3">
