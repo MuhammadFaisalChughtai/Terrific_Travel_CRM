@@ -71,6 +71,7 @@ export class AgentsService {
       const agent = await prisma.agent.create({
         data: {
           name: data.name,
+          invoiceName: data.invoiceName ? String(data.invoiceName).trim() : null,
           email: data.email,
           phoneNumber: data.phoneNumber,
           payrollEmail: data.payrollEmail || null,
@@ -119,6 +120,7 @@ export class AgentsService {
 
     const updateData: any = {
       name: data.name,
+      invoiceName: data.invoiceName !== undefined ? (data.invoiceName ? String(data.invoiceName).trim() : null) : undefined,
       email: data.email,
       phoneNumber: data.phoneNumber,
       payrollEmail: data.payrollEmail !== undefined ? data.payrollEmail : undefined,

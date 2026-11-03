@@ -1075,7 +1075,7 @@ export function generateInstallmentPlanHtml(booking: any): string {
             Scheduled Payment &amp; Installment Plan
           </h3>
           <p style="margin: 3px 0 0; font-size: 9.5px; color: #64748B;">
-            Agreed payment plan arranged with assigned agent <strong>${booking.agent?.name || "Terrific Travel Direct"}</strong>
+            Agreed payment plan arranged with assigned agent <strong>${booking.agent?.invoiceName || booking.agent?.name || "Terrific Travel Direct"}</strong>
           </p>
         </div>
         <div>
@@ -1101,7 +1101,7 @@ export function generateInstallmentPlanHtml(booking: any): string {
         <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; padding: 10px;">
           <p style="margin: 0; font-size: 8.5px; text-transform: uppercase; font-weight: 800; color: #64748B; letter-spacing: 0.5px;">Assigned Agent</p>
           <p style="margin: 3px 0 0; font-size: 12px; font-weight: 700; color: #0F172A;">
-            ${booking.agent?.name || "Terrific Travel Direct"}
+            ${booking.agent?.invoiceName || booking.agent?.name || "Terrific Travel Direct"}
           </p>
           ${booking.agent?.phoneNumber ? `<p style="margin: 1px 0 0; font-size: 9px; color: #64748B;">Phone: ${booking.agent.phoneNumber}</p>` : ""}
         </div>
@@ -1255,7 +1255,7 @@ export function generateBookingInvoiceHtml(booking: any) {
         </div>
         <div class="info-box">
           <h3>Agent / Account Executive</h3>
-          <p><strong>${booking.agent?.name || "Terrific Travel Direct Office"}</strong></p>
+          <p><strong>${booking.agent?.invoiceName || booking.agent?.name || "Terrific Travel Direct Office"}</strong></p>
           ${booking.agent?.phoneNumber ? `<p>Phone: ${booking.agent.phoneNumber}</p>` : ""}
           ${booking.agent?.email ? `<p>Email: ${booking.agent.email}</p>` : ""}
           ${agentInstallmentSnippet}
@@ -2355,7 +2355,7 @@ export function generateFlightTicketHtml(
           <span style="background: #0EA5E9; color: #FFFFFF; padding: 2px 8px; border-radius: 4px; font-weight: 800;">CONFIDENTIAL</span>
         </div>
         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
-          <div>Assigned Agent: <strong>${booking.agent?.name || booking.user?.firstName || "System Admin"}</strong></div>
+          <div>Assigned Agent: <strong>${booking.agent?.invoiceName || booking.agent?.name || booking.user?.firstName || "System Admin"}</strong></div>
           <div>Booking Ref: <strong>${booking.bookingReference}</strong></div>
           <div>Client Paid Total: <strong>£${booking.paidTotal || 0}</strong></div>
         </div>
@@ -2712,7 +2712,10 @@ export function generateTransportVoucherHtml(booking: any, transport: any) {
 
   // Agent name used as REF field (matching screenshot "Basma Travels" pattern)
   const agentRef =
-    booking.agent?.name || booking.agentName || "Terrific Travel";
+    booking.agent?.invoiceName ||
+    booking.agent?.name ||
+    booking.agentName ||
+    "Terrific Travel";
 
   // Summary of all flight numbers on these transfers
   const transferFlightNumbers = Array.from(
@@ -3116,7 +3119,7 @@ export function renderBookingInvoice(
     : "";
 
   const agentBlock = `
-    <p><strong>${booking.agent?.name || "Terrific Travel Direct Office"}</strong></p>
+    <p><strong>${booking.agent?.invoiceName || booking.agent?.name || "Terrific Travel Direct Office"}</strong></p>
     ${booking.agent?.phoneNumber ? `<p>Phone: ${booking.agent.phoneNumber}</p>` : ""}
     ${booking.agent?.email ? `<p>Email: ${booking.agent.email}</p>` : ""}
     ${agentInstallmentSnippet}
@@ -3215,6 +3218,10 @@ export function renderBookingInvoice(
   html = html.replace(/{{DEPARTURE_DATE}}/g, formattedDeparture);
   html = html.replace(/{{LEAD_PASSENGER_BLOCK}}/g, leadPassengerBlock);
   html = html.replace(/{{AGENT_BLOCK}}/g, agentBlock);
+  html = html.replace(
+    /{{AGENT_NAME}}/g,
+    booking.agent?.invoiceName || booking.agent?.name || "Terrific Travel Direct Office",
+  );
   html = html.replace(/{{PASSENGERS_TABLE_ROWS}}/g, passengersRows);
   html = html.replace(/{{SERVICES_TIMELINE}}/g, generateTimelineHtml(booking));
   html = html.replace(/{{SERVICES_TABLE_ROWS}}/g, safeServicesRows);

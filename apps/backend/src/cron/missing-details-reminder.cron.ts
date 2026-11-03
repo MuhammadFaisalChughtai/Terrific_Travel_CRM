@@ -241,6 +241,7 @@ export const runMissingDetailsCheck = async () => {
         ? `${leadPax.title || ""} ${leadPax.firstName} ${leadPax.lastName}`.trim()
         : "Valued Client";
       const agentName =
+        booking.agent?.invoiceName ||
         booking.agent?.name ||
         (booking.user
           ? `${booking.user.firstName} ${booking.user.lastName}`

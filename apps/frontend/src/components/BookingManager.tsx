@@ -7066,6 +7066,11 @@ export default function BookingManager({
                         <span className="text-muted-foreground">Agent Name:</span>
                         <span className="font-bold text-foreground">
                           {booking.agent?.name || "Unassigned"}
+                          {booking.agent?.invoiceName ? (
+                            <span className="ml-1 text-[10px] text-primary font-medium">
+                              (Invoice: {booking.agent.invoiceName})
+                            </span>
+                          ) : null}
                         </span>
                       </div>
                       <div className="flex justify-between">

@@ -2209,7 +2209,8 @@ export class BookingsService {
 
     // Determine booking owner agent details
     const bookingAgentDetails = {
-      name: booking.agent?.name ||
+      name: booking.agent?.invoiceName ||
+        booking.agent?.name ||
         (booking.createdBy ? `${booking.createdBy.firstName} ${booking.createdBy.lastName}`.trim() : null) ||
         actorName,
       designation: booking.agent?.designation || 'Travel Consultant',
@@ -3557,7 +3558,7 @@ export class BookingsService {
             bookingReference: true,
             status: true,
             agentId: true,
-            agent: { select: { id: true, name: true } },
+            agent: { select: { id: true, name: true, invoiceName: true } },
             passengers: {
               where: { role: 'Leader' },
               select: { firstName: true, lastName: true, phoneNumber: true, email: true },
@@ -3672,7 +3673,7 @@ export class BookingsService {
             bookingReference: true,
             status: true,
             agentId: true,
-            agent: { select: { id: true, name: true } },
+            agent: { select: { id: true, name: true, invoiceName: true } },
             passengers: {
               where: { role: 'Leader' },
               select: { firstName: true, lastName: true, phoneNumber: true, email: true },

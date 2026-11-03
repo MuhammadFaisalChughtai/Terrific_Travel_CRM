@@ -479,6 +479,7 @@ model SystemSetting {
 model Agent {
   id            String      @id @default(uuid())
   name          String
+  invoiceName   String?
   email         String      @unique
   phoneNumber   String
   payrollEmail  String?

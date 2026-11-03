@@ -99,6 +99,13 @@ async function bootstrap() {
     await prisma.$connect();
     logger.info('Database connected successfully.');
 
+    // Ensure invoiceName column exists on Agent table
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE "Agent" ADD COLUMN IF NOT EXISTS "invoiceName" TEXT;`);
+    } catch (colErr) {
+      logger.warn('Could not ensure invoiceName column on Agent table:', colErr);
+    }
+
     // Sync dynamic permission registry
     try {
       const { syncPermissionsRegistry } = await import('./services/permissions-sync.service');

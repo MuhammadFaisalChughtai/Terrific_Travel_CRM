@@ -38,6 +38,7 @@ import { PAYROLL_MONTH_OPTIONS } from "./Payroll";
 // Validation Schema for Agent basic fields (excluding slabs, which are validated manually)
 const agentSchema = z.object({
   name: z.string().min(1, "Name is required"),
+  invoiceName: z.string().optional(),
   email: z.string().email("Please enter a valid email address"),
   payrollEmail: z
     .string()
@@ -61,6 +62,7 @@ interface Slab {
 interface Agent {
   id: string;
   name: string;
+  invoiceName?: string | null;
   email: string;
   payrollEmail?: string | null;
   designation?: string | null;
@@ -130,6 +132,7 @@ export default function AgentPage() {
 
   // Form Field States
   const [name, setName] = useState("");
+  const [invoiceName, setInvoiceName] = useState("");
   const [email, setEmail] = useState("");
   const [payrollEmail, setPayrollEmail] = useState("");
   const [designation, setDesignation] = useState("Operations Manager");
@@ -281,6 +284,7 @@ export default function AgentPage() {
   const handleAddClick = () => {
     setSelectedAgent(null);
     setName("");
+    setInvoiceName("");
     setEmail("");
     setPayrollEmail("");
     setDesignation("Operations Manager");
@@ -303,6 +307,7 @@ export default function AgentPage() {
   const handleEditClick = (agent: Agent) => {
     setSelectedAgent(agent);
     setName(agent.name);
+    setInvoiceName(agent.invoiceName || "");
     setEmail(agent.email);
     setPayrollEmail(agent.payrollEmail || "");
     setDesignation(agent.designation || "Operations Manager");
@@ -354,6 +359,7 @@ export default function AgentPage() {
 
     const basicData = {
       name,
+      invoiceName: invoiceName.trim() || undefined,
       email,
       payrollEmail: payrollEmail.trim() || undefined,
       phoneNumber,
@@ -414,6 +420,7 @@ export default function AgentPage() {
 
     const payload = {
       ...basicData,
+      invoiceName: invoiceName.trim() || null,
       designation: designation || "Operations Manager",
       department: department || "Operations",
       basicSalary: basicSalary === "" ? 0 : Number(basicSalary),
@@ -440,6 +447,8 @@ export default function AgentPage() {
   const filteredAgents = agentsData?.filter(
     (agent) =>
       agent.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (agent.invoiceName &&
+        agent.invoiceName.toLowerCase().includes(searchTerm.toLowerCase())) ||
       agent.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       agent.gdsSystem.toLowerCase().includes(searchTerm.toLowerCase()) ||
       agent.client.toLowerCase().includes(searchTerm.toLowerCase()),
@@ -526,7 +535,14 @@ export default function AgentPage() {
                       className="hover:bg-secondary/15 transition-colors"
                     >
                       <td className="py-2.5 px-5">
-                        <div className="font-semibold text-foreground">{agent.name}</div>
+                        <div className="font-semibold text-foreground flex items-center gap-1.5 flex-wrap">
+                          <span>{agent.name}</span>
+                          {agent.invoiceName && (
+                            <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-primary/10 text-primary border border-primary/20">
+                              Inv: {agent.invoiceName}
+                            </span>
+                          )}
+                        </div>
                         <div className="text-[10px] text-muted-foreground font-normal flex items-center gap-1.5 mt-0.5">
                           <span className="font-medium text-foreground/80">{agent.designation || "Agent"}</span>
                           {agent.basicSalary ? (
@@ -840,22 +856,42 @@ export default function AgentPage() {
                 </div>
               </div>
 
-              {/* PCC Code */}
-              <div>
-                <FieldLabel icon={Hash} label="PCC Code" />
-                <input
-                  type="text"
-                  placeholder="e.g. 1A2B"
-                  value={pcc}
-                  onChange={(e) => setPcc(e.target.value)}
-                  className={fieldCls}
-                />
-                {errors.pcc && (
-                  <p className="mt-0.5 text-[9px] text-destructive flex items-center gap-1">
-                    <span className="w-1 h-1 rounded-full bg-destructive shrink-0" />
-                    {errors.pcc}
-                  </p>
-                )}
+              {/* PCC Code & Invoice Name */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <FieldLabel icon={Hash} label="PCC Code" />
+                  <input
+                    type="text"
+                    placeholder="e.g. 1A2B"
+                    value={pcc}
+                    onChange={(e) => setPcc(e.target.value)}
+                    className={fieldCls}
+                  />
+                  {errors.pcc && (
+                    <p className="mt-0.5 text-[9px] text-destructive flex items-center gap-1">
+                      <span className="w-1 h-1 rounded-full bg-destructive shrink-0" />
+                      {errors.pcc}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <FieldLabel
+                    icon={FileText}
+                    label="Invoice Name"
+                    badge={
+                      <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[7px] font-black bg-primary/10 text-primary border border-primary/20 uppercase tracking-wider">
+                        On Invoices
+                      </span>
+                    }
+                  />
+                  <input
+                    type="text"
+                    placeholder="e.g. Adam"
+                    value={invoiceName}
+                    onChange={(e) => setInvoiceName(e.target.value)}
+                    className={fieldCls}
+                  />
+                </div>
               </div>
 
               {/* ── Shift Schedule & Grace Period ── */}
