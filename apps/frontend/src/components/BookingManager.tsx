@@ -83,6 +83,7 @@ import {
   renderVisaInvoice,
   renderSpecialServicesInvoice,
   computeBookingInstallments,
+  getFlightAssignedPassengerIds,
 } from "../utils/invoiceTemplates";
 
 const getIsConnectingFlight = (
@@ -794,6 +795,7 @@ export default function BookingManager({
   const [printTicketDocType, setPrintTicketDocType] = useState<"eticket" | "full_package" | "hotel_voucher" | "agent_copy">("eticket");
   const [printTicketSelectedNationality, setPrintTicketSelectedNationality] = useState<string>("all");
   const [printTicketSplitByNationality, setPrintTicketSplitByNationality] = useState<boolean>(false);
+  const [printTicketFlightScope, setPrintTicketFlightScope] = useState<"single" | "all">("all");
   const [expandedTx, setExpandedTx] = useState<Record<string, boolean>>({});
   const [isHtmlEditorOpen, setIsHtmlEditorOpen] = useState(false);
   const [htmlEditorContent, setHtmlEditorContent] = useState("");
@@ -3541,6 +3543,7 @@ export default function BookingManager({
                       booking.flightServices.length > 0
                     ) {
                       setPrintTicketSelectedFlight(booking.flightServices[0]);
+                      setPrintTicketFlightScope("all");
                       setPrintTicketSelectedPassenger("all");
                       setIsPrintTicketModalOpen(true);
                     } else {
@@ -3847,6 +3850,17 @@ export default function BookingManager({
                                   parsedNotes.associatedNationality !== "ALL"
                                     ? parsedNotes.associatedNationality
                                     : null;
+                                const assignedPaxIds: string[] = Array.isArray(
+                                  parsedNotes?.assignedPassengerIds,
+                                )
+                                  ? parsedNotes.assignedPassengerIds
+                                  : [];
+                                const assignedPaxList =
+                                  assignedPaxIds.length > 0 && booking.passengers
+                                    ? booking.passengers.filter((p: any) =>
+                                        assignedPaxIds.includes(p.id),
+                                      )
+                                    : [];
                                 const airlineName = getAirlineKey(fs);
 
                                 return (
@@ -4022,6 +4036,18 @@ export default function BookingManager({
                                                   🌐 {nationalityOnly} Only
                                                 </span>
                                               )}
+
+                                              {assignedPaxList.length > 0 && (
+                                                <span
+                                                  className="text-[9.5px] bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded-md font-bold inline-flex items-center gap-1 cursor-help"
+                                                  title={`Assigned to this flight: ${assignedPaxList.map((p: any) => `${p.title ? `${p.title} ` : ""}${p.firstName} ${p.lastName}`).join(", ")}`}
+                                                >
+                                                  <Users size={10} />
+                                                  {assignedPaxList.length === 1
+                                                    ? `${assignedPaxList[0].firstName} ${assignedPaxList[0].lastName}`
+                                                    : `${assignedPaxList.length} Pax Assigned`}
+                                                </span>
+                                              )}
                                             </div>
                                           </div>
                                         </div>
@@ -4148,6 +4174,7 @@ export default function BookingManager({
                                               onClick={(e) => {
                                                 e.stopPropagation();
                                                 setPrintTicketSelectedFlight(fs);
+                                                setPrintTicketFlightScope("single");
                                                 setPrintTicketSelectedPassenger("all");
                                                 setIsPrintTicketModalOpen(true);
                                               }}
@@ -6274,26 +6301,68 @@ export default function BookingManager({
             </select>
           </div>
 
-          {/* Select Passenger */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-              Select Passenger
-            </label>
-            <select
-              value={printTicketSelectedPassenger}
-              onChange={(e) => setPrintTicketSelectedPassenger(e.target.value)}
-              className="text-xs py-2 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary w-full"
-            >
-              <option value="all">
-                Full Family / All Passengers (Top Header Summary)
-              </option>
-              {booking?.passengers?.map((p: any) => (
-                <option key={p.id} value={p.id}>
-                  {((p.title ? `${p.title} ` : "") + `${p.firstName || ""} ${p.lastName || ""}`).toUpperCase()} ({p.role || "Passenger"})
+          {/* Flight Segments to Include */}
+          {booking?.flightServices && booking.flightServices.length > 1 && printTicketSelectedFlight && (
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                Flight Segments to Include
+              </label>
+              <select
+                value={printTicketFlightScope}
+                onChange={(e) => setPrintTicketFlightScope(e.target.value as "single" | "all")}
+                className="text-xs py-2 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary w-full font-bold"
+              >
+                <option value="single">
+                  Selected Flight Only ({printTicketSelectedFlight.flightNo}: {printTicketSelectedFlight.departedFrom} ➔ {printTicketSelectedFlight.arrivedAt})
                 </option>
-              ))}
-            </select>
-          </div>
+                <option value="all">
+                  All Flights Combined / Full Itinerary ({booking.flightServices.length} Flights)
+                </option>
+              </select>
+            </div>
+          )}
+
+          {/* Select Passenger */}
+          {(() => {
+            const assignedIds = getFlightAssignedPassengerIds(printTicketSelectedFlight);
+            const isFlightRestricted = printTicketFlightScope === "single" && assignedIds.length > 0;
+            const assignedPax = (booking?.passengers || []).filter((p: any) => assignedIds.includes(p.id));
+
+            return (
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                    Select Passenger
+                  </label>
+                  {isFlightRestricted && (
+                    <span className="text-[9px] text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded border border-indigo-200 dark:border-indigo-800">
+                      {assignedPax.length} of {booking?.passengers?.length || 0} Assigned to Flight
+                    </span>
+                  )}
+                </div>
+                <select
+                  value={printTicketSelectedPassenger}
+                  onChange={(e) => setPrintTicketSelectedPassenger(e.target.value)}
+                  className="text-xs py-2 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary w-full font-medium"
+                >
+                  <option value="all">
+                    {isFlightRestricted
+                      ? `All Assigned Passengers for this Flight (${assignedPax.map((p: any) => p.firstName).join(", ")})`
+                      : "Full Family / All Passengers (Top Header Summary)"}
+                  </option>
+                  {booking?.passengers?.map((p: any) => {
+                    const isAssigned = assignedIds.length === 0 || assignedIds.includes(p.id);
+                    return (
+                      <option key={p.id} value={p.id}>
+                        {((p.title ? `${p.title} ` : "") + `${p.firstName || ""} ${p.lastName || ""}`).toUpperCase()} ({p.role || "Passenger"})
+                        {isFlightRestricted ? (isAssigned ? " ✓ (Assigned)" : " (Not Assigned)") : ""}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            );
+          })()}
 
           {/* Filter / Split by Nationality */}
           {(() => {
@@ -6429,6 +6498,7 @@ export default function BookingManager({
                       printTicketDocType,
                       printTicketSelectedNationality,
                       printTicketSplitByNationality,
+                      printTicketFlightScope,
                     ),
                     `${printTicketDocType.toUpperCase()}_${booking?.bookingReference || printTicketSelectedFlight.flightNo}`,
                   );

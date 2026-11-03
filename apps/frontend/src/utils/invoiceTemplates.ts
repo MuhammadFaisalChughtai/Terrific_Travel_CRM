@@ -2055,6 +2055,18 @@ function generateConsolidatedTicketHtml(
               <div>
                 Status: <strong style="color: #059669;">CONFIRMED</strong>
               </div>
+              ${(() => {
+                const fAssignedIds = getFlightAssignedPassengerIds(f);
+                if (fAssignedIds.length > 0 && booking.passengers) {
+                  const names = booking.passengers
+                    .filter((p: any) => fAssignedIds.includes(p.id))
+                    .map((p: any) => formatPassengerName(p));
+                  if (names.length > 0) {
+                    return `<div>Traveling Passenger(s): <strong style="color: #4F46E5;">${names.join(", ")}</strong></div>`;
+                  }
+                }
+                return "";
+              })()}
             </div>
           </div>
 
@@ -2103,6 +2115,25 @@ export function getAirlineKey(flight: any): string {
   return flight.vendor?.name || "Flight Service";
 }
 
+export function getFlightAssignedPassengerIds(flight: any): string[] {
+  if (!flight) return [];
+  if (Array.isArray(flight.assignedPassengerIds)) {
+    return flight.assignedPassengerIds;
+  }
+  if (flight.notes) {
+    try {
+      const parsed =
+        typeof flight.notes === "string"
+          ? JSON.parse(flight.notes)
+          : flight.notes;
+      if (Array.isArray(parsed?.assignedPassengerIds)) {
+        return parsed.assignedPassengerIds;
+      }
+    } catch (e) {}
+  }
+  return [];
+}
+
 // 2. GENERATE FLIGHT TICKET
 export function generateFlightTicketHtml(
   booking: any,
@@ -2114,6 +2145,7 @@ export function generateFlightTicketHtml(
   docType?: "eticket" | "full_package" | "hotel_voucher" | "agent_copy",
   selectedNationality?: string | null,
   splitByNationality?: boolean,
+  flightScope?: "single" | "all",
 ) {
   // If Hotel Voucher mode requested:
   if (docType === "hotel_voucher") {
@@ -2127,7 +2159,9 @@ export function generateFlightTicketHtml(
   }
 
   const flightsToRender =
-    booking.flightServices && booking.flightServices.length > 0
+    flightScope === "single" && flight
+      ? [flight]
+      : booking.flightServices && booking.flightServices.length > 0
       ? booking.flightServices
       : [flight];
 
@@ -2181,6 +2215,25 @@ export function generateFlightTicketHtml(
     selectedPassengerId && selectedPassengerId !== "all"
       ? passengers.filter((p: any) => p.id === selectedPassengerId)
       : passengers;
+
+  // Filter by flight's assigned passengers if printing a single flight or if flight has specific assigned passengers and no single passenger was picked
+  if (!selectedPassengerId || selectedPassengerId === "all") {
+    const targetFlight =
+      flightScope === "single" && flight
+        ? flight
+        : flightsToRender.length === 1
+        ? flightsToRender[0]
+        : flight;
+    const assignedPaxIds = getFlightAssignedPassengerIds(targetFlight);
+    if (assignedPaxIds.length > 0) {
+      const filtered = passengersToRender.filter((p: any) =>
+        assignedPaxIds.includes(p.id),
+      );
+      if (filtered.length > 0) {
+        passengersToRender = filtered;
+      }
+    }
+  }
 
   // Filter by selected nationality if specified and not 'all'
   if (selectedNationality && selectedNationality !== "all") {
@@ -3237,6 +3290,7 @@ export function renderFlightTicket(
   docType?: "eticket" | "full_package" | "hotel_voucher" | "agent_copy",
   selectedNationality?: string | null,
   splitByNationality?: boolean,
+  flightScope?: "single" | "all",
 ): string {
   return generateFlightTicketHtml(
     booking,
@@ -3248,6 +3302,7 @@ export function renderFlightTicket(
     docType,
     selectedNationality,
     splitByNationality,
+    flightScope,
   );
 }
 

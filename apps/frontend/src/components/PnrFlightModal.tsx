@@ -4,7 +4,7 @@ import { apiClient } from '../api/client';
 import { useAuthStore } from '../store/auth.store';
 import Modal from './Modal';
 import { toast } from 'sonner';
-import { Loader2, Search, Check, PlaneTakeoff, Info, RefreshCw } from 'lucide-react';
+import { Loader2, Search, Check, PlaneTakeoff, Info, RefreshCw, Users, UserCheck } from 'lucide-react';
 
 interface PnrFlightModalProps {
   isOpen: boolean;
@@ -219,6 +219,8 @@ export default function PnrFlightModal({
   const [notes, setNotes] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
   const [associatedNationality, setAssociatedNationality] = useState<string>('ALL');
+  const [passengerAssignmentMode, setPassengerAssignmentMode] = useState<'ALL' | 'SPECIFIC'>('ALL');
+  const [assignedPassengerIds, setAssignedPassengerIds] = useState<string[]>([]);
   const [refundAmount, setRefundAmount] = useState('0.0');
   const [fineAmount, setFineAmount] = useState('0.0');
   const [depTerminal, setDepTerminal] = useState('');
@@ -291,6 +293,8 @@ export default function PnrFlightModal({
         let initialArrTerminal = '';
         let initialArrivalDate = formattedDate;
         let initialAssociatedNat = 'ALL';
+        let initialAssignmentMode: 'ALL' | 'SPECIFIC' = 'ALL';
+        let initialAssignedIds: string[] = [];
         if (flightToEdit.notes) {
           try {
             const parsed = JSON.parse(flightToEdit.notes);
@@ -300,6 +304,10 @@ export default function PnrFlightModal({
             initialNotesText = parsed.actualNotes || '';
             initialArrivalDate = parsed.arrivalDate || formattedDate;
             initialAssociatedNat = parsed.associatedNationality || 'ALL';
+            if (Array.isArray(parsed.assignedPassengerIds) && parsed.assignedPassengerIds.length > 0) {
+              initialAssignmentMode = 'SPECIFIC';
+              initialAssignedIds = parsed.assignedPassengerIds;
+            }
           } catch (e) {
             // normal string
           }
@@ -307,6 +315,8 @@ export default function PnrFlightModal({
         setNotes(initialNotesText);
         setIsConnecting(initialIsConnecting);
         setAssociatedNationality(initialAssociatedNat);
+        setPassengerAssignmentMode(initialAssignmentMode);
+        setAssignedPassengerIds(initialAssignedIds);
         setDepTerminal(initialDepTerminal);
         setArrTerminal(initialArrTerminal);
         setArrivalDate(initialArrivalDate);
@@ -349,6 +359,8 @@ export default function PnrFlightModal({
         setNotes('');
         setIsConnecting(false);
         setAssociatedNationality('ALL');
+        setPassengerAssignmentMode('ALL');
+        setAssignedPassengerIds([]);
         setRefundAmount('0.0');
         setFineAmount('0.0');
         setDepTerminal('');
@@ -604,6 +616,11 @@ export default function PnrFlightModal({
       return;
     }
 
+    if (passengerAssignmentMode === 'SPECIFIC' && assignedPassengerIds.length === 0) {
+      toast.error("Please select at least one passenger for this flight, or choose 'All Passengers'");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const notesJson = JSON.stringify({
@@ -611,6 +628,7 @@ export default function PnrFlightModal({
         depTerminal: depTerminal || "",
         arrTerminal: arrTerminal || "",
         associatedNationality: associatedNationality || "ALL",
+        assignedPassengerIds: passengerAssignmentMode === 'SPECIFIC' ? assignedPassengerIds : [],
         actualNotes: notes || "",
         arrivalDate: arrivalDate || "",
       });
@@ -1464,6 +1482,136 @@ export default function PnrFlightModal({
                       </option>
                     ))}
                   </select>
+                </div>
+
+                {/* Assigned Passengers for this Flight */}
+                <div className="flex flex-col gap-2.5 col-span-2 bg-indigo-50/70 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-800/60 p-3.5 rounded-xl">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-extrabold text-indigo-950 dark:text-indigo-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <Users size={13} className="text-indigo-600 dark:text-indigo-400" />
+                      <span>ASSIGNED PASSENGERS FOR THIS FLIGHT</span>
+                    </label>
+                    <span className="text-[9px] bg-indigo-100 dark:bg-indigo-900/60 text-indigo-800 dark:text-indigo-200 px-2 py-0.5 rounded font-medium">
+                      {passengerAssignmentMode === 'ALL'
+                        ? `All Passengers (${bookingPassengers?.length || 0})`
+                        : `${assignedPassengerIds.length} of ${bookingPassengers?.length || 0} Assigned`}
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] text-muted-foreground leading-snug">
+                    Select whether all passengers on this booking are flying this segment, or assign specific passenger(s) only. Tickets will print based on this selection.
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPassengerAssignmentMode('ALL');
+                      }}
+                      className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
+                        passengerAssignmentMode === 'ALL'
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                          : 'bg-background text-foreground border-border hover:bg-secondary/60'
+                      }`}
+                    >
+                      <Users size={13} />
+                      <span>All Passengers ({bookingPassengers?.length || 0})</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPassengerAssignmentMode('SPECIFIC');
+                        if (assignedPassengerIds.length === 0 && bookingPassengers && bookingPassengers.length > 0) {
+                          setAssignedPassengerIds([bookingPassengers[0].id]);
+                        }
+                      }}
+                      className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
+                        passengerAssignmentMode === 'SPECIFIC'
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                          : 'bg-background text-foreground border-border hover:bg-secondary/60'
+                      }`}
+                    >
+                      <UserCheck size={13} />
+                      <span>Specific Passenger(s)</span>
+                    </button>
+                  </div>
+
+                  {passengerAssignmentMode === 'SPECIFIC' && (
+                    <div className="mt-1 pt-2.5 border-t border-indigo-200/60 dark:border-indigo-800/40 flex flex-col gap-2">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-muted-foreground font-medium text-[10px]">
+                          Check all passengers who are traveling on this flight:
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setAssignedPassengerIds((bookingPassengers || []).map((p: any) => p.id))}
+                            className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold hover:underline cursor-pointer"
+                          >
+                            Select All
+                          </button>
+                          <span className="text-muted-foreground text-[10px]">|</span>
+                          <button
+                            type="button"
+                            onClick={() => setAssignedPassengerIds([])}
+                            className="text-[10px] text-muted-foreground hover:text-foreground font-bold hover:underline cursor-pointer"
+                          >
+                            Clear
+                          </button>
+                        </div>
+                      </div>
+
+                      {(!bookingPassengers || bookingPassengers.length === 0) ? (
+                        <p className="text-xs text-muted-foreground italic py-1">
+                          No passengers found in this booking yet.
+                        </p>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
+                          {bookingPassengers.map((p: any) => {
+                            const isChecked = assignedPassengerIds.includes(p.id);
+                            const fullName = `${p.title ? `${p.title} ` : ''}${p.firstName || ''} ${p.lastName || ''}`.trim() || 'Unnamed Passenger';
+                            return (
+                              <label
+                                key={p.id}
+                                className={`flex items-center gap-2.5 p-2 rounded-lg border cursor-pointer transition-all ${
+                                  isChecked
+                                    ? 'bg-indigo-50/80 dark:bg-indigo-950/40 border-indigo-400 dark:border-indigo-700 text-foreground shadow-2xs'
+                                    : 'bg-background/80 border-border/80 text-muted-foreground hover:bg-secondary/40'
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setAssignedPassengerIds((prev) => [...prev, p.id]);
+                                    } else {
+                                      setAssignedPassengerIds((prev) => prev.filter((id) => id !== p.id));
+                                    }
+                                  }}
+                                  className="rounded border-border text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
+                                />
+                                <div className="flex-1 min-w-0 flex flex-col">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="text-xs font-bold truncate text-foreground">{fullName}</span>
+                                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-secondary text-secondary-foreground font-medium">
+                                      {p.role || 'Passenger'}
+                                    </span>
+                                  </div>
+                                  {(p.nationality || p.passportNumber) && (
+                                    <div className="text-[10px] text-muted-foreground flex items-center gap-1.5 mt-0.5">
+                                      {p.nationality && <span>🌐 {p.nationality}</span>}
+                                      {p.passportNumber && <span>🛂 {p.passportNumber}</span>}
+                                    </div>
+                                  )}
+                                </div>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Notes */}
