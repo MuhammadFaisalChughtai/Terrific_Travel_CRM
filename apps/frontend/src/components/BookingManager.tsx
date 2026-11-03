@@ -86,6 +86,7 @@ import {
   computeBookingInstallments,
   getFlightAssignedPassengerIds,
 } from "../utils/invoiceTemplates";
+import { resolveCardPaymentCharges } from "../utils/bookingFinancials";
 
 const getIsConnectingFlight = (
   currentFlight: any,
@@ -1336,7 +1337,7 @@ export default function BookingManager({
     0,
   );
 
-  const cardPaymentCharges = booking.cardPaymentCharges || 0;
+  const cardPaymentCharges = resolveCardPaymentCharges(booking);
   const rawTotalPrice = booking.totalPrice || 0;
   const installmentSum =
     booking.installments?.reduce(

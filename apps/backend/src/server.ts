@@ -173,6 +173,47 @@ async function bootstrap() {
     } catch (fixErr) {
       logger.error('Failed to run credit card charges totalPrice verification:', fixErr);
     }
+
+    // Clean up orphaned cardPaymentCharges where transactions were removed
+    try {
+      const bookingsWithCharges = await prisma.booking.findMany({
+        where: { cardPaymentCharges: { gt: 0 } },
+        include: { transactions: true },
+      });
+      for (const b of bookingsWithCharges) {
+        if (!b.transactions || b.transactions.length === 0) {
+          await prisma.booking.update({
+            where: { id: b.id },
+            data: { cardPaymentCharges: 0 },
+          });
+          logger.info(
+            `Cleaned up orphaned cardPaymentCharges for booking ${b.bookingReference} (no transactions recorded)`,
+          );
+        } else {
+          const hasCcTx = b.transactions.some((tx: any) => {
+            const method = (tx.paymentMethod || '').toLowerCase();
+            const notes = (tx.notes || '').toLowerCase();
+            return (
+              method.includes('credit card') ||
+              method.includes('cc') ||
+              notes.includes('credit card') ||
+              notes.includes('card payment')
+            );
+          });
+          if (!hasCcTx) {
+            await prisma.booking.update({
+              where: { id: b.id },
+              data: { cardPaymentCharges: 0 },
+            });
+            logger.info(
+              `Cleaned up orphaned cardPaymentCharges for booking ${b.bookingReference} (no credit card transactions found)`,
+            );
+          }
+        }
+      }
+    } catch (cleanCcErr) {
+      logger.warn('Failed to clean up orphaned cardPaymentCharges:', cleanCcErr);
+    }
   } catch (err) {
     logger.error('Failed to connect to database:', err);
   }

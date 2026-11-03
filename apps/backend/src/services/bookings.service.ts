@@ -2769,10 +2769,39 @@ export class BookingsService {
     });
     if (!transaction) throw new NotFoundException('Transaction record not found');
 
+    const txMethod = (transaction.paymentMethod || '').toLowerCase();
+    const txNotes = (transaction.notes || '').toLowerCase();
+    const isFeeTx = (
+      txMethod.includes('fee') ||
+      txNotes.includes('credit card charge') ||
+      txNotes.includes('card payment charge') ||
+      txNotes.includes('cc charge')
+    );
+
     // Delete transaction from database
     await prisma.bookingTransaction.delete({
       where: { id: transactionId }
     });
+
+    // If deleting a Credit Card payment, also delete any companion credit card fee transaction
+    if (!isFeeTx && txMethod.includes('credit card')) {
+      const companionFeeTx = await prisma.bookingTransaction.findFirst({
+        where: {
+          bookingId,
+          OR: [
+            { paymentMethod: { contains: 'fee', mode: 'insensitive' } },
+            { notes: { contains: 'credit card charge', mode: 'insensitive' } },
+            { notes: { contains: 'card payment charge', mode: 'insensitive' } },
+            { notes: { contains: 'cc charge', mode: 'insensitive' } },
+          ],
+        },
+      });
+      if (companionFeeTx) {
+        await prisma.bookingTransaction.delete({
+          where: { id: companionFeeTx.id },
+        });
+      }
+    }
 
     // Recalculate remaining client transactions sum and refunds
     const remainingTxs = await prisma.bookingTransaction.findMany({
@@ -2793,6 +2822,37 @@ export class BookingsService {
       newPaymentStatus = 'PARTIALLY_PAID';
     }
 
+    // Recalculate credit card charges
+    let newCardPaymentCharges = 0;
+    if (remainingTxs.length === 0) {
+      newCardPaymentCharges = 0;
+    } else {
+      const remainingFeeTxs = remainingTxs.filter(tx => {
+        const method = (tx.paymentMethod || '').toLowerCase();
+        const notes = (tx.notes || '').toLowerCase();
+        return (
+          method.includes('fee') ||
+          notes.includes('credit card charge') ||
+          notes.includes('card payment charge') ||
+          notes.includes('cc charge')
+        );
+      });
+      if (remainingFeeTxs.length > 0) {
+        newCardPaymentCharges = Math.round(
+          remainingFeeTxs.reduce((sum, tx) => sum + Math.abs(Number(tx.amount) || 0), 0) * 100
+        ) / 100;
+      } else {
+        const hasCcTx = remainingTxs.some(tx => (tx.paymentMethod || '').toLowerCase().includes('credit card'));
+        if (!hasCcTx) {
+          newCardPaymentCharges = 0;
+        } else if (isFeeTx) {
+          newCardPaymentCharges = Math.max(0, Math.round(((booking.cardPaymentCharges || 0) - Math.abs(Number(transaction.amount) || 0)) * 100) / 100);
+        } else {
+          newCardPaymentCharges = 0;
+        }
+      }
+    }
+
     // Update booking
     await prisma.booking.update({
       where: { id: bookingId },
@@ -2801,14 +2861,29 @@ export class BookingsService {
         refundAmount: newRefundAmount,
         remainingAmount: newRemainingAmount,
         paymentStatus: newPaymentStatus,
+        cardPaymentCharges: newCardPaymentCharges,
       }
     });
+
+    if (booking.agentMarginId) {
+      try {
+        const { agentMarginService } = await import('./agent-margin.service');
+        await agentMarginService.recalculateMarginRecord(booking.agentMarginId);
+      } catch (marginErr) {
+        logger.warn('Failed to recalculate margin after deleting transaction:', marginErr);
+      }
+    }
 
     await rabbitMQService.publish('booking.updated', {
       bookingId: booking.id,
     });
 
-    return { success: true, newPaidAmount, newRemainingAmount };
+    return {
+      success: true,
+      newPaidAmount,
+      newRemainingAmount,
+      newCardPaymentCharges,
+    };
   }
 
   async getUniqueHotels(search: string) {

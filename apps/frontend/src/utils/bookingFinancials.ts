@@ -71,6 +71,39 @@ export interface BookingFinancialOverview {
   originalProfit: number;
 }
 
+export function resolveCardPaymentCharges(booking: any): number {
+  const rawCharges = Number(booking?.cardPaymentCharges) || 0;
+  if (rawCharges <= 0) return 0;
+  if (booking?.transactions && Array.isArray(booking.transactions)) {
+    if (booking.transactions.length === 0) return 0;
+    const feeTxs = booking.transactions.filter((tx: any) => {
+      const method = (tx.paymentMethod || '').toLowerCase();
+      const notes = (tx.notes || '').toLowerCase();
+      return (
+        method.includes('fee') ||
+        notes.includes('credit card charge') ||
+        notes.includes('card payment charge') ||
+        notes.includes('cc charge')
+      );
+    });
+    if (feeTxs.length > 0) {
+      return Math.round(feeTxs.reduce((sum: number, tx: any) => sum + Math.abs(Number(tx.amount) || 0), 0) * 100) / 100;
+    }
+    const hasCcTx = booking.transactions.some((tx: any) => {
+      const method = (tx.paymentMethod || '').toLowerCase();
+      const notes = (tx.notes || '').toLowerCase();
+      return (
+        method.includes('credit card') ||
+        method.includes('cc') ||
+        notes.includes('credit card') ||
+        notes.includes('card payment')
+      );
+    });
+    if (!hasCcTx) return 0;
+  }
+  return rawCharges;
+}
+
 export function computeBookingFinancials(booking: any): BookingFinancialOverview {
   if (!booking) {
     return {
@@ -101,7 +134,7 @@ export function computeBookingFinancials(booking: any): BookingFinancialOverview
     0
   );
 
-  const cardPaymentCharges = Number(booking.cardPaymentCharges) || 0;
+  const cardPaymentCharges = resolveCardPaymentCharges(booking);
   const rawTotalPrice = Number(booking.totalPrice) || 0;
   const installmentSum =
     booking.installments?.reduce(

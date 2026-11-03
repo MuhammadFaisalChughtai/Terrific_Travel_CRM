@@ -36,6 +36,39 @@ export function isCustomerTransaction(tx: any): boolean {
  * Calculates customer paid amount, pending balance, and effective price for a booking.
  * Exactly aligns with the BookingManager financial overview logic.
  */
+function resolveCardPaymentCharges(b: any): number {
+  const rawCharges = Number(b.cardPaymentCharges) || 0;
+  if (rawCharges <= 0) return 0;
+  if (b.transactions && Array.isArray(b.transactions)) {
+    if (b.transactions.length === 0) return 0;
+    const feeTxs = b.transactions.filter((tx: any) => {
+      const method = (tx.paymentMethod || '').toLowerCase();
+      const notes = (tx.notes || '').toLowerCase();
+      return (
+        method.includes('fee') ||
+        notes.includes('credit card charge') ||
+        notes.includes('card payment charge') ||
+        notes.includes('cc charge')
+      );
+    });
+    if (feeTxs.length > 0) {
+      return Math.round(feeTxs.reduce((sum: number, tx: any) => sum + Math.abs(Number(tx.amount) || 0), 0) * 100) / 100;
+    }
+    const hasCcTx = b.transactions.some((tx: any) => {
+      const method = (tx.paymentMethod || '').toLowerCase();
+      const notes = (tx.notes || '').toLowerCase();
+      return (
+        method.includes('credit card') ||
+        method.includes('cc') ||
+        notes.includes('credit card') ||
+        notes.includes('card payment')
+      );
+    });
+    if (!hasCcTx) return 0;
+  }
+  return rawCharges;
+}
+
 export function calculateCustomerPending(b: any): { clientPaid: number; pendingAmount: number; effectivePrice: number } {
   let clientPaid = 0;
   if (b.transactions && b.transactions.length > 0) {
@@ -47,7 +80,7 @@ export function calculateCustomerPending(b: any): { clientPaid: number; pendingA
     clientPaid = Number(b.paidAmount) || 0;
   }
 
-  const cardPaymentCharges = Number(b.cardPaymentCharges) || 0;
+  const cardPaymentCharges = resolveCardPaymentCharges(b);
   const rawTotalPrice = Number(b.totalPrice) || 0;
   const installmentSum =
     b.installments?.reduce(
@@ -77,7 +110,7 @@ export function calculateCustomerPending(b: any): { clientPaid: number; pendingA
  * and agent slab commissions.
  */
 export function calculateBookingFinancials(b: any): { vendorCost: number; margin: number; netProfit: number } {
-  const cardPaymentCharges = Number(b.cardPaymentCharges) || 0;
+  const cardPaymentCharges = resolveCardPaymentCharges(b);
   const rawTotalPrice = Number(b.totalPrice) || 0;
   const installmentSum =
     b.installments?.reduce(
