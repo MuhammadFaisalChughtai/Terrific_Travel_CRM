@@ -9,7 +9,9 @@ export function isCustomerTransaction(tx: any): boolean {
     methodLower.includes('vendor') ||
     methodLower.includes('discount') ||
     methodLower.includes('agent') ||
-    methodLower.includes('payout')
+    methodLower.includes('payout') ||
+    methodLower.includes('fee') ||
+    methodLower.includes('charge')
   ) {
     return false;
   }
@@ -20,7 +22,10 @@ export function isCustomerTransaction(tx: any): boolean {
     notesLower.includes('discount') ||
     notesLower.includes('agent') ||
     notesLower.includes('payout') ||
-    notesLower.includes('refund from vendor')
+    notesLower.includes('refund from vendor') ||
+    notesLower.includes('credit card charge') ||
+    notesLower.includes('card payment charge') ||
+    notesLower.includes('cc charge')
   ) {
     return false;
   }
@@ -42,7 +47,21 @@ export function calculateCustomerPending(b: any): { clientPaid: number; pendingA
     clientPaid = Number(b.paidAmount) || 0;
   }
 
-  const totalPrice = Number(b.totalPrice) || 0;
+  const cardPaymentCharges = Number(b.cardPaymentCharges) || 0;
+  const rawTotalPrice = Number(b.totalPrice) || 0;
+  const installmentSum =
+    b.installments?.reduce(
+      (s: number, inst: any) => s + (Number(inst.amount) || 0),
+      0,
+    ) || 0;
+  // Ensure credit card charges do not minus from Total Payment
+  const totalPrice =
+    installmentSum > 0 &&
+    cardPaymentCharges > 0 &&
+    Math.abs(installmentSum - (rawTotalPrice + cardPaymentCharges)) < 0.05
+      ? installmentSum
+      : rawTotalPrice;
+
   const pendingAmount = Math.max(0, Math.round((totalPrice - clientPaid) * 100) / 100);
 
   return {
@@ -58,7 +77,19 @@ export function calculateCustomerPending(b: any): { clientPaid: number; pendingA
  * and agent slab commissions.
  */
 export function calculateBookingFinancials(b: any): { vendorCost: number; margin: number; netProfit: number } {
-  const price = Number(b.totalPrice) || 0;
+  const cardPaymentCharges = Number(b.cardPaymentCharges) || 0;
+  const rawTotalPrice = Number(b.totalPrice) || 0;
+  const installmentSum =
+    b.installments?.reduce(
+      (s: number, inst: any) => s + (Number(inst.amount) || 0),
+      0,
+    ) || 0;
+  const price =
+    installmentSum > 0 &&
+    cardPaymentCharges > 0 &&
+    Math.abs(installmentSum - (rawTotalPrice + cardPaymentCharges)) < 0.05
+      ? installmentSum
+      : rawTotalPrice;
   let totalVendorCost = 0;
   if (b.bookingVendorPayments && b.bookingVendorPayments.length > 0) {
     totalVendorCost = b.bookingVendorPayments.reduce((sum: number, item: any) => sum + (Number(item.originalCost) || 0), 0);
@@ -78,7 +109,6 @@ export function calculateBookingFinancials(b: any): { vendorCost: number; margin
   const totalVendorRefund = accommodationsRefund + flightsRefund + transportsRefund + visasRefund;
 
   const clientRefund = Number(b.refundAmount) || 0;
-  const cardPaymentCharges = Number(b.cardPaymentCharges) || 0;
 
   const rawProfit = price - clientRefund - (totalVendorCost - totalVendorRefund) - cardPaymentCharges;
 

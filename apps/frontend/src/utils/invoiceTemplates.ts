@@ -1,4 +1,5 @@
 import { formatCurrency } from "@tms/shared-utils";
+import { isCustomerTransaction } from "./bookingFinancials";
 // @ts-ignore
 import html2pdf from "html2pdf.js";
 
@@ -967,6 +968,12 @@ export function computeBookingInstallments(booking: any) {
   });
 
   let runningPaid = Math.max(0, Number(booking.paidAmount) || 0);
+  if (booking.transactions && Array.isArray(booking.transactions) && booking.transactions.length > 0) {
+    const custTx = booking.transactions.filter(isCustomerTransaction);
+    if (custTx.length > 0) {
+      runningPaid = Math.max(0, custTx.reduce((sum: number, tx: any) => sum + (Number(tx.amount) || 0), 0));
+    }
+  }
   const now = new Date();
   const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 

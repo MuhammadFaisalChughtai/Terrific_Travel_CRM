@@ -51,6 +51,7 @@ import {
   Tag,
   Layers,
   Minus,
+  CreditCard,
 } from "lucide-react";
 // @ts-ignore
 import html2pdf from "html2pdf.js";
@@ -1304,7 +1305,9 @@ export default function BookingManager({
       methodLower.includes("vendor") ||
       methodLower.includes("discount") ||
       methodLower.includes("agent") ||
-      methodLower.includes("payout")
+      methodLower.includes("payout") ||
+      methodLower.includes("fee") ||
+      methodLower.includes("charge")
     ) {
       return false;
     }
@@ -1315,7 +1318,10 @@ export default function BookingManager({
       notesLower.includes("discount") ||
       notesLower.includes("agent") ||
       notesLower.includes("payout") ||
-      notesLower.includes("refund from vendor")
+      notesLower.includes("refund from vendor") ||
+      notesLower.includes("credit card charge") ||
+      notesLower.includes("card payment charge") ||
+      notesLower.includes("cc charge")
     ) {
       return false;
     }
@@ -1330,7 +1336,21 @@ export default function BookingManager({
     0,
   );
 
-  const totalPrice = booking.totalPrice || 0;
+  const cardPaymentCharges = booking.cardPaymentCharges || 0;
+  const rawTotalPrice = booking.totalPrice || 0;
+  const installmentSum =
+    booking.installments?.reduce(
+      (s: number, inst: any) => s + (Number(inst.amount) || 0),
+      0,
+    ) || 0;
+  // Ensure credit card charges do not minus from Total Payment
+  const totalPrice =
+    installmentSum > 0 &&
+    cardPaymentCharges > 0 &&
+    Math.abs(installmentSum - (rawTotalPrice + cardPaymentCharges)) < 0.05
+      ? installmentSum
+      : rawTotalPrice;
+
   const paidAmount = clientTxSum > 0 ? clientTxSum : (booking.paidAmount || 0);
   const remainingAmount = Math.max(0, totalPrice - paidAmount);
 
@@ -1397,7 +1417,6 @@ export default function BookingManager({
     accommodationsRefund + flightsRefund + transportsRefund + visasRefund;
 
   const clientRefund = booking.refundAmount || 0;
-  const cardPaymentCharges = booking.cardPaymentCharges || 0;
 
   const rawProfit =
     totalPrice -
@@ -2411,6 +2430,19 @@ export default function BookingManager({
                     </div>
                     <span className="text-[15px] font-bold text-rose-500 dark:text-rose-400">
                       {formatCurrency(clientRefund)}
+                    </span>
+                  </div>
+
+                  {/* Credit Card Charges */}
+                  <div className="bg-card p-3.5 rounded-lg shadow-sm border border-border flex flex-col justify-between">
+                    <div className="flex items-center gap-1 text-amber-500 mb-1">
+                      <CreditCard size={12} />
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-amber-500">
+                        Credit Card Charges
+                      </span>
+                    </div>
+                    <span className="text-[15px] font-bold text-amber-600 dark:text-amber-400">
+                      {formatCurrency(cardPaymentCharges)}
                     </span>
                   </div>
                 </div>

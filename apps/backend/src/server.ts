@@ -115,6 +115,57 @@ async function bootstrap() {
     } catch (seedErr) {
       logger.error('Failed to seed catalog on server bootstrap:', seedErr);
     }
+
+    // Ensure credit card charges do not remain deducted from booking totalPrice
+    try {
+      const bookingsWithCcCharges = await prisma.booking.findMany({
+        where: { cardPaymentCharges: { gt: 0 } },
+        include: { installments: true, transactions: true },
+      });
+      for (const b of bookingsWithCcCharges) {
+        const negativeCcTx = b.transactions.filter(
+          (t: any) =>
+            t.amount < 0 &&
+            (t.notes || '').toLowerCase().includes('credit card charge'),
+        );
+        const totalNegativeCc = negativeCcTx.reduce(
+          (sum: number, t: any) => sum + Math.abs(t.amount),
+          0,
+        );
+
+        let restoreAmount = 0;
+        const installmentSum = b.installments.reduce(
+          (sum: number, inst: any) => sum + (Number(inst.amount) || 0),
+          0,
+        );
+        if (
+          installmentSum > 0 &&
+          Math.abs(installmentSum - (b.totalPrice + b.cardPaymentCharges)) < 0.05
+        ) {
+          restoreAmount = b.cardPaymentCharges;
+        } else if (
+          totalNegativeCc > 0 &&
+          installmentSum > 0 &&
+          Math.abs(installmentSum - (b.totalPrice + totalNegativeCc)) < 0.05
+        ) {
+          restoreAmount = totalNegativeCc;
+        }
+
+        if (restoreAmount > 0) {
+          await prisma.booking.update({
+            where: { id: b.id },
+            data: {
+              totalPrice: { increment: restoreAmount },
+            },
+          });
+          logger.info(
+            `Restored totalPrice for booking ${b.bookingReference} (+${restoreAmount}) so credit card fee is not deducted from Total Payment`,
+          );
+        }
+      }
+    } catch (fixErr) {
+      logger.error('Failed to run credit card charges totalPrice verification:', fixErr);
+    }
   } catch (err) {
     logger.error('Failed to connect to database:', err);
   }

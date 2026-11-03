@@ -627,18 +627,13 @@ export default function BookingTransactionModal({
             </div>
 
             {/* Deduction Live Preview */}
-            {(Number(cardPaymentCharges) > 0 || Number(amount) > 0) && (
+            {Number(cardPaymentCharges) > 0 && (
               <div className="p-2 bg-card/70 border border-primary/15 rounded-lg flex items-center justify-between text-[11px] font-semibold text-foreground">
                 <span className="text-muted-foreground">
-                  Net Amount Received after {ccRate || "0"}% CC Deduction:
+                  Card Charge Deducted from Company Profit ({ccRate || "0"}%):
                 </span>
-                <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                  £
-                  {Math.max(
-                    0,
-                    (parseFloat(amount) || 0) -
-                      (parseFloat(cardPaymentCharges) || 0),
-                  ).toFixed(2)}
+                <span className="font-mono font-bold text-amber-600 dark:text-amber-400">
+                  £{(parseFloat(cardPaymentCharges) || 0).toFixed(2)}
                 </span>
               </div>
             )}
@@ -655,7 +650,7 @@ export default function BookingTransactionModal({
                 htmlFor="isPaidByCompany"
                 className="text-[10px] font-bold text-foreground cursor-pointer"
               >
-                Paid by the Company (expense deduction)
+                Fee absorbed by company (deducted from profit, does not reduce Total Payment)
               </label>
             </div>
           </div>

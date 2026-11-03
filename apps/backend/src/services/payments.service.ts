@@ -217,17 +217,14 @@ export class PaymentsService {
               where: { id: data.bookingId },
               data: {
                 cardPaymentCharges: { increment: ccCharges },
-                ...(isPaidByCompany
-                  ? { totalPrice: { decrement: ccCharges } }
-                  : { totalPrice: { increment: ccCharges } }),
               },
             });
 
             await tx.bookingTransaction.create({
               data: {
                 bookingId: data.bookingId,
-                amount: isPaidByCompany ? -ccCharges : ccCharges,
-                paymentMethod: "Credit Card",
+                amount: ccCharges,
+                paymentMethod: "Credit Card Fee",
                 notes:
                   `Credit Card Charges for customer payment` +
                   (isPaidByCompany

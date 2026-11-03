@@ -23,7 +23,9 @@ export const isCustomerTransaction = (tx: any): boolean => {
     methodLower.includes('vendor') ||
     methodLower.includes('discount') ||
     methodLower.includes('agent') ||
-    methodLower.includes('payout')
+    methodLower.includes('payout') ||
+    methodLower.includes('fee') ||
+    methodLower.includes('charge')
   ) {
     return false;
   }
@@ -34,7 +36,10 @@ export const isCustomerTransaction = (tx: any): boolean => {
     notesLower.includes('discount') ||
     notesLower.includes('agent') ||
     notesLower.includes('payout') ||
-    notesLower.includes('refund from vendor')
+    notesLower.includes('refund from vendor') ||
+    notesLower.includes('credit card charge') ||
+    notesLower.includes('card payment charge') ||
+    notesLower.includes('cc charge')
   ) {
     return false;
   }
@@ -96,7 +101,21 @@ export function computeBookingFinancials(booking: any): BookingFinancialOverview
     0
   );
 
-  const totalPrice = Number(booking.totalPrice) || 0;
+  const cardPaymentCharges = Number(booking.cardPaymentCharges) || 0;
+  const rawTotalPrice = Number(booking.totalPrice) || 0;
+  const installmentSum =
+    booking.installments?.reduce(
+      (s: number, inst: any) => s + (Number(inst.amount) || 0),
+      0,
+    ) || 0;
+  // Ensure credit card charges do not minus from Total Payment
+  const totalPrice =
+    installmentSum > 0 &&
+    cardPaymentCharges > 0 &&
+    Math.abs(installmentSum - (rawTotalPrice + cardPaymentCharges)) < 0.05
+      ? installmentSum
+      : rawTotalPrice;
+
   const paidAmount = clientTxSum > 0 ? clientTxSum : (Number(booking.paidAmount) || 0);
   const remainingAmount = Math.max(0, totalPrice - paidAmount);
 
@@ -137,9 +156,8 @@ export function computeBookingFinancials(booking: any): BookingFinancialOverview
 
   const totalVendorRefund = accommodationsRefund + flightsRefund + transportsRefund + visasRefund;
   const clientRefund = Number(booking.refundAmount) || 0;
-  const cardPaymentCharges = Number(booking.cardPaymentCharges) || 0;
 
-  // Raw Profit (before agent margin deduction)
+  // Raw Profit (before agent margin deduction) - cardPaymentCharges is deducted from profit
   const rawProfit = totalPrice - clientRefund - (totalVendorCost - totalVendorRefund) - cardPaymentCharges;
 
   // Potential Margin
