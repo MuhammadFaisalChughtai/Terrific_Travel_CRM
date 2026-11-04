@@ -566,6 +566,39 @@ function formatFlightPnrSnippet(f: any): string {
   return parts.length > 0 ? parts.join(" | ") : "PNR: —";
 }
 
+export function getEffectiveAgent(booking: any) {
+  const agent =
+    booking?.agent ||
+    booking?.assignedTo?.agent ||
+    booking?.createdBy?.agent ||
+    booking?.user?.agent;
+
+  const invoiceName = agent?.invoiceName?.trim();
+  const name = agent?.name?.trim();
+  const fallbackUserName = booking?.user
+    ? `${booking.user.firstName || ""} ${booking.user.lastName || ""}`.trim()
+    : "";
+
+  const displayName =
+    invoiceName ||
+    name ||
+    booking?.agentName?.trim() ||
+    fallbackUserName ||
+    "Terrific Travel Direct Office";
+
+  const phone = agent?.phoneNumber || booking?.agent?.phoneNumber || "";
+  const email = agent?.payrollEmail || agent?.email || booking?.agent?.email || "";
+
+  return {
+    agent,
+    invoiceName,
+    name,
+    displayName,
+    phone,
+    email,
+  };
+}
+
 function generateTimelineHtml(booking: any): string {
   const items: any[] = [];
 
@@ -1109,6 +1142,8 @@ export function generateInstallmentPlanHtml(booking: any): string {
       ? "Payment Overdue"
       : "Payment In Progress";
 
+  const effAgent = getEffectiveAgent(booking);
+
   return `
     <div class="installment-plan-section" style="margin-top: 24px; margin-bottom: 24px; padding: 18px; background: #FFFFFF; border: 1.5px solid #CBD5E1; border-radius: 8px; page-break-inside: avoid;">
       <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px solid #E2E8F0; padding-bottom: 10px; margin-bottom: 14px;">
@@ -1118,7 +1153,7 @@ export function generateInstallmentPlanHtml(booking: any): string {
             Scheduled Payment &amp; Installment Plan
           </h3>
           <p style="margin: 3px 0 0; font-size: 9.5px; color: #64748B;">
-            Agreed payment plan arranged with assigned agent <strong>${booking.agent?.invoiceName || booking.agent?.name || "Terrific Travel Direct"}</strong>
+            Agreed payment plan arranged with assigned agent <strong>${effAgent.displayName}</strong>
           </p>
         </div>
         <div>
@@ -1144,9 +1179,9 @@ export function generateInstallmentPlanHtml(booking: any): string {
         <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; padding: 10px;">
           <p style="margin: 0; font-size: 8.5px; text-transform: uppercase; font-weight: 800; color: #64748B; letter-spacing: 0.5px;">Assigned Agent</p>
           <p style="margin: 3px 0 0; font-size: 12px; font-weight: 700; color: #0F172A;">
-            ${booking.agent?.invoiceName || booking.agent?.name || "Terrific Travel Direct"}
+            ${effAgent.displayName}
           </p>
-          ${booking.agent?.phoneNumber ? `<p style="margin: 1px 0 0; font-size: 9px; color: #64748B;">Phone: ${booking.agent.phoneNumber}</p>` : ""}
+          ${effAgent.phone ? `<p style="margin: 1px 0 0; font-size: 9px; color: #64748B;">Phone: ${effAgent.phone}</p>` : ""}
         </div>
       </div>
 
@@ -1206,6 +1241,7 @@ export function generateBookingInvoiceHtml(booking: any) {
     booking.passengers?.[0];
   const formattedDeparture = formatDate(booking.departureDate);
   const invoiceNo = `INV-${booking.bookingReference || booking.id.substring(0, 8)}`;
+  const effAgent = getEffectiveAgent(booking);
 
   // Calculate item summaries
   const flightsCost =
@@ -1298,9 +1334,9 @@ export function generateBookingInvoiceHtml(booking: any) {
         </div>
         <div class="info-box">
           <h3>Agent / Account Executive</h3>
-          <p><strong>${booking.agent?.invoiceName || booking.agent?.name || "Terrific Travel Direct Office"}</strong></p>
-          ${booking.agent?.phoneNumber ? `<p>Phone: ${booking.agent.phoneNumber}</p>` : ""}
-          ${booking.agent?.email ? `<p>Email: ${booking.agent.email}</p>` : ""}
+          <p><strong>${effAgent.displayName}</strong></p>
+          ${effAgent.phone ? `<p>Phone: ${effAgent.phone}</p>` : ""}
+          ${effAgent.email ? `<p>Email: ${effAgent.email}</p>` : ""}
           ${agentInstallmentSnippet}
         </div>
       </div>
@@ -2398,7 +2434,7 @@ export function generateFlightTicketHtml(
           <span style="background: #0EA5E9; color: #FFFFFF; padding: 2px 8px; border-radius: 4px; font-weight: 800;">CONFIDENTIAL</span>
         </div>
         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
-          <div>Assigned Agent: <strong>${booking.agent?.invoiceName || booking.agent?.name || booking.user?.firstName || "System Admin"}</strong></div>
+          <div>Assigned Agent: <strong>${getEffectiveAgent(booking).displayName}</strong></div>
           <div>Booking Ref: <strong>${booking.bookingReference}</strong></div>
           <div>Client Paid Total: <strong>£${booking.paidTotal || 0}</strong></div>
         </div>
@@ -2754,11 +2790,7 @@ export function generateTransportVoucherHtml(booking: any, transport: any) {
   const vendorRef = transfers[0]?.vendor?.name || "Terrific Travel Partner";
 
   // Agent name used as REF field (matching screenshot "Basma Travels" pattern)
-  const agentRef =
-    booking.agent?.invoiceName ||
-    booking.agent?.name ||
-    booking.agentName ||
-    "Terrific Travel";
+  const agentRef = getEffectiveAgent(booking).displayName;
 
   // Summary of all flight numbers on these transfers
   const transferFlightNumbers = Array.from(
@@ -3161,10 +3193,11 @@ export function renderBookingInvoice(
     `
     : "";
 
+  const effAgent = getEffectiveAgent(booking);
   const agentBlock = `
-    <p><strong>${booking.agent?.invoiceName || booking.agent?.name || "Terrific Travel Direct Office"}</strong></p>
-    ${booking.agent?.phoneNumber ? `<p>Phone: ${booking.agent.phoneNumber}</p>` : ""}
-    ${booking.agent?.email ? `<p>Email: ${booking.agent.email}</p>` : ""}
+    <p><strong>${effAgent.displayName}</strong></p>
+    ${effAgent.phone ? `<p>Phone: ${effAgent.phone}</p>` : ""}
+    ${effAgent.email ? `<p>Email: ${effAgent.email}</p>` : ""}
     ${agentInstallmentSnippet}
   `;
 
@@ -3261,10 +3294,9 @@ export function renderBookingInvoice(
   html = html.replace(/{{DEPARTURE_DATE}}/g, formattedDeparture);
   html = html.replace(/{{LEAD_PASSENGER_BLOCK}}/g, leadPassengerBlock);
   html = html.replace(/{{AGENT_BLOCK}}/g, agentBlock);
-  html = html.replace(
-    /{{AGENT_NAME}}/g,
-    booking.agent?.invoiceName || booking.agent?.name || "Terrific Travel Direct Office",
-  );
+  html = html.replace(/{{AGENT_NAME}}/g, effAgent.displayName);
+  html = html.replace(/{{AGENT_PHONE}}/g, effAgent.phone);
+  html = html.replace(/{{AGENT_EMAIL}}/g, effAgent.email);
   html = html.replace(/{{PASSENGERS_TABLE_ROWS}}/g, passengersRows);
   html = html.replace(/{{SERVICES_TIMELINE}}/g, generateTimelineHtml(booking));
   html = html.replace(/{{SERVICES_TABLE_ROWS}}/g, safeServicesRows);

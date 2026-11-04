@@ -67,6 +67,8 @@ export class AgentsService {
       throw new BadRequestException(`An agent with the email "${data.email}" is already registered.`);
     }
 
+    await this.ensureInvoiceNameColumn();
+
     try {
       const agent = await prisma.agent.create({
         data: {
@@ -114,13 +116,28 @@ export class AgentsService {
     }
   }
 
+  private async ensureInvoiceNameColumn() {
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE IF EXISTS "Agent" ADD COLUMN IF NOT EXISTS "invoiceName" TEXT;`);
+    } catch (e) {}
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE IF EXISTS agent ADD COLUMN IF NOT EXISTS "invoiceName" TEXT;`);
+    } catch (e) {}
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE IF EXISTS agents ADD COLUMN IF NOT EXISTS "invoiceName" TEXT;`);
+    } catch (e) {}
+  }
+
   async update(id: string, data: any) {
     // Ensure agent exists
     await this.findOne(id);
+    await this.ensureInvoiceNameColumn();
 
     const updateData: any = {
       name: data.name,
-      invoiceName: data.invoiceName !== undefined ? (data.invoiceName ? String(data.invoiceName).trim() : null) : undefined,
+      invoiceName: data.invoiceName !== undefined 
+        ? (data.invoiceName && String(data.invoiceName).trim().length > 0 ? String(data.invoiceName).trim() : null) 
+        : undefined,
       email: data.email,
       phoneNumber: data.phoneNumber,
       payrollEmail: data.payrollEmail !== undefined ? data.payrollEmail : undefined,

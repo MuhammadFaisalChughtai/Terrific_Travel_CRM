@@ -100,12 +100,19 @@ async function bootstrap() {
     await prisma.$connect();
     logger.info('Database connected successfully.');
 
-    // Ensure invoiceName column exists on Agent table
+    // Ensure invoiceName column exists on Agent table across all table casing variants
     try {
-      await prisma.$executeRawUnsafe(`ALTER TABLE "Agent" ADD COLUMN IF NOT EXISTS "invoiceName" TEXT;`);
-    } catch (colErr) {
-      logger.warn('Could not ensure invoiceName column on Agent table:', colErr);
-    }
+      await prisma.$executeRawUnsafe(`ALTER TABLE IF EXISTS "Agent" ADD COLUMN IF NOT EXISTS "invoiceName" TEXT;`);
+    } catch (colErr) {}
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE IF EXISTS agent ADD COLUMN IF NOT EXISTS "invoiceName" TEXT;`);
+    } catch (colErr) {}
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE IF EXISTS agents ADD COLUMN IF NOT EXISTS "invoiceName" TEXT;`);
+    } catch (colErr) {}
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE IF EXISTS "Agent" ADD COLUMN IF NOT EXISTS invoicename TEXT;`);
+    } catch (colErr) {}
 
     // Sync dynamic permission registry
     try {

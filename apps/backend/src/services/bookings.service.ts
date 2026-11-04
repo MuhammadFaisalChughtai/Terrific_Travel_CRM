@@ -102,6 +102,28 @@ export class BookingsService {
       finalRef = customRef;
     }
 
+    let resolvedAgentId = data.agentId || null;
+    if (!resolvedAgentId && userId) {
+      const creatorUser = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { agentId: true, email: true },
+      });
+      if (creatorUser?.agentId) {
+        resolvedAgentId = creatorUser.agentId;
+      } else if (creatorUser?.email) {
+        const matchingAgent = await prisma.agent.findFirst({
+          where: {
+            OR: [
+              { email: { equals: creatorUser.email, mode: 'insensitive' } },
+              { payrollEmail: { equals: creatorUser.email, mode: 'insensitive' } },
+            ],
+          },
+          select: { id: true },
+        });
+        if (matchingAgent) resolvedAgentId = matchingAgent.id;
+      }
+    }
+
     const booking = await prisma.booking.create({
       data: {
         bookingReference: finalRef,
@@ -110,7 +132,7 @@ export class BookingsService {
         assignedToId: data.assignedToId || userId,
         totalPrice: Number(data.totalPrice) || 0,
         status: data.status || BookingStatus.PENDING,
-        agentId: data.agentId || null,
+        agentId: resolvedAgentId,
         bookingDate: resolveUkBookingDate(data.bookingDate),
         departureDate: data.departureDate ? new Date(data.departureDate) : null,
         paidAmount: Number(data.paidAmount) || 0,
@@ -410,7 +432,9 @@ export class BookingsService {
           },
           payments: true,
           invoices: true,
-          user: { select: { id: true, firstName: true, lastName: true, email: true } },
+          user: { select: { id: true, firstName: true, lastName: true, email: true, agent: true } },
+          createdBy: { select: { id: true, firstName: true, lastName: true, email: true, agent: true } },
+          assignedTo: { select: { id: true, firstName: true, lastName: true, email: true, agent: true } },
           agent: { include: { slabs: { orderBy: { minSales: 'asc' } } } },
           agentMargin: true,
           transactions: true,
@@ -429,6 +453,9 @@ export class BookingsService {
       today.setHours(0, 0, 0, 0);
 
       const computedItems = items.map((booking: any) => {
+        if (!booking.agent) {
+          booking.agent = booking.assignedTo?.agent || booking.createdBy?.agent || booking.user?.agent || null;
+        }
         let nearestUpcomingDate: Date | null = null;
         let nextServiceType: string | null = null;
 
@@ -854,6 +881,9 @@ export class BookingsService {
         },
         payments: true,
         invoices: true,
+        user: { select: { id: true, firstName: true, lastName: true, email: true, agent: true } },
+        createdBy: { select: { id: true, firstName: true, lastName: true, email: true, agent: true } },
+        assignedTo: { select: { id: true, firstName: true, lastName: true, email: true, agent: true } },
         agent: { include: { slabs: { orderBy: { minSales: 'asc' } } } },
         agentMargin: true,
         transactions: true,
@@ -947,6 +977,10 @@ export class BookingsService {
       },
     });
     if (!booking) throw new NotFoundException('Booking not found');
+
+    if (!booking.agent) {
+      booking.agent = (booking as any).assignedTo?.agent || (booking as any).createdBy?.agent || (booking as any).user?.agent || null;
+    }
 
     if (booking.passengers && booking.passengers.length > 0) {
       booking.passengers.sort((a, b) => {

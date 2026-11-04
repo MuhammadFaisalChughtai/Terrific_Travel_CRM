@@ -1932,7 +1932,7 @@ export default function BookingManager({
                         <option value="">— No Agent —</option>
                         {agentsList?.map((agent: any) => (
                           <option key={agent.id} value={agent.id}>
-                            {agent.name} ({agent.client})
+                            {agent.invoiceName ? `${agent.invoiceName} (${agent.name})` : agent.name}
                           </option>
                         ))}
                       </select>
@@ -7066,12 +7066,18 @@ export default function BookingManager({
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Agent Name:</span>
                         <span className="font-bold text-foreground">
-                          {booking.agent?.name || "Unassigned"}
                           {booking.agent?.invoiceName ? (
-                            <span className="ml-1 text-[10px] text-primary font-medium">
-                              (Invoice: {booking.agent.invoiceName})
-                            </span>
-                          ) : null}
+                            <>
+                              <span>{booking.agent.invoiceName}</span>
+                              {booking.agent.name !== booking.agent.invoiceName && (
+                                <span className="ml-1 text-[10px] text-muted-foreground font-normal">
+                                  ({booking.agent.name})
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            booking.agent?.name || "Unassigned"
+                          )}
                         </span>
                       </div>
                       <div className="flex justify-between">

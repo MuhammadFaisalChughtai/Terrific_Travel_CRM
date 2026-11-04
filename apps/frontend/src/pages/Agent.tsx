@@ -38,7 +38,7 @@ import { PAYROLL_MONTH_OPTIONS } from "./Payroll";
 // Validation Schema for Agent basic fields (excluding slabs, which are validated manually)
 const agentSchema = z.object({
   name: z.string().min(1, "Name is required"),
-  invoiceName: z.string().optional(),
+  invoiceName: z.string().nullable().optional(),
   email: z.string().email("Please enter a valid email address"),
   payrollEmail: z
     .string()
@@ -891,6 +891,9 @@ export default function AgentPage() {
                     onChange={(e) => setInvoiceName(e.target.value)}
                     className={fieldCls}
                   />
+                  <p className="mt-1 text-[9px] text-muted-foreground/80">
+                    Shown as the assigned agent name on customer booking invoices, flight tickets, and vouchers.
+                  </p>
                 </div>
               </div>
 
