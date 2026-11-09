@@ -95,12 +95,14 @@ export function calculateCustomerPending(b: any): { clientPaid: number; pendingA
       ? installmentSum
       : rawTotalPrice;
 
-  const pendingAmount = Math.max(0, Math.round((totalPrice - clientPaid) * 100) / 100);
+  const clientRefund = Number(b.refundAmount) || 0;
+  const effectivePrice = Math.max(0, Math.round((totalPrice - clientRefund) * 100) / 100);
+  const pendingAmount = Math.max(0, Math.round((effectivePrice - clientPaid) * 100) / 100);
 
   return {
     clientPaid: Math.round(clientPaid * 100) / 100,
     pendingAmount,
-    effectivePrice: Math.round(totalPrice * 100) / 100,
+    effectivePrice,
   };
 }
 

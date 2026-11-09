@@ -4935,6 +4935,72 @@ export class BookingsService {
   }
 
   /**
+   * Payout additional agent margin generated from refund surplus.
+   */
+  async payRefundSurplusMargin(
+    bookingId: string,
+    amount: number,
+    actorId: string,
+    notes?: string
+  ) {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: { agent: true },
+    });
+    if (!booking) throw new NotFoundException('Booking not found');
+    if (!booking.agentId) throw new BadRequestException('This booking does not have an assigned agent');
+    if (!amount || amount <= 0) throw new BadRequestException('Invalid margin payout amount');
+
+    const txNote = notes || `Additional Agent Margin Payout for Refund Surplus: £${amount.toFixed(2)}`;
+    const result = await prisma.$transaction(async (tx) => {
+      const bookingTx = await tx.bookingTransaction.create({
+        data: {
+          bookingId,
+          amount: -amount,
+          paymentMethod: 'AGENT PAYOUT',
+          notes: txNote,
+          paidOn: new Date(),
+        },
+      });
+
+      let ledgerEntry = null;
+      if (booking.agentId) {
+        ledgerEntry = await tx.vendorLedger.create({
+          data: {
+            agentId: booking.agentId,
+            eventType: 'AGENT_PAYOUT',
+            debit: amount,
+            credit: 0,
+            runningBalance: 0,
+            notes: `Refund Surplus Additional Margin Payout - Booking #${booking.bookingReference}`,
+            referenceNumber: `SURPLUS-MARGIN-${booking.id.slice(-6).toUpperCase()}`,
+            createdById: actorId,
+          },
+        });
+      }
+
+      return { bookingTx, ledgerEntry };
+    });
+
+    await auditLogService.log({
+      userId: actorId,
+      action: 'Update',
+      module: 'Bookings',
+      recordId: bookingId,
+      oldValue: {},
+      newValue: {
+        type: 'RefundSurplusMarginPayout',
+        amount,
+        bookingId,
+      },
+    });
+
+    await rabbitMQService.publish('booking.updated', { bookingId });
+
+    return result;
+  }
+
+  /**
    * Helper: Calculate installment statuses based on waterfall payment allocation and due date
    */
   computeInstallmentSummary(rawInstallments: any[], totalPaid: number) {

@@ -672,6 +672,24 @@ export const payAdditionalServiceMargin = asyncHandler(async (req: Authenticated
   });
 });
 
+export const payRefundSurplusMargin = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const isAllowed = req.user!.roles.some((role: string) =>
+    ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'BRANCH_MANAGER'].includes(role.toUpperCase())
+  );
+  if (!isAllowed) {
+    res.status(403).json({ success: false, message: 'Only administrators or managers can pay agent margins' });
+    return;
+  }
+  const { id } = req.params;
+  const { amount, notes } = req.body;
+  const result = await bookingsService.payRefundSurplusMargin(id, Number(amount), req.user!.id, notes);
+  res.status(200).json({
+    success: true,
+    message: 'Refund surplus agent margin payout recorded successfully',
+    data: result,
+  });
+});
+
 export const toggleInstallmentPlan = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
   const { enabled } = req.body;

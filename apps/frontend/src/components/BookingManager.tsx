@@ -843,10 +843,12 @@ export default function BookingManager({
     );
     const total = Number(b.totalPrice) || 0;
     const refund = Number(b.refundAmount) || 0;
+    const effectiveTotal = Math.max(0, total - refund);
     const paid = clientTxSum > 0 ? clientTxSum : (Number(b.paidAmount) || 0);
-    const remaining = Math.max(0, total - paid);
+    const remaining = Math.max(0, effectiveTotal - paid);
     return {
       total: Math.round(total * 100) / 100,
+      effectiveTotal: Math.round(effectiveTotal * 100) / 100,
       paid: Math.round(paid * 100) / 100,
       remaining: Math.round(remaining * 100) / 100,
       refund: Math.round(refund * 100) / 100,
@@ -1227,6 +1229,33 @@ export default function BookingManager({
     }
   };
 
+  const handlePayRefundAdditionalMargin = async () => {
+    if (
+      !window.confirm(
+        `Are you sure you want to record payout of this additional agent margin of ${formatCurrency(refundAdditionalMargin)} for the refund surplus? This will record an AGENT PAYOUT transaction and update the agent ledger.`
+      )
+    ) {
+      return;
+    }
+    const bId = booking?.id || bookingId;
+    try {
+      await apiClient.post(`/bookings/${bId}/refund-surplus/pay-margin`, {
+        amount: refundAdditionalMargin,
+        notes: `Additional Agent Margin Payout for Refund Surplus: ${formatCurrency(refundAdditionalMargin)}`,
+      });
+      toast.success("Additional agent margin paid successfully!");
+      queryClient.invalidateQueries({ queryKey: ["booking", bId] });
+      queryClient.invalidateQueries({ queryKey: ["bookings"] });
+      queryClient.invalidateQueries({ queryKey: ["agent-margins"] });
+    } catch (err: any) {
+      toast.error(
+        err.response?.data?.message ||
+          err.response?.data?.error ||
+          "Failed to pay additional margin."
+      );
+    }
+  };
+
   if (isLoading) {
     return (
       <Modal
@@ -1352,8 +1381,21 @@ export default function BookingManager({
       ? installmentSum
       : rawTotalPrice;
 
+  const clientRefund = booking.refundAmount || 0;
+  // Effective contract price after client refunds / credit notes
+  const effectiveTotalPrice = Math.max(0, totalPrice - clientRefund);
+
+  // Net cash received from client
   const paidAmount = clientTxSum > 0 ? clientTxSum : (booking.paidAmount || 0);
-  const remainingAmount = Math.max(0, totalPrice - paidAmount);
+
+  // Gross client cash inflow before refunds
+  const grossClientPaid =
+    clientTransactionsList
+      .filter((tx: any) => (Number(tx.amount) || 0) > 0)
+      .reduce((sum: number, tx: any) => sum + (Number(tx.amount) || 0), 0) || paidAmount;
+
+  // Client Pending / Balance Due is based on effective total price minus net received
+  const remainingAmount = Math.max(0, effectiveTotalPrice - paidAmount);
 
   // Vendor Cost Calculations
   const accommodationsCost =
@@ -1417,8 +1459,6 @@ export default function BookingManager({
   const totalVendorRefund =
     accommodationsRefund + flightsRefund + transportsRefund + visasRefund;
 
-  const clientRefund = booking.refundAmount || 0;
-
   const rawProfit =
     totalPrice -
     clientRefund -
@@ -1474,25 +1514,45 @@ export default function BookingManager({
   ];
   const hasAnyPriceAdjustments = allPriceAdjustments.length > 0;
 
+  // Net Refund Surplus (Vendor Refund retained after Customer Refund)
+  const netRefundDifference = Math.max(
+    0,
+    Math.round((totalVendorRefund - clientRefund) * 100) / 100
+  );
+
+  // When vendor refund exceeds client refund, the surplus is retained
+  // If agent commission applies, it allocates additional margin and additional profit
+  const commissionRate = booking.agentId && booking.agent ? (agentCommissionRate || potentialRate || 0) : 0;
+  const refundAdditionalMargin =
+    netRefundDifference > 0 && commissionRate > 0
+      ? Math.round(netRefundDifference * (commissionRate / 100) * 100) / 100
+      : 0;
+  const refundAdditionalProfit =
+    netRefundDifference > 0
+      ? Math.round((netRefundDifference - refundAdditionalMargin) * 100) / 100
+      : 0;
+
   const totalHotelSavedAmount = hotelPriceAdjustments.reduce(
     (sum: number, adj: any) => sum + (adj.savedAmount || 0),
     0
   );
 
-  const totalAdditionalProfit = allPriceAdjustments.reduce(
-    (sum: number, adj: any) => sum + (adj.additionalProfit || 0),
-    0
-  );
+  const totalAdditionalProfit =
+    allPriceAdjustments.reduce(
+      (sum: number, adj: any) => sum + (adj.additionalProfit || 0),
+      0
+    ) + refundAdditionalProfit;
 
   const totalReducedProfit = allPriceAdjustments.reduce(
     (sum: number, adj: any) => sum + (adj.reducedProfit || 0),
     0
   );
 
-  const totalAdditionalMargin = allPriceAdjustments.reduce(
-    (sum: number, adj: any) => sum + (adj.additionalMargin || 0),
-    0
-  );
+  const totalAdditionalMargin =
+    allPriceAdjustments.reduce(
+      (sum: number, adj: any) => sum + (adj.additionalMargin || 0),
+      0
+    ) + refundAdditionalMargin;
 
   const totalReducedMargin = allPriceAdjustments.reduce(
     (sum: number, adj: any) => sum + (adj.reducedMargin || 0),
@@ -1505,9 +1565,10 @@ export default function BookingManager({
   );
 
   const isAdditionalMarginTx = (tx: any) => {
+    const notes = (tx.notes || "").toLowerCase();
     return (
       (tx.paymentMethod === "AGENT PAYOUT" || tx.paymentMethod === "AGENT_PAYOUT") &&
-      (tx.notes || "").toLowerCase().includes("additional")
+      (notes.includes("additional") || notes.includes("refund"))
     );
   };
 
@@ -1554,8 +1615,8 @@ export default function BookingManager({
       ? rawProfit - totalAdditionalProfit + totalReducedProfit - actualOriginalPayout
       : rawProfit - totalAdditionalProfit + totalReducedProfit - originalAgentMargin;
 
-  // Total Profit: if price adjusted, baseline original profit + additional profit - reduced profit. Otherwise standard calculation.
-  const profit = hasAnyPriceAdjustments
+  // Total Profit: if price adjusted or refund surplus exists, baseline original profit + additional profit - reduced profit. Otherwise standard calculation.
+  const profit = (hasAnyPriceAdjustments || totalAdditionalProfit > 0 || totalReducedProfit > 0)
     ? originalProfit + totalAdditionalProfit - totalReducedProfit
     : booking.agentMarginVoided
       ? rawProfit
@@ -2085,30 +2146,44 @@ export default function BookingManager({
             {openSections.financial && (
               <div className="space-y-3">
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                  {/* Total Payment */}
+                  {/* Total Payment / Booking Total */}
                   <div className="bg-card p-3.5 rounded-lg shadow-sm border border-border flex flex-col justify-between">
                     <div className="flex items-center gap-1 text-muted-foreground mb-1">
                       <Wallet size={12} />
                       <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                        Total Payment
+                        Booking Total
                       </span>
                     </div>
-                    <span className="text-[15px] font-bold text-foreground">
-                      {formatCurrency(totalPrice)}
-                    </span>
+                    <div className="flex flex-col">
+                      <span className="text-[15px] font-bold text-foreground">
+                        {formatCurrency(totalPrice)}
+                      </span>
+                      {clientRefund > 0 && (
+                        <span className="text-[10px] text-muted-foreground font-semibold mt-0.5">
+                          Net: {formatCurrency(effectiveTotalPrice)}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
-                  {/* Total Pending */}
+                  {/* Total Pending / Balance Due */}
                   <div className="bg-card p-3.5 rounded-lg shadow-sm border border-border flex flex-col justify-between">
-                    <div className="flex items-center gap-1 text-orange-500 mb-1">
+                    <div className={`flex items-center gap-1 mb-1 ${remainingAmount <= 0 ? "text-emerald-500" : "text-orange-500"}`}>
                       <Clock size={12} />
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-orange-500">
+                      <span className={`text-[10px] font-bold uppercase tracking-wider ${remainingAmount <= 0 ? "text-emerald-500" : "text-orange-500"}`}>
                         Client Pending
                       </span>
                     </div>
-                    <span className="text-[15px] font-bold text-orange-600 dark:text-orange-400">
-                      {formatCurrency(remainingAmount)}
-                    </span>
+                    <div className="flex flex-col">
+                      <span className={`text-[15px] font-bold ${remainingAmount <= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-orange-600 dark:text-orange-400"}`}>
+                        {formatCurrency(remainingAmount)}
+                      </span>
+                      {remainingAmount <= 0 && paidAmount > 0 && (
+                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-extrabold uppercase tracking-wide mt-0.5">
+                          Fully Settled
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {/* Total Received */}
@@ -2119,9 +2194,16 @@ export default function BookingManager({
                         Client Received
                       </span>
                     </div>
-                    <span className="text-[15px] font-bold text-emerald-600 dark:text-emerald-400">
-                      {formatCurrency(paidAmount)}
-                    </span>
+                    <div className="flex flex-col">
+                      <span className="text-[15px] font-bold text-emerald-600 dark:text-emerald-400">
+                        {formatCurrency(paidAmount)}
+                      </span>
+                      {clientRefund > 0 && (
+                        <span className="text-[10px] text-muted-foreground font-semibold mt-0.5">
+                          Gross: {formatCurrency(grossClientPaid)}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {/* Total Spent — Admin/Manager only */}
@@ -2215,7 +2297,7 @@ export default function BookingManager({
                                     +{formatCurrency(totalAdditionalMargin)}
                                   </span>
                                 </div>
-                                {allPriceAdjustments.filter((a: any) => a.additionalMargin > 0).every((a: any) => a.additionalMarginPaid) ? (
+                                {(actualAdditionalPayout >= totalAdditionalMargin && totalAdditionalMargin > 0) || (allPriceAdjustments.length > 0 && allPriceAdjustments.filter((a: any) => a.additionalMargin > 0).every((a: any) => a.additionalMarginPaid) && refundAdditionalMargin === 0) ? (
                                   <span className="text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide mt-0.5">
                                     Paid
                                   </span>
@@ -2231,6 +2313,8 @@ export default function BookingManager({
                                           const unpaidAdj = allPriceAdjustments.find((a: any) => !a.additionalMarginPaid && a.additionalMargin > 0);
                                           if (unpaidAdj) {
                                             handlePayAdditionalMargin(unpaidAdj.serviceType, unpaidAdj.id);
+                                          } else if (refundAdditionalMargin > 0) {
+                                            handlePayRefundAdditionalMargin();
                                           }
                                         }}
                                         className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-blue-600 hover:bg-blue-700 text-white transition-all cursor-pointer shadow-xs w-fit"
@@ -2356,7 +2440,9 @@ export default function BookingManager({
                           +{formatCurrency(totalAdditionalProfit)}
                         </span>
                         <span className="text-[10px] text-muted-foreground font-semibold mt-0.5">
-                          Generated by Upgrade
+                          {refundAdditionalProfit > 0 && allPriceAdjustments.length === 0
+                            ? "Retained Refund Surplus"
+                            : "Generated by Upgrade / Refund"}
                         </span>
                       </div>
                     </div>

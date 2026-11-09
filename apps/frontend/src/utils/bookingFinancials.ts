@@ -53,13 +53,22 @@ export const calculateMargin = (price: number, profit: number, slabs: any[]): nu
 
 export interface BookingFinancialOverview {
   totalPrice: number;
+  effectiveTotalPrice: number;
   paidAmount: number;
+  grossClientPaid: number;
   remainingAmount: number;
   totalVendorCost: number;
   totalPaidToVendors: number;
   vendorRemaining: number;
   totalVendorRefund: number;
   clientRefund: number;
+  netRefundDifference: number;
+  refundAdditionalProfit: number;
+  refundAdditionalMargin: number;
+  totalAdditionalProfit: number;
+  totalAdditionalMargin: number;
+  totalReducedProfit: number;
+  totalReducedMargin: number;
   cardPaymentCharges: number;
   rawProfit: number;
   potentialMargin: number;
@@ -67,6 +76,9 @@ export interface BookingFinancialOverview {
   agentMargin: number; // Current payable margin (0 if already paid or voided)
   originalAgentMargin: number; // Base calculated margin before void/payout
   hasAgentPayout: boolean;
+  actualOriginalPayout: number;
+  actualAdditionalPayout: number;
+  actualAgentPayout: number;
   profit: number; // Net Company Profit (matches TOTAL PROFIT card in Booking Manager modal)
   originalProfit: number;
 }
@@ -108,13 +120,22 @@ export function computeBookingFinancials(booking: any): BookingFinancialOverview
   if (!booking) {
     return {
       totalPrice: 0,
+      effectiveTotalPrice: 0,
       paidAmount: 0,
+      grossClientPaid: 0,
       remainingAmount: 0,
       totalVendorCost: 0,
       totalPaidToVendors: 0,
       vendorRemaining: 0,
       totalVendorRefund: 0,
       clientRefund: 0,
+      netRefundDifference: 0,
+      refundAdditionalProfit: 0,
+      refundAdditionalMargin: 0,
+      totalAdditionalProfit: 0,
+      totalAdditionalMargin: 0,
+      totalReducedProfit: 0,
+      totalReducedMargin: 0,
       cardPaymentCharges: 0,
       rawProfit: 0,
       potentialMargin: 0,
@@ -122,6 +143,9 @@ export function computeBookingFinancials(booking: any): BookingFinancialOverview
       agentMargin: 0,
       originalAgentMargin: 0,
       hasAgentPayout: false,
+      actualOriginalPayout: 0,
+      actualAdditionalPayout: 0,
+      actualAgentPayout: 0,
       profit: 0,
       originalProfit: 0,
     };
@@ -149,8 +173,21 @@ export function computeBookingFinancials(booking: any): BookingFinancialOverview
       ? installmentSum
       : rawTotalPrice;
 
+  const clientRefund = Number(booking.refundAmount) || 0;
+  // Effective contract price after client refunds / credit notes
+  const effectiveTotalPrice = Math.max(0, totalPrice - clientRefund);
+
+  // Net cash received from client
   const paidAmount = clientTxSum > 0 ? clientTxSum : (Number(booking.paidAmount) || 0);
-  const remainingAmount = Math.max(0, totalPrice - paidAmount);
+
+  // Gross client cash inflow before refunds
+  const grossClientPaid =
+    clientTransactionsList
+      .filter((tx: any) => (Number(tx.amount) || 0) > 0)
+      .reduce((sum: number, tx: any) => sum + (Number(tx.amount) || 0), 0) || paidAmount;
+
+  // Client Pending / Balance Due is based on effective total price minus net received
+  const remainingAmount = Math.max(0, effectiveTotalPrice - paidAmount);
 
   // Vendor Cost Calculations
   const accommodationsCost =
@@ -188,7 +225,6 @@ export function computeBookingFinancials(booking: any): BookingFinancialOverview
     booking.visaServices?.reduce((sum: number, vs: any) => sum + (Number(vs.refundAmount) || 0), 0) || 0;
 
   const totalVendorRefund = accommodationsRefund + flightsRefund + transportsRefund + visasRefund;
-  const clientRefund = Number(booking.refundAmount) || 0;
 
   // Raw Profit (before agent margin deduction) - cardPaymentCharges is deducted from profit
   const rawProfit = totalPrice - clientRefund - (totalVendorCost - totalVendorRefund) - cardPaymentCharges;
@@ -229,6 +265,24 @@ export function computeBookingFinancials(booking: any): BookingFinancialOverview
     agentMargin = 0;
   }
 
+  // Net Refund Surplus (Vendor Refund retained after Customer Refund)
+  const netRefundDifference = Math.max(
+    0,
+    Math.round((totalVendorRefund - clientRefund) * 100) / 100
+  );
+
+  // When vendor refund exceeds client refund, the surplus is retained
+  // If agent margin is applicable, it allocates additional margin and additional profit
+  const commissionRate = booking.agentId && booking.agent ? (agentCommissionRate || potentialRate || 0) : 0;
+  const refundAdditionalMargin =
+    netRefundDifference > 0 && commissionRate > 0
+      ? Math.round(netRefundDifference * (commissionRate / 100) * 100) / 100
+      : 0;
+  const refundAdditionalProfit =
+    netRefundDifference > 0
+      ? Math.round((netRefundDifference - refundAdditionalMargin) * 100) / 100
+      : 0;
+
   // Price adjustments
   const hotelPriceAdjustments: any[] = booking.hotelPriceAdjustments || [];
   const transportPriceAdjustments: any[] = booking.transportPriceAdjustments || [];
@@ -243,19 +297,33 @@ export function computeBookingFinancials(booking: any): BookingFinancialOverview
   ];
   const hasAnyPriceAdjustments = allPriceAdjustments.length > 0;
 
-  const totalAdditionalProfit = allPriceAdjustments.reduce(
-    (sum: number, adj: any) => sum + (Number(adj.additionalProfit) || 0),
-    0
-  );
+  const totalAdditionalProfit =
+    allPriceAdjustments.reduce(
+      (sum: number, adj: any) => sum + (Number(adj.additionalProfit) || 0),
+      0
+    ) + refundAdditionalProfit;
+
   const totalReducedProfit = allPriceAdjustments.reduce(
     (sum: number, adj: any) => sum + (Number(adj.reducedProfit) || 0),
     0
   );
 
+  const totalAdditionalMargin =
+    allPriceAdjustments.reduce(
+      (sum: number, adj: any) => sum + (Number(adj.additionalMargin) || 0),
+      0
+    ) + refundAdditionalMargin;
+
+  const totalReducedMargin = allPriceAdjustments.reduce(
+    (sum: number, adj: any) => sum + (Number(adj.reducedMargin) || 0),
+    0
+  );
+
   const isAdditionalMarginTx = (tx: any) => {
+    const notes = (tx.notes || '').toLowerCase();
     return (
       (tx.paymentMethod === 'AGENT PAYOUT' || tx.paymentMethod === 'AGENT_PAYOUT') &&
-      (tx.notes || '').toLowerCase().includes('additional')
+      (notes.includes('additional') || notes.includes('refund'))
     );
   };
 
@@ -288,7 +356,7 @@ export function computeBookingFinancials(booking: any): BookingFinancialOverview
       : rawProfit - totalAdditionalProfit + totalReducedProfit - originalAgentMargin;
 
   // Net Company Profit (matches TOTAL PROFIT card in Booking Manager modal)
-  const profit = hasAnyPriceAdjustments
+  const profit = (hasAnyPriceAdjustments || totalAdditionalProfit > 0 || totalReducedProfit > 0)
     ? originalProfit + totalAdditionalProfit - totalReducedProfit
     : booking.agentMarginVoided
       ? rawProfit
@@ -298,13 +366,22 @@ export function computeBookingFinancials(booking: any): BookingFinancialOverview
 
   return {
     totalPrice: Math.round(totalPrice * 100) / 100,
+    effectiveTotalPrice: Math.round(effectiveTotalPrice * 100) / 100,
     paidAmount: Math.round(paidAmount * 100) / 100,
+    grossClientPaid: Math.round(grossClientPaid * 100) / 100,
     remainingAmount: Math.round(remainingAmount * 100) / 100,
     totalVendorCost: Math.round(totalVendorCost * 100) / 100,
     totalPaidToVendors: Math.round(totalPaidToVendors * 100) / 100,
     vendorRemaining: Math.round(vendorRemaining * 100) / 100,
     totalVendorRefund: Math.round(totalVendorRefund * 100) / 100,
     clientRefund: Math.round(clientRefund * 100) / 100,
+    netRefundDifference: Math.round(netRefundDifference * 100) / 100,
+    refundAdditionalProfit: Math.round(refundAdditionalProfit * 100) / 100,
+    refundAdditionalMargin: Math.round(refundAdditionalMargin * 100) / 100,
+    totalAdditionalProfit: Math.round(totalAdditionalProfit * 100) / 100,
+    totalAdditionalMargin: Math.round(totalAdditionalMargin * 100) / 100,
+    totalReducedProfit: Math.round(totalReducedProfit * 100) / 100,
+    totalReducedMargin: Math.round(totalReducedMargin * 100) / 100,
     cardPaymentCharges: Math.round(cardPaymentCharges * 100) / 100,
     rawProfit: Math.round(rawProfit * 100) / 100,
     potentialMargin: Math.round(potentialMargin * 100) / 100,
@@ -312,6 +389,9 @@ export function computeBookingFinancials(booking: any): BookingFinancialOverview
     agentMargin: Math.round(agentMargin * 100) / 100,
     originalAgentMargin: Math.round(originalAgentMargin * 100) / 100,
     hasAgentPayout,
+    actualOriginalPayout: Math.round(actualOriginalPayout * 100) / 100,
+    actualAdditionalPayout: Math.round(actualAdditionalPayout * 100) / 100,
+    actualAgentPayout: Math.round(actualAgentPayout * 100) / 100,
     profit: Math.round(profit * 100) / 100,
     originalProfit: Math.round(originalProfit * 100) / 100,
   };
