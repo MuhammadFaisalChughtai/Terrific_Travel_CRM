@@ -186,6 +186,9 @@ export default function AgentMarginBookingsModal({ margin, onClose }: Props) {
                       {filteredBookings.length} matched
                     </span>
                   )}
+                  <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 shrink-0">
+                    Total Profit: {formatCurrency(filteredBookings.reduce((sum: number, b: any) => sum + (!b.agentMarginVoided ? b.profit : 0), 0))}
+                  </span>
                   {totalAdditionalMargin > 0 && (
                     <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shrink-0">
                       Total Addl Margin: +{formatCurrency(totalAdditionalMargin)}

@@ -117,7 +117,7 @@ export const agentMarginService = {
         refundAdditionalMargin = Math.round((netRefundSurplus * (commissionRate / 100)) * 100) / 100;
         refundAdditionalProfit = Math.round((netRefundSurplus - refundAdditionalMargin) * 100) / 100;
         additionalMargin += refundAdditionalMargin;
-        additionalProfit += refundAdditionalProfit;
+        additionalProfit += netRefundSurplus;
       }
 
       const additionalPayoutAmount = Math.abs(
@@ -298,7 +298,7 @@ export const agentMarginService = {
         }
         const refundAdditionalMargin = Math.round((netRefundSurplus * (commissionRate / 100)) * 100) / 100;
         const refundAdditionalProfit = Math.round((netRefundSurplus - refundAdditionalMargin) * 100) / 100;
-        additionalProfit += refundAdditionalProfit;
+        additionalProfit += netRefundSurplus;
       }
 
       const netIncrementalProfit = additionalProfit - reducedProfit;
@@ -738,7 +738,7 @@ export const agentMarginService = {
         }
         const refundAdditionalMargin = Math.round((netRefundSurplus * (commissionRate / 100)) * 100) / 100;
         const refundAdditionalProfit = Math.round((netRefundSurplus - refundAdditionalMargin) * 100) / 100;
-        additionalProfit += refundAdditionalProfit;
+        additionalProfit += netRefundSurplus;
         additionalMargin += refundAdditionalMargin;
       }
 

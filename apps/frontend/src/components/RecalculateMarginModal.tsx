@@ -76,6 +76,28 @@ export default function RecalculateMarginModal({ startDate, endDate, agentId, da
     });
   }, [bookings, tokens]);
 
+  const filteredTotalProfit = React.useMemo(() => {
+    return filteredBookings.reduce((sum: number, b: any) => sum + b.profit, 0);
+  }, [filteredBookings]);
+
+  const filteredTotalAddlMargin = React.useMemo(() => {
+    return filteredBookings.reduce((sum: number, b: any) => sum + (b.additionalMargin || 0), 0);
+  }, [filteredBookings]);
+
+  const selectedTotalProfit = React.useMemo(() => {
+    if (!bookings) return 0;
+    return bookings
+      .filter((b: any) => includedBookingIds.has(b.id))
+      .reduce((sum: number, b: any) => sum + b.profit, 0);
+  }, [bookings, includedBookingIds]);
+
+  const selectedTotalAddlMargin = React.useMemo(() => {
+    if (!bookings) return 0;
+    return bookings
+      .filter((b: any) => includedBookingIds.has(b.id))
+      .reduce((sum: number, b: any) => sum + (b.additionalMargin || 0), 0);
+  }, [bookings, includedBookingIds]);
+
   const isSelectableBooking = (b: any) => b.marginStatus !== 'PAID' || b.isIncrementalAdjustment;
 
   // Automatically check all selectable bookings when they are fetched
@@ -200,27 +222,39 @@ export default function RecalculateMarginModal({ startDate, endDate, agentId, da
                     )}
                   </div>
 
-                  {tokens.length > 0 && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">
-                        {filteredBookings.length} matched ({tokens.length} token{tokens.length !== 1 ? 's' : ''})
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-semibold px-2.5 py-1.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                      {tokens.length > 0
+                        ? `${filteredBookings.length} matched (${tokens.length} token${tokens.length !== 1 ? 's' : ''})`
+                        : `${bookings?.length || 0} eligible bookings`}
+                    </span>
+                    <span className="text-xs font-bold px-2.5 py-1.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                      Total Profit: {formatCurrency(tokens.length > 0 ? filteredTotalProfit : selectedTotalProfit)}
+                    </span>
+                    {(tokens.length > 0 ? filteredTotalAddlMargin : selectedTotalAddlMargin) > 0 && (
+                      <span className="text-xs font-bold px-2.5 py-1.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                        Addl Margin: +{formatCurrency(tokens.length > 0 ? filteredTotalAddlMargin : selectedTotalAddlMargin)}
                       </span>
-                      <button
-                        type="button"
-                        onClick={selectOnlyFiltered}
-                        className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-sm"
-                      >
-                        Select All Filtered
-                      </button>
-                      <button
-                        type="button"
-                        onClick={deselectFiltered}
-                        className="px-3 py-1.5 rounded-lg bg-secondary hover:bg-secondary/80 text-secondary-foreground text-xs font-semibold transition-all border border-border"
-                      >
-                        Deselect Filtered
-                      </button>
-                    </div>
-                  )}
+                    )}
+                    {tokens.length > 0 && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={selectOnlyFiltered}
+                          className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-sm"
+                        >
+                          Select All Filtered
+                        </button>
+                        <button
+                          type="button"
+                          onClick={deselectFiltered}
+                          className="px-3 py-1.5 rounded-lg bg-secondary hover:bg-secondary/80 text-secondary-foreground text-xs font-semibold transition-all border border-border"
+                        >
+                          Deselect Filtered
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
 
