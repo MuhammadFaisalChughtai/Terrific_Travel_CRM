@@ -113,11 +113,10 @@ export const agentMarginService = {
         }
       }
 
-      if (netRefundSurplus > 0 && isMarginPaid) {
+      if (netRefundSurplus > 0) {
         refundAdditionalMargin = Math.round((netRefundSurplus * (commissionRate / 100)) * 100) / 100;
         refundAdditionalProfit = Math.round((netRefundSurplus - refundAdditionalMargin) * 100) / 100;
         additionalMargin += refundAdditionalMargin;
-        additionalProfit += netRefundSurplus;
       }
 
       const additionalPayoutAmount = Math.abs(
@@ -136,7 +135,9 @@ export const agentMarginService = {
       );
       const isAdditionalMarginPaid = additionalMargin > 0 && additionalPayoutAmount >= additionalMargin - 0.01;
 
-      const netIncrementalProfit = additionalProfit - reducedProfit;
+      const netIncrementalProfit = isMarginPaid
+        ? (netRefundSurplus + additionalProfit - reducedProfit)
+        : (additionalProfit - reducedProfit);
       const hasIncrementalAdjustment = (allAdjs.length > 0 || (isMarginPaid && netRefundSurplus > 0)) && (Math.abs(netIncrementalProfit) > 0.001 || additionalMargin > 0);
 
       // If original margin was already paid, the profit reflected for new margin calculation
@@ -160,6 +161,8 @@ export const agentMarginService = {
         profit: Math.round(effectiveProfit * 100) / 100,
         rawProfit: Math.round(rawProfit * 100) / 100,
         additionalProfit: Math.round(additionalProfit * 100) / 100,
+        refundAdditionalProfit: Math.round(refundAdditionalProfit * 100) / 100,
+        refundAdditionalMargin: Math.round(refundAdditionalMargin * 100) / 100,
         reducedProfit: Math.round(reducedProfit * 100) / 100,
         additionalMargin: Math.round(additionalMargin * 100) / 100,
         reducedMargin: Math.round(reducedMargin * 100) / 100,
@@ -285,23 +288,9 @@ export const agentMarginService = {
       const reducedProfit = allAdjs.reduce((sum: number, a: any) => sum + (a.reducedProfit || 0), 0);
 
       const netRefundSurplus = Math.max(0, vendorRefund - clientRefund);
-      if (netRefundSurplus > 0 && isMarginPaid) {
-        const agent = agents.find((a: any) => a.id === b.agentId);
-        let commissionRate = 8;
-        if (agent?.slabs?.length) {
-          for (const slab of agent.slabs) {
-            if (b.totalPrice >= slab.minSales && (slab.maxSales === null || b.totalPrice <= slab.maxSales)) {
-              commissionRate = slab.commissionRate;
-              break;
-            }
-          }
-        }
-        const refundAdditionalMargin = Math.round((netRefundSurplus * (commissionRate / 100)) * 100) / 100;
-        const refundAdditionalProfit = Math.round((netRefundSurplus - refundAdditionalMargin) * 100) / 100;
-        additionalProfit += netRefundSurplus;
-      }
-
-      const netIncrementalProfit = additionalProfit - reducedProfit;
+      const netIncrementalProfit = isMarginPaid
+        ? (netRefundSurplus + additionalProfit - reducedProfit)
+        : (additionalProfit - reducedProfit);
 
       const effectiveProfit = isMarginPaid
         ? netIncrementalProfit
@@ -726,6 +715,9 @@ export const agentMarginService = {
       const reducedMargin = allAdjs.reduce((sum: number, a: any) => sum + (a.reducedMargin || 0), 0);
 
       const netRefundSurplus = Math.max(0, vendorRefund - clientRefund);
+      let refundAdditionalMargin = 0;
+      let refundAdditionalProfit = 0;
+
       if (netRefundSurplus > 0) {
         let commissionRate = 8;
         if (b.agent?.slabs && b.agent.slabs.length > 0) {
@@ -736,9 +728,8 @@ export const agentMarginService = {
             }
           }
         }
-        const refundAdditionalMargin = Math.round((netRefundSurplus * (commissionRate / 100)) * 100) / 100;
-        const refundAdditionalProfit = Math.round((netRefundSurplus - refundAdditionalMargin) * 100) / 100;
-        additionalProfit += netRefundSurplus;
+        refundAdditionalMargin = Math.round((netRefundSurplus * (commissionRate / 100)) * 100) / 100;
+        refundAdditionalProfit = Math.round((netRefundSurplus - refundAdditionalMargin) * 100) / 100;
         additionalMargin += refundAdditionalMargin;
       }
 
@@ -773,6 +764,8 @@ export const agentMarginService = {
         vendorCost,
         rawProfit: Math.round(rawProfit * 100) / 100,
         additionalProfit: Math.round(additionalProfit * 100) / 100,
+        refundAdditionalProfit: Math.round(refundAdditionalProfit * 100) / 100,
+        refundAdditionalMargin: Math.round(refundAdditionalMargin * 100) / 100,
         reducedProfit: Math.round(reducedProfit * 100) / 100,
         additionalMargin: Math.round(additionalMargin * 100) / 100,
         reducedMargin: Math.round(reducedMargin * 100) / 100,

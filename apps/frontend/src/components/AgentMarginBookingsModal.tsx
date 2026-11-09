@@ -295,18 +295,22 @@ export default function AgentMarginBookingsModal({ margin, onClose }: Props) {
                             </td>
                             <td className={`px-4 py-3 text-right font-medium ${b.agentMarginVoided ? 'text-muted-foreground line-through' : 'text-emerald-600 dark:text-emerald-400'}`}>
                               <div>{formatCurrency(b.profit)}</div>
-                              {b.additionalProfit > 0 && (
+                              {b.refundAdditionalProfit > 0 ? (
+                                <div className="flex flex-col items-end gap-0.5 mt-1">
+                                  <span className="text-[10px] text-emerald-600 font-bold whitespace-nowrap uppercase tracking-wider">
+                                    Additional Profit: +{formatCurrency(b.refundAdditionalProfit)}
+                                  </span>
+                                  <span className="text-[9px] text-muted-foreground whitespace-nowrap">
+                                    Retained Refund Surplus
+                                  </span>
+                                </div>
+                              ) : b.additionalProfit > 0 ? (
                                 <div className="flex flex-col items-end gap-0.5 mt-1">
                                   <span className="text-[10px] text-emerald-600 font-bold whitespace-nowrap uppercase tracking-wider">
                                     Additional Profit: +{formatCurrency(b.additionalProfit)}
                                   </span>
-                                  {b.hasRefundSurplus && (
-                                    <span className="text-[9px] text-muted-foreground whitespace-nowrap">
-                                      Retained Refund Surplus
-                                    </span>
-                                  )}
                                 </div>
-                              )}
+                              ) : null}
                               {b.reducedProfit > 0 && (
                                 <div className="text-[10px] text-rose-500 font-bold whitespace-nowrap mt-0.5">-Red: {formatCurrency(b.reducedProfit)}</div>
                               )}
