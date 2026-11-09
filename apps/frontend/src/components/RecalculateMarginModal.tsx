@@ -225,6 +225,7 @@ export default function RecalculateMarginModal({ startDate, endDate, agentId, da
                         <th className="px-4 py-3">Customer</th>
                         <th className="px-4 py-3">Booking Date</th>
                         <th className="px-4 py-3 text-right">Profit</th>
+                        <th className="px-4 py-3 text-right text-blue-600 dark:text-blue-400">Additional Margin</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
@@ -246,7 +247,7 @@ export default function RecalculateMarginModal({ startDate, endDate, agentId, da
                                   />
                                   <span 
                                     className="text-[9px] uppercase font-bold text-blue-700 bg-blue-100 dark:bg-blue-900/40 dark:text-blue-300 px-1 py-0.5 rounded-sm whitespace-nowrap"
-                                    title="Original margin paid. Includes incremental price adjustments (upgrade/downgrade)."
+                                    title="Original margin paid. Includes incremental price adjustments (upgrade/downgrade) or refund surplus."
                                   >
                                     Adj ({b.profit >= 0 ? `+£${b.profit}` : `-£${Math.abs(b.profit)}`})
                                   </span>
@@ -278,6 +279,15 @@ export default function RecalculateMarginModal({ startDate, endDate, agentId, da
                                 </span>
                               )}
                             </td>
+                            <td className="px-4 py-3 text-right">
+                              {b.additionalMargin > 0 ? (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+                                  +{formatCurrency(b.additionalMargin)}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground text-xs">—</span>
+                              )}
+                            </td>
                           </tr>
                         );
                       })}
@@ -285,13 +295,22 @@ export default function RecalculateMarginModal({ startDate, endDate, agentId, da
                     <tfoot className="bg-muted/30 border-t border-border font-semibold text-sm">
                       <tr>
                         <td colSpan={5} className="px-4 py-3 text-right">
-                          Selected Total Profit:
+                          Selected Total:
                         </td>
                         <td className="px-4 py-3 text-right text-emerald-600 dark:text-emerald-400">
+                          <span className="text-xs text-muted-foreground mr-1">Profit:</span>
                           {formatCurrency(
                             bookings
                               .filter((b: any) => includedBookingIds.has(b.id))
                               .reduce((sum: number, b: any) => sum + b.profit, 0)
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-right text-blue-600 dark:text-blue-400">
+                          <span className="text-xs text-muted-foreground mr-1">Addl Margin:</span>
+                          +{formatCurrency(
+                            bookings
+                              .filter((b: any) => includedBookingIds.has(b.id))
+                              .reduce((sum: number, b: any) => sum + (b.additionalMargin || 0), 0)
                           )}
                         </td>
                       </tr>

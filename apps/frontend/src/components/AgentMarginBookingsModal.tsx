@@ -98,6 +98,13 @@ export default function AgentMarginBookingsModal({ margin, onClose }: Props) {
     return bookings.filter((b: any) => b.agentMarginVoided).length;
   }, [bookings]);
 
+  const totalAdditionalMargin = React.useMemo(() => {
+    if (!bookings) return 0;
+    return bookings
+      .filter((b: any) => !b.agentMarginVoided)
+      .reduce((sum: number, b: any) => sum + (b.additionalMargin || 0), 0);
+  }, [bookings]);
+
   return (
     <div className="margin__custom fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="bg-card w-full max-w-5xl rounded-xl shadow-2xl flex flex-col max-h-[90vh]">
@@ -154,6 +161,11 @@ export default function AgentMarginBookingsModal({ margin, onClose }: Props) {
                   {tokens.length > 0 && (
                     <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20 shrink-0">
                       {filteredBookings.length} matched
+                    </span>
+                  )}
+                  {totalAdditionalMargin > 0 && (
+                    <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shrink-0">
+                      Total Addl Margin: +{formatCurrency(totalAdditionalMargin)}
                     </span>
                   )}
                 </div>
@@ -220,6 +232,7 @@ export default function AgentMarginBookingsModal({ margin, onClose }: Props) {
                         <th className="sticky top-0 bg-muted/95 px-4 py-3 z-10 font-semibold text-red-500 text-right">Refund</th>
                         <th className="sticky top-0 bg-muted/95 px-4 py-3 z-10 font-semibold text-amber-500 text-right">Card Charges</th>
                         <th className="sticky top-0 bg-muted/95 px-4 py-3 z-10 font-semibold text-muted-foreground text-right">Net Profit</th>
+                        <th className="sticky top-0 bg-muted/95 px-4 py-3 z-10 font-semibold text-blue-600 dark:text-blue-400 text-right">Additional Margin</th>
                         <th className="sticky top-0 bg-muted/95 px-4 py-3 z-10 font-semibold text-muted-foreground text-center">Status / Action</th>
                       </tr>
                     </thead>
@@ -261,6 +274,15 @@ export default function AgentMarginBookingsModal({ margin, onClose }: Props) {
                               )}
                               {b.reducedProfit > 0 && (
                                 <div className="text-[10px] text-rose-500 font-bold whitespace-nowrap">-Red: {formatCurrency(b.reducedProfit)}</div>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              {b.additionalMargin > 0 ? (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+                                  +{formatCurrency(b.additionalMargin)}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground text-xs">—</span>
                               )}
                             </td>
                             <td className="px-4 py-3 text-center">
