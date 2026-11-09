@@ -68,7 +68,7 @@ export const agentMarginService = {
         transportPriceAdjustments: true,
         visaPriceAdjustments: true,
         additionalServicePriceAdjustments: true,
-        transactions: { select: { paymentMethod: true } },
+        transactions: { select: { paymentMethod: true, amount: true, notes: true } },
       },
       orderBy: { bookingDate: 'asc' }
     });
@@ -120,6 +120,22 @@ export const agentMarginService = {
         additionalProfit += refundAdditionalProfit;
       }
 
+      const additionalPayoutAmount = Math.abs(
+        (b.transactions || [])
+          .filter((tx: any) => {
+            const method = (tx.paymentMethod || '').toUpperCase();
+            const notes = (tx.notes || '').toLowerCase();
+            return (
+              (method === 'AGENT PAYOUT' || method === 'AGENT_PAYOUT') &&
+              (notes.includes('additional agent margin') ||
+               notes.includes('additional margin') ||
+               notes.includes('refund surplus'))
+            );
+          })
+          .reduce((sum: number, tx: any) => sum + (tx.amount || 0), 0)
+      );
+      const isAdditionalMarginPaid = additionalMargin > 0 && additionalPayoutAmount >= additionalMargin - 0.01;
+
       const netIncrementalProfit = additionalProfit - reducedProfit;
       const hasIncrementalAdjustment = (allAdjs.length > 0 || (isMarginPaid && netRefundSurplus > 0)) && (Math.abs(netIncrementalProfit) > 0.001 || additionalMargin > 0);
 
@@ -151,6 +167,10 @@ export const agentMarginService = {
         agentMarginVoided: b.agentMarginVoided,
         hasIncrementalAdjustment,
         isIncrementalAdjustment: isMarginPaid && hasIncrementalAdjustment,
+        hasRefundSurplus: isMarginPaid && netRefundSurplus > 0,
+        netRefundSurplus: Math.round(netRefundSurplus * 100) / 100,
+        additionalMarginPaid: isAdditionalMarginPaid,
+        additionalPayoutAmount: Math.round(additionalPayoutAmount * 100) / 100,
       };
     });
   },
@@ -681,6 +701,7 @@ export const agentMarginService = {
         transportPriceAdjustments: true,
         visaPriceAdjustments: true,
         additionalServicePriceAdjustments: true,
+        transactions: { select: { paymentMethod: true, amount: true, notes: true } },
       }
     });
 
@@ -721,6 +742,22 @@ export const agentMarginService = {
         additionalMargin += refundAdditionalMargin;
       }
 
+      const additionalPayoutAmount = Math.abs(
+        (b.transactions || [])
+          .filter((tx: any) => {
+            const method = (tx.paymentMethod || '').toUpperCase();
+            const notes = (tx.notes || '').toLowerCase();
+            return (
+              (method === 'AGENT PAYOUT' || method === 'AGENT_PAYOUT') &&
+              (notes.includes('additional agent margin') ||
+               notes.includes('additional margin') ||
+               notes.includes('refund surplus'))
+            );
+          })
+          .reduce((sum: number, tx: any) => sum + (tx.amount || 0), 0)
+      );
+      const isAdditionalMarginPaid = additionalMargin > 0 && additionalPayoutAmount >= additionalMargin - 0.01;
+
       const profit = rawProfit + additionalProfit - reducedProfit;
 
       return {
@@ -742,6 +779,9 @@ export const agentMarginService = {
         profit: Math.round(profit * 100) / 100,
         agentMarginVoided: b.agentMarginVoided,
         hasAdjustments: allAdjs.length > 0 || netRefundSurplus > 0,
+        hasRefundSurplus: netRefundSurplus > 0,
+        netRefundSurplus: Math.round(netRefundSurplus * 100) / 100,
+        additionalMarginPaid: isAdditionalMarginPaid,
         destination: ''
       };
     });

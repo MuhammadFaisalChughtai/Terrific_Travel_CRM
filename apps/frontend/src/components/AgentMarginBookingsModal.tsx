@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../api/client";
 import { useAuthStore } from "../store/auth.store";
 import { formatCurrency, formatDate } from "@tms/shared-utils";
-import { X, Loader2, FileText, CheckCircle, XCircle, Search } from "lucide-react";
+import { X, Loader2, FileText, CheckCircle, XCircle, Search, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface Props {
@@ -16,14 +16,37 @@ export default function AgentMarginBookingsModal({ margin, onClose }: Props) {
   const isAdmin = user?.roles.includes("SUPER_ADMIN") || user?.roles.includes("ADMIN");
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = React.useState("");
+  const [payingBookingId, setPayingBookingId] = React.useState<string | null>(null);
 
-  const { data: bookings, isLoading } = useQuery({
+  const { data: bookings, isLoading, refetch } = useQuery({
     queryKey: ["agent-margin-bookings", margin.id],
     queryFn: async () => {
       const res = await apiClient.get(`/agent-margins/${margin.id}/bookings`);
       return res.data.data as any[];
     },
   });
+
+  const handlePayAdditionalMargin = async (b: any) => {
+    if (!window.confirm(`Are you sure you want to record payout of this additional agent margin of ${formatCurrency(b.additionalMargin)}? This will record an AGENT PAYOUT transaction and update the agent ledger.`)) {
+      return;
+    }
+    setPayingBookingId(b.id);
+    try {
+      await apiClient.post(`/bookings/${b.id}/refund-surplus/pay-margin`, {
+        amount: b.additionalMargin,
+        notes: `Additional Agent Margin Payout for Refund Surplus: ${formatCurrency(b.additionalMargin)}`,
+      });
+      toast.success("Additional agent margin paid successfully!");
+      queryClient.invalidateQueries({ queryKey: ["agent-margin-bookings"] });
+      queryClient.invalidateQueries({ queryKey: ["agent-margins"] });
+      queryClient.invalidateQueries({ queryKey: ["booking"] });
+      refetch();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to pay additional agent margin");
+    } finally {
+      setPayingBookingId(null);
+    }
+  };
 
   const toggleVoidMutation = useMutation({
     mutationFn: async (bookingId: string) => {
@@ -270,17 +293,61 @@ export default function AgentMarginBookingsModal({ margin, onClose }: Props) {
                             <td className={`px-4 py-3 text-right font-medium ${b.agentMarginVoided ? 'text-muted-foreground line-through' : 'text-emerald-600 dark:text-emerald-400'}`}>
                               <div>{formatCurrency(b.profit)}</div>
                               {b.additionalProfit > 0 && (
-                                <div className="text-[10px] text-emerald-600 font-bold whitespace-nowrap">+Addl: {formatCurrency(b.additionalProfit)}</div>
+                                <div className="flex flex-col items-end gap-0.5 mt-1">
+                                  <span className="text-[10px] text-emerald-600 font-bold whitespace-nowrap uppercase tracking-wider">
+                                    Additional Profit: +{formatCurrency(b.additionalProfit)}
+                                  </span>
+                                  {b.hasRefundSurplus && (
+                                    <span className="text-[9px] text-muted-foreground whitespace-nowrap">
+                                      Retained Refund Surplus
+                                    </span>
+                                  )}
+                                </div>
                               )}
                               {b.reducedProfit > 0 && (
-                                <div className="text-[10px] text-rose-500 font-bold whitespace-nowrap">-Red: {formatCurrency(b.reducedProfit)}</div>
+                                <div className="text-[10px] text-rose-500 font-bold whitespace-nowrap mt-0.5">-Red: {formatCurrency(b.reducedProfit)}</div>
                               )}
                             </td>
                             <td className="px-4 py-3 text-right">
                               {b.additionalMargin > 0 ? (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
-                                  +{formatCurrency(b.additionalMargin)}
-                                </span>
+                                <div className="flex flex-col items-end gap-1">
+                                  <span className="text-[10px] uppercase font-bold text-blue-600 dark:text-blue-400 tracking-wide">
+                                    Additional Agent Margin
+                                  </span>
+                                  <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
+                                    +{formatCurrency(b.additionalMargin)}
+                                  </span>
+                                  {b.additionalMarginPaid ? (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                                      Paid
+                                    </span>
+                                  ) : (
+                                    <div className="flex flex-col items-end gap-1">
+                                      <span className="text-[10px] font-extrabold text-amber-600 dark:text-amber-400 uppercase tracking-wide">
+                                        Unpaid
+                                      </span>
+                                      {isAdmin && (
+                                        <button
+                                          type="button"
+                                          disabled={payingBookingId === b.id}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handlePayAdditionalMargin(b);
+                                          }}
+                                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-blue-600 hover:bg-blue-700 text-white transition-all cursor-pointer shadow-xs whitespace-nowrap"
+                                          title="Record payout for additional agent margin"
+                                        >
+                                          {payingBookingId === b.id ? (
+                                            <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                                          ) : (
+                                            <CheckCircle2 size={10} />
+                                          )}
+                                          <span>Pay Addl Margin</span>
+                                        </button>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
                               ) : (
                                 <span className="text-muted-foreground text-xs">—</span>
                               )}

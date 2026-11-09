@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../api/client";
 import { formatCurrency, formatDate } from "@tms/shared-utils";
-import { X, Loader2, Calculator, Calendar, Search } from "lucide-react";
+import { X, Loader2, Calculator, Calendar, Search, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface Props {
@@ -18,6 +18,7 @@ export default function RecalculateMarginModal({ startDate, endDate, agentId, da
   
   const [includedBookingIds, setIncludedBookingIds] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState("");
+  const [payingBookingId, setPayingBookingId] = useState<string | null>(null);
 
   // Fetch eligible bookings
   const { data: bookings, isLoading, refetch } = useQuery({
@@ -28,6 +29,29 @@ export default function RecalculateMarginModal({ startDate, endDate, agentId, da
     },
     enabled: !!startDate && !!endDate
   });
+
+  const handlePayAdditionalMargin = async (b: any) => {
+    if (!window.confirm(`Are you sure you want to record payout of this additional agent margin of ${formatCurrency(b.additionalMargin)}? This will record an AGENT PAYOUT transaction and update the agent ledger.`)) {
+      return;
+    }
+    setPayingBookingId(b.id);
+    try {
+      await apiClient.post(`/bookings/${b.id}/refund-surplus/pay-margin`, {
+        amount: b.additionalMargin,
+        notes: `Additional Agent Margin Payout for Refund Surplus: ${formatCurrency(b.additionalMargin)}`,
+      });
+      toast.success("Additional agent margin paid successfully!");
+      queryClient.invalidateQueries({ queryKey: ["eligible-margin-bookings"] });
+      queryClient.invalidateQueries({ queryKey: ["agent-margins"] });
+      queryClient.invalidateQueries({ queryKey: ["agent-margin-bookings"] });
+      queryClient.invalidateQueries({ queryKey: ["booking"] });
+      refetch();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to pay additional agent margin");
+    } finally {
+      setPayingBookingId(null);
+    }
+  };
 
   const tokens = React.useMemo(() => {
     if (!searchQuery.trim()) return [];
@@ -271,19 +295,63 @@ export default function RecalculateMarginModal({ startDate, endDate, agentId, da
                             <td className="px-4 py-3">{b.agentName || "—"}</td>
                             <td className="px-4 py-3">{b.leadPassenger}</td>
                             <td className="px-4 py-3">{formatDate(b.date)}</td>
-                            <td className="px-4 py-3 text-right font-medium text-emerald-600 dark:text-emerald-400">
-                              {formatCurrency(b.profit)}
-                              {b.isIncrementalAdjustment && (
-                                <span className="block text-[10px] font-semibold text-blue-600 dark:text-blue-400">
-                                  (Net Adjustment)
+                            <td className="px-4 py-3 text-right font-medium">
+                              {b.hasRefundSurplus || b.isIncrementalAdjustment ? (
+                                <div className="flex flex-col items-end gap-0.5">
+                                  <span className="text-[10px] uppercase font-bold text-emerald-600 dark:text-emerald-400 tracking-wide">
+                                    Additional Profit
+                                  </span>
+                                  <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                                    +{formatCurrency(b.profit)}
+                                  </span>
+                                  <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                                    {b.hasRefundSurplus ? "Retained Refund Surplus" : "Net Adjustment"}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                                  {formatCurrency(b.profit)}
                                 </span>
                               )}
                             </td>
                             <td className="px-4 py-3 text-right">
                               {b.additionalMargin > 0 ? (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
-                                  +{formatCurrency(b.additionalMargin)}
-                                </span>
+                                <div className="flex flex-col items-end gap-1">
+                                  <span className="text-[10px] uppercase font-bold text-blue-600 dark:text-blue-400 tracking-wide">
+                                    Additional Agent Margin
+                                  </span>
+                                  <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
+                                    +{formatCurrency(b.additionalMargin)}
+                                  </span>
+                                  {b.additionalMarginPaid ? (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                                      Paid
+                                    </span>
+                                  ) : (
+                                    <div className="flex flex-col items-end gap-1">
+                                      <span className="text-[10px] font-extrabold text-amber-600 dark:text-amber-400 uppercase tracking-wide">
+                                        Unpaid
+                                      </span>
+                                      <button
+                                        type="button"
+                                        disabled={payingBookingId === b.id}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handlePayAdditionalMargin(b);
+                                        }}
+                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-blue-600 hover:bg-blue-700 text-white transition-all cursor-pointer shadow-xs whitespace-nowrap"
+                                        title="Record payout for additional agent margin"
+                                      >
+                                        {payingBookingId === b.id ? (
+                                          <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                                        ) : (
+                                          <CheckCircle2 size={10} />
+                                        )}
+                                        <span>Pay Addl Margin</span>
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
                               ) : (
                                 <span className="text-muted-foreground text-xs">—</span>
                               )}
