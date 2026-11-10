@@ -403,7 +403,13 @@ export const agentMarginService = {
     if (agentId && agentId !== 'all') where.agentId = agentId;
     if (status && status !== 'all') {
       if (status === 'VOIDED') {
-        where.marginPercentage = 0;
+        where.OR = [
+          { status: 'VOIDED' },
+          { marginPercentage: 0 }
+        ];
+      } else if (status === 'UNPAID') {
+        where.status = 'UNPAID';
+        where.marginPercentage = { gt: 0 };
       } else {
         where.status = status;
       }
@@ -425,49 +431,99 @@ export const agentMarginService = {
       // Ignore database errors
     }
 
-    if (limit !== undefined || offset !== undefined) {
-      const takeVal = Number(limit) || 10;
-      const skipVal = Number(offset) || 0;
+    const takeVal = limit !== undefined ? (Number(limit) || 10) : undefined;
+    const skipVal = offset !== undefined ? (Number(offset) || 0) : undefined;
 
-      const [total, items] = await Promise.all([
-        prisma.agentMargin.count({ where }),
-        prisma.agentMargin.findMany({
-          where,
-          include: {
-            agent: {
-              select: { id: true, name: true, email: true }
-            },
-            paidBy: {
-              select: { id: true, firstName: true, lastName: true }
-            }
+    // Base condition without status filter to calculate counts across tabs
+    const baseWhere: any = {};
+    if (startDate) baseWhere.startDate = { gte: new Date(startDate) };
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      baseWhere.endDate = { lte: end };
+    }
+    if (agentId && agentId !== 'all') baseWhere.agentId = agentId;
+
+    const [total, items, stats, paidStats, unpaidStats, voidedStats, totalCounts] = await Promise.all([
+      prisma.agentMargin.count({ where }),
+      prisma.agentMargin.findMany({
+        where,
+        include: {
+          agent: {
+            select: { id: true, name: true, email: true }
           },
-          orderBy: [
-            { startDate: 'desc' },
-            { agent: { name: 'asc' } }
-          ],
-          take: takeVal,
-          skip: skipVal,
-        })
-      ]);
+          paidBy: {
+            select: { id: true, firstName: true, lastName: true }
+          }
+        },
+        orderBy: [
+          { startDate: 'desc' },
+          { agent: { name: 'asc' } }
+        ],
+        ...(takeVal !== undefined ? { take: takeVal, skip: skipVal } : {}),
+      }),
+      prisma.agentMargin.aggregate({
+        where,
+        _sum: {
+          totalProfit: true,
+          marginAmount: true,
+          bookingCount: true,
+        }
+      }),
+      prisma.agentMargin.aggregate({
+        where: { ...baseWhere, status: 'PAID' },
+        _sum: {
+          totalProfit: true,
+          marginAmount: true,
+          bookingCount: true,
+        },
+        _count: { id: true }
+      }),
+      prisma.agentMargin.aggregate({
+        where: { ...baseWhere, status: 'UNPAID', marginPercentage: { gt: 0 } },
+        _sum: {
+          totalProfit: true,
+          marginAmount: true,
+          bookingCount: true,
+        },
+        _count: { id: true }
+      }),
+      prisma.agentMargin.aggregate({
+        where: {
+          ...baseWhere,
+          OR: [
+            { status: 'VOIDED' },
+            { marginPercentage: 0 }
+          ]
+        },
+        _sum: {
+          totalProfit: true,
+          bookingCount: true,
+        },
+        _count: { id: true }
+      }),
+      prisma.agentMargin.count({ where: baseWhere })
+    ]);
 
-      return { total, limit: takeVal, offset: skipVal, items };
+    const summary = {
+      totalProfit: Math.round((stats._sum.totalProfit || 0) * 100) / 100,
+      totalMarginAmount: Math.round((stats._sum.marginAmount || 0) * 100) / 100,
+      totalPaidMargin: Math.round((paidStats._sum.marginAmount || 0) * 100) / 100,
+      totalPaidProfit: Math.round((paidStats._sum.totalProfit || 0) * 100) / 100,
+      totalUnpaidMargin: Math.round((unpaidStats._sum.marginAmount || 0) * 100) / 100,
+      totalUnpaidProfit: Math.round((unpaidStats._sum.totalProfit || 0) * 100) / 100,
+      totalBookings: stats._sum.bookingCount || 0,
+      allCount: totalCounts,
+      paidCount: paidStats._count.id || 0,
+      unpaidCount: unpaidStats._count.id || 0,
+      voidedCount: voidedStats._count.id || 0,
+    };
+
+    if (takeVal !== undefined || skipVal !== undefined) {
+      return { total, limit: takeVal || 10, offset: skipVal || 0, items, summary };
     }
 
-    return prisma.agentMargin.findMany({
-      where,
-      include: {
-        agent: {
-          select: { id: true, name: true, email: true }
-        },
-        paidBy: {
-          select: { id: true, firstName: true, lastName: true }
-        }
-      },
-      orderBy: [
-        { startDate: 'desc' },
-        { agent: { name: 'asc' } }
-      ]
-    });
+    return { total, items, summary };
   },
 
   async getAgentMargins(agentId: string, query: any = {}) {
