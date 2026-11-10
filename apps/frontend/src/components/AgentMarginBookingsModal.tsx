@@ -271,7 +271,17 @@ export default function AgentMarginBookingsModal({ margin, onClose }: Props) {
                             className={`hover:bg-muted/30 transition-colors ${b.agentMarginVoided ? 'opacity-70 bg-red-500/5' : ''}`}
                           >
                             <td className="px-4 py-3 font-medium text-primary">
-                              {b.bookingReference}
+                              <div className="flex items-center gap-1.5">
+                                {b.isIncrementalAdjustment && (
+                                  <span 
+                                    className="text-[9px] uppercase font-bold text-blue-700 bg-blue-100 dark:bg-blue-900/40 dark:text-blue-300 px-1 py-0.5 rounded-sm whitespace-nowrap"
+                                    title="Original margin paid. Includes incremental price adjustments (upgrade/downgrade) or refund surplus."
+                                  >
+                                    ADJ ({b.profit >= 0 ? `+£${b.profit}` : `-£${Math.abs(b.profit)}`})
+                                  </span>
+                                )}
+                                <span>{b.bookingReference}</span>
+                              </div>
                             </td>
                             <td className="px-4 py-3">{b.customerName}</td>
                             <td className="px-4 py-3">{formatDate(b.createdAt)}</td>
@@ -294,25 +304,28 @@ export default function AgentMarginBookingsModal({ margin, onClose }: Props) {
                               {b.cardPaymentCharges > 0 ? `-${formatCurrency(b.cardPaymentCharges)}` : '—'}
                             </td>
                             <td className={`px-4 py-3 text-right font-medium ${b.agentMarginVoided ? 'text-muted-foreground line-through' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                              <div>{formatCurrency(b.profit)}</div>
-                              {b.refundAdditionalProfit > 0 ? (
-                                <div className="flex flex-col items-end gap-0.5 mt-1">
-                                  <span className="text-[10px] text-emerald-600 font-bold whitespace-nowrap uppercase tracking-wider">
-                                    Additional Profit: +{formatCurrency(b.refundAdditionalProfit)}
+                              {b.hasRefundSurplus || b.isIncrementalAdjustment ? (
+                                <div className="flex flex-col items-end gap-0.5">
+                                  <span className="text-[10px] uppercase font-bold text-emerald-600 dark:text-emerald-400 tracking-wide">
+                                    Additional Profit
                                   </span>
-                                  <span className="text-[9px] text-muted-foreground whitespace-nowrap">
-                                    Retained Refund Surplus
+                                  <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                                    +{formatCurrency(b.profit)}
                                   </span>
-                                </div>
-                              ) : b.additionalProfit > 0 ? (
-                                <div className="flex flex-col items-end gap-0.5 mt-1">
-                                  <span className="text-[10px] text-emerald-600 font-bold whitespace-nowrap uppercase tracking-wider">
-                                    Additional Profit: +{formatCurrency(b.additionalProfit)}
+                                  <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                                    {b.hasRefundSurplus ? "Retained Refund Surplus" : "Net Adjustment"}
                                   </span>
                                 </div>
-                              ) : null}
-                              {b.reducedProfit > 0 && (
-                                <div className="text-[10px] text-rose-500 font-bold whitespace-nowrap mt-0.5">-Red: {formatCurrency(b.reducedProfit)}</div>
+                              ) : (
+                                <div>
+                                  <div>{formatCurrency(b.profit)}</div>
+                                  {b.additionalProfit > 0 && (
+                                    <div className="text-[10px] text-emerald-600 font-bold whitespace-nowrap mt-0.5">+Add: {formatCurrency(b.additionalProfit)}</div>
+                                  )}
+                                  {b.reducedProfit > 0 && (
+                                    <div className="text-[10px] text-rose-500 font-bold whitespace-nowrap mt-0.5">-Red: {formatCurrency(b.reducedProfit)}</div>
+                                  )}
+                                </div>
                               )}
                             </td>
                             <td className="px-4 py-3 text-right">

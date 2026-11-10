@@ -694,7 +694,22 @@ export const agentMarginService = {
       }
     });
 
+    const currentPeriodStr = `${margin.startDate.toISOString().split('T')[0]} to ${margin.endDate.toISOString().split('T')[0]}`;
+    const currentMarginNote = `Agent Margin Payout for ${currentPeriodStr}`;
+
     return bookings.map((b: any) => {
+      const hasPriorAgentPayout = (b.transactions || []).some((tx: any) => {
+        const method = (tx.paymentMethod || '').toUpperCase();
+        const notes = tx.notes || '';
+        if (method === 'AGENT PAYOUT' || method === 'AGENT_PAYOUT') {
+          if (margin.status === 'PAID' && notes === currentMarginNote) return false;
+          if (notes.includes('additional agent margin') || notes.includes('additional margin')) return false;
+          return true;
+        }
+        return false;
+      }) || (b.agentMarginId && b.agentMarginId !== marginId);
+      const isMarginPaid = hasPriorAgentPayout;
+
       const vendorCost = b.bookingVendorPayments.reduce((sum: number, vp: any) => sum + vp.originalCost, 0);
       const vendorRefund = (b.accommodations?.reduce((sum: number, acc: any) => sum + (acc.refundAmount || 0), 0) || 0) +
                            (b.flightServices?.reduce((sum: number, fs: any) => sum + (fs.refundAmount || 0), 0) || 0) +
@@ -749,7 +764,14 @@ export const agentMarginService = {
       );
       const isAdditionalMarginPaid = additionalMargin > 0 && additionalPayoutAmount >= additionalMargin - 0.01;
 
-      const profit = rawProfit + additionalProfit - reducedProfit;
+      const netIncrementalProfit = isMarginPaid
+        ? (netRefundSurplus + additionalProfit - reducedProfit)
+        : (additionalProfit - reducedProfit);
+      const hasIncrementalAdjustment = (allAdjs.length > 0 || (isMarginPaid && netRefundSurplus > 0)) && (Math.abs(netIncrementalProfit) > 0.001 || additionalMargin > 0);
+
+      const effectiveProfit = isMarginPaid
+        ? netIncrementalProfit
+        : (rawProfit + netIncrementalProfit);
 
       return {
         id: b.id,
@@ -769,10 +791,12 @@ export const agentMarginService = {
         reducedProfit: Math.round(reducedProfit * 100) / 100,
         additionalMargin: Math.round(additionalMargin * 100) / 100,
         reducedMargin: Math.round(reducedMargin * 100) / 100,
-        profit: Math.round(profit * 100) / 100,
+        profit: Math.round(effectiveProfit * 100) / 100,
         agentMarginVoided: b.agentMarginVoided,
         hasAdjustments: allAdjs.length > 0 || netRefundSurplus > 0,
-        hasRefundSurplus: netRefundSurplus > 0,
+        hasRefundSurplus: isMarginPaid && netRefundSurplus > 0,
+        hasIncrementalAdjustment,
+        isIncrementalAdjustment: isMarginPaid && hasIncrementalAdjustment,
         netRefundSurplus: Math.round(netRefundSurplus * 100) / 100,
         additionalMarginPaid: isAdditionalMarginPaid,
         destination: ''
@@ -895,12 +919,16 @@ export const agentMarginService = {
             transportPriceAdjustments: true,
             visaPriceAdjustments: true,
             additionalServicePriceAdjustments: true,
+            transactions: { select: { paymentMethod: true, notes: true } },
           }
         }
       }
     });
 
     if (!margin) return;
+
+    const currentPeriodStr = `${margin.startDate.toISOString().split('T')[0]} to ${margin.endDate.toISOString().split('T')[0]}`;
+    const currentMarginNote = `Agent Margin Payout for ${currentPeriodStr}`;
 
     // Filter to only non-voided bookings to recalculate margin details
     const nonVoidedBookings = margin.bookings.filter(b => !b.agentMarginVoided);
@@ -913,7 +941,8 @@ export const agentMarginService = {
                            (b.flightServices?.reduce((sum: number, fs: any) => sum + (fs.refundAmount || 0), 0) || 0) +
                            (b.transportServices?.reduce((sum: number, ts: any) => sum + (ts.refundAmount || 0), 0) || 0) +
                            (b.visaServices?.reduce((sum: number, vs: any) => sum + (vs.refundAmount || 0), 0) || 0);
-      const rawProfit = b.totalPrice - vendorCost + vendorRefund - (b.refundAmount || 0) - (b.cardPaymentCharges || 0);
+      const clientRefund = b.refundAmount || 0;
+      const rawProfit = b.totalPrice - vendorCost + vendorRefund - clientRefund - (b.cardPaymentCharges || 0);
 
       const allAdjs = [
         ...(b.hotelPriceAdjustments || []),
@@ -923,9 +952,29 @@ export const agentMarginService = {
       ];
       const addlProfit = allAdjs.reduce((sum: number, a: any) => sum + (a.additionalProfit || 0), 0);
       const redProfit = allAdjs.reduce((sum: number, a: any) => sum + (a.reducedProfit || 0), 0);
-      const profit = rawProfit + addlProfit - redProfit;
 
-      nonVoidedProfit += profit;
+      const netRefundSurplus = Math.max(0, vendorRefund - clientRefund);
+      const hasPriorAgentPayout = (b.transactions || []).some((tx: any) => {
+        const method = (tx.paymentMethod || '').toUpperCase();
+        const notes = tx.notes || '';
+        if (method === 'AGENT PAYOUT' || method === 'AGENT_PAYOUT') {
+          if (margin.status === 'PAID' && notes === currentMarginNote) return false;
+          if (notes.includes('additional agent margin') || notes.includes('additional margin')) return false;
+          return true;
+        }
+        return false;
+      }) || (b.agentMarginId && b.agentMarginId !== marginId);
+      const isMarginPaid = hasPriorAgentPayout;
+
+      const netIncrementalProfit = isMarginPaid
+        ? (netRefundSurplus + addlProfit - redProfit)
+        : (addlProfit - redProfit);
+
+      const effectiveProfit = isMarginPaid
+        ? netIncrementalProfit
+        : (rawProfit + netIncrementalProfit);
+
+      nonVoidedProfit += effectiveProfit;
     }
 
     // Find agent's applicable slab based on the non-voided/qualified profit
