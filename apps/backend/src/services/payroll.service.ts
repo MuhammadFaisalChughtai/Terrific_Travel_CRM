@@ -4,14 +4,53 @@ import { emailService } from './email.service';
 
 export class PayrollService {
   /**
-   * Helper to generate a unique payslip number like PAY-202606-0001
+   * Helper to generate a guaranteed unique payslip number like PAY-202611-0001
    */
-  private async generatePayslipNumber(monthYear: string): Promise<string> {
+  private async generatePayslipNumber(monthYear?: string): Promise<string> {
     const cleanDate = new Date();
     const yearMonth = `${cleanDate.getFullYear()}${String(cleanDate.getMonth() + 1).padStart(2, '0')}`;
-    const count = await prisma.payslip.count();
-    const sequence = String(count + 1).padStart(4, '0');
-    return `PAY-${yearMonth}-${sequence}`;
+    const prefix = `PAY-${yearMonth}-`;
+
+    const latestSlip = await prisma.payslip.findFirst({
+      where: {
+        payslipNumber: {
+          startsWith: prefix,
+        },
+      },
+      orderBy: {
+        payslipNumber: 'desc',
+      },
+      select: {
+        payslipNumber: true,
+      },
+    });
+
+    let nextSeq = 1;
+    if (latestSlip && latestSlip.payslipNumber) {
+      const parts = latestSlip.payslipNumber.split('-');
+      const lastSeqStr = parts[parts.length - 1];
+      const parsed = parseInt(lastSeqStr, 10);
+      if (!isNaN(parsed)) {
+        nextSeq = parsed + 1;
+      }
+    }
+
+    let candidate = `${prefix}${String(nextSeq).padStart(4, '0')}`;
+    let exists = await prisma.payslip.findUnique({
+      where: { payslipNumber: candidate },
+      select: { id: true },
+    });
+
+    while (exists) {
+      nextSeq++;
+      candidate = `${prefix}${String(nextSeq).padStart(4, '0')}`;
+      exists = await prisma.payslip.findUnique({
+        where: { payslipNumber: candidate },
+        select: { id: true },
+      });
+    }
+
+    return candidate;
   }
 
   /**
@@ -185,50 +224,75 @@ export class PayrollService {
       agent = await prisma.agent.findUnique({ where: { id: data.agentId } });
     }
 
-    const payslipNumber = data.payslipNumber || (await this.generatePayslipNumber(data.monthYear));
+    let payslipNumber = data.payslipNumber ? String(data.payslipNumber).trim() : '';
+    if (!payslipNumber) {
+      payslipNumber = await this.generatePayslipNumber(data.monthYear);
+    } else {
+      const existing = await prisma.payslip.findUnique({
+        where: { payslipNumber },
+        select: { id: true },
+      });
+      if (existing) {
+        payslipNumber = await this.generatePayslipNumber(data.monthYear);
+      }
+    }
 
     const totals = this.calculateTotals(data);
 
-    const payslip = await prisma.payslip.create({
-      data: {
-        payslipNumber,
-        agentId: data.agentId || null,
-        userId: data.userId || null,
-        createdById: createdById || null,
-        employeeName: data.employeeName || agent?.name || 'Employee',
-        designation: data.designation || 'Operations Manager',
-        department: data.department || 'Operations',
-        passportNumber: data.passportNumber || '',
-        employeeEmail: data.employeeEmail || agent?.email || '',
-        payrollEmail: data.payrollEmail || agent?.payrollEmail || agent?.email || '',
-        companyName: data.companyName || 'Terrific Travel (Private) Limited',
-        companyAddress: data.companyAddress || 'Plot # 78, 3 Street 6, I-10/3 Islamabad, 44000, Pakistan',
-        companyPhone: data.companyPhone || '+441215291630',
-        companyEmail: data.companyEmail || 'office@terrifictravel.co.uk',
-        monthYear: data.monthYear,
-        payDate: data.payDate ? new Date(data.payDate) : new Date(),
-        paymentMethod: data.paymentMethod || 'Bank Transfer',
-        currency: data.currency || 'PKR',
-        currencySymbol: data.currencySymbol || 'Rs.',
-        basicSalary: totals.basicSalary,
-        houseRentAllowance: totals.houseRentAllowance,
-        travelAllowance: totals.travelAllowance,
-        otherAllowances: totals.otherAllowances,
-        earningsJson: data.earningsJson || [],
-        taxDeduction: totals.taxDeduction,
-        fineDeduction: totals.fineDeduction,
-        otherDeductions: totals.otherDeductions,
-        deductionsJson: data.deductionsJson || [],
-        totalEarnings: totals.totalEarnings,
-        totalDeductions: totals.totalDeductions,
-        netSalary: totals.netSalary,
-        status: data.status || 'Draft',
-        notes: data.notes || null,
-      },
-      include: {
-        agent: true,
-      },
-    });
+    let payslip: any = null;
+    let attempts = 0;
+    while (!payslip && attempts < 5) {
+      attempts++;
+      try {
+        payslip = await prisma.payslip.create({
+          data: {
+            payslipNumber,
+            agentId: data.agentId || null,
+            userId: data.userId || null,
+            createdById: createdById || null,
+            employeeName: data.employeeName || agent?.name || 'Employee',
+            designation: data.designation || 'Operations Manager',
+            department: data.department || 'Operations',
+            passportNumber: data.passportNumber || '',
+            employeeEmail: data.employeeEmail || agent?.email || '',
+            payrollEmail: data.payrollEmail || agent?.payrollEmail || agent?.email || '',
+            companyName: data.companyName || 'Terrific Travel (Private) Limited',
+            companyAddress: data.companyAddress || 'Plot # 78, 3 Street 6, I-10/3 Islamabad, 44000, Pakistan',
+            companyPhone: data.companyPhone || '+441215291630',
+            companyEmail: data.companyEmail || 'office@terrifictravel.co.uk',
+            monthYear: data.monthYear,
+            payDate: data.payDate ? new Date(data.payDate) : new Date(),
+            paymentMethod: data.paymentMethod || 'Bank Transfer',
+            currency: data.currency || 'PKR',
+            currencySymbol: data.currencySymbol || 'Rs.',
+            basicSalary: totals.basicSalary,
+            houseRentAllowance: totals.houseRentAllowance,
+            travelAllowance: totals.travelAllowance,
+            otherAllowances: totals.otherAllowances,
+            earningsJson: data.earningsJson || [],
+            taxDeduction: totals.taxDeduction,
+            fineDeduction: totals.fineDeduction,
+            otherDeductions: totals.otherDeductions,
+            deductionsJson: data.deductionsJson || [],
+            totalEarnings: totals.totalEarnings,
+            totalDeductions: totals.totalDeductions,
+            netSalary: totals.netSalary,
+            status: data.status || 'Draft',
+            notes: data.notes || null,
+          },
+          include: {
+            agent: true,
+          },
+        });
+      } catch (err: any) {
+        if (err.code === 'P2002' && attempts < 5) {
+          logger.warn(`Collision on payslipNumber ${payslipNumber}, generating fresh number (attempt ${attempts})...`);
+          payslipNumber = await this.generatePayslipNumber(data.monthYear);
+        } else {
+          throw err;
+        }
+      }
+    }
 
     // Automatically update agent record with latest payrollEmail for future payslips
     if (data.agentId && data.payrollEmail) {
