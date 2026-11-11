@@ -33,6 +33,7 @@ import {
   ShieldCheck,
   Trash2,
   ExternalLink,
+  Coins,
 } from 'lucide-react';
 
 export interface IssuanceTicket {
@@ -71,11 +72,16 @@ export interface IssuanceTicket {
   creatorName?: string;
   assigneeName?: string | null;
   createdAt: string;
+  updatedAt?: string;
   vendorId?: string | null;
   vendorName?: string | null;
   reservationNumber?: string | null;
   hotelConfirmationNumber?: string | null;
   bookedPrice?: number | null;
+  otherCurrency?: string | null;
+  otherCurrencyAmount?: number | null;
+  otherCurrencyType?: string | null;
+  conversionRate?: number | null;
 }
 
 const COLUMNS = [
@@ -127,6 +133,10 @@ export default function IssuancePage() {
   const [hotelConfirmationNumber, setHotelConfirmationNumber] = useState('');
   const [hotelVendorId, setHotelVendorId] = useState('');
   const [hotelBookedPrice, setHotelBookedPrice] = useState('');
+  const [hotelCurrency, setHotelCurrency] = useState('GBP');
+  const [hotelOtherCurrencyType, setHotelOtherCurrencyType] = useState('SAR');
+  const [hotelOtherCurrencyAmount, setHotelOtherCurrencyAmount] = useState('');
+  const [hotelConversionRate, setHotelConversionRate] = useState('');
 
   const [pendingHoldTicket, setPendingHoldTicket] = useState<IssuanceTicket | null>(null);
   const [holdReasonText, setHoldReasonText] = useState('');
@@ -269,6 +279,10 @@ export default function IssuancePage() {
       reservationNumber?: string;
       confirmationNumber?: string;
       bookedPrice?: number;
+      currency?: string;
+      otherCurrencyType?: string;
+      otherCurrencyAmount?: number;
+      conversionRate?: number;
     }) => {
       const res = await apiClient.patch(`/issuance/tickets/${payload.ticketId}/status`, {
         newStatus: payload.newStatus,
@@ -278,6 +292,10 @@ export default function IssuancePage() {
         reservationNumber: payload.reservationNumber,
         confirmationNumber: payload.confirmationNumber,
         bookedPrice: payload.bookedPrice,
+        currency: payload.currency,
+        otherCurrencyType: payload.otherCurrencyType,
+        otherCurrencyAmount: payload.otherCurrencyAmount,
+        conversionRate: payload.conversionRate,
       });
       return res.data;
     },
@@ -423,6 +441,18 @@ export default function IssuancePage() {
     if (ticket.type === 'HOTEL') {
       setHotelReservationNumber(ticket.reservationNumber || ticket.hotelReservationNo || '');
       setHotelConfirmationNumber(ticket.hotelConfirmationNumber || '');
+      setHotelCurrency(ticket.currency || 'GBP');
+      setHotelOtherCurrencyType(ticket.otherCurrencyType || ticket.otherCurrency || 'SAR');
+      setHotelOtherCurrencyAmount(
+        ticket.otherCurrencyAmount !== undefined && ticket.otherCurrencyAmount !== null
+          ? String(ticket.otherCurrencyAmount)
+          : ''
+      );
+      setHotelConversionRate(
+        ticket.conversionRate !== undefined && ticket.conversionRate !== null
+          ? String(ticket.conversionRate)
+          : ''
+      );
 
       let matchedVendorId = ticket.vendorId || '';
       if (!matchedVendorId && ticket.vendorName && vendors.length > 0) {
@@ -442,6 +472,30 @@ export default function IssuancePage() {
       );
     } else {
       setConfirmationCode(ticket.pnrTicketNumber || '');
+    }
+  };
+
+  const handleOtherCurrencyAmountChange = (val: string) => {
+    setHotelOtherCurrencyAmount(val);
+    const rate = Number(hotelConversionRate);
+    if (val && !isNaN(Number(val)) && rate > 0 && hotelCurrency === 'GBP') {
+      setHotelBookedPrice((Number(val) / rate).toFixed(2));
+    }
+  };
+
+  const handleConversionRateChange = (val: string) => {
+    setHotelConversionRate(val);
+    const rate = Number(val);
+    if (val && !isNaN(rate) && rate > 0 && hotelOtherCurrencyAmount && hotelCurrency === 'GBP') {
+      setHotelBookedPrice((Number(hotelOtherCurrencyAmount) / rate).toFixed(2));
+    }
+  };
+
+  const handleBookedPriceChange = (val: string) => {
+    setHotelBookedPrice(val);
+    const rate = Number(hotelConversionRate);
+    if (val && !isNaN(Number(val)) && rate > 0 && hotelCurrency === 'GBP') {
+      setHotelOtherCurrencyAmount((Number(val) * rate).toFixed(2));
     }
   };
 
@@ -471,18 +525,28 @@ export default function IssuancePage() {
       const resNum = hotelReservationNumber.trim();
       const confNum = hotelConfirmationNumber.trim();
       if (!resNum && !confNum) {
-        toast.error('Please enter at least a Hotel Reservation Number or Confirmation Number.');
+        toast.error('Please enter at least a Hotel Reservation Number.');
         return;
       }
 
       statusMutation.mutate({
         ticketId: pendingIssueTicket.id,
         newStatus: 'ISSUED',
-        outputConfirmation: confNum || resNum,
+        outputConfirmation: resNum || confNum,
         reservationNumber: resNum || undefined,
         confirmationNumber: confNum || undefined,
         vendorId: hotelVendorId || undefined,
         bookedPrice: hotelBookedPrice !== '' && !isNaN(Number(hotelBookedPrice)) ? Number(hotelBookedPrice) : undefined,
+        currency: hotelCurrency || undefined,
+        otherCurrencyType: hotelOtherCurrencyType || undefined,
+        otherCurrencyAmount:
+          hotelOtherCurrencyAmount !== '' && !isNaN(Number(hotelOtherCurrencyAmount))
+            ? Number(hotelOtherCurrencyAmount)
+            : undefined,
+        conversionRate:
+          hotelConversionRate !== '' && !isNaN(Number(hotelConversionRate))
+            ? Number(hotelConversionRate)
+            : undefined,
       });
       setPendingIssueTicket(null);
     } else {
@@ -660,7 +724,15 @@ export default function IssuancePage() {
       {/* KANBAN BOARD */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 min-h-[640px] items-start">
         {COLUMNS.map((column) => {
-          const colTickets = filteredTickets.filter((t) => t.status === column.id);
+          const colTickets = filteredTickets.filter((t) => {
+            if (t.status !== column.id) return false;
+            if (column.id === 'ISSUED' && !searchQuery.trim()) {
+              const issuedTime = new Date(t.statusChangedAt || t.lockedAt || t.updatedAt || t.createdAt).getTime();
+              const threeDaysAgoTime = Date.now() - 3 * 24 * 60 * 60 * 1000;
+              return issuedTime >= threeDaysAgoTime;
+            }
+            return true;
+          });
           const isDragTarget = dragOverColumn === column.id;
 
           return (
@@ -683,8 +755,10 @@ export default function IssuancePage() {
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold uppercase tracking-wider text-foreground">
                       {column.id === 'ISSUED' && filterType === 'HOTEL'
-                        ? 'Confirmed / Finalized'
-                        : column.id === 'TO_DO' && filterType === 'HOTEL'
+                        ? 'Confirmed (Last 3 Days)'
+                        : column.id === 'ISSUED'
+                          ? 'Issued (Last 3 Days)'
+                          : column.id === 'TO_DO' && filterType === 'HOTEL'
                           ? 'To Confirm'
                           : column.label}
                     </span>
@@ -696,8 +770,10 @@ export default function IssuancePage() {
                   </div>
                   <p className="text-[10px] text-muted-foreground mt-0.5">
                     {column.id === 'ISSUED' && filterType === 'HOTEL'
-                      ? 'Hotel reservation confirmed & voucher ready'
-                      : column.description}
+                      ? 'Hotel reservations confirmed within the last 3 days'
+                      : column.id === 'ISSUED'
+                        ? 'Tickets issued within the last 3 days'
+                        : column.description}
                   </p>
                 </div>
               </div>
@@ -857,11 +933,23 @@ export default function IssuancePage() {
                               </div>
                             )}
                             {(ticket.hotelReservationNo || ticket.reservationNumber || ticket.hotelConfirmationNumber) && (
-                              <div className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 pt-0.5 border-t border-border/50 flex items-center justify-between">
-                                <span>Res/Conf:</span>
-                                <span className="font-mono text-[9.5px] truncate max-w-[140px]">
-                                  {ticket.hotelConfirmationNumber || ticket.reservationNumber || ticket.hotelReservationNo}
-                                </span>
+                              <div className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 pt-0.5 border-t border-border/50 flex flex-col gap-0.5">
+                                {(ticket.reservationNumber || ticket.hotelReservationNo) && (
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-muted-foreground font-medium">Res No:</span>
+                                    <span className="font-mono text-[9.5px] truncate max-w-[140px]">
+                                      {ticket.reservationNumber || ticket.hotelReservationNo}
+                                    </span>
+                                  </div>
+                                )}
+                                {ticket.hotelConfirmationNumber && (
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-muted-foreground font-medium">Conf:</span>
+                                    <span className="font-mono text-[9.5px] truncate max-w-[140px]">
+                                      {ticket.hotelConfirmationNumber}
+                                    </span>
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
@@ -998,6 +1086,7 @@ export default function IssuancePage() {
                       <input
                         type="text"
                         autoFocus
+                        required
                         placeholder="e.g. HTL-RES-10492"
                         value={hotelReservationNumber}
                         onChange={(e) => setHotelReservationNumber(e.target.value)}
@@ -1008,20 +1097,20 @@ export default function IssuancePage() {
 
                     <div>
                       <label className="block text-[11px] font-bold uppercase tracking-wider text-foreground mb-1">
-                        Confirmation Number *
+                        Confirmation Number <span className="font-normal text-muted-foreground lowercase">(optional)</span>
                       </label>
                       <input
                         type="text"
-                        placeholder="e.g. CNF-892341"
+                        placeholder="e.g. CNF-892341 (optional)"
                         value={hotelConfirmationNumber}
                         onChange={(e) => setHotelConfirmationNumber(e.target.value)}
                         className="w-full text-xs font-semibold py-2 px-3 bg-background border border-border rounded-xl uppercase placeholder:normal-case text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
                       />
-                      <span className="text-[10px] text-muted-foreground mt-0.5 block">Official hotel confirmation code</span>
+                      <span className="text-[10px] text-muted-foreground mt-0.5 block">Official hotel confirmation code (leave blank if none)</span>
                     </div>
                   </div>
 
-                  {/* Vendor Details & Booked Price */}
+                  {/* Vendor Details & Booked Price with Currency */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-[11px] font-bold uppercase tracking-wider text-foreground mb-1">
@@ -1062,31 +1151,105 @@ export default function IssuancePage() {
                           </option>
                         ))}
                       </select>
-                      <span className="text-[10px] text-muted-foreground mt-0.5 block">
-                        {isLoadingVendors
-                          ? 'Loading vendors list...'
-                          : hotelVendors.length > 0
-                          ? `${hotelVendors.length} hotel vendor${hotelVendors.length === 1 ? '' : 's'} available`
-                          : vendors.length > 0
-                          ? `${vendors.length} supplier${vendors.length === 1 ? '' : 's'} available`
-                          : 'Supplier used to book the hotel'}
-                      </span>
+                      <span className="text-[10px] text-muted-foreground mt-0.5 block">Supplier used to book the hotel</span>
                     </div>
 
                     <div>
                       <label className="block text-[11px] font-bold uppercase tracking-wider text-foreground mb-1">
-                        Booked Price ({pendingIssueTicket.currency || 'GBP'})
+                        Booked Price &amp; Currency
                       </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        placeholder="0.00"
-                        value={hotelBookedPrice}
-                        onChange={(e) => setHotelBookedPrice(e.target.value)}
-                        className="w-full text-xs font-bold py-2 px-3 bg-background border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      />
+                      <div className="flex gap-2">
+                        <select
+                          value={hotelCurrency}
+                          onChange={(e) => setHotelCurrency(e.target.value)}
+                          className="w-24 text-xs font-bold py-2 px-2 bg-background border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        >
+                          <option value="GBP">GBP (£)</option>
+                          <option value="SAR">SAR (﷼)</option>
+                          <option value="USD">USD ($)</option>
+                          <option value="EUR">EUR (€)</option>
+                          <option value="AED">AED (د.إ)</option>
+                          <option value="PKR">PKR (₨)</option>
+                          <option value="CAD">CAD (C$)</option>
+                          <option value="AUD">AUD (A$)</option>
+                          <option value="TRY">TRY (₺)</option>
+                        </select>
+                        <input
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={hotelBookedPrice}
+                          onChange={(e) => handleBookedPriceChange(e.target.value)}
+                          className="flex-1 text-xs font-bold py-2 px-3 bg-background border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        />
+                      </div>
                       <span className="text-[10px] text-muted-foreground mt-0.5 block">Actual cost price paid to vendor</span>
                     </div>
+                  </div>
+
+                  {/* Other Currency & Conversion Options */}
+                  <div className="p-3 bg-secondary/30 rounded-xl border border-border/60 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                        <Coins className="w-3.5 h-3.5 text-emerald-600" />
+                        Other Currency Options
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">e.g. Vendor billed in SAR / USD</span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                      <div>
+                        <label className="block text-[10px] font-semibold text-muted-foreground uppercase mb-1">
+                          Other Currency
+                        </label>
+                        <select
+                          value={hotelOtherCurrencyType}
+                          onChange={(e) => setHotelOtherCurrencyType(e.target.value)}
+                          className="w-full text-xs py-1.5 px-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        >
+                          <option value="SAR">SAR (﷼)</option>
+                          <option value="USD">USD ($)</option>
+                          <option value="EUR">EUR (€)</option>
+                          <option value="AED">AED (د.إ)</option>
+                          <option value="PKR">PKR (₨)</option>
+                          <option value="CAD">CAD (C$)</option>
+                          <option value="AUD">AUD (A$)</option>
+                          <option value="TRY">TRY (₺)</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-semibold text-muted-foreground uppercase mb-1">
+                          Other Currency Amount
+                        </label>
+                        <input
+                          type="number"
+                          step="any"
+                          placeholder="0.00"
+                          value={hotelOtherCurrencyAmount}
+                          onChange={(e) => handleOtherCurrencyAmountChange(e.target.value)}
+                          className="w-full text-xs py-1.5 px-2.5 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-semibold text-muted-foreground uppercase mb-1">
+                          Conversion Rate
+                        </label>
+                        <input
+                          type="number"
+                          step="any"
+                          placeholder="e.g. 4.8"
+                          value={hotelConversionRate}
+                          onChange={(e) => handleConversionRateChange(e.target.value)}
+                          className="w-full text-xs py-1.5 px-2.5 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500 font-mono"
+                        />
+                      </div>
+                    </div>
+                    {hotelOtherCurrencyAmount && hotelConversionRate && Number(hotelConversionRate) > 0 && hotelCurrency === 'GBP' && (
+                      <p className="text-[10px] text-emerald-700 dark:text-emerald-400 font-medium">
+                        ✓ Calculated Booked Cost: £{(Number(hotelOtherCurrencyAmount) / Number(hotelConversionRate)).toFixed(2)} ({hotelOtherCurrencyAmount} {hotelOtherCurrencyType} @ {hotelConversionRate})
+                      </p>
+                    )}
                   </div>
 
                   <div className="bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 p-2.5 rounded-xl text-[11px] text-emerald-800 dark:text-emerald-300">
@@ -1127,7 +1290,7 @@ export default function IssuancePage() {
                     statusMutation.isPending ||
                     (pendingIssueTicket.type === 'FLIGHT'
                       ? !confirmationCode.trim()
-                      : !hotelReservationNumber.trim() && !hotelConfirmationNumber.trim())
+                      : !hotelReservationNumber.trim())
                   }
                   className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 rounded-xl shadow-xs transition-colors cursor-pointer"
                 >
@@ -1573,7 +1736,7 @@ export default function IssuancePage() {
                   <p>
                     <strong>Confirmation No:</strong>{' '}
                     <span className="font-bold text-emerald-600 dark:text-emerald-400 font-mono">
-                      {viewTicket.hotelConfirmationNumber || viewTicket.hotelReservationNo || 'Not yet issued'}
+                      {viewTicket.hotelConfirmationNumber || 'None (Optional)'}
                     </span>
                   </p>
                   <div className="pt-1.5 border-t border-emerald-200/60 dark:border-emerald-800/60 flex items-center justify-between text-xs">
@@ -1581,6 +1744,7 @@ export default function IssuancePage() {
                       Cost Price:{' '}
                       <strong className="text-emerald-700 dark:text-emerald-300">
                         {viewTicket.currency} {viewTicket.bookedPrice !== undefined && viewTicket.bookedPrice !== null ? Number(viewTicket.bookedPrice).toFixed(2) : 'N/A'}
+                        {viewTicket.otherCurrencyAmount && viewTicket.otherCurrencyType ? ` (${viewTicket.otherCurrencyType} ${Number(viewTicket.otherCurrencyAmount).toFixed(2)})` : ''}
                       </strong>
                     </span>
                     <span>

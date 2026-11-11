@@ -47,6 +47,23 @@ export class IssuanceService {
         { pnrTicketNumber: { contains: q, mode: 'insensitive' } },
         { hotelReservationNo: { contains: q, mode: 'insensitive' } },
       ];
+    } else {
+      // Board default view: show all active/to-do/pending/on-hold tickets, but for ISSUED tickets only show those from the last 3 days
+      const threeDaysAgo = new Date();
+      threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+      threeDaysAgo.setHours(0, 0, 0, 0);
+
+      where.OR = [
+        { status: { not: IssuanceStatus.ISSUED } },
+        {
+          status: IssuanceStatus.ISSUED,
+          OR: [
+            { statusChangedAt: { gte: threeDaysAgo } },
+            { lockedAt: { gte: threeDaysAgo } },
+            { updatedAt: { gte: threeDaysAgo } },
+          ],
+        },
+      ];
     }
 
     const tickets = await prisma.issuanceTicket.findMany({
@@ -71,6 +88,11 @@ export class IssuanceService {
                 reservationNumber: true,
                 hotelConfirmationNumber: true,
                 price: true,
+                currency: true,
+                otherCurrency: true,
+                otherCurrencyAmount: true,
+                otherCurrencyType: true,
+                conversionRate: true,
                 vendorId: true,
                 vendor: { select: { id: true, name: true, vendorType: true } },
               },
@@ -141,6 +163,11 @@ export class IssuanceService {
         reservationNumber: accommodation?.reservationNumber || t.hotelReservationNo || null,
         hotelConfirmationNumber: accommodation?.hotelConfirmationNumber || null,
         bookedPrice: accommodation?.price !== undefined && accommodation?.price !== null ? accommodation.price : t.totalCost,
+        currency: accommodation?.currency || t.currency || 'GBP',
+        otherCurrency: accommodation?.otherCurrency || null,
+        otherCurrencyAmount: accommodation?.otherCurrencyAmount ?? null,
+        otherCurrencyType: accommodation?.otherCurrencyType || 'SAR',
+        conversionRate: accommodation?.conversionRate ?? null,
       };
     });
   }
@@ -454,6 +481,10 @@ export class IssuanceService {
       reservationNumber?: string;
       confirmationNumber?: string;
       bookedPrice?: number;
+      currency?: string;
+      otherCurrencyType?: string;
+      otherCurrencyAmount?: number;
+      conversionRate?: number;
     }
   ) {
     const ticket = await prisma.issuanceTicket.findUnique({
@@ -476,6 +507,10 @@ export class IssuanceService {
       reservationNumber,
       confirmationNumber,
       bookedPrice,
+      currency,
+      otherCurrencyType,
+      otherCurrencyAmount,
+      conversionRate,
     } = payload;
 
     // STRICT RULE: Only System Administrators and Flight Executives (for FLIGHT cards only) can move cards
@@ -493,13 +528,13 @@ export class IssuanceService {
     // RULE 2: Mandatory Output Validation for ISSUED status
     const confirmation: string =
       (outputConfirmation?.trim() ||
-        confirmationNumber?.trim() ||
         reservationNumber?.trim() ||
+        confirmationNumber?.trim() ||
         (ticket.type === IssuanceType.FLIGHT ? ticket.pnrTicketNumber : ticket.hotelReservationNo) ||
         '').trim();
 
     if (newStatus === IssuanceStatus.ISSUED && !confirmation) {
-      const missingField = ticket.type === IssuanceType.FLIGHT ? 'Airline PNR / Ticket Number' : 'Hotel Reservation / Confirmation Number';
+      const missingField = ticket.type === IssuanceType.FLIGHT ? 'Airline PNR / Ticket Number' : 'Hotel Reservation Number';
       throw new Error(`Validation Error: ${missingField} is mandatory before moving card to Issued.`);
     }
 
@@ -530,10 +565,13 @@ export class IssuanceService {
         updateData.pnrTicketNumber = confirmation.toUpperCase();
       } else {
         const resNum = (reservationNumber || outputConfirmation || '').trim().toUpperCase();
-        const confNum = (confirmationNumber || outputConfirmation || '').trim().toUpperCase();
-        updateData.hotelReservationNo = confNum || resNum || confirmation.toUpperCase();
+        const confNum = (confirmationNumber || '').trim().toUpperCase();
+        updateData.hotelReservationNo = resNum || confNum || confirmation.toUpperCase();
         if (bookedPrice !== undefined && bookedPrice !== null && !isNaN(Number(bookedPrice))) {
           updateData.totalCost = Number(bookedPrice);
+        }
+        if (currency) {
+          updateData.currency = currency;
         }
       }
       updateData.isLocked = true;
@@ -564,23 +602,43 @@ export class IssuanceService {
               });
             }
           } else if (ticket.type === IssuanceType.HOTEL) {
-            const resNum = (reservationNumber || '').trim().toUpperCase();
-            const confNum = (confirmationNumber || outputConfirmation || '').trim().toUpperCase();
+            const resNum = (reservationNumber || outputConfirmation || '').trim().toUpperCase();
+            // Hotel confirmation is NOT mandatory and must NEVER be auto-populated with reservation number!
+            const confNum = (confirmationNumber || '').trim().toUpperCase();
 
             const accData: any = {};
-            if (resNum) accData.reservationNumber = resNum;
+            if (resNum) {
+              accData.reservationNumber = resNum;
+            }
             if (confNum) {
               accData.hotelConfirmationNumber = confNum;
               accData.confirmationNumber = confNum;
             }
             if (!resNum && !confNum && confirmation) {
               accData.reservationNumber = confirmation.toUpperCase();
-              accData.hotelConfirmationNumber = confirmation.toUpperCase();
-              accData.confirmationNumber = confirmation.toUpperCase();
             }
             if (vendorId) accData.vendorId = vendorId;
             if (bookedPrice !== undefined && bookedPrice !== null && !isNaN(Number(bookedPrice))) {
               accData.price = Number(bookedPrice);
+            }
+            if (currency) {
+              accData.currency = currency;
+            }
+            if (otherCurrencyType !== undefined) {
+              accData.otherCurrencyType = otherCurrencyType || null;
+            }
+            if (otherCurrencyAmount !== undefined) {
+              accData.otherCurrencyAmount =
+                otherCurrencyAmount !== null && !isNaN(Number(otherCurrencyAmount))
+                  ? Number(otherCurrencyAmount)
+                  : null;
+              accData.otherCurrency = otherCurrencyAmount ? String(otherCurrencyAmount) : (otherCurrencyType || null);
+            }
+            if (conversionRate !== undefined) {
+              accData.conversionRate =
+                conversionRate !== null && !isNaN(Number(conversionRate))
+                  ? Number(conversionRate)
+                  : null;
             }
 
             if (ticket.serviceId) {
