@@ -1023,8 +1023,8 @@ export default function IssuancePage() {
       {/* MANDATORY VALIDATION MODAL FOR MOVING TO "ISSUED" */}
       {pendingIssueTicket && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-card rounded-2xl max-w-lg w-full p-5 shadow-2xl border border-border">
-            <div className="flex items-center justify-between pb-3 border-b border-border">
+          <div className="bg-card rounded-2xl max-w-xl w-full p-5 sm:p-6 shadow-2xl border border-border">
+            <div className="flex items-center justify-between pb-3.5 border-b border-border">
               <h3 className="text-base font-bold text-foreground flex items-center gap-2">
                 <CheckCircle2 className="w-5 h-5 text-emerald-600" />
                 {pendingIssueTicket.type === 'FLIGHT'
@@ -1033,22 +1033,28 @@ export default function IssuancePage() {
               </h3>
               <button
                 onClick={() => setPendingIssueTicket(null)}
-                className="text-muted-foreground hover:text-foreground"
+                className="text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-secondary transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={submitIssueConfirmation} className="mt-4 space-y-3.5">
+            <form onSubmit={submitIssueConfirmation} className="mt-4 space-y-4">
               {/* Summary Card */}
-              <div className="bg-secondary/50 p-3 rounded-xl border border-border text-xs text-muted-foreground space-y-1">
-                <div className="flex justify-between items-center">
-                  <span><strong>Guest:</strong> {pendingIssueTicket.leadGuestName}</span>
-                  <span className="font-mono font-bold text-foreground">Ref: {pendingIssueTicket.ticketNumber}</span>
+              <div className="bg-slate-50 dark:bg-slate-900/60 p-3.5 rounded-xl border border-border text-xs space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 font-bold text-foreground">
+                    <UserIcon className="w-3.5 h-3.5 text-primary" />
+                    <span>{pendingIssueTicket.leadGuestName}</span>
+                  </div>
+                  <span className="font-mono text-[11px] font-bold bg-slate-200/70 dark:bg-slate-800 text-slate-800 dark:text-slate-200 px-2 py-0.5 rounded-md border border-slate-300 dark:border-slate-700">
+                    {pendingIssueTicket.ticketNumber}
+                  </span>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span>
-                    <strong>Booking:</strong>{' '}
+
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-border/60 text-muted-foreground">
+                  <div className="flex items-center gap-1">
+                    <span className="text-[11px]">Booking:</span>
                     {pendingIssueTicket.bookingReference ? (
                       <button
                         type="button"
@@ -1060,26 +1066,35 @@ export default function IssuancePage() {
                         <ExternalLink className="w-2.5 h-2.5" />
                       </button>
                     ) : (
-                      'N/A'
+                      <span className="font-semibold text-foreground">N/A</span>
                     )}
-                  </span>
-                  <span className="text-foreground font-semibold">
-                    Quoted to Client: <strong>{pendingIssueTicket.currency} {Number(pendingIssueTicket.totalCost).toFixed(2)}</strong>
-                  </span>
+                  </div>
+                  <div className="text-[11px]">
+                    Quoted to Client: <strong className="text-foreground">{pendingIssueTicket.currency} {Number(pendingIssueTicket.totalCost).toFixed(2)}</strong>
+                  </div>
                 </div>
-                <div>
-                  <strong>Service:</strong>{' '}
-                  {pendingIssueTicket.type === 'FLIGHT'
-                    ? `${pendingIssueTicket.airline || ''} (${pendingIssueTicket.flightNumbers || ''}) - ${pendingIssueTicket.routing || ''}`
-                    : `${pendingIssueTicket.hotelName || ''} (${pendingIssueTicket.destination || ''})`}
+
+                <div className="text-[11px] text-muted-foreground flex items-center gap-1.5 pt-0.5">
+                  {pendingIssueTicket.type === 'FLIGHT' ? (
+                    <>
+                      <Plane className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+                      <span className="truncate">{pendingIssueTicket.airline || ''} ({pendingIssueTicket.flightNumbers || ''}) • {pendingIssueTicket.routing || ''}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Building2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span className="truncate font-medium text-foreground">{pendingIssueTicket.hotelName || 'Hotel'}</span>
+                      {pendingIssueTicket.destination && <span className="text-muted-foreground">({pendingIssueTicket.destination})</span>}
+                    </>
+                  )}
                 </div>
               </div>
 
               {pendingIssueTicket.type === 'HOTEL' ? (
-                <div className="space-y-3">
+                <div className="space-y-3.5">
                   {/* Reservation & Confirmation Numbers */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
+                    <div className="min-w-0">
                       <label className="block text-[11px] font-bold uppercase tracking-wider text-foreground mb-1">
                         Hotel Reservation No. *
                       </label>
@@ -1092,10 +1107,10 @@ export default function IssuancePage() {
                         onChange={(e) => setHotelReservationNumber(e.target.value)}
                         className="w-full text-xs font-semibold py-2 px-3 bg-background border border-border rounded-xl uppercase placeholder:normal-case text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
                       />
-                      <span className="text-[10px] text-muted-foreground mt-0.5 block">Supplier / internal reservation ID</span>
+                      <span className="text-[10px] text-muted-foreground mt-0.5 block truncate">Supplier / internal reservation ID</span>
                     </div>
 
-                    <div>
+                    <div className="min-w-0">
                       <label className="block text-[11px] font-bold uppercase tracking-wider text-foreground mb-1">
                         Confirmation Number <span className="font-normal text-muted-foreground lowercase">(optional)</span>
                       </label>
@@ -1106,15 +1121,15 @@ export default function IssuancePage() {
                         onChange={(e) => setHotelConfirmationNumber(e.target.value)}
                         className="w-full text-xs font-semibold py-2 px-3 bg-background border border-border rounded-xl uppercase placeholder:normal-case text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
                       />
-                      <span className="text-[10px] text-muted-foreground mt-0.5 block">Official hotel confirmation code (leave blank if none)</span>
+                      <span className="text-[10px] text-muted-foreground mt-0.5 block truncate">Official hotel confirmation code</span>
                     </div>
                   </div>
 
                   {/* Vendor Details & Booked Price with Currency */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
+                    <div className="min-w-0">
                       <label className="block text-[11px] font-bold uppercase tracking-wider text-foreground mb-1">
-                        Vendor / Supplier Details {isLoadingVendors && <span className="text-[10px] lowercase text-muted-foreground font-normal">(loading...)</span>}
+                        Vendor / Supplier Details
                       </label>
                       <select
                         value={hotelVendorId}
@@ -1151,18 +1166,18 @@ export default function IssuancePage() {
                           </option>
                         ))}
                       </select>
-                      <span className="text-[10px] text-muted-foreground mt-0.5 block">Supplier used to book the hotel</span>
+                      <span className="text-[10px] text-muted-foreground mt-0.5 block truncate">Supplier used to book the hotel</span>
                     </div>
 
-                    <div>
+                    <div className="min-w-0">
                       <label className="block text-[11px] font-bold uppercase tracking-wider text-foreground mb-1">
                         Booked Price &amp; Currency
                       </label>
-                      <div className="flex gap-2">
+                      <div className="flex rounded-xl border border-border bg-background overflow-hidden focus-within:ring-2 focus-within:ring-emerald-500 focus-within:border-emerald-500 transition-all">
                         <select
                           value={hotelCurrency}
                           onChange={(e) => setHotelCurrency(e.target.value)}
-                          className="w-24 text-xs font-bold py-2 px-2 bg-background border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          className="bg-secondary/40 border-r border-border px-2.5 py-2 text-xs font-bold text-foreground focus:outline-none cursor-pointer shrink-0"
                         >
                           <option value="GBP">GBP (£)</option>
                           <option value="SAR">SAR (﷼)</option>
@@ -1177,34 +1192,35 @@ export default function IssuancePage() {
                         <input
                           type="number"
                           step="0.01"
+                          min="0"
                           placeholder="0.00"
                           value={hotelBookedPrice}
                           onChange={(e) => handleBookedPriceChange(e.target.value)}
-                          className="flex-1 text-xs font-bold py-2 px-3 bg-background border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          className="w-full min-w-0 px-3 py-2 text-xs font-bold text-foreground bg-transparent focus:outline-none font-mono"
                         />
                       </div>
-                      <span className="text-[10px] text-muted-foreground mt-0.5 block">Actual cost price paid to vendor</span>
+                      <span className="text-[10px] text-muted-foreground mt-0.5 block truncate">Actual cost price paid to vendor</span>
                     </div>
                   </div>
 
                   {/* Other Currency & Conversion Options */}
-                  <div className="p-3 bg-secondary/30 rounded-xl border border-border/60 space-y-2.5">
+                  <div className="p-3.5 bg-secondary/35 rounded-xl border border-border space-y-2.5">
                     <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
                         <Coins className="w-3.5 h-3.5 text-emerald-600" />
                         Other Currency Options
                       </span>
                       <span className="text-[10px] text-muted-foreground">e.g. Vendor billed in SAR / USD</span>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                      <div>
-                        <label className="block text-[10px] font-semibold text-muted-foreground uppercase mb-1">
+                      <div className="min-w-0">
+                        <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">
                           Other Currency
                         </label>
                         <select
                           value={hotelOtherCurrencyType}
                           onChange={(e) => setHotelOtherCurrencyType(e.target.value)}
-                          className="w-full text-xs py-1.5 px-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          className="w-full text-xs py-2 px-2.5 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
                         >
                           <option value="SAR">SAR (﷼)</option>
                           <option value="USD">USD ($)</option>
@@ -1217,43 +1233,46 @@ export default function IssuancePage() {
                         </select>
                       </div>
 
-                      <div>
-                        <label className="block text-[10px] font-semibold text-muted-foreground uppercase mb-1">
-                          Other Currency Amount
+                      <div className="min-w-0">
+                        <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">
+                          Amount ({hotelOtherCurrencyType})
                         </label>
                         <input
                           type="number"
                           step="any"
+                          min="0"
                           placeholder="0.00"
                           value={hotelOtherCurrencyAmount}
                           onChange={(e) => handleOtherCurrencyAmountChange(e.target.value)}
-                          className="w-full text-xs py-1.5 px-2.5 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
+                          className="w-full text-xs py-2 px-2.5 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono font-semibold"
                         />
                       </div>
 
-                      <div>
-                        <label className="block text-[10px] font-semibold text-muted-foreground uppercase mb-1">
+                      <div className="min-w-0">
+                        <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">
                           Conversion Rate
                         </label>
                         <input
                           type="number"
                           step="any"
+                          min="0"
                           placeholder="e.g. 4.8"
                           value={hotelConversionRate}
                           onChange={(e) => handleConversionRateChange(e.target.value)}
-                          className="w-full text-xs py-1.5 px-2.5 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500 font-mono"
+                          className="w-full text-xs py-2 px-2.5 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono font-semibold"
                         />
                       </div>
                     </div>
                     {hotelOtherCurrencyAmount && hotelConversionRate && Number(hotelConversionRate) > 0 && hotelCurrency === 'GBP' && (
-                      <p className="text-[10px] text-emerald-700 dark:text-emerald-400 font-medium">
-                        ✓ Calculated Booked Cost: £{(Number(hotelOtherCurrencyAmount) / Number(hotelConversionRate)).toFixed(2)} ({hotelOtherCurrencyAmount} {hotelOtherCurrencyType} @ {hotelConversionRate})
-                      </p>
+                      <div className="flex items-center gap-1.5 p-2 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-lg text-[10.5px] text-emerald-800 dark:text-emerald-300 font-medium">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span>Auto-calculated Cost: <strong>£{(Number(hotelOtherCurrencyAmount) / Number(hotelConversionRate)).toFixed(2)}</strong> ({hotelOtherCurrencyAmount} {hotelOtherCurrencyType} ÷ {hotelConversionRate})</span>
+                      </div>
                     )}
                   </div>
 
-                  <div className="bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 p-2.5 rounded-xl text-[11px] text-emerald-800 dark:text-emerald-300">
-                    <strong>Auto-Sync:</strong> Finalizing will automatically update the hotel reservation number, confirmation number, vendor, and booked price in the booking details, and send confirmation emails to <strong>hotels@terrifictravel.co.uk</strong>.
+                  <div className="bg-emerald-50/70 dark:bg-emerald-950/25 border border-emerald-200 dark:border-emerald-800 p-2.5 rounded-xl text-[11px] text-emerald-800 dark:text-emerald-300 leading-relaxed">
+                    <strong>Auto-Sync:</strong> Finalizing will update reservation numbers, vendor, and booked cost in booking details and trigger confirmation emails to <strong>hotels@terrifictravel.co.uk</strong>.
                   </div>
                 </div>
               ) : (
@@ -1276,11 +1295,11 @@ export default function IssuancePage() {
                 </div>
               )}
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
+              <div className="flex items-center justify-end gap-2.5 pt-3.5 border-t border-border">
                 <button
                   type="button"
                   onClick={() => setPendingIssueTicket(null)}
-                  className="px-4 py-2 text-xs font-semibold text-muted-foreground hover:bg-secondary rounded-xl transition-colors cursor-pointer"
+                  className="px-4 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-secondary rounded-xl transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -1292,8 +1311,9 @@ export default function IssuancePage() {
                       ? !confirmationCode.trim()
                       : !hotelReservationNumber.trim())
                   }
-                  className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 rounded-xl shadow-xs transition-colors cursor-pointer"
+                  className="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
                 >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
                   {statusMutation.isPending
                     ? 'Finalizing...'
                     : pendingIssueTicket.type === 'FLIGHT'
