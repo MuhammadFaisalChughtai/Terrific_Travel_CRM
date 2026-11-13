@@ -2235,7 +2235,7 @@ export class BookingsService {
     const actorName = (actorUserFull?.firstName || actorUserFull?.lastName)
       ? `${actorUserFull.firstName || ''} ${actorUserFull.lastName || ''}`.trim()
       : (actorUserFull?.name || 'Agent');
-    const actorEmail = actorUserFull?.email || actorUserFull?.agent?.payrollEmail || actorUserFull?.agent?.email || null;
+    const actorEmail = actorUserFull?.email || actorUserFull?.agent?.email || null;
     const actorPhone = (actorUserFull as any)?.phoneNumber || actorUserFull?.agent?.phoneNumber || null;
 
     const actorDetails = {
@@ -2252,7 +2252,7 @@ export class BookingsService {
         (booking.createdBy ? `${booking.createdBy.firstName} ${booking.createdBy.lastName}`.trim() : null) ||
         actorName,
       designation: booking.agent?.designation || 'Travel Consultant',
-      email: booking.agent?.payrollEmail || booking.agent?.email || booking.createdBy?.email || actorEmail,
+      email: booking.agent?.email || booking.createdBy?.email || actorEmail,
       phone: booking.agent?.phoneNumber || (booking.createdBy as any)?.phoneNumber || actorPhone,
     };
 

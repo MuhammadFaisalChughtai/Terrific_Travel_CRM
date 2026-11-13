@@ -944,7 +944,6 @@ export class IssuanceService {
       // Add the Agent which that specific booking belongs to
       const bookingAgentEmail =
         fullTicket.booking?.agent?.email ||
-        fullTicket.booking?.agent?.payrollEmail ||
         fullTicket.booking?.assignedTo?.email ||
         fullTicket.booking?.createdBy?.email ||
         fullTicket.createdBy?.email;

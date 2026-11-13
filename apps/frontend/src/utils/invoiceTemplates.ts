@@ -587,7 +587,13 @@ export function getEffectiveAgent(booking: any) {
     "Terrific Travel Direct Office";
 
   const phone = agent?.phoneNumber || booking?.agent?.phoneNumber || "";
-  const email = agent?.payrollEmail || agent?.email || booking?.agent?.email || "";
+  const email =
+    agent?.email ||
+    booking?.agent?.email ||
+    booking?.user?.email ||
+    booking?.assignedTo?.email ||
+    booking?.createdBy?.email ||
+    "";
 
   return {
     agent,
