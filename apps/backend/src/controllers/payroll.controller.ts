@@ -44,3 +44,14 @@ export const getAgentPayslips = asyncHandler(async (req: AuthenticatedRequest, r
   const result = await payrollService.getAgentPayslips(agentId);
   res.status(200).json({ success: true, data: result });
 });
+
+export const getAgentFinesForPayroll = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { agentId, monthYear, currency } = req.query;
+  const result = await payrollService.getAgentFinesForPayroll(
+    String(agentId || ''),
+    String(monthYear || ''),
+    currency ? String(currency) : 'PKR'
+  );
+  res.status(200).json({ success: true, data: result });
+});
+

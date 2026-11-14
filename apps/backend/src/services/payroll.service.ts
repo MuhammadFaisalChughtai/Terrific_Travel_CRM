@@ -209,6 +209,156 @@ export class PayrollService {
   }
 
   /**
+   * Parse monthYear string (e.g. "October 2026", "2026-10", "Oct 2026") into UTC Date range
+   */
+  parseMonthYearRange(monthYear: string): { startDate: Date; endDate: Date } | null {
+    if (!monthYear || typeof monthYear !== 'string') return null;
+    const trimmed = monthYear.trim();
+
+    const months: Record<string, number> = {
+      january: 0, jan: 0,
+      february: 1, feb: 1,
+      march: 2, mar: 2,
+      april: 3, apr: 3,
+      may: 4,
+      june: 5, jun: 5,
+      july: 6, jul: 6,
+      august: 7, aug: 7,
+      september: 8, sep: 8, sept: 8,
+      october: 9, oct: 9,
+      november: 10, nov: 10,
+      december: 11, dec: 11,
+    };
+
+    const parts = trimmed.split(/[\s,/-]+/);
+    let year: number | null = null;
+    let monthIndex: number | null = null;
+
+    for (const part of parts) {
+      const lower = part.toLowerCase();
+      if (months[lower] !== undefined) {
+        monthIndex = months[lower];
+      } else {
+        const num = parseInt(part, 10);
+        if (!isNaN(num)) {
+          if (num >= 2000 && num <= 2100) {
+            year = num;
+          } else if (num >= 1 && num <= 12 && monthIndex === null) {
+            monthIndex = num - 1;
+          }
+        }
+      }
+    }
+
+    if (year !== null && monthIndex !== null) {
+      const startDate = new Date(Date.UTC(year, monthIndex, 1, 0, 0, 0, 0));
+      const endDate = new Date(Date.UTC(year, monthIndex + 1, 0, 23, 59, 59, 999));
+      return { startDate, endDate };
+    }
+
+    const parsed = new Date(trimmed);
+    if (!isNaN(parsed.getTime())) {
+      const y = parsed.getUTCFullYear();
+      const m = parsed.getUTCMonth();
+      return {
+        startDate: new Date(Date.UTC(y, m, 1, 0, 0, 0, 0)),
+        endDate: new Date(Date.UTC(y, m + 1, 0, 23, 59, 59, 999)),
+      };
+    }
+
+    return null;
+  }
+
+  /**
+   * Get agent fines for a payroll month, with currency conversion to the payslip currency
+   */
+  async getAgentFinesForPayroll(agentId: string, monthYear: string, targetCurrency: string = 'PKR') {
+    if (!agentId) {
+      throw new BadRequestException('Agent ID is required');
+    }
+    if (!monthYear) {
+      throw new BadRequestException('Month & Year is required');
+    }
+
+    const range = this.parseMonthYearRange(monthYear);
+    if (!range) {
+      return {
+        fines: [],
+        totalFineDeduction: 0,
+        count: 0,
+        monthYear,
+        targetCurrency,
+      };
+    }
+
+    // Query non-waived fines for this agent in this date range
+    const fines = await prisma.agentFine.findMany({
+      where: {
+        agentId,
+        date: {
+          gte: range.startDate,
+          lte: range.endDate,
+        },
+        status: {
+          not: 'WAIVED',
+        },
+      },
+      orderBy: {
+        date: 'asc',
+      },
+      include: {
+        issuedBy: {
+          select: { firstName: true, lastName: true, email: true },
+        },
+      },
+    });
+
+    const CONVERSION_RATES_TO_PKR: Record<string, number> = {
+      PKR: 1,
+      GBP: 360,
+      USD: 280,
+      EUR: 305,
+      SAR: 75,
+      AED: 76,
+    };
+
+    const convertAmount = (amt: number, from: string, to: string) => {
+      const f = (from || 'PKR').toUpperCase();
+      const t = (to || 'PKR').toUpperCase();
+      if (f === t) return amt;
+      const rateFrom = CONVERSION_RATES_TO_PKR[f] || 1;
+      const rateTo = CONVERSION_RATES_TO_PKR[t] || 1;
+      const inPkr = amt * rateFrom;
+      return Math.round((inPkr / rateTo) * 100) / 100;
+    };
+
+    const formattedFines = fines.map((f) => {
+      const converted = convertAmount(f.amount, f.currency, targetCurrency);
+      return {
+        id: f.id,
+        date: f.date,
+        fineType: f.fineType,
+        reason: f.reason,
+        amount: f.amount,
+        currency: f.currency,
+        convertedAmount: converted,
+        status: f.status,
+        issuedBy: f.issuedBy,
+      };
+    });
+
+    const totalFineDeduction = formattedFines.reduce((sum, f) => sum + (f.convertedAmount || 0), 0);
+
+    return {
+      fines: formattedFines,
+      totalFineDeduction: Math.round(totalFineDeduction * 100) / 100,
+      count: formattedFines.length,
+      targetCurrency,
+      monthYear,
+    };
+  }
+
+  /**
    * Create a new payslip
    */
   async createPayslip(data: any, createdById?: string) {
@@ -222,6 +372,19 @@ export class PayrollService {
     let agent = null;
     if (data.agentId) {
       agent = await prisma.agent.findUnique({ where: { id: data.agentId } });
+    }
+
+    // Auto-check agent fines for the payroll month if fineDeduction is not explicitly provided or is 0
+    if (data.agentId && data.monthYear && (data.fineDeduction === undefined || data.fineDeduction === null || Number(data.fineDeduction) === 0)) {
+      try {
+        const finesInfo = await this.getAgentFinesForPayroll(data.agentId, data.monthYear, data.currency || 'PKR');
+        if (finesInfo.totalFineDeduction > 0) {
+          logger.info(`Auto-applying ${finesInfo.count} fine(s) totaling ${finesInfo.totalFineDeduction} ${data.currency || 'PKR'} for agent ${data.agentId} (${data.monthYear})`);
+          data.fineDeduction = finesInfo.totalFineDeduction;
+        }
+      } catch (err: any) {
+        logger.warn(`Could not auto-fetch agent fines during payslip creation: ${err.message}`);
+      }
     }
 
     let payslipNumber = data.payslipNumber ? String(data.payslipNumber).trim() : '';
@@ -302,6 +465,31 @@ export class PayrollService {
       }).catch((err) => {
         logger.warn(`Could not update agent payrollEmail: ${err.message}`);
       });
+    }
+
+    // Mark the agent's fines for this month as DEDUCTED
+    if (data.agentId && data.monthYear && totals.fineDeduction > 0) {
+      const range = this.parseMonthYearRange(data.monthYear);
+      if (range) {
+        await prisma.agentFine.updateMany({
+          where: {
+            agentId: data.agentId,
+            date: {
+              gte: range.startDate,
+              lte: range.endDate,
+            },
+            status: {
+              not: 'WAIVED',
+            },
+          },
+          data: {
+            status: 'DEDUCTED',
+            deductedAt: new Date(),
+          },
+        }).catch((err) => {
+          logger.warn(`Could not mark agent fines as DEDUCTED: ${err.message}`);
+        });
+      }
     }
 
     // If autoSend is requested at creation time
@@ -395,6 +583,29 @@ export class PayrollService {
     const existing = await prisma.payslip.findUnique({ where: { id } });
     if (!existing) {
       throw new NotFoundException('Salary slip not found');
+    }
+
+    // Revert deducted fines back to PENDING if deleting payslip
+    if (existing.agentId && existing.monthYear && existing.fineDeduction > 0) {
+      const range = this.parseMonthYearRange(existing.monthYear);
+      if (range) {
+        await prisma.agentFine.updateMany({
+          where: {
+            agentId: existing.agentId,
+            date: {
+              gte: range.startDate,
+              lte: range.endDate,
+            },
+            status: 'DEDUCTED',
+          },
+          data: {
+            status: 'PENDING',
+            deductedAt: null,
+          },
+        }).catch((err) => {
+          logger.warn(`Could not revert agent fines on payslip deletion: ${err.message}`);
+        });
+      }
     }
 
     await prisma.payslip.delete({ where: { id } });

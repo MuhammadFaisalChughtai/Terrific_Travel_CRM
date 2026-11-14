@@ -9,12 +9,16 @@ import {
   deletePayslip,
   sendPayslipEmail,
   getAgentPayslips,
+  getAgentFinesForPayroll,
 } from '../controllers/payroll.controller';
 
 const router = Router();
 
 // Secure all payroll routes
 router.use(authMiddleware as any);
+
+// Check agent fines for payroll month (must be before /:id)
+router.get('/agent-fines', requirePermissions('payroll:read', 'payroll:manage') as any, getAgentFinesForPayroll);
 
 // List payslips
 router.get('/', requirePermissions('payroll:read', 'payroll:manage') as any, getPayslips);

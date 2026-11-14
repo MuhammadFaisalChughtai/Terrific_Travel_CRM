@@ -325,6 +325,52 @@ export default function PayrollPage() {
   // Target email override for email dispatch modal
   const [emailTarget, setEmailTarget] = useState("");
 
+  // Agent fines auto-detection state
+  const [detectedFines, setDetectedFines] = useState<any[]>([]);
+  const [isLoadingFines, setIsLoadingFines] = useState<boolean>(false);
+
+  // Fetch and auto-apply agent fines for the selected payroll month
+  const fetchAndApplyAgentFines = async (
+    agentId: string,
+    monthYear: string,
+    currency: string = "PKR",
+    showNotification: boolean = true
+  ) => {
+    if (!agentId || !monthYear) {
+      setDetectedFines([]);
+      return;
+    }
+    try {
+      setIsLoadingFines(true);
+      const res = await apiClient.get(
+        `/payroll/agent-fines?agentId=${agentId}&monthYear=${encodeURIComponent(monthYear)}&currency=${currency}`
+      );
+      const fineData = res.data?.data;
+      if (fineData && Array.isArray(fineData.fines)) {
+        setDetectedFines(fineData.fines);
+        const autoFineTotal = Number(fineData.totalFineDeduction || 0);
+        setFormData((prev) => ({
+          ...prev,
+          fineDeduction: autoFineTotal,
+        }));
+        if (showNotification && fineData.count > 0) {
+          toast.success(
+            `Auto-detected ${fineData.count} staff fine(s) totaling ${formData.currencySymbol || "Rs."} ${autoFineTotal.toLocaleString("en-US", { minimumFractionDigits: 2 })} for ${monthYear}`
+          );
+        } else if (showNotification && fineData.count === 0) {
+          toast.info(`No staff fines found for ${monthYear}. Fine deduction set to 0.00.`);
+        }
+      } else {
+        setDetectedFines([]);
+      }
+    } catch (err: any) {
+      console.warn("Could not fetch agent fines:", err);
+      setDetectedFines([]);
+    } finally {
+      setIsLoadingFines(false);
+    }
+  };
+
   // Fetch agents for selection
   const { data: agentsData } = useQuery({
     queryKey: ["agents"],
@@ -490,6 +536,8 @@ export default function PayrollPage() {
       // Previous month and 10th of current month
       const prevMonthYear = getPreviousMonthYear();
       const currentMonth10th = getCurrentMonth10thPayDate();
+      const targetCurrency = lastSlip?.currency || formData.currency || "PKR";
+      const targetCurrencySymbol = lastSlip?.currencySymbol || formData.currencySymbol || "Rs.";
 
       setFormData((prev) => ({
         ...prev,
@@ -506,8 +554,8 @@ export default function PayrollPage() {
         monthYear: prevMonthYear,
         payDate: currentMonth10th,
         paymentMethod: lastSlip?.paymentMethod || prev.paymentMethod || "Bank Transfer",
-        currency: lastSlip?.currency || prev.currency || "PKR",
-        currencySymbol: lastSlip?.currencySymbol || prev.currencySymbol || "Rs.",
+        currency: targetCurrency,
+        currencySymbol: targetCurrencySymbol,
         basicSalary,
         // Set default allowance and deduction amounts to 0
         houseRentAllowance: 0,
@@ -519,7 +567,11 @@ export default function PayrollPage() {
         otherDeductions: 0,
         deductionsJson: [] as CustomLineItem[],
       }));
+
+      // Automatically query and apply agent's fines for the payroll month
+      fetchAndApplyAgentFines(ag.id, prevMonthYear, targetCurrency, true);
     } else {
+      setDetectedFines([]);
       setFormData((prev) => ({
         ...prev,
         agentId: "",
@@ -668,6 +720,7 @@ export default function PayrollPage() {
           <button
             onClick={() => {
               const compDefaults = getSavedCompanyDefaults();
+              setDetectedFines([]);
               setFormData({
                 agentId: "",
                 employeeName: "",
@@ -1134,7 +1187,13 @@ export default function PayrollPage() {
                 </label>
                 <select
                   value={formData.monthYear}
-                  onChange={(e) => setFormData({ ...formData, monthYear: e.target.value })}
+                  onChange={(e) => {
+                    const nextMonth = e.target.value;
+                    setFormData((prev) => ({ ...prev, monthYear: nextMonth }));
+                    if (formData.agentId) {
+                      fetchAndApplyAgentFines(formData.agentId, nextMonth, formData.currency, true);
+                    }
+                  }}
                   className="w-full px-3 py-2 bg-secondary/20 border border-border/60 rounded-lg text-xs font-semibold focus:ring-2 focus:ring-primary/40"
                 >
                   {getPayrollMonthOptions().map((m) => (
@@ -1174,15 +1233,34 @@ export default function PayrollPage() {
 
               <div>
                 <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
-                  Currency Symbol
+                  Currency &amp; Symbol
                 </label>
-                <input
-                  type="text"
-                  value={formData.currencySymbol}
-                  onChange={(e) => setFormData({ ...formData, currencySymbol: e.target.value })}
-                  className="w-full px-3 py-2 bg-secondary/20 border border-border/60 rounded-lg text-xs font-mono"
-                  placeholder="Rs. or £"
-                />
+                <div className="flex gap-1.5">
+                  <select
+                    value={formData.currency}
+                    onChange={(e) => {
+                      const nextCurr = e.target.value;
+                      const sym = nextCurr === "PKR" ? "Rs." : nextCurr === "GBP" ? "£" : nextCurr === "EUR" ? "€" : "$";
+                      setFormData((prev) => ({ ...prev, currency: nextCurr, currencySymbol: sym }));
+                      if (formData.agentId) {
+                        fetchAndApplyAgentFines(formData.agentId, formData.monthYear, nextCurr, true);
+                      }
+                    }}
+                    className="w-1/2 px-2 py-2 bg-secondary/20 border border-border/60 rounded-lg text-xs font-semibold"
+                  >
+                    <option value="PKR">PKR (Rs.)</option>
+                    <option value="GBP">GBP (£)</option>
+                    <option value="USD">USD ($)</option>
+                    <option value="EUR">EUR (€)</option>
+                  </select>
+                  <input
+                    type="text"
+                    value={formData.currencySymbol}
+                    onChange={(e) => setFormData({ ...formData, currencySymbol: e.target.value })}
+                    className="w-1/2 px-2 py-2 bg-secondary/20 border border-border/60 rounded-lg text-xs font-mono"
+                    placeholder="Rs."
+                  />
+                </div>
               </div>
             </div>
 
@@ -1315,13 +1393,53 @@ export default function PayrollPage() {
                 </div>
 
                 <div>
-                  <label className="text-[10px] text-muted-foreground block mb-0.5">Fines & Penalties</label>
+                  <div className="flex items-center justify-between mb-0.5">
+                    <label className="text-[10px] text-muted-foreground block font-medium">Fines &amp; Penalties</label>
+                    {formData.agentId && (
+                      <button
+                        type="button"
+                        onClick={() => fetchAndApplyAgentFines(formData.agentId, formData.monthYear, formData.currency, true)}
+                        disabled={isLoadingFines}
+                        className="text-[10px] font-semibold text-primary hover:underline flex items-center gap-1 disabled:opacity-50"
+                      >
+                        <RefreshCw size={10} className={isLoadingFines ? "animate-spin" : ""} />
+                        <span>{isLoadingFines ? "Checking..." : "Re-check Fines"}</span>
+                      </button>
+                    )}
+                  </div>
                   <input
                     type="number"
                     value={formData.fineDeduction}
                     onChange={(e) => setFormData({ ...formData, fineDeduction: Number(e.target.value) })}
-                    className="w-full px-2.5 py-1.5 bg-background border border-border/60 rounded-md text-xs font-mono"
+                    className="w-full px-2.5 py-1.5 bg-background border border-border/60 rounded-md text-xs font-mono font-bold text-red-600 dark:text-red-400"
                   />
+                  {detectedFines.length > 0 && (
+                    <div className="mt-1.5 p-2 bg-amber-500/10 border border-amber-500/30 rounded-lg text-[11px] space-y-1">
+                      <div className="flex items-center justify-between font-semibold text-amber-800 dark:text-amber-300">
+                        <span className="flex items-center gap-1">
+                          <AlertCircle size={12} className="text-amber-600 flex-shrink-0" />
+                          Auto-detected {detectedFines.length} Fine{detectedFines.length > 1 ? "s" : ""} for {formData.monthYear}
+                        </span>
+                        <span className="font-mono font-bold">
+                          {formData.currencySymbol} {Number(formData.fineDeduction || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                      <div className="space-y-1 pt-1 max-h-28 overflow-y-auto">
+                        {detectedFines.map((f: any) => (
+                          <div key={f.id} className="flex items-center justify-between text-[10px] text-slate-600 dark:text-slate-300 bg-background/50 p-1.5 rounded border border-border/30">
+                            <span className="truncate pr-2">
+                              <strong className="text-foreground">{f.fineType === 'LATE_ARRIVAL' ? 'Late Arrival' : f.fineType === 'ABSENCE' ? 'Absence' : 'Manual Fine'}:</strong> {f.reason || 'Staff fine'}
+                              {f.date ? ` (${new Date(f.date).toLocaleDateString()})` : ''}
+                            </span>
+                            <span className="font-mono font-semibold flex-shrink-0 text-red-600 dark:text-red-400">
+                              {f.currency} {Number(f.amount).toFixed(2)}
+                              {f.currency !== formData.currency ? ` (≈ ${formData.currencySymbol} ${Number(f.convertedAmount).toFixed(2)})` : ''}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -2038,7 +2156,37 @@ export default function PayrollPage() {
 
                     {(activePayslip.fineDeduction > 0 || isEditMode) && (
                       <div className="p-2.5 flex justify-between items-center">
-                        <span className="text-slate-700 font-medium">Fines & Penalties</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-slate-700 font-medium">Fines & Penalties</span>
+                          {isEditMode && activePayslip.agentId && (
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                try {
+                                  const res = await apiClient.get(
+                                    `/payroll/agent-fines?agentId=${activePayslip.agentId}&monthYear=${encodeURIComponent(activePayslip.monthYear)}&currency=${activePayslip.currency || 'PKR'}`
+                                  );
+                                  const val = Number(res.data?.data?.totalFineDeduction || 0);
+                                  const customSum = (activePayslip.deductionsJson || []).reduce((s, i) => s + Number(i.amount || 0), 0);
+                                  const total = activePayslip.taxDeduction + val + activePayslip.otherDeductions + customSum;
+                                  setActivePayslip({
+                                    ...activePayslip,
+                                    fineDeduction: val,
+                                    totalDeductions: total,
+                                    netSalary: Math.max(0, activePayslip.totalEarnings - total),
+                                  });
+                                  toast.success(`Fines synced: ${activePayslip.currencySymbol} ${val.toLocaleString("en-US", { minimumFractionDigits: 2 })}`);
+                                } catch (e) {
+                                  toast.error("Could not sync agent fines");
+                                }
+                              }}
+                              className="text-[10px] text-blue-600 hover:underline flex items-center gap-0.5 ml-1 font-semibold"
+                              title="Fetch from Agent Fines ledger"
+                            >
+                              <RefreshCw size={10} /> Sync
+                            </button>
+                          )}
+                        </div>
                         {isEditMode ? (
                           <input
                             type="number"

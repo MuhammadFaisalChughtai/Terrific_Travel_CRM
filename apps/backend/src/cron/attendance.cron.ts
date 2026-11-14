@@ -48,30 +48,26 @@ export const startAttendanceCron = () => {
     }
   });
 
-  // Run at 00:00 on the 1st of every month for monthly fine reset/rollover
+  // Run at 00:00 on the 1st of every month for monthly fine audit
   cron.schedule('0 0 1 * *', async () => {
-    logger.info('Running monthly fine reset and payroll deduction rollover...');
+    logger.info('Running monthly fine audit for payroll deduction rollover...');
     try {
       const now = new Date();
       const firstDayPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
       const lastDayPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
 
-      const updated = await prisma.agentFine.updateMany({
+      const pendingCount = await prisma.agentFine.count({
         where: {
           status: 'PENDING',
           date: {
             gte: firstDayPrevMonth,
             lte: lastDayPrevMonth
           }
-        },
-        data: {
-          status: 'DEDUCTED',
-          deductedAt: new Date()
         }
       });
-      logger.info(`Monthly fine reset completed: auto-deducted ${updated.count} pending fine(s) from previous month.`);
+      logger.info(`Monthly fine audit completed: ${pendingCount} pending fine(s) found from previous month ready for payroll auto-deduction.`);
     } catch (err) {
-      logger.error('Error running monthly fine reset cron:', err);
+      logger.error('Error running monthly fine audit cron:', err);
     }
   });
 };
