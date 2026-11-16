@@ -114,6 +114,20 @@ async function bootstrap() {
       await prisma.$executeRawUnsafe(`ALTER TABLE IF EXISTS "Agent" ADD COLUMN IF NOT EXISTS invoicename TEXT;`);
     } catch (colErr) {}
 
+    // Ensure companyManagerName column exists on Vendor table across all table casing variants
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE IF EXISTS "Vendor" ADD COLUMN IF NOT EXISTS "companyManagerName" TEXT;`);
+    } catch (colErr) {}
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE IF EXISTS vendor ADD COLUMN IF NOT EXISTS "companyManagerName" TEXT;`);
+    } catch (colErr) {}
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE IF EXISTS vendors ADD COLUMN IF NOT EXISTS "companyManagerName" TEXT;`);
+    } catch (colErr) {}
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE IF EXISTS "Vendor" ADD COLUMN IF NOT EXISTS companymanagername TEXT;`);
+    } catch (colErr) {}
+
     // Sync dynamic permission registry
     try {
       const { syncPermissionsRegistry } = await import('./services/permissions-sync.service');

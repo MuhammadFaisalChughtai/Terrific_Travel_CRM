@@ -40,7 +40,7 @@ import VendorPaymentModal from "../components/VendorPaymentModal";
 // Validation Schema for Vendor
 const vendorSchema = z.object({
   name: z.string().min(1, "Name is required"),
-  companyManagerName: z.string().optional(),
+  companyManagerName: z.string().nullable().optional(),
   phoneNumber: z.string().min(5, "Phone number must be at least 5 digits"),
   vendorType: z.string().min(1, "Vendor type is required"),
 });
@@ -191,6 +191,8 @@ export default function VendorPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["vendors"] });
+      queryClient.invalidateQueries({ queryKey: ["invoices-list"] });
+      queryClient.invalidateQueries({ queryKey: ["bookings"] });
       toast.success("Vendor registered successfully!");
       closeFormModal();
     },
@@ -205,6 +207,8 @@ export default function VendorPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["vendors"] });
+      queryClient.invalidateQueries({ queryKey: ["invoices-list"] });
+      queryClient.invalidateQueries({ queryKey: ["bookings"] });
       toast.success("Vendor updated successfully!");
       closeFormModal();
     },
@@ -322,7 +326,7 @@ export default function VendorPage() {
 
     const basicData = {
       name,
-      companyManagerName: companyManagerName.trim() || undefined,
+      companyManagerName: companyManagerName.trim() || null,
       website,
       supportEmail,
       phoneNumber,

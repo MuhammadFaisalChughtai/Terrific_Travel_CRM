@@ -3147,12 +3147,11 @@ export function generateTransportVoucherHtml(booking: any, transport: any) {
   // Primary vehicle type from first transfer
   const primaryVehicle = transfers[0]?.vehicleType || "—";
 
-  // Vendor / manager ref
+  // Vendor / company manager ref (strictly manager name, never fall back to company name)
   const managerName =
-    transfers[0]?.vendor?.companyManagerName ||
-    transfers[0]?.vendor?.name ||
-    "Terrific Travel Partner";
-  const vendorRef = managerName;
+    transfers[0]?.vendor?.companyManagerName?.trim() || "—";
+  const vendorRef =
+    transfers[0]?.vendor?.companyManagerName?.trim() || "Transport";
 
   // Agent name used as REF field (matching screenshot "Basma Travels" pattern)
   const agentRef = getEffectiveAgent(booking).displayName;
@@ -3358,10 +3357,10 @@ export function generateTransportVoucherHtml(booking: any, transport: any) {
       <div style="font-size: 9.5px; line-height: 1.6; color: #1E293B; border: 1px solid #E2E8F0; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px;">
         <p style="margin: 0 0 6px 0; font-weight: 900; color: #0F172A; font-size: 10px;">NOTE:</p>
         <p style="margin: 0;">1. Please print a copy of this Voucher &amp; carry with you throughout your Journey.</p>
-        <p style="margin: 0;">2. Please send the copy of this Voucher to ${transfers[0]?.vendor?.name || "Transport supplier"} Transport contact no within 24 hours before departure for further confirmation.</p>
-        <p style="margin: 0;">3. On arrival at Makkah / Madinah Airport, immediately contact to ${transfers[0]?.vendor?.name || "Transport supplier"} Transport at given contact details.</p>
+        <p style="margin: 0;">2. Please send the copy of this Voucher to ${vendorRef} Transport contact no within 24 hours before departure for further confirmation.</p>
+        <p style="margin: 0;">3. On arrival at Makkah / Madinah Airport, immediately contact to ${vendorRef} Transport at given contact details.</p>
         <p style="margin: 0;">4. If you will not reach to Vehicle/Transport on time, it will cost you more for extra waiting time. Company will not be responsible for anything.</p>
-        <p style="margin: 0;">5. Please coordinate with Driver or ${transfers[0]?.vendor?.name || "Transport supplier"} Transport one day before, for your Pick-Up time.</p>
+        <p style="margin: 0;">5. Please coordinate with Driver or ${vendorRef} Transport one day before, for your Pick-Up time.</p>
       </div>
 
       <!-- Footer -->
@@ -3949,14 +3948,14 @@ export function renderTransportVoucher(
   html = html.replace(/{{TOTAL_TRANSFERS}}/g, String(transfers.length));
   html = html.replace(/{{TRANSFERS_TABLE_ROWS}}/g, transfersRows);
   html = html.replace(/{{TOTAL_GROUND_COST}}/g, "");
-  const managerName =
-    transfers[0]?.vendor?.companyManagerName ||
-    transfers[0]?.vendor?.name ||
-    "Terrific Travel Ground Partner";
+  // Strictly use companyManagerName and never fall back to company name
+  const rawManager = (transfers[0]?.vendor?.companyManagerName || "").trim();
+  const managerName = rawManager || "—";
+  const noteSupplierRef = rawManager || "Transport supplier";
 
   html = html.replace(/{{COMPANY_MANAGER_NAME}}/g, managerName);
   html = html.replace(/{{VENDOR_MANAGER_NAME}}/g, managerName);
-  html = html.replace(/{{VENDOR_NAME}}/g, managerName);
+  html = html.replace(/{{COMPANY_NAME}}/g, managerName);
   html = html.replace(
     /{{VENDOR_PHONE}}/g,
     transfers[0]?.vendor?.phoneNumber || "—",
@@ -3966,11 +3965,21 @@ export function renderTransportVoucher(
     transfers[0]?.vendor?.supportEmail || "—",
   );
 
+  // In Fulfillment Vendor Details or any info-box, replace any Company Name / Vendor Name paragraph
+  // and ensure it displays "Company Manager Name: <managerName>"
+  html = html.replace(
+    /<p[^>]*><strong>\s*(?:Company\s*Manager\s*Name|Vendor\s*Name|Company\s*Name):?\s*<\/strong>\s*(?:{{[^}]+}}|[^<]*)<\/p>/gi,
+    `<p><strong>Company Manager Name:</strong> ${managerName}</p>`
+  );
+
   // Instead of company/vendor name label in transport voucher, display Company Manager Name
   html = html.replace(
     /(<p[^>]*><strong>\s*)(?:Vendor|Company)\s*Name:?(\s*<\/strong>)/gi,
     `$1Company Manager Name:$2`
   );
+
+  // Replace any standalone {{VENDOR_NAME}} placeholder left in notes
+  html = html.replace(/{{VENDOR_NAME}}/g, noteSupplierRef);
 
   const confirmationBlock = hasConfirmation
     ? `<p>Confirmation No: <strong style="color: #065F46;">${confSummary}</strong></p>`
@@ -4000,7 +4009,7 @@ export function renderTransportVoucher(
   html = html.replace(/<tr class="total-row">[\s\S]*?<\/tr>/gi, "");
 
   // Force-update terms & conditions notes block in customized templates
-  const vendorDisplayName = managerName;
+  const vendorDisplayName = noteSupplierRef;
   const newNotesHtml = `
     <!-- Notes section -->
     <div style="font-size: 9.5px; line-height: 1.6; color: #1E293B; border: 1px solid #E2E8F0; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px;">
