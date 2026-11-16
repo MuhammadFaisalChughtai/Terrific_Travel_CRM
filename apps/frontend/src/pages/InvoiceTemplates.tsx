@@ -22,7 +22,7 @@ import {
   Check,
   Loader2,
 } from "lucide-react";
-import { SHARED_CSS, BRAND_LOGOS } from "../utils/invoiceTemplates";
+import { SHARED_CSS, BRAND_LOGOS, printDocument } from "../utils/invoiceTemplates";
 
 // ─────────────────────────────────────────────────
 // TEMPLATE REGISTRY
@@ -809,13 +809,7 @@ function TemplateEditorPanel({
   };
 
   const handlePrint = () => {
-    const win = window.open("", "_blank");
-    if (win) {
-      win.document.write(html);
-      win.document.close();
-      win.focus();
-      setTimeout(() => win.print(), 600);
-    }
+    printDocument(html, `${template.label} Preview`);
   };
 
   const Icon = template.icon;

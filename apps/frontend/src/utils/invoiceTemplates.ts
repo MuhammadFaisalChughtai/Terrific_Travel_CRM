@@ -76,15 +76,83 @@ const parseTimeStr = (timeStr: string) => {
 export const SHARED_CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;900&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
   
+  @page {
+    size: A4 portrait;
+    margin: 12mm 12mm 12mm 12mm;
+  }
+
   @media print {
-    body {
+    html, body {
       background: #FFFFFF !important;
       color: #000000 !important;
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      width: 100% !important;
     }
     .no-print { display: none !important; }
-    .page-break { page-break-before: always; }
+    .page-break { page-break-before: always !important; break-before: page !important; }
+    .auto-page-break {
+      page-break-before: always !important;
+      break-before: page !important;
+      margin-top: 0 !important;
+      padding-top: 0 !important;
+    }
+
+    .document-container {
+      max-width: 100% !important;
+      width: 100% !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      border: none !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+    }
+
+    /* Prevent cutting informative blocks across pages */
+    .timeline-item,
+    .timeline-card,
+    .financial-panel,
+    .financial-table,
+    .terms-card,
+    .ticket-card,
+    .hotel-card,
+    .voucher-card,
+    .info-box,
+    .signature-block,
+    .signature-section,
+    .cancelled-flights-section,
+    .installment-card,
+    .installment-plan-section,
+    .bank-card,
+    .payment-method,
+    .payment-card,
+    [class*="payment"],
+    [class*="bank"],
+    [class*="card"],
+    [class*="panel"],
+    [class*="box"],
+    table tr {
+      break-inside: avoid !important;
+      page-break-inside: avoid !important;
+    }
+
+    /* Prevent headings from being orphaned at the bottom of the page */
+    h1, h2, h3, h4, h5, h6,
+    .doc-title,
+    .section-title,
+    [class*="title"],
+    [class*="heading"],
+    [class*="banner"] {
+      break-after: avoid !important;
+      page-break-after: avoid !important;
+    }
+  }
+
+  .auto-page-break {
+    page-break-before: always;
+    break-before: page;
   }
 
   * { box-sizing: border-box; }
@@ -477,23 +545,178 @@ export const SHARED_CSS = `
   }
 `;
 
-// Helper to open popup window and print
+// Helper to open popup window and print with dynamic A4 pagination calculation
 export function printDocument(htmlContent: string, title: string) {
   const win = window.open("", "_blank", "width=850,height=800");
   if (!win) {
     alert("Could not open print window. Please disable pop-up blocker.");
     return;
   }
+
+  const paginationScript = `
+    <script>
+      function calculateA4Pagination() {
+        try {
+          // 1. Reset any previously computed automatic breaks
+          var existingBreaks = document.querySelectorAll('.auto-page-break');
+          for (var b = 0; b < existingBreaks.length; b++) {
+            existingBreaks[b].classList.remove('auto-page-break');
+            existingBreaks[b].style.removeProperty('page-break-before');
+            existingBreaks[b].style.removeProperty('break-before');
+            existingBreaks[b].style.removeProperty('margin-top');
+          }
+
+          // 2. Measure printable A4 height accurately using a 273mm probe element
+          // A4 = 297mm height; with 12mm top and 12mm bottom margins, printable height is 273mm.
+          var probe = document.createElement('div');
+          probe.style.cssText = 'position:absolute;left:-9999px;top:-9999px;width:186mm;height:273mm;padding:0;margin:0;border:none;visibility:hidden;';
+          document.body.appendChild(probe);
+          var probeHeight = probe.getBoundingClientRect().height || probe.offsetHeight;
+          document.body.removeChild(probe);
+
+          // Standard 273mm at 96 DPI is ~1031.8px. Fallback safely if probe returns 0
+          var a4PrintableHeight = (probeHeight && probeHeight > 500 && probeHeight < 2000) ? probeHeight : 1031.8;
+          // Apply a safety margin of 16px to prevent rounding or line truncations across printer engines
+          var effectivePageHeight = a4PrintableHeight - 16;
+
+          var container = document.querySelector('.document-container') || document.body;
+          var containerRect = container.getBoundingClientRect();
+          var containerTop = containerRect.top + window.scrollY;
+
+          // 3. Collect informative blocks and headings in DOM order
+          var blocks = [];
+          function collectBlocks(node) {
+            if (!node || node.nodeType !== 1) return;
+            if (node.classList && node.classList.contains('no-print')) return;
+
+            var isHeading = false;
+            var isAtomic = false;
+
+            if (typeof node.matches === 'function') {
+              isHeading = node.matches(
+                'h1, h2, h3, h4, h5, h6, .doc-title, .section-title, ' +
+                '[class*="title"], [class*="heading"], [class*="banner"]'
+              );
+
+              isAtomic = node.matches(
+                '.timeline-item, .layover-divider, .financial-panel, .financial-table, ' +
+                '.installment-card, .installment-plan-section, .cancelled-flights-section, ' +
+                '.terms-card, .ticket-card, .hotel-card, .voucher-card, .info-box, ' +
+                '.signature-block, .signature-section, .doc-footer, ' +
+                '[class*="bank-card"], [class*="payment-card"], [class*="bank"], [class*="payment"]'
+              ) || (node.tagName === 'TR' && node.parentElement && node.parentElement.tagName === 'TBODY');
+            }
+
+            if (isHeading) {
+              blocks.push({ element: node, isHeading: true });
+              return;
+            }
+
+            if (isAtomic) {
+              blocks.push({ element: node, isHeading: false });
+              return;
+            }
+
+            var isSubContainer = false;
+            if (typeof node.matches === 'function') {
+              isSubContainer = node.matches(
+                '.document-container, .timeline-container, .terms-grid, .info-grid, table, tbody, [class*="grid"], [class*="container"]'
+              ) || (node.querySelector && node.querySelector('.timeline-item, .terms-card, tr, .info-box, [class*="bank"], [class*="card"]'));
+            }
+
+            if (isSubContainer && node.children && node.children.length > 0) {
+              for (var c = 0; c < node.children.length; c++) {
+                collectBlocks(node.children[c]);
+              }
+            } else {
+              if (node.offsetHeight > 10) {
+                blocks.push({ element: node, isHeading: false });
+              }
+            }
+          }
+
+          collectBlocks(container);
+
+          // 4. Calculate pagination offsets based on standard A4 printable height
+          var currentPageStart = 0;
+          var currentPageEnd = currentPageStart + effectivePageHeight;
+
+          for (var i = 0; i < blocks.length; i++) {
+            var item = blocks[i];
+            var el = item.element;
+
+            var elRect = el.getBoundingClientRect();
+            var elTop = (elRect.top + window.scrollY) - containerTop;
+            var elBottom = (elRect.bottom + window.scrollY) - containerTop;
+            var elHeight = elRect.height || el.offsetHeight;
+
+            if (el.classList && el.classList.contains('page-break')) {
+              currentPageStart = elTop;
+              currentPageEnd = currentPageStart + effectivePageHeight;
+              continue;
+            }
+
+            if (item.isHeading) {
+              // Lookahead: ensure heading + subsequent block stay together on same page
+              var nextBlockHeight = 120;
+              if (i + 1 < blocks.length) {
+                var nextEl = blocks[i + 1].element;
+                nextBlockHeight = Math.min(nextEl.offsetHeight || 120, 200);
+              }
+              var totalHeadingSectionHeight = elHeight + nextBlockHeight;
+
+              // If heading is near the page bottom or heading + following block overflows
+              if (elTop > currentPageStart && (elTop + totalHeadingSectionHeight > currentPageEnd || (currentPageEnd - elTop) < 110)) {
+                el.classList.add('auto-page-break');
+                el.style.setProperty('page-break-before', 'always', 'important');
+                el.style.setProperty('break-before', 'page', 'important');
+                currentPageStart = elTop;
+                currentPageEnd = currentPageStart + effectivePageHeight;
+              }
+            } else {
+              // Informative block: if it would cross the page boundary, shift fully to next page
+              if (elTop > currentPageStart && elBottom > currentPageEnd) {
+                el.classList.add('auto-page-break');
+                el.style.setProperty('page-break-before', 'always', 'important');
+                el.style.setProperty('break-before', 'page', 'important');
+                currentPageStart = elTop;
+                currentPageEnd = currentPageStart + effectivePageHeight;
+              }
+            }
+          }
+        } catch (err) {
+          console.warn("A4 pagination calculation notice:", err);
+        }
+      }
+
+      function initPrintPagination() {
+        if (document.fonts && document.fonts.ready) {
+          document.fonts.ready.then(function() {
+            calculateA4Pagination();
+          });
+        } else {
+          setTimeout(calculateA4Pagination, 150);
+        }
+      }
+
+      window.addEventListener('DOMContentLoaded', initPrintPagination);
+      window.addEventListener('load', initPrintPagination);
+      window.addEventListener('beforeprint', calculateA4Pagination);
+      window.addEventListener('resize', calculateA4Pagination);
+    </script>
+  `;
+
   win.document.write(`
     <!DOCTYPE html>
     <html>
       <head>
         <title>${title}</title>
         <style>${SHARED_CSS}</style>
+        ${paginationScript}
       </head>
       <body>
         <div class="no-print" style="max-width: 800px; margin: 0 auto 15px auto; padding: 10px; display: flex; justify-content: flex-end; gap: 10px;">
-          <button onclick="window.print()" style="padding: 8px 16px; background: #0EA5E9; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-family: sans-serif; font-size: 12px;">Print to PDF</button>
+          <button onclick="calculateA4Pagination(); window.print()" style="padding: 8px 16px; background: #0EA5E9; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-family: sans-serif; font-size: 12px;">Print to PDF</button>
           <button onclick="window.close()" style="padding: 8px 16px; background: #E2E8F0; color: #1E293B; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-family: sans-serif; font-size: 12px;">Close</button>
         </div>
         ${htmlContent}
@@ -501,11 +724,19 @@ export function printDocument(htmlContent: string, title: string) {
     </html>
   `);
   win.document.close();
-  // Allow time for styles to load, then trigger print
+
+  // Allow styles and fonts to load, execute A4 pagination calculation, then trigger print
   setTimeout(() => {
+    try {
+      if ((win as any).calculateA4Pagination) {
+        (win as any).calculateA4Pagination();
+      }
+    } catch (e) {
+      // ignore
+    }
     win.focus();
     win.print();
-  }, 350);
+  }, 450);
 }
 
 export function downloadDocument(htmlContent: string, filename: string) {
@@ -517,15 +748,139 @@ export function downloadDocument(htmlContent: string, filename: string) {
     </div>
   `;
 
+  // Attach offscreen so that element has dimensions and getBoundingClientRect works
+  element.style.position = "absolute";
+  element.style.left = "-9999px";
+  element.style.top = "0";
+  element.style.width = "800px";
+  element.style.background = "#FFFFFF";
+  document.body.appendChild(element);
+
+  try {
+    const probe = document.createElement("div");
+    probe.style.cssText =
+      "position:absolute;left:-9999px;top:-9999px;width:186mm;height:273mm;padding:0;margin:0;border:none;visibility:hidden;";
+    document.body.appendChild(probe);
+    const a4PrintableHeight = probe.offsetHeight || 1031.8;
+    document.body.removeChild(probe);
+
+    const effectivePageHeight = a4PrintableHeight - 16;
+    const container = element.querySelector(".document-container") || element;
+    const containerRect = container.getBoundingClientRect();
+    const containerTop = containerRect.top + window.scrollY;
+
+    const blocks: { element: HTMLElement; isHeading: boolean }[] = [];
+    function collect(node: Element) {
+      if (!node || node.nodeType !== 1) return;
+      if (node.classList?.contains("no-print")) return;
+
+      const isHeading =
+        typeof node.matches === "function" &&
+        node.matches(
+          'h1, h2, h3, h4, h5, h6, .doc-title, .section-title, [class*="title"], [class*="heading"], [class*="banner"]',
+        );
+      const isAtomic =
+        typeof node.matches === "function" &&
+        (node.matches(
+          '.timeline-item, .layover-divider, .financial-panel, .financial-table, .installment-card, .installment-plan-section, .cancelled-flights-section, .terms-card, .ticket-card, .hotel-card, .voucher-card, .info-box, .signature-block, .signature-section, .doc-footer, [class*="bank-card"], [class*="payment-card"], [class*="bank"], [class*="payment"]',
+        ) ||
+          (node.tagName === "TR" && node.parentElement?.tagName === "TBODY"));
+
+      if (isHeading) {
+        blocks.push({ element: node as HTMLElement, isHeading: true });
+        return;
+      }
+      if (isAtomic) {
+        blocks.push({ element: node as HTMLElement, isHeading: false });
+        return;
+      }
+      const isSub =
+        typeof node.matches === "function" &&
+        (node.matches(
+          '.document-container, .timeline-container, .terms-grid, .info-grid, table, tbody, [class*="grid"], [class*="container"]',
+        ) ||
+          !!node.querySelector(
+            '.timeline-item, .terms-card, tr, .info-box, [class*="bank"], [class*="card"]',
+          ));
+
+      if (isSub && node.children.length > 0) {
+        for (let c = 0; c < node.children.length; c++) {
+          collect(node.children[c]);
+        }
+      } else {
+        if ((node as HTMLElement).offsetHeight > 10) {
+          blocks.push({ element: node as HTMLElement, isHeading: false });
+        }
+      }
+    }
+
+    collect(container);
+
+    let currentPageStart = 0;
+    let currentPageEnd = currentPageStart + effectivePageHeight;
+
+    for (let i = 0; i < blocks.length; i++) {
+      const item = blocks[i];
+      const el = item.element;
+      const elRect = el.getBoundingClientRect();
+      const elTop = elRect.top + window.scrollY - containerTop;
+      const elBottom = elRect.bottom + window.scrollY - containerTop;
+      const elHeight = elRect.height || el.offsetHeight;
+
+      if (el.classList?.contains("page-break")) {
+        currentPageStart = elTop;
+        currentPageEnd = currentPageStart + effectivePageHeight;
+        continue;
+      }
+
+      if (item.isHeading) {
+        let nextBlockHeight = 120;
+        if (i + 1 < blocks.length) {
+          nextBlockHeight = Math.min(blocks[i + 1].element.offsetHeight || 120, 200);
+        }
+        const total = elHeight + nextBlockHeight;
+        if (
+          elTop > currentPageStart &&
+          (elTop + total > currentPageEnd || currentPageEnd - elTop < 110)
+        ) {
+          el.classList.add("auto-page-break");
+          el.style.setProperty("page-break-before", "always", "important");
+          el.style.setProperty("break-before", "page", "important");
+          currentPageStart = elTop;
+          currentPageEnd = currentPageStart + effectivePageHeight;
+        }
+      } else {
+        if (elTop > currentPageStart && elBottom > currentPageEnd) {
+          el.classList.add("auto-page-break");
+          el.style.setProperty("page-break-before", "always", "important");
+          el.style.setProperty("break-before", "page", "important");
+          currentPageStart = elTop;
+          currentPageEnd = currentPageStart + effectivePageHeight;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("downloadDocument pagination error:", err);
+  }
+
   const opt = {
-    margin: 10,
+    margin: [12, 12, 12, 12] as [number, number, number, number],
     filename: filename,
     image: { type: "jpeg" as const, quality: 0.98 },
     html2canvas: { scale: 2, useCORS: true },
     jsPDF: { unit: "mm", format: "a4", orientation: "portrait" as const },
+    pagebreak: { mode: ["avoid-all", "css", "legacy"] },
   };
 
-  html2pdf().set(opt).from(element).save();
+  html2pdf()
+    .set(opt)
+    .from(element)
+    .save()
+    .finally(() => {
+      if (document.body.contains(element)) {
+        document.body.removeChild(element);
+      }
+    });
 }
 
 // Format date securely in official UK timezone

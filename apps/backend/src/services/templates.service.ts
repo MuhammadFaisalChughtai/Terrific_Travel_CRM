@@ -37,15 +37,83 @@ const BRAND_LOGOS = {
 const SHARED_CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;900&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
   
+  @page {
+    size: A4 portrait;
+    margin: 12mm 12mm 12mm 12mm;
+  }
+
   @media print {
-    body {
+    html, body {
       background: #FFFFFF !important;
       color: #000000 !important;
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      width: 100% !important;
     }
     .no-print { display: none !important; }
-    .page-break { page-break-before: always; }
+    .page-break { page-break-before: always !important; break-before: page !important; }
+    .auto-page-break {
+      page-break-before: always !important;
+      break-before: page !important;
+      margin-top: 0 !important;
+      padding-top: 0 !important;
+    }
+
+    .document-container {
+      max-width: 100% !important;
+      width: 100% !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      border: none !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+    }
+
+    /* Prevent cutting informative blocks across pages */
+    .timeline-item,
+    .timeline-card,
+    .financial-panel,
+    .financial-table,
+    .terms-card,
+    .ticket-card,
+    .hotel-card,
+    .voucher-card,
+    .info-box,
+    .signature-block,
+    .signature-section,
+    .cancelled-flights-section,
+    .installment-card,
+    .installment-plan-section,
+    .bank-card,
+    .payment-method,
+    .payment-card,
+    [class*="payment"],
+    [class*="bank"],
+    [class*="card"],
+    [class*="panel"],
+    [class*="box"],
+    table tr {
+      break-inside: avoid !important;
+      page-break-inside: avoid !important;
+    }
+
+    /* Prevent headings from being orphaned at the bottom of the page */
+    h1, h2, h3, h4, h5, h6,
+    .doc-title,
+    .section-title,
+    [class*="title"],
+    [class*="heading"],
+    [class*="banner"] {
+      break-after: avoid !important;
+      page-break-after: avoid !important;
+    }
+  }
+
+  .auto-page-break {
+    page-break-before: always;
+    break-before: page;
   }
 
   * { box-sizing: border-box; }
