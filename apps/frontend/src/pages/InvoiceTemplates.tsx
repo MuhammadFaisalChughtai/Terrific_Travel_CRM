@@ -316,73 +316,104 @@ const TRANSPORT_VOUCHER_DEFAULT = `<!DOCTYPE html>
 <title>Transport Voucher Template</title>
 <style>
 ${SHARED_CSS}
-.transport-header { background: linear-gradient(135deg, #064E3B, #065F46); color: white; border-radius: 12px 12px 0 0; padding: 20px 24px; }
-.transport-body { border: 1px solid #E2E8F0; border-top: none; border-radius: 0 0 12px 12px; padding: 20px 24px; }
-.route-visual { display: flex; align-items: center; gap: 12px; margin: 16px 0; }
-.route-point { flex: 1; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 12px 16px; }
-.route-point label { font-size: 9px; font-weight: 700; color: #64748B; text-transform: uppercase; display: block; margin-bottom: 4px; }
-.route-point span { font-size: 13px; font-weight: 800; color: #0F172A; }
-.route-arrow { font-size: 20px; color: #10B981; font-weight: 900; flex-shrink: 0; }
-.details-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 14px; }
-.detail-box { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 10px 14px; }
-.detail-box label { font-size: 9px; font-weight: 700; color: #64748B; text-transform: uppercase; display: block; margin-bottom: 4px; }
-.detail-box span { font-size: 12px; font-weight: 700; }
-.passenger-table { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 10px; }
-.passenger-table th { background: #064E3B; color: white; padding: 8px 10px; text-align: left; font-size: 9px; text-transform: uppercase; }
-.passenger-table td { padding: 7px 10px; border-bottom: 1px solid #F1F5F9; }
-.footer-bar { font-size: 9px; color: #94A3B8; text-align: center; margin-top: 20px; padding-top: 12px; border-top: 1px solid #E2E8F0; }
+.doc-title { font-size: 22px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 4px; }
+.doc-meta p { margin: 2px 0; font-size: 10px; text-align: right; }
+.doc-meta strong { font-weight: 700; }
+.info-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px; }
+.info-box { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 14px; }
+.info-box h3 { font-size: 10px; font-weight: 800; color: #0EA5E9; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 8px; }
+.info-box p { margin: 3px 0; font-size: 10.5px; }
+.section-badge { display: inline-block; font-size: 9px; font-weight: 800; padding: 3px 10px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.5px; }
+.doc-title-section { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
+table { width: 100%; border-collapse: collapse; font-size: 10px; }
+thead tr { background: #1E293B; color: #fff; }
+th { padding: 8px 10px; text-align: left; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700; }
+td { padding: 8px 10px; border-bottom: 1px solid #F1F5F9; }
+tbody tr:nth-child(even) { background: #F8FAFC; }
+.footer-bar { margin-top: 28px; padding-top: 14px; border-top: 2px solid #F1F5F9; font-size: 9px; color: #94A3B8; text-align: center; }
+.logos-block { display: flex; gap: 8px; align-items: flex-start; }
 </style>
 </head>
 <body>
-<div class="document-container" style="padding:0;overflow:hidden;">
-  <div class="transport-header">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-      <div>
-        <div style="font-size:10px;font-weight:700;opacity:0.7;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Transport / Transfer Voucher</div>
-        <div style="font-size:20px;font-weight:900;">Al Sultan Transport</div>
-        <span style="font-size:8px;font-weight:800;background:rgba(255,255,255,0.15);padding:3px 10px;border-radius:99px;text-transform:uppercase;">Confirmed · Ref: TT1100</span>
-      </div>
-      <div style="text-align:right;font-size:9px;opacity:0.8;">
-        Terrific Travel &amp; Tours Ltd<br>
-        accounts@terrifictravel.co.uk
+<div class="document-container">
+  <div class="doc-header" style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #E2E8F0; padding-bottom: 16px; margin-bottom: 24px;">
+    <div class="brand-block">
+      \${BRAND_LOGOS.companyLogo}
+      <p style="margin-top: 8px; margin-bottom: 0; font-size: 9px; color: #64748B; line-height: 1.4;">
+        <strong>Terrific Travel &amp; Tours Ltd</strong><br>
+        Address: Office 1, 11 Walford Road, Birmingham, B11 1NP, UK<br>
+        Phone: 0121 529 1630 | Emergency: +44 7888 461474<br>
+        Email: office@terrifictravel.co.uk | Web: www.terrifictravel.co.uk<br>
+        IATA: 91206076  
+      </p>
+    </div>
+    <div style="display: flex; align-items: center; height: 60px;">
+      <div class="logos-block">
+        \${BRAND_LOGOS.iataLogo}
+        \${BRAND_LOGOS.atolLogo}
       </div>
     </div>
   </div>
 
-  <div class="transport-body">
-    <div class="route-visual">
-      <div class="route-point">
-        <label>Pickup Location</label>
-        <span>Dubai International Airport (DXB)</span>
+  <div class="doc-title-section">
+    <div>
+      <h1 class="doc-title">Transfer Voucher</h1>
+      <span class="section-badge" style="background: #FEF3C7; color: #D97706;">Service: Scheduled</span>
+    </div>
+    <div class="doc-meta">
+      <p>Voucher No: <strong>{{VOUCHER_NO}}</strong></p>
+      <p>Issue Date: <strong>{{ISSUE_DATE}}</strong></p>
+      <p>Booking Reference: <strong>{{BOOKING_REF}}</strong></p>
+      {{CONFIRMATION_NO_BLOCK}}
+    </div>
+  </div>
+
+  <div class="transport-body" style="border:none; padding:0;">
+    <div class="info-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px;">
+      <div class="info-box">
+        <h3>Lead Passenger / Guest</h3>
+        {{LEAD_PASSENGER_BLOCK}}
       </div>
-      <div class="route-arrow">→</div>
-      <div class="route-point">
-        <label>Drop-Off Location</label>
-        <span>Burj Al Arab, Dubai</span>
+      <div class="info-box">
+        <h3>Booking Summary</h3>
+        <p>Total Scheduled Transfers: <strong>{{TOTAL_TRANSFERS}} Leg(s)</strong></p>
+        <p>Ground Status: <strong>Confirmed &amp; Secured</strong></p>
+      </div>
+      <div class="info-box">
+        <h3>Fulfillment Vendor Details</h3>
+        <p><strong>Company Manager Name:</strong> {{COMPANY_MANAGER_NAME}}</p>
+        <p><strong>Phone:</strong> {{VENDOR_PHONE}}</p>
+        <p><strong>Email:</strong> {{VENDOR_EMAIL}}</p>
       </div>
     </div>
 
-    <div class="details-grid">
-      <div class="detail-box"><label>Date</label><span>15 Jul 2026</span></div>
-      <div class="detail-box"><label>Pickup Time</label><span>19:45</span></div>
-      <div class="detail-box"><label>Vehicle Type</label><span>Luxury Coach</span></div>
-      <div class="detail-box"><label>Passengers</label><span>2 Adults</span></div>
-      <div class="detail-box"><label>Driver Contact</label><span>+971 50 000 0000</span></div>
-      <div class="detail-box"><label>Booking Ref</label><span>TV-123456</span></div>
-    </div>
-
-    <h3 style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;margin:14px 0 6px;">Passenger List</h3>
-    <table class="passenger-table">
-      <thead><tr><th>Name</th><th>Type</th><th>Passport</th></tr></thead>
+    <h3 style="font-family: 'Outfit', sans-serif; text-transform: uppercase; font-size: 11px; color: #0F172A; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px; margin-bottom: 12px;">Route &amp; Service Details</h3>
+    <table class="data-table" style="margin-bottom: 24px;">
+      <thead>
+        <tr>
+          <th>Date &amp; Time</th>
+          <th>Pick-up Location</th>
+          <th>Drop-off Destination</th>
+          <th>Vehicle &amp; Transfer Details</th>
+        </tr>
+      </thead>
       <tbody>
-        <tr><td>Mr John Smith</td><td>Adult</td><td>AB123456</td></tr>
-        <tr><td>Mrs Jane Smith</td><td>Adult</td><td>AB654321</td></tr>
+        {{TRANSFERS_TABLE_ROWS}}
       </tbody>
     </table>
 
+    <div class="info-box" style="font-size: 9.5px; line-height: 1.6; color: #1E293B; border: 1px solid #E2E8F0; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px;">
+      <p style="margin: 0 0 6px 0; font-weight: 900; color: #0F172A; font-size: 10px;">NOTE:</p>
+      <p style="margin: 0;">1. Please print a copy of this Voucher &amp; carry with you throughout your Journey.</p>
+      <p style="margin: 0;">2. Please send the copy of this Voucher to {{VENDOR_NAME}} Transport contact no within 24 hours before departure for further confirmation.</p>
+      <p style="margin: 0;">3. On arrival at Makkah / Madinah Airport, immediately contact to {{VENDOR_NAME}} Transport at given contact details.</p>
+      <p style="margin: 0;">4. If you will not reach to Vehicle/Transport on time, it will cost you more for extra waiting time. Company will not be responsible for anything.</p>
+      <p style="margin: 0;">5. Please coordinate with Driver or {{VENDOR_NAME}} Transport one day before, for your Pick-Up time.</p>
+    </div>
+
     <div class="footer-bar">
-      Terrific Travel &amp; Tours Ltd · accounts@terrifictravel.co.uk<br>
-      Please have this voucher ready. The driver will meet you at arrivals with a name board.
+      Terrific Travel &amp; Tours Ltd | Ground Operations and VIP Client Transfers<br>
+      We wish you a pleasant and comfortable ride!
     </div>
   </div>
 </div>

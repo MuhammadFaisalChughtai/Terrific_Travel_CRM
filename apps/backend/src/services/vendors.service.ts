@@ -12,6 +12,7 @@ export class VendorsService {
     if (search) {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
+        { companyManagerName: { contains: search, mode: 'insensitive' } },
         { vendorType: { contains: search, mode: 'insensitive' } },
       ];
     }
@@ -44,6 +45,7 @@ export class VendorsService {
     const vendor = await prisma.vendor.create({
       data: {
         name: data.name,
+        companyManagerName: data.companyManagerName || null,
         phoneNumber: data.phoneNumber,
         website: data.website || null,
         supportEmail: data.supportEmail || null,
@@ -70,6 +72,7 @@ export class VendorsService {
       where: { id },
       data: {
         name: data.name,
+        companyManagerName: data.companyManagerName !== undefined ? (data.companyManagerName || null) : undefined,
         phoneNumber: data.phoneNumber,
         website: data.website !== undefined ? data.website : undefined,
         supportEmail: data.supportEmail !== undefined ? data.supportEmail : undefined,

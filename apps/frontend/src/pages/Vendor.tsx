@@ -13,6 +13,7 @@ import {
   Wallet,
   Phone,
   User,
+  UserCheck,
   Tags,
   ArrowLeft,
   Calendar,
@@ -39,14 +40,7 @@ import VendorPaymentModal from "../components/VendorPaymentModal";
 // Validation Schema for Vendor
 const vendorSchema = z.object({
   name: z.string().min(1, "Name is required"),
-  // website: z
-  //   .string()
-  //   .min(1, "Website is required")
-  //   .url("Please enter a valid URL (e.g., https://example.com)"),
-  // supportEmail: z
-  //   .string()
-  //   .min(1, "Support email is required")
-  //   .email("Please enter a valid email address"),
+  companyManagerName: z.string().optional(),
   phoneNumber: z.string().min(5, "Phone number must be at least 5 digits"),
   vendorType: z.string().min(1, "Vendor type is required"),
 });
@@ -54,6 +48,7 @@ const vendorSchema = z.object({
 interface Vendor {
   id: string;
   name: string;
+  companyManagerName?: string;
   website: string;
   supportEmail: string;
   phoneNumber: string;
@@ -101,6 +96,7 @@ export default function VendorPage() {
 
   // Form Field States
   const [name, setName] = useState("");
+  const [companyManagerName, setCompanyManagerName] = useState("");
   const [website, setWebsite] = useState("");
   const [supportEmail, setSupportEmail] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -265,6 +261,7 @@ export default function VendorPage() {
   const handleAddClick = () => {
     setSelectedVendor(null);
     setName("");
+    setCompanyManagerName("");
     setWebsite("");
     setSupportEmail("");
     setPhoneNumber("");
@@ -279,6 +276,7 @@ export default function VendorPage() {
     e.stopPropagation(); // Avoid viewing details trigger
     setSelectedVendor(vendor);
     setName(vendor.name);
+    setCompanyManagerName(vendor.companyManagerName || "");
     setWebsite(vendor.website || "");
     setSupportEmail(vendor.supportEmail || "");
     setPhoneNumber(vendor.phoneNumber);
@@ -324,6 +322,7 @@ export default function VendorPage() {
 
     const basicData = {
       name,
+      companyManagerName: companyManagerName.trim() || undefined,
       website,
       supportEmail,
       phoneNumber,
@@ -414,15 +413,23 @@ export default function VendorPage() {
                 {viewingVendor.vendorType}
               </span>
             </div>
-            <p className="text-[11px] text-muted-foreground">
-              Registered on:{" "}
-              {new Date(viewingVendor.createdAt).toLocaleDateString()} •
-              Website:{" "}
+            <p className="text-[11px] text-muted-foreground flex flex-wrap items-center gap-1.5">
+              {viewingVendor.companyManagerName && (
+                <span className="font-semibold text-foreground flex items-center gap-1 mr-1">
+                  <UserCheck size={11} className="text-primary" />
+                  Manager: {viewingVendor.companyManagerName} •
+                </span>
+              )}
+              <span>
+                Registered on:{" "}
+                {new Date(viewingVendor.createdAt).toLocaleDateString()} •
+              </span>
+              <span>Website:</span>
               <a
                 href={viewingVendor.website}
                 target="_blank"
                 rel="noreferrer"
-                className="underline hover:text-primary transition-colors flex inline-flex items-center gap-0.5"
+                className="underline hover:text-primary transition-colors inline-flex items-center gap-0.5"
               >
                 {viewingVendor.website} <ExternalLink size={10} />
               </a>
@@ -980,7 +987,13 @@ export default function VendorPage() {
                       className="hover:bg-secondary/15 transition-colors cursor-pointer"
                     >
                       <td className="py-2.5 px-5 font-semibold text-primary">
-                        {vendor.name}
+                        <div>{vendor.name}</div>
+                        {vendor.companyManagerName && (
+                          <div className="text-[10px] font-normal text-muted-foreground flex items-center gap-1 mt-0.5">
+                            <UserCheck size={10} className="text-muted-foreground/70" />
+                            <span>Mgr: {vendor.companyManagerName}</span>
+                          </div>
+                        )}
                       </td>
                       <td className="py-2.5 px-5">
                         <p className="font-medium text-foreground/90">
@@ -1173,21 +1186,30 @@ export default function VendorPage() {
                   </p>
                 )}
               </div>
-              {vendorTypeSelect === "Other" ? (
-                <div>
-                  <FieldLabel icon={Tags} label="Custom Vendor Type" />
-                  <input
-                    type="text"
-                    placeholder="e.g. Car Rental, Tour Guide"
-                    value={customVendorType}
-                    onChange={(e) => setCustomVendorType(e.target.value)}
-                    className={fieldCls}
-                  />
-                </div>
-              ) : (
-                <div />
-              )}
+              <div>
+                <FieldLabel icon={UserCheck} label="Company Manager Name" />
+                <input
+                  type="text"
+                  placeholder="e.g. Basma / Operational Manager"
+                  value={companyManagerName}
+                  onChange={(e) => setCompanyManagerName(e.target.value)}
+                  className={fieldCls}
+                />
+              </div>
             </div>
+
+            {vendorTypeSelect === "Other" && (
+              <div>
+                <FieldLabel icon={Tags} label="Custom Vendor Type" />
+                <input
+                  type="text"
+                  placeholder="e.g. Car Rental, Tour Guide"
+                  value={customVendorType}
+                  onChange={(e) => setCustomVendorType(e.target.value)}
+                  className={fieldCls}
+                />
+              </div>
+            )}
 
             {/* Wallet Balance Card */}
             <div className="relative overflow-hidden rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 via-emerald-400/5 to-transparent p-4 flex items-center justify-between gap-4 mt-4">

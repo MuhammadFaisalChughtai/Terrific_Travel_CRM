@@ -22,6 +22,7 @@ import Modal from "./Modal";
 interface Vendor {
   id: string;
   name: string;
+  companyManagerName?: string;
   vendorType: string;
   walletBalance: number;
 }

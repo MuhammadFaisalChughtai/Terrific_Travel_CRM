@@ -534,15 +534,16 @@ model AgentSlab {
 }
 
 model Vendor {
-  id            String   @id @default(uuid())
-  name          String
-  phoneNumber   String
-  website       String?
-  supportEmail  String?
-  vendorType    String   // "flight" or "accommodation"
-  walletBalance Float    @default(0.0)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                 String   @id @default(uuid())
+  name               String
+  companyManagerName String?
+  phoneNumber        String
+  website            String?
+  supportEmail       String?
+  vendorType         String   // "flight" or "accommodation"
+  walletBalance      Float    @default(0.0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   wallet                VendorWallet?
   payments              VendorPayment[]

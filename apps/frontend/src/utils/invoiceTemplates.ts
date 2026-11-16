@@ -3147,8 +3147,12 @@ export function generateTransportVoucherHtml(booking: any, transport: any) {
   // Primary vehicle type from first transfer
   const primaryVehicle = transfers[0]?.vehicleType || "—";
 
-  // Vendor / agent ref
-  const vendorRef = transfers[0]?.vendor?.name || "Terrific Travel Partner";
+  // Vendor / manager ref
+  const managerName =
+    transfers[0]?.vendor?.companyManagerName ||
+    transfers[0]?.vendor?.name ||
+    "Terrific Travel Partner";
+  const vendorRef = managerName;
 
   // Agent name used as REF field (matching screenshot "Basma Travels" pattern)
   const agentRef = getEffectiveAgent(booking).displayName;
@@ -3945,10 +3949,14 @@ export function renderTransportVoucher(
   html = html.replace(/{{TOTAL_TRANSFERS}}/g, String(transfers.length));
   html = html.replace(/{{TRANSFERS_TABLE_ROWS}}/g, transfersRows);
   html = html.replace(/{{TOTAL_GROUND_COST}}/g, "");
-  html = html.replace(
-    /{{VENDOR_NAME}}/g,
-    transfers[0]?.vendor?.name || "Terrific Travel Ground Partner",
-  );
+  const managerName =
+    transfers[0]?.vendor?.companyManagerName ||
+    transfers[0]?.vendor?.name ||
+    "Terrific Travel Ground Partner";
+
+  html = html.replace(/{{COMPANY_MANAGER_NAME}}/g, managerName);
+  html = html.replace(/{{VENDOR_MANAGER_NAME}}/g, managerName);
+  html = html.replace(/{{VENDOR_NAME}}/g, managerName);
   html = html.replace(
     /{{VENDOR_PHONE}}/g,
     transfers[0]?.vendor?.phoneNumber || "—",
@@ -3956,6 +3964,12 @@ export function renderTransportVoucher(
   html = html.replace(
     /{{VENDOR_EMAIL}}/g,
     transfers[0]?.vendor?.supportEmail || "—",
+  );
+
+  // Instead of company/vendor name label in transport voucher, display Company Manager Name
+  html = html.replace(
+    /(<p[^>]*><strong>\s*)(?:Vendor|Company)\s*Name:?(\s*<\/strong>)/gi,
+    `$1Company Manager Name:$2`
   );
 
   const confirmationBlock = hasConfirmation
@@ -3986,16 +4000,16 @@ export function renderTransportVoucher(
   html = html.replace(/<tr class="total-row">[\s\S]*?<\/tr>/gi, "");
 
   // Force-update terms & conditions notes block in customized templates
-  const vendorName = transfers[0]?.vendor?.name || "Transport supplier";
+  const vendorDisplayName = managerName;
   const newNotesHtml = `
     <!-- Notes section -->
     <div style="font-size: 9.5px; line-height: 1.6; color: #1E293B; border: 1px solid #E2E8F0; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px;">
       <p style="margin: 0 0 6px 0; font-weight: 900; color: #0F172A; font-size: 10px;">NOTE:</p>
       <p style="margin: 0;">1. Please print a copy of this Voucher &amp; carry with you throughout your Journey.</p>
-      <p style="margin: 0;">2. Please send the copy of this Voucher to ${vendorName} Transport contact no within 24 hours before departure for further confirmation.</p>
-      <p style="margin: 0;">3. On arrival at Makkah / Madinah Airport, immediately contact to ${vendorName} Transport at given contact details.</p>
+      <p style="margin: 0;">2. Please send the copy of this Voucher to ${vendorDisplayName} Transport contact no within 24 hours before departure for further confirmation.</p>
+      <p style="margin: 0;">3. On arrival at Makkah / Madinah Airport, immediately contact to ${vendorDisplayName} Transport at given contact details.</p>
       <p style="margin: 0;">4. If you will not reach to Vehicle/Transport on time, it will cost you more for extra waiting time. Company will not be responsible for anything.</p>
-      <p style="margin: 0;">5. Please coordinate with Driver or ${vendorName} Transport one day before, for your Pick-Up time.</p>
+      <p style="margin: 0;">5. Please coordinate with Driver or ${vendorDisplayName} Transport one day before, for your Pick-Up time.</p>
     </div>
   `;
 
