@@ -289,8 +289,8 @@ export default function ServicePriceAdjustmentModal({
             </span>
             <p className="text-[12px] opacity-90 leading-relaxed">
               {hasPaidMargin
-                ? 'Original margin has already been paid and will remain locked. Upgrades will generate Additional Profit & Additional Agent Margin, and downgrades will reflect Reduced Profit & Reduced Agent Margin.'
-                : 'Agent margin has not been paid yet. Updating this service price will directly recalculate the booking profit and standard agent margin.'}
+                ? 'Original margin has already been paid and will remain locked. Lowering supplier cost generates Supplier Savings (yielding Additional Profit & Additional Agent Margin), while higher supplier rates represent Cost Increases (reducing profit & adjusting agent margin).'
+                : 'Agent margin has not been paid yet. Updating this service price directly recalculates the booking profit and standard agent margin.'}
             </p>
           </div>
         </div>
@@ -499,7 +499,7 @@ export default function ServicePriceAdjustmentModal({
             type="submit"
             disabled={!isValidNumber || !isChanged || isSubmitting}
             className={`px-4 py-1.5 disabled:opacity-50 text-white font-bold rounded-lg text-xs shadow-xs transition-colors flex items-center gap-1.5 ${
-              isUpgrade ? 'bg-blue-600 hover:bg-blue-700' : 'bg-emerald-600 hover:bg-emerald-700'
+              isUpgrade ? 'bg-amber-600 hover:bg-amber-700' : 'bg-emerald-600 hover:bg-emerald-700'
             }`}
           >
             {isSubmitting ? (
@@ -510,7 +510,7 @@ export default function ServicePriceAdjustmentModal({
             ) : (
               <>
                 <CheckCircle2 size={13} />
-                <span>Confirm {isUpgrade ? 'Upgrade' : isDowngrade ? 'Downgrade' : 'Adjustment'}</span>
+                <span>Confirm {isUpgrade ? 'Rate Increase' : isDowngrade ? 'Price Savings' : 'Adjustment'}</span>
               </>
             )}
           </button>
