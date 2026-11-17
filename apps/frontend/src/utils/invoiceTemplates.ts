@@ -116,12 +116,14 @@ export const SHARED_CSS = `
     .financial-panel,
     .financial-table,
     .terms-card,
+    .terms-clause,
     .ticket-card,
     .hotel-card,
     .voucher-card,
     .info-box,
     .signature-block,
     .signature-section,
+    .stamp-container,
     .cancelled-flights-section,
     .installment-card,
     .installment-plan-section,
@@ -133,6 +135,8 @@ export const SHARED_CSS = `
     [class*="card"],
     [class*="panel"],
     [class*="box"],
+    [class*="signature"],
+    [class*="stamp"],
     table tr {
       break-inside: avoid !important;
       page-break-inside: avoid !important;
@@ -148,6 +152,48 @@ export const SHARED_CSS = `
       break-after: avoid !important;
       page-break-after: avoid !important;
     }
+  }
+
+  /* Global break-inside avoid for canvas/PDF downloads and on-screen rendering */
+  .timeline-item,
+  .timeline-card,
+  .financial-panel,
+  .financial-table,
+  .terms-card,
+  .terms-clause,
+  .ticket-card,
+  .hotel-card,
+  .voucher-card,
+  .info-box,
+  .signature-block,
+  .signature-section,
+  .stamp-container,
+  .cancelled-flights-section,
+  .installment-card,
+  .installment-plan-section,
+  .bank-card,
+  .payment-method,
+  .payment-card,
+  [class*="payment"],
+  [class*="bank"],
+  [class*="card"],
+  [class*="panel"],
+  [class*="box"],
+  [class*="signature"],
+  [class*="stamp"],
+  table tr {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  h1, h2, h3, h4, h5, h6,
+  .doc-title,
+  .section-title,
+  [class*="title"],
+  [class*="heading"],
+  [class*="banner"] {
+    break-after: avoid !important;
+    page-break-after: avoid !important;
   }
 
   .auto-page-break {
@@ -599,11 +645,12 @@ export function printDocument(htmlContent: string, title: string) {
               );
 
               isAtomic = node.matches(
-                '.timeline-item, .layover-divider, .financial-panel, .financial-table, ' +
+                '.timeline-item, .timeline-card, .layover-divider, .financial-panel, .financial-table, ' +
                 '.installment-card, .installment-plan-section, .cancelled-flights-section, ' +
-                '.terms-card, .ticket-card, .hotel-card, .voucher-card, .info-box, ' +
-                '.signature-block, .signature-section, .doc-footer, ' +
-                '[class*="bank-card"], [class*="payment-card"], [class*="bank"], [class*="payment"]'
+                '.terms-card, .terms-clause, .ticket-card, .hotel-card, .voucher-card, .info-box, ' +
+                '.signature-block, .signature-section, .stamp-container, .doc-footer, ' +
+                '[class*="bank-card"], [class*="payment-card"], [class*="bank"], [class*="payment"], ' +
+                '[class*="signature"], [class*="stamp"], .brand-block, .doc-title-section'
               ) || (node.tagName === 'TR' && node.parentElement && node.parentElement.tagName === 'TBODY');
             }
 
@@ -621,7 +668,7 @@ export function printDocument(htmlContent: string, title: string) {
             if (typeof node.matches === 'function') {
               isSubContainer = node.matches(
                 '.document-container, .timeline-container, .terms-grid, .info-grid, table, tbody, [class*="grid"], [class*="container"]'
-              ) || (node.querySelector && node.querySelector('.timeline-item, .terms-card, tr, .info-box, [class*="bank"], [class*="card"]'));
+              ) || (node.querySelector && node.querySelector('.timeline-item, .terms-card, tr, .info-box, [class*="bank"], [class*="card"], [class*="signature"], [class*="stamp"]'));
             }
 
             if (isSubContainer && node.children && node.children.length > 0) {
@@ -637,52 +684,55 @@ export function printDocument(htmlContent: string, title: string) {
 
           collectBlocks(container);
 
-          // 4. Calculate pagination offsets based on standard A4 printable height
-          var currentPageStart = 0;
-          var currentPageEnd = currentPageStart + effectivePageHeight;
+          // 4. Calculate pagination accurately using accumulated page height simulation
+          var currentYOnPage = 0;
 
           for (var i = 0; i < blocks.length; i++) {
             var item = blocks[i];
             var el = item.element;
 
-            var elRect = el.getBoundingClientRect();
-            var elTop = (elRect.top + window.scrollY) - containerTop;
-            var elBottom = (elRect.bottom + window.scrollY) - containerTop;
-            var elHeight = elRect.height || el.offsetHeight;
-
             if (el.classList && el.classList.contains('page-break')) {
-              currentPageStart = elTop;
-              currentPageEnd = currentPageStart + effectivePageHeight;
+              currentYOnPage = 0;
               continue;
             }
 
+            var computed = window.getComputedStyle ? window.getComputedStyle(el) : null;
+            var mt = computed ? parseFloat(computed.marginTop) || 0 : 0;
+            var mb = computed ? parseFloat(computed.marginBottom) || 0 : 0;
+            var elHeight = (el.offsetHeight || el.getBoundingClientRect().height) + mt + mb;
+            if (elHeight <= 0) continue;
+
             if (item.isHeading) {
-              // Lookahead: ensure heading + subsequent block stay together on same page
-              var nextBlockHeight = 120;
+              // Heading lookahead: ensure heading stays with at least its first following block
+              var nextBlockHeight = 70;
               if (i + 1 < blocks.length) {
                 var nextEl = blocks[i + 1].element;
-                nextBlockHeight = Math.min(nextEl.offsetHeight || 120, 200);
+                var nextComputed = window.getComputedStyle ? window.getComputedStyle(nextEl) : null;
+                var nmt = nextComputed ? parseFloat(nextComputed.marginTop) || 0 : 0;
+                var nmb = nextComputed ? parseFloat(nextComputed.marginBottom) || 0 : 0;
+                nextBlockHeight = Math.min((nextEl.offsetHeight || 70) + nmt + nmb, 160);
               }
-              var totalHeadingSectionHeight = elHeight + nextBlockHeight;
 
-              // If heading is near the page bottom or heading + following block overflows
-              if (elTop > currentPageStart && (elTop + totalHeadingSectionHeight > currentPageEnd || (currentPageEnd - elTop) < 110)) {
+              // If heading + following block overflows remaining height on this page, push heading to next page
+              if (currentYOnPage > 0 && (currentYOnPage + elHeight + nextBlockHeight > effectivePageHeight)) {
                 el.classList.add('auto-page-break');
                 el.style.setProperty('page-break-before', 'always', 'important');
                 el.style.setProperty('break-before', 'page', 'important');
-                currentPageStart = elTop;
-                currentPageEnd = currentPageStart + effectivePageHeight;
+                currentYOnPage = elHeight;
+                continue;
               }
             } else {
-              // Informative block: if it would cross the page boundary, shift fully to next page
-              if (elTop > currentPageStart && elBottom > currentPageEnd) {
+              // Atomic block: if it would overflow the remaining height on this page, push it to next page
+              if (currentYOnPage > 0 && (currentYOnPage + elHeight > effectivePageHeight)) {
                 el.classList.add('auto-page-break');
                 el.style.setProperty('page-break-before', 'always', 'important');
                 el.style.setProperty('break-before', 'page', 'important');
-                currentPageStart = elTop;
-                currentPageEnd = currentPageStart + effectivePageHeight;
+                currentYOnPage = elHeight;
+                continue;
               }
             }
+
+            currentYOnPage += elHeight;
           }
         } catch (err) {
           console.warn("A4 pagination calculation notice:", err);
@@ -782,7 +832,7 @@ export function downloadDocument(htmlContent: string, filename: string) {
       const isAtomic =
         typeof node.matches === "function" &&
         (node.matches(
-          '.timeline-item, .layover-divider, .financial-panel, .financial-table, .installment-card, .installment-plan-section, .cancelled-flights-section, .terms-card, .ticket-card, .hotel-card, .voucher-card, .info-box, .signature-block, .signature-section, .doc-footer, [class*="bank-card"], [class*="payment-card"], [class*="bank"], [class*="payment"]',
+          '.timeline-item, .timeline-card, .layover-divider, .financial-panel, .financial-table, .installment-card, .installment-plan-section, .cancelled-flights-section, .terms-card, .terms-clause, .ticket-card, .hotel-card, .voucher-card, .info-box, .signature-block, .signature-section, .stamp-container, .doc-footer, [class*="bank-card"], [class*="payment-card"], [class*="bank"], [class*="payment"], [class*="signature"], [class*="stamp"], .brand-block, .doc-title-section',
         ) ||
           (node.tagName === "TR" && node.parentElement?.tagName === "TBODY"));
 
@@ -800,7 +850,7 @@ export function downloadDocument(htmlContent: string, filename: string) {
           '.document-container, .timeline-container, .terms-grid, .info-grid, table, tbody, [class*="grid"], [class*="container"]',
         ) ||
           !!node.querySelector(
-            '.timeline-item, .terms-card, tr, .info-box, [class*="bank"], [class*="card"]',
+            '.timeline-item, .terms-card, tr, .info-box, [class*="bank"], [class*="card"], [class*="signature"], [class*="stamp"]',
           ));
 
       if (isSub && node.children.length > 0) {
@@ -816,48 +866,54 @@ export function downloadDocument(htmlContent: string, filename: string) {
 
     collect(container);
 
-    let currentPageStart = 0;
-    let currentPageEnd = currentPageStart + effectivePageHeight;
+    let currentYOnPage = 0;
 
     for (let i = 0; i < blocks.length; i++) {
       const item = blocks[i];
       const el = item.element;
-      const elRect = el.getBoundingClientRect();
-      const elTop = elRect.top + window.scrollY - containerTop;
-      const elBottom = elRect.bottom + window.scrollY - containerTop;
-      const elHeight = elRect.height || el.offsetHeight;
 
       if (el.classList?.contains("page-break")) {
-        currentPageStart = elTop;
-        currentPageEnd = currentPageStart + effectivePageHeight;
+        currentYOnPage = 0;
         continue;
       }
 
+      const computed = window.getComputedStyle ? window.getComputedStyle(el) : null;
+      const mt = computed ? parseFloat(computed.marginTop) || 0 : 0;
+      const mb = computed ? parseFloat(computed.marginBottom) || 0 : 0;
+      const elHeight = (el.offsetHeight || el.getBoundingClientRect().height) + mt + mb;
+      if (elHeight <= 0) continue;
+
       if (item.isHeading) {
-        let nextBlockHeight = 120;
+        // Lookahead: ensure heading stays with at least the first block after it
+        let nextBlockHeight = 70;
         if (i + 1 < blocks.length) {
-          nextBlockHeight = Math.min(blocks[i + 1].element.offsetHeight || 120, 200);
+          const nextEl = blocks[i + 1].element;
+          const nextComputed = window.getComputedStyle ? window.getComputedStyle(nextEl) : null;
+          const nmt = nextComputed ? parseFloat(nextComputed.marginTop) || 0 : 0;
+          const nmb = nextComputed ? parseFloat(nextComputed.marginBottom) || 0 : 0;
+          nextBlockHeight = Math.min((nextEl.offsetHeight || 70) + nmt + nmb, 160);
         }
-        const total = elHeight + nextBlockHeight;
-        if (
-          elTop > currentPageStart &&
-          (elTop + total > currentPageEnd || currentPageEnd - elTop < 110)
-        ) {
+
+        // If heading + following block overflows the remaining space on current page, move heading to next page
+        if (currentYOnPage > 0 && (currentYOnPage + elHeight + nextBlockHeight > effectivePageHeight)) {
           el.classList.add("auto-page-break");
           el.style.setProperty("page-break-before", "always", "important");
           el.style.setProperty("break-before", "page", "important");
-          currentPageStart = elTop;
-          currentPageEnd = currentPageStart + effectivePageHeight;
+          currentYOnPage = elHeight;
+          continue;
         }
       } else {
-        if (elTop > currentPageStart && elBottom > currentPageEnd) {
+        // Atomic block: if it overflows the remaining space on current page, move it to next page
+        if (currentYOnPage > 0 && (currentYOnPage + elHeight > effectivePageHeight)) {
           el.classList.add("auto-page-break");
           el.style.setProperty("page-break-before", "always", "important");
           el.style.setProperty("break-before", "page", "important");
-          currentPageStart = elTop;
-          currentPageEnd = currentPageStart + effectivePageHeight;
+          currentYOnPage = elHeight;
+          continue;
         }
       }
+
+      currentYOnPage += elHeight;
     }
   } catch (err) {
     console.warn("downloadDocument pagination error:", err);
@@ -888,7 +944,34 @@ export function downloadDocument(htmlContent: string, filename: string) {
       scrollY: 0,
     },
     jsPDF: { unit: "mm" as const, format: "a4" as const, orientation: "portrait" as const },
-    pagebreak: { mode: ["avoid-all", "css", "legacy"] },
+    pagebreak: {
+      mode: ["css", "legacy"],
+      before: ".auto-page-break, .page-break",
+      avoid: [
+        ".timeline-item",
+        ".timeline-card",
+        ".financial-panel",
+        ".financial-table",
+        ".installment-card",
+        ".installment-plan-section",
+        ".cancelled-flights-section",
+        ".terms-card",
+        ".terms-clause",
+        ".ticket-card",
+        ".hotel-card",
+        ".voucher-card",
+        ".info-box",
+        ".signature-block",
+        ".signature-section",
+        ".stamp-container",
+        ".bank-card",
+        ".payment-method",
+        ".payment-card",
+        "tr",
+        '[class*="signature"]',
+        '[class*="stamp"]',
+      ],
+    },
   };
 
   html2pdf()
