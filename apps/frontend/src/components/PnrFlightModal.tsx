@@ -49,7 +49,37 @@ function getCabinClassFromCode(code: string): string {
   return "Economy Class";
 }
 
-export function parseAllPNRText(text: string, defaultYear: number): ParsedFlight[] {
+/**
+ * Automatically detects if the arrival date falls into the next calendar year
+ * relative to the departure date (e.g. departure: 27 Dec 2026, arrival: 17 Jan).
+ * If arrival date is chronologically before departure date and arrival month/day
+ * is earlier in the calendar year, rolls arrival year to depYear + 1 (e.g. 17 Jan 2027).
+ */
+export function autoAdjustArrivalDate(depDateStr: string, arrDateStr: string): string {
+  if (!depDateStr || !arrDateStr) return arrDateStr;
+  const depParts = depDateStr.split('-').map(Number);
+  const arrParts = arrDateStr.split('-').map(Number);
+  if (depParts.length !== 3 || arrParts.length !== 3) return arrDateStr;
+  const [depY, depM, depD] = depParts;
+  const [arrY, arrM, arrD] = arrParts;
+  if (!depY || !depM || !depD || !arrY || !arrM || !arrD) return arrDateStr;
+
+  // If arrival date is chronologically before departure date:
+  if (arrDateStr < depDateStr) {
+    // If the arrival month/day is earlier in the year than departure month/day
+    // (e.g., departure Dec 27, arrival Jan 17), then arrival belongs in the following year.
+    if (arrY <= depY && (arrM < depM || (arrM === depM && arrD < depD))) {
+      return `${depY + 1}-${String(arrM).padStart(2, '0')}-${String(arrD).padStart(2, '0')}`;
+    }
+  }
+  return arrDateStr;
+}
+
+export function parseAllPNRText(
+  text: string,
+  defaultYear: number,
+  referenceDate?: string | Date | null
+): ParsedFlight[] {
   if (!text) return [];
 
   const results: ParsedFlight[] = [];
@@ -102,6 +132,16 @@ export function parseAllPNRText(text: string, defaultYear: number): ParsedFlight
     return `${clean.substring(0, 2)}:${clean.substring(2, 4)}`;
   };
 
+  let currentYear = defaultYear;
+  let prevDateObj: Date | null = null;
+  if (referenceDate) {
+    const ref = new Date(referenceDate);
+    if (!isNaN(ref.getTime())) {
+      prevDateObj = ref;
+      currentYear = ref.getFullYear();
+    }
+  }
+
   for (const match of matches) {
     const airline = match[1].toUpperCase();
     const flightNum = match[2];
@@ -115,8 +155,15 @@ export function parseAllPNRText(text: string, defaultYear: number): ParsedFlight
 
     const monthIndex = monthNames.indexOf(monthStr);
     let formattedDate = '';
+    let depDateObj: Date | null = null;
     if (monthIndex !== -1) {
-      const d = new Date(defaultYear, monthIndex, day);
+      let d = new Date(currentYear, monthIndex, day);
+      if (prevDateObj && d < prevDateObj) {
+        // Chronological inversion across segments indicates rollover into the new year
+        currentYear++;
+        d = new Date(currentYear, monthIndex, day);
+      }
+      depDateObj = d;
       const yyyy = d.getFullYear();
       const mm = String(d.getMonth() + 1).padStart(2, '0');
       const dd = String(d.getDate()).padStart(2, '0');
@@ -124,7 +171,38 @@ export function parseAllPNRText(text: string, defaultYear: number): ParsedFlight
     }
 
     let arrivalDate = formattedDate;
-    if (formattedDate && monthIndex !== -1) {
+
+    // 1. Check if an explicit arrival date is given on the remainder of the line (e.g. 17JAN or 17JAN27)
+    const matchIndex = match.index ?? 0;
+    const matchEnd = matchIndex + match[0].length;
+    const restOfLine = text.slice(matchEnd).split(/[\r\n]+/)[0] || "";
+    const explicitDateMatch = restOfLine.match(/\b([0-9]{1,2})\s*([A-Z]{3})(?:([0-9]{2,4}))?\b/i);
+    let hasExplicitArrivalDate = false;
+
+    if (explicitDateMatch && monthNames.includes(explicitDateMatch[2].toUpperCase())) {
+      const expDay = parseInt(explicitDateMatch[1], 10);
+      const expMonthStr = explicitDateMatch[2].toUpperCase();
+      const expMonthIndex = monthNames.indexOf(expMonthStr);
+      let expYear = explicitDateMatch[3] ? parseInt(explicitDateMatch[3], 10) : currentYear;
+      if (expYear < 100) expYear += 2000;
+
+      // If no explicit year in text, detect cross-year rollover:
+      if (!explicitDateMatch[3]) {
+        if (expMonthIndex < monthIndex || (expMonthIndex === monthIndex && expDay < day)) {
+          expYear = currentYear + 1;
+        }
+      }
+
+      const expDateObj = new Date(expYear, expMonthIndex, expDay);
+      const yyyy = expDateObj.getFullYear();
+      const mm = String(expDateObj.getMonth() + 1).padStart(2, '0');
+      const dd = String(expDateObj.getDate()).padStart(2, '0');
+      arrivalDate = `${yyyy}-${mm}-${dd}`;
+      hasExplicitArrivalDate = true;
+    }
+
+    // 2. Rollover days (+1, +2, #1, *1) if no explicit arrival date
+    if (!hasExplicitArrivalDate && formattedDate && monthIndex !== -1 && depDateObj) {
       let rolloverDays = 0;
       const timeMatch = rawArrivalTime.match(/[0-9]{2}:?[0-9]{2}/);
       const timeStr = timeMatch ? timeMatch[0] : "";
@@ -140,13 +218,28 @@ export function parseAllPNRText(text: string, defaultYear: number): ParsedFlight
       }
 
       if (rolloverDays > 0) {
-        const depDateObj = new Date(defaultYear, monthIndex, day);
-        depDateObj.setDate(depDateObj.getDate() + rolloverDays);
-        const yyyy = depDateObj.getFullYear();
-        const mm = String(depDateObj.getMonth() + 1).padStart(2, '0');
-        const dd = String(depDateObj.getDate()).padStart(2, '0');
+        const arrDateObj = new Date(depDateObj);
+        arrDateObj.setDate(arrDateObj.getDate() + rolloverDays);
+        const yyyy = arrDateObj.getFullYear();
+        const mm = String(arrDateObj.getMonth() + 1).padStart(2, '0');
+        const dd = String(arrDateObj.getDate()).padStart(2, '0');
         arrivalDate = `${yyyy}-${mm}-${dd}`;
       }
+    }
+
+    // 3. Absolute safety: ensure arrivalDate is never before departure date
+    if (formattedDate && arrivalDate && arrivalDate < formattedDate) {
+      arrivalDate = autoAdjustArrivalDate(formattedDate, arrivalDate);
+    }
+
+    // Update tracking for sequential segments
+    if (arrivalDate) {
+      const [ay, am, ad] = arrivalDate.split('-').map(Number);
+      prevDateObj = new Date(ay, am - 1, ad);
+      currentYear = ay;
+    } else if (depDateObj) {
+      prevDateObj = depDateObj;
+      currentYear = depDateObj.getFullYear();
     }
 
     results.push({
@@ -470,7 +563,23 @@ export default function PnrFlightModal({
       toast.error("Please paste a PNR block first");
       return;
     }
-    const parsedFlights = parseAllPNRText(pnrText, bookingYear);
+
+    // Reference date from existing flights or booking departure date
+    let refDate: string | null = null;
+    if (otherSegments && otherSegments.length > 0) {
+      const dates = otherSegments
+        .map((s: any) => s.date)
+        .filter(Boolean)
+        .sort();
+      if (dates.length > 0) {
+        refDate = dates[dates.length - 1];
+      }
+    }
+    if (!refDate && currentBookingData?.departureDate) {
+      refDate = currentBookingData.departureDate;
+    }
+
+    const parsedFlights = parseAllPNRText(pnrText, bookingYear, refDate);
     if (!parsedFlights || parsedFlights.length === 0) {
       toast.error("Could not parse any flight segments. Please check format.");
       return;
@@ -511,6 +620,9 @@ export default function PnrFlightModal({
           console.warn(`Failed to fetch arrival airport for code: ${parsed.arrivedAt}`, err);
         }
 
+        const segDate = parsed.date;
+        const segArrivalDate = autoAdjustArrivalDate(parsed.date, parsed.arrivalDate || parsed.date);
+
         const payload = {
           vendorId: defaultVendorId,
           flightNo: parsed.flightNo,
@@ -522,7 +634,7 @@ export default function PnrFlightModal({
           arrivedAt: finalArrived,
           departTime: parsed.departTime,
           arrivalTime: parsed.arrivalTime,
-          date: new Date(parsed.date).toISOString(),
+          date: new Date(`${segDate}T12:00:00Z`).toISOString(),
           flightClass: getCabinClassFromCode(parsed.flightClass),
           price: 0,
           refundAmount: 0,
@@ -536,7 +648,7 @@ export default function PnrFlightModal({
             depTerminal: "",
             arrTerminal: "",
             actualNotes: "",
-            arrivalDate: parsed.arrivalDate || parsed.date,
+            arrivalDate: segArrivalDate,
           }),
           issueDate: null,
         };
@@ -623,6 +735,7 @@ export default function PnrFlightModal({
 
     setIsSubmitting(true);
     try {
+      const finalArrivalDate = autoAdjustArrivalDate(date, arrivalDate || date);
       const notesJson = JSON.stringify({
         isConnecting,
         depTerminal: depTerminal || "",
@@ -630,7 +743,7 @@ export default function PnrFlightModal({
         associatedNationality: associatedNationality || "ALL",
         assignedPassengerIds: passengerAssignmentMode === 'SPECIFIC' ? assignedPassengerIds : [],
         actualNotes: notes || "",
-        arrivalDate: arrivalDate || "",
+        arrivalDate: finalArrivalDate,
       });
       const payload = {
         vendorId,
@@ -643,7 +756,7 @@ export default function PnrFlightModal({
         arrivedAt,
         departTime,
         arrivalTime,
-        date: new Date(date).toISOString(),
+        date: new Date(`${date}T12:00:00Z`).toISOString(),
         flightClass,
         price: Number(price) || 0,
         refundAmount: Number(refundAmount) || 0,
@@ -653,7 +766,7 @@ export default function PnrFlightModal({
         checkedBaggage: checkedBaggage || null,
         personalItem: personalItem || null,
         notes: notesJson,
-        issueDate: issueDate ? new Date(issueDate).toISOString() : null,
+        issueDate: issueDate ? new Date(`${issueDate}T12:00:00Z`).toISOString() : null,
         status,
         agentQuotedPrice: agentQuotedPrice ? Number(agentQuotedPrice) : null,
         confirmationNumber: confirmationNumber || null,
@@ -1234,6 +1347,21 @@ export default function PnrFlightModal({
                       setDate(newDate);
                       if (!arrivalDate || arrivalDate === date) {
                         setArrivalDate(newDate);
+                      } else if (arrivalDate && newDate) {
+                        const [newDepY, newDepM, newDepD] = newDate.split('-').map(Number);
+                        const [arrY, arrM, arrD] = arrivalDate.split('-').map(Number);
+                        if (newDepY && arrM && arrD) {
+                          if (arrM < newDepM || (arrM === newDepM && arrD < newDepD)) {
+                            setArrivalDate(`${newDepY + 1}-${String(arrM).padStart(2, '0')}-${String(arrD).padStart(2, '0')}`);
+                          } else {
+                            setArrivalDate(`${newDepY}-${String(arrM).padStart(2, '0')}-${String(arrD).padStart(2, '0')}`);
+                          }
+                        }
+                      }
+                    }}
+                    onBlur={() => {
+                      if (date && arrivalDate) {
+                        setArrivalDate(autoAdjustArrivalDate(date, arrivalDate));
                       }
                     }}
                     className="text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
@@ -1249,7 +1377,15 @@ export default function PnrFlightModal({
                     type="date"
                     required
                     value={arrivalDate}
-                    onChange={(e) => setArrivalDate(e.target.value)}
+                    onChange={(e) => {
+                      const newArr = e.target.value;
+                      setArrivalDate(autoAdjustArrivalDate(date, newArr));
+                    }}
+                    onBlur={() => {
+                      if (date && arrivalDate) {
+                        setArrivalDate(autoAdjustArrivalDate(date, arrivalDate));
+                      }
+                    }}
                     className="text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                   />
                 </div>
