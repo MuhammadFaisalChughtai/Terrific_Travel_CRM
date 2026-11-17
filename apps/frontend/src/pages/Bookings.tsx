@@ -26,6 +26,7 @@ import {
   RotateCw,
   ChevronUp,
   ChevronDown,
+  ArrowUpRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import { computeBookingFinancials } from "../utils/bookingFinancials";
@@ -726,6 +727,12 @@ export default function Bookings() {
                       const canEditRow = isAdmin || (!isRowLocked && (isOwner || isFlightExecutive));
                       // Can see margin/profit: admins, managers, or the booking owner (Flight Executives strictly excluded)
                       const canViewRowMarginProfit = !isFlightExecutive && (isAdmin || isManager || !isAgent || isOwner);
+                      const hasPriceIncrease =
+                        (booking.accommodations || []).some((a: any) => a.isPriceAdjusted && a.price > (a.originalPrice || a.price)) ||
+                        (booking.transportServices || []).some((t: any) => t.isPriceAdjusted && t.price > (t.originalPrice || t.price)) ||
+                        (booking.visaServices || []).some((v: any) => v.isPriceAdjusted && v.price > (v.originalPrice || v.price)) ||
+                        (booking.additionalServices || []).some((a: any) => a.isPriceAdjusted && (a.servicePrice || a.price) > (a.originalPrice || a.servicePrice || a.price));
+
                       return (
                         <tr
                           key={booking.id}
@@ -735,14 +742,21 @@ export default function Bookings() {
                             {(bookingsResult?.total ?? bookings.length) - ((currentPage - 1) * itemsPerPage) - index}
                           </td>
                           <td className="px-4 py-3.5 whitespace-nowrap font-semibold font-mono text-primary align-middle">
-                            <button
-                              onClick={() => setSelectedBookingId(booking.id)}
-                              className="text-primary hover:text-primary-hover p-1 rounded hover:bg-secondary/35 transition-all"
-                              title={canEditRow ? "View / Edit Booking" : "View Booking (Read-Only)"}
-                            >
-                              {booking.bookingReference ||
-                                booking.id.substring(0, 8).toUpperCase()}
-                            </button>
+                            <div className="flex flex-col gap-0.5">
+                              <button
+                                onClick={() => setSelectedBookingId(booking.id)}
+                                className="text-primary hover:text-primary-hover p-1 rounded hover:bg-secondary/35 transition-all text-left"
+                                title={canEditRow ? "View / Edit Booking" : "View Booking (Read-Only)"}
+                              >
+                                {booking.bookingReference ||
+                                  booking.id.substring(0, 8).toUpperCase()}
+                              </button>
+                              {hasPriceIncrease && (
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[8px] font-black bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800 w-fit" title="Service price got increased on this booking">
+                                  <ArrowUpRight size={8} /> Rate Increased
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="px-4 py-3.5 whitespace-nowrap text-muted-foreground align-middle">
                             <div className="font-medium text-foreground">{bookingDate}</div>

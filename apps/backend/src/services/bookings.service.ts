@@ -990,6 +990,84 @@ export class BookingsService {
       });
     }
 
+    // Auto-heal legacy inverted price adjustments (where rate increase was stored with additionalProfit instead of reducedProfit)
+    if (booking.hotelPriceAdjustments) {
+      for (const adj of booking.hotelPriceAdjustments) {
+        if ((adj.adjustmentType === 'UPGRADE' || adj.newPrice > adj.baselinePrice) && adj.additionalProfit > 0 && adj.reducedProfit === 0) {
+          adj.reducedProfit = adj.additionalProfit;
+          adj.additionalProfit = 0;
+          adj.reducedMargin = adj.additionalMargin;
+          adj.additionalMargin = 0;
+          prisma.hotelPriceAdjustment.update({
+            where: { id: adj.id },
+            data: {
+              reducedProfit: adj.reducedProfit,
+              additionalProfit: 0,
+              reducedMargin: adj.reducedMargin,
+              additionalMargin: 0,
+            },
+          }).catch((err) => logger.error(`Error healing hotelPriceAdjustment ${adj.id}:`, err));
+        }
+      }
+    }
+    if (booking.transportPriceAdjustments) {
+      for (const adj of booking.transportPriceAdjustments) {
+        if ((adj.adjustmentType === 'UPGRADE' || adj.newPrice > adj.baselinePrice) && adj.additionalProfit > 0 && adj.reducedProfit === 0) {
+          adj.reducedProfit = adj.additionalProfit;
+          adj.additionalProfit = 0;
+          adj.reducedMargin = adj.additionalMargin;
+          adj.additionalMargin = 0;
+          prisma.transportPriceAdjustment.update({
+            where: { id: adj.id },
+            data: {
+              reducedProfit: adj.reducedProfit,
+              additionalProfit: 0,
+              reducedMargin: adj.reducedMargin,
+              additionalMargin: 0,
+            },
+          }).catch((err) => logger.error(`Error healing transportPriceAdjustment ${adj.id}:`, err));
+        }
+      }
+    }
+    if (booking.visaPriceAdjustments) {
+      for (const adj of booking.visaPriceAdjustments) {
+        if ((adj.adjustmentType === 'UPGRADE' || adj.newPrice > adj.baselinePrice) && adj.additionalProfit > 0 && adj.reducedProfit === 0) {
+          adj.reducedProfit = adj.additionalProfit;
+          adj.additionalProfit = 0;
+          adj.reducedMargin = adj.additionalMargin;
+          adj.additionalMargin = 0;
+          prisma.visaPriceAdjustment.update({
+            where: { id: adj.id },
+            data: {
+              reducedProfit: adj.reducedProfit,
+              additionalProfit: 0,
+              reducedMargin: adj.reducedMargin,
+              additionalMargin: 0,
+            },
+          }).catch((err) => logger.error(`Error healing visaPriceAdjustment ${adj.id}:`, err));
+        }
+      }
+    }
+    if (booking.additionalServicePriceAdjustments) {
+      for (const adj of booking.additionalServicePriceAdjustments) {
+        if ((adj.adjustmentType === 'UPGRADE' || adj.newPrice > adj.baselinePrice) && adj.additionalProfit > 0 && adj.reducedProfit === 0) {
+          adj.reducedProfit = adj.additionalProfit;
+          adj.additionalProfit = 0;
+          adj.reducedMargin = adj.additionalMargin;
+          adj.additionalMargin = 0;
+          prisma.additionalServicePriceAdjustment.update({
+            where: { id: adj.id },
+            data: {
+              reducedProfit: adj.reducedProfit,
+              additionalProfit: 0,
+              reducedMargin: adj.reducedMargin,
+              additionalMargin: 0,
+            },
+          }).catch((err) => logger.error(`Error healing additionalServicePriceAdjustment ${adj.id}:`, err));
+        }
+      }
+    }
+
     if (booking.transactions && booking.transactions.length > 0) {
       const clientPaidSum = Math.round(
         booking.transactions
@@ -3943,6 +4021,8 @@ export class BookingsService {
           originalPrice,
           originalBookingDate,
           price: newPrice,
+          isPriceAdjusted: true,
+          totalSavedAmount: !isUpgrade ? ((acc.totalSavedAmount || 0) + diffAmount) : acc.totalSavedAmount,
         },
       });
 
@@ -3967,7 +4047,7 @@ export class BookingsService {
           diffAmount,
           adjustmentType,
           scenario: 'A (Margin Unpaid)',
-          note: (data.notes || `Hotel price ${adjustmentType.toLowerCase()}d directly`) + expiryNote,
+          note: (data.notes || `Hotel price ${isUpgrade ? 'increased' : 'reduced'} directly`) + expiryNote,
         },
       });
 
@@ -3975,7 +4055,7 @@ export class BookingsService {
 
       return {
         scenario: 'A',
-        message: `Hotel price ${adjustmentType.toLowerCase()}d directly. Profit and agent margin recalculated.`,
+        message: `Hotel price ${isUpgrade ? 'increased' : 'reduced'} directly. Profit and agent margin recalculated.`,
         accommodation: updatedAcc,
         diffAmount,
         adjustmentType,
@@ -4007,15 +4087,21 @@ export class BookingsService {
       let reducedProfit = 0;
 
       if (isUpgrade) {
-        additionalMargin = commissionRate > 0
-          ? Math.round(diffAmount * (commissionRate / 100) * 100) / 100
-          : 0;
-        additionalProfit = Math.round((diffAmount - additionalMargin) * 100) / 100;
-      } else {
+        // Vendor cost increased -> profit is reduced, agent margin is reduced (no additional bonus!)
         reducedMargin = commissionRate > 0
           ? Math.round(diffAmount * (commissionRate / 100) * 100) / 100
           : 0;
         reducedProfit = Math.round((diffAmount - reducedMargin) * 100) / 100;
+        additionalMargin = 0;
+        additionalProfit = 0;
+      } else {
+        // Vendor cost decreased -> savings generated -> additional profit & additional agent margin!
+        additionalMargin = commissionRate > 0
+          ? Math.round(diffAmount * (commissionRate / 100) * 100) / 100
+          : 0;
+        additionalProfit = Math.round((diffAmount - additionalMargin) * 100) / 100;
+        reducedMargin = 0;
+        reducedProfit = 0;
       }
 
       const vendorCost = booking.bookingVendorPayments.reduce(
@@ -4173,6 +4259,8 @@ export class BookingsService {
           originalPrice,
           originalBookingDate,
           price: newPrice,
+          isPriceAdjusted: true,
+          totalSavedAmount: !isUpgrade ? ((tr.totalSavedAmount || 0) + diffAmount) : tr.totalSavedAmount,
         },
       });
 
@@ -4197,7 +4285,7 @@ export class BookingsService {
           diffAmount,
           adjustmentType,
           scenario: 'A (Margin Unpaid)',
-          note: data.notes || `Transport price ${adjustmentType.toLowerCase()}d directly`,
+          note: data.notes || `Transport price ${isUpgrade ? 'increased' : 'reduced'} directly`,
         },
       });
 
@@ -4205,7 +4293,7 @@ export class BookingsService {
 
       return {
         scenario: 'A',
-        message: `Transport price ${adjustmentType.toLowerCase()}d directly. Profit and agent margin recalculated.`,
+        message: `Transport price ${isUpgrade ? 'increased' : 'reduced'} directly. Profit and agent margin recalculated.`,
         transport: updatedTr,
         diffAmount,
         adjustmentType,
@@ -4237,15 +4325,21 @@ export class BookingsService {
       let reducedProfit = 0;
 
       if (isUpgrade) {
-        additionalMargin = commissionRate > 0
-          ? Math.round(diffAmount * (commissionRate / 100) * 100) / 100
-          : 0;
-        additionalProfit = Math.round((diffAmount - additionalMargin) * 100) / 100;
-      } else {
+        // Vendor cost increased -> profit is reduced, agent margin is reduced
         reducedMargin = commissionRate > 0
           ? Math.round(diffAmount * (commissionRate / 100) * 100) / 100
           : 0;
         reducedProfit = Math.round((diffAmount - reducedMargin) * 100) / 100;
+        additionalMargin = 0;
+        additionalProfit = 0;
+      } else {
+        // Vendor cost decreased -> savings generated -> additional profit & additional agent margin
+        additionalMargin = commissionRate > 0
+          ? Math.round(diffAmount * (commissionRate / 100) * 100) / 100
+          : 0;
+        additionalProfit = Math.round((diffAmount - additionalMargin) * 100) / 100;
+        reducedMargin = 0;
+        reducedProfit = 0;
       }
 
       const vendorCost = booking.bookingVendorPayments.reduce(
@@ -4403,6 +4497,8 @@ export class BookingsService {
           originalPrice,
           originalBookingDate,
           price: newPrice,
+          isPriceAdjusted: true,
+          totalSavedAmount: !isUpgrade ? ((vs.totalSavedAmount || 0) + diffAmount) : vs.totalSavedAmount,
         },
       });
 
@@ -4427,7 +4523,7 @@ export class BookingsService {
           diffAmount,
           adjustmentType,
           scenario: 'A (Margin Unpaid)',
-          note: data.notes || `Visa price ${adjustmentType.toLowerCase()}d directly`,
+          note: data.notes || `Visa price ${isUpgrade ? 'increased' : 'reduced'} directly`,
         },
       });
 
@@ -4435,7 +4531,7 @@ export class BookingsService {
 
       return {
         scenario: 'A',
-        message: `Visa price ${adjustmentType.toLowerCase()}d directly. Profit and agent margin recalculated.`,
+        message: `Visa price ${isUpgrade ? 'increased' : 'reduced'} directly. Profit and agent margin recalculated.`,
         visa: updatedVs,
         diffAmount,
         adjustmentType,
@@ -4467,15 +4563,21 @@ export class BookingsService {
       let reducedProfit = 0;
 
       if (isUpgrade) {
-        additionalMargin = commissionRate > 0
-          ? Math.round(diffAmount * (commissionRate / 100) * 100) / 100
-          : 0;
-        additionalProfit = Math.round((diffAmount - additionalMargin) * 100) / 100;
-      } else {
+        // Vendor cost increased -> profit is reduced, agent margin is reduced
         reducedMargin = commissionRate > 0
           ? Math.round(diffAmount * (commissionRate / 100) * 100) / 100
           : 0;
         reducedProfit = Math.round((diffAmount - reducedMargin) * 100) / 100;
+        additionalMargin = 0;
+        additionalProfit = 0;
+      } else {
+        // Vendor cost decreased -> savings generated -> additional profit & additional agent margin
+        additionalMargin = commissionRate > 0
+          ? Math.round(diffAmount * (commissionRate / 100) * 100) / 100
+          : 0;
+        additionalProfit = Math.round((diffAmount - additionalMargin) * 100) / 100;
+        reducedMargin = 0;
+        reducedProfit = 0;
       }
 
       const vendorCost = booking.bookingVendorPayments.reduce(
@@ -4634,6 +4736,8 @@ export class BookingsService {
           originalPrice,
           originalBookingDate,
           servicePrice: newPrice,
+          isPriceAdjusted: true,
+          totalSavedAmount: !isUpgrade ? ((as.totalSavedAmount || 0) + diffAmount) : as.totalSavedAmount,
         },
       });
 
@@ -4658,7 +4762,7 @@ export class BookingsService {
           diffAmount,
           adjustmentType,
           scenario: 'A (Margin Unpaid)',
-          note: data.notes || `Additional service price ${adjustmentType.toLowerCase()}d directly`,
+          note: data.notes || `Additional service price ${isUpgrade ? 'increased' : 'reduced'} directly`,
         },
       });
 
@@ -4666,7 +4770,7 @@ export class BookingsService {
 
       return {
         scenario: 'A',
-        message: `Additional service price ${adjustmentType.toLowerCase()}d directly. Profit and agent margin recalculated.`,
+        message: `Additional service price ${isUpgrade ? 'increased' : 'reduced'} directly. Profit and agent margin recalculated.`,
         additionalService: updatedAs,
         diffAmount,
         adjustmentType,
@@ -4698,15 +4802,21 @@ export class BookingsService {
       let reducedProfit = 0;
 
       if (isUpgrade) {
-        additionalMargin = commissionRate > 0
-          ? Math.round(diffAmount * (commissionRate / 100) * 100) / 100
-          : 0;
-        additionalProfit = Math.round((diffAmount - additionalMargin) * 100) / 100;
-      } else {
+        // Vendor cost increased -> profit is reduced, agent margin is reduced
         reducedMargin = commissionRate > 0
           ? Math.round(diffAmount * (commissionRate / 100) * 100) / 100
           : 0;
         reducedProfit = Math.round((diffAmount - reducedMargin) * 100) / 100;
+        additionalMargin = 0;
+        additionalProfit = 0;
+      } else {
+        // Vendor cost decreased -> savings generated -> additional profit & additional agent margin
+        additionalMargin = commissionRate > 0
+          ? Math.round(diffAmount * (commissionRate / 100) * 100) / 100
+          : 0;
+        additionalProfit = Math.round((diffAmount - additionalMargin) * 100) / 100;
+        reducedMargin = 0;
+        reducedProfit = 0;
       }
 
       const vendorCost = booking.bookingVendorPayments.reduce(

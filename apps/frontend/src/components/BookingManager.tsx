@@ -1557,35 +1557,106 @@ export default function BookingManager({
       : 0;
 
   const totalHotelSavedAmount = hotelPriceAdjustments.reduce(
-    (sum: number, adj: any) => sum + (adj.savedAmount || 0),
+    (sum: number, adj: any) => {
+      if (adj.adjustmentType !== 'UPGRADE' && adj.newPrice <= adj.baselinePrice) {
+        return sum + (adj.savedAmount || adj.diffAmount || 0);
+      }
+      return sum;
+    },
+    0
+  );
+
+  const totalHotelIncreasedAmount = hotelPriceAdjustments.reduce(
+    (sum: number, adj: any) => {
+      if (adj.adjustmentType === 'UPGRADE' || adj.newPrice > adj.baselinePrice) {
+        return sum + (adj.diffAmount || Math.max(0, adj.newPrice - adj.baselinePrice));
+      }
+      return sum;
+    },
     0
   );
 
   const totalAdditionalProfit =
     allPriceAdjustments.reduce(
-      (sum: number, adj: any) => sum + (adj.additionalProfit || 0),
+      (sum: number, adj: any) => {
+        if (adj.adjustmentType !== 'UPGRADE' && adj.newPrice <= adj.baselinePrice) {
+          return sum + (adj.additionalProfit || 0);
+        }
+        return sum;
+      },
       0
     ) + refundAdditionalProfit;
 
   const totalReducedProfit = allPriceAdjustments.reduce(
-    (sum: number, adj: any) => sum + (adj.reducedProfit || 0),
+    (sum: number, adj: any) => {
+      if (adj.adjustmentType === 'UPGRADE' || adj.newPrice > adj.baselinePrice) {
+        return sum + (adj.reducedProfit || adj.additionalProfit || adj.diffAmount || 0);
+      }
+      return sum + (adj.reducedProfit || 0);
+    },
     0
   );
 
   const totalAdditionalMargin =
     allPriceAdjustments.reduce(
-      (sum: number, adj: any) => sum + (adj.additionalMargin || 0),
+      (sum: number, adj: any) => {
+        if (adj.adjustmentType !== 'UPGRADE' && adj.newPrice <= adj.baselinePrice) {
+          return sum + (adj.additionalMargin || 0);
+        }
+        return sum;
+      },
       0
     ) + refundAdditionalMargin;
 
   const totalReducedMargin = allPriceAdjustments.reduce(
-    (sum: number, adj: any) => sum + (adj.reducedMargin || 0),
+    (sum: number, adj: any) => {
+      if (adj.adjustmentType === 'UPGRADE' || adj.newPrice > adj.baselinePrice) {
+        return sum + (adj.reducedMargin || adj.additionalMargin || 0);
+      }
+      return sum + (adj.reducedMargin || 0);
+    },
     0
   );
 
   const totalSavedAmount = allPriceAdjustments.reduce(
-    (sum: number, adj: any) => sum + (adj.savedAmount || 0),
+    (sum: number, adj: any) => {
+      if (adj.adjustmentType !== 'UPGRADE' && adj.newPrice <= adj.baselinePrice) {
+        return sum + (adj.savedAmount || adj.diffAmount || 0);
+      }
+      return sum;
+    },
     0
+  );
+
+  // Check if any service rate increased across the booking
+  const hasHotelPriceIncrease = (booking.accommodations || []).some(
+    (a: any) => a.isPriceAdjusted && (a.price > (a.originalPrice || a.price))
+  ) || hotelPriceAdjustments.some((adj: any) => adj.adjustmentType === 'UPGRADE' || (adj.newPrice > adj.baselinePrice));
+
+  const hasTransportPriceIncrease = (booking.transportServices || []).some(
+    (t: any) => t.isPriceAdjusted && (t.price > (t.originalPrice || t.price))
+  ) || transportPriceAdjustments.some((adj: any) => adj.adjustmentType === 'UPGRADE' || (adj.newPrice > adj.baselinePrice));
+
+  const hasVisaPriceIncrease = (booking.visaServices || []).some(
+    (v: any) => v.isPriceAdjusted && (v.price > (v.originalPrice || v.price))
+  ) || visaPriceAdjustments.some((adj: any) => adj.adjustmentType === 'UPGRADE' || (adj.newPrice > adj.baselinePrice));
+
+  const hasAdditionalPriceIncrease = (booking.additionalServices || []).some(
+    (a: any) => a.isPriceAdjusted && ((a.servicePrice || a.price) > (a.originalPrice || a.servicePrice || a.price))
+  ) || additionalServicePriceAdjustments.some((adj: any) => adj.adjustmentType === 'UPGRADE' || (adj.newPrice > adj.baselinePrice));
+
+  const hasAnyPriceIncrease = hasHotelPriceIncrease || hasTransportPriceIncrease || hasVisaPriceIncrease || hasAdditionalPriceIncrease;
+
+  const totalPriceIncreasedAmount = allPriceAdjustments.reduce((sum: number, adj: any) => {
+    if (adj.adjustmentType === 'UPGRADE' || adj.newPrice > adj.baselinePrice) {
+      return sum + (adj.diffAmount || Math.max(0, adj.newPrice - adj.baselinePrice));
+    }
+    return sum;
+  }, 0) || (
+    ((booking.accommodations || []).reduce((sum: number, a: any) => a.price > (a.originalPrice || a.price) ? sum + (a.price - (a.originalPrice || a.price)) : sum, 0)) +
+    ((booking.transportServices || []).reduce((sum: number, t: any) => t.price > (t.originalPrice || t.price) ? sum + (t.price - (t.originalPrice || t.price)) : sum, 0)) +
+    ((booking.visaServices || []).reduce((sum: number, v: any) => v.price > (v.originalPrice || v.price) ? sum + (v.price - (v.originalPrice || v.price)) : sum, 0)) +
+    ((booking.additionalServices || []).reduce((sum: number, a: any) => (a.servicePrice || a.price) > (a.originalPrice || a.servicePrice || a.price) ? sum + ((a.servicePrice || a.price) - (a.originalPrice || a.servicePrice || a.price)) : sum, 0))
   );
 
   const isAdditionalMarginTx = (tx: any) => {
@@ -1789,6 +1860,30 @@ export default function BookingManager({
             </div>
           )}
 
+          {/* Price Increased Highlight Banner */}
+          {hasAnyPriceIncrease && (
+            <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl border bg-amber-500/10 dark:bg-amber-950/40 border-amber-300 dark:border-amber-700/70 text-amber-900 dark:text-amber-200 shadow-xs">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 rounded-lg bg-amber-500/20 text-amber-700 dark:text-amber-300 shrink-0">
+                  <ArrowUpRight size={18} className="stroke-[2.5]" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-extrabold text-[13px] tracking-tight uppercase text-amber-800 dark:text-amber-300">
+                      Price Got Increased on this Booking
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-800 dark:text-amber-200 border border-amber-400/40">
+                      +{formatCurrency(totalPriceIncreasedAmount)}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-amber-700/90 dark:text-amber-300/80 font-medium">
+                    Vendor service rates have increased from baseline costs. Profit has been adjusted accordingly.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* 0. Booking Details — view / edit */}
           <section>
             <div className="relative overflow-hidden rounded-xl border border-border bg-card shadow-sm">
@@ -1807,9 +1902,16 @@ export default function BookingManager({
                           Total Amount
                         </span>
                       </div>
-                      <span className="text-[15px] font-black text-foreground">
-                        {formatCurrency(booking.totalPrice)}
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[15px] font-black text-foreground">
+                          {formatCurrency(booking.totalPrice)}
+                        </span>
+                        {hasAnyPriceIncrease && (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-black bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
+                            <ArrowUpRight size={9} /> Rate Increased
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     {/* Agent */}
@@ -4611,29 +4713,52 @@ export default function BookingManager({
                               {formatCurrency(acc.price)}
                             </span>
                           </div>
-                          {acc.isPriceAdjusted && (
-                            <div className="mt-1.5 p-1.5 rounded bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/50 flex flex-col gap-0.5 text-[11px]">
-                              <div className="flex items-center justify-between text-emerald-800 dark:text-emerald-300 font-bold">
-                                <span className="flex items-center gap-1">
-                                  <ArrowDownRight size={11} />
-                                  Price Adjusted (Saved: {formatCurrency(acc.totalSavedAmount || ((acc.originalPrice || acc.price) - acc.price))})
-                                </span>
-                                {acc.originalPrice && (
-                                  <span className="line-through text-muted-foreground font-semibold">
-                                    Orig: {formatCurrency(acc.originalPrice)}
+                          {acc.isPriceAdjusted && (() => {
+                            const orig = acc.originalPrice ?? acc.price;
+                            const isIncrease = acc.price > orig;
+                            const diff = Math.abs(acc.price - orig);
+
+                            return (
+                              <div className={`mt-1.5 p-1.5 rounded border flex flex-col gap-0.5 text-[11px] ${
+                                isIncrease
+                                  ? "bg-amber-500/10 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700/60"
+                                  : "bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/50"
+                              }`}>
+                                <div className={`flex items-center justify-between font-bold ${
+                                  isIncrease
+                                    ? "text-amber-800 dark:text-amber-300"
+                                    : "text-emerald-800 dark:text-emerald-300"
+                                }`}>
+                                  <span className="flex items-center gap-1">
+                                    {isIncrease ? (
+                                      <>
+                                        <ArrowUpRight size={11} className="text-amber-600 dark:text-amber-400" />
+                                        Rate Increased (+{formatCurrency(diff)})
+                                      </>
+                                    ) : (
+                                      <>
+                                        <ArrowDownRight size={11} className="text-emerald-600 dark:text-emerald-400" />
+                                        Price Adjusted (Saved: {formatCurrency(acc.totalSavedAmount || diff)})
+                                      </>
+                                    )}
                                   </span>
-                                )}
-                              </div>
-                              {acc.originalBookingDate && (
-                                <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-                                  <span>Booked: {new Date(acc.originalBookingDate).toLocaleDateString("en-GB")}</span>
-                                  {acc.priceAdjustments?.[0]?.adjustmentDate && (
-                                    <span>Adjusted: {new Date(acc.priceAdjustments[0].adjustmentDate).toLocaleDateString("en-GB")}</span>
+                                  {acc.originalPrice && (
+                                    <span className="line-through text-muted-foreground font-semibold">
+                                      Orig: {formatCurrency(acc.originalPrice)}
+                                    </span>
                                   )}
                                 </div>
-                              )}
-                            </div>
-                          )}
+                                {acc.originalBookingDate && (
+                                  <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                                    <span>Booked: {new Date(acc.originalBookingDate).toLocaleDateString("en-GB")}</span>
+                                    {acc.priceAdjustments?.[0]?.adjustmentDate && (
+                                      <span>Adjusted: {new Date(acc.priceAdjustments[0].adjustmentDate).toLocaleDateString("en-GB")}</span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
                           {acc.agentQuotedPrice !== undefined && acc.agentQuotedPrice !== null && (
                             <div className="flex justify-between">
                               <span className="text-muted-foreground text-[12px]">
@@ -4746,11 +4871,18 @@ export default function BookingManager({
                         <Tag size={12} className="text-primary" />
                         Hotel Price Adjustment &amp; Upgrade/Downgrade History
                       </span>
-                      {totalHotelSavedAmount > 0 && (
-                        <span className="text-[11px] font-extrabold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-300 dark:border-emerald-800">
-                          Total Saved: {formatCurrency(totalHotelSavedAmount)}
-                        </span>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {totalHotelIncreasedAmount > 0 && (
+                          <span className="text-[11px] font-extrabold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded border border-amber-300 dark:border-amber-800">
+                            Rate Increased: +{formatCurrency(totalHotelIncreasedAmount)}
+                          </span>
+                        )}
+                        {totalHotelSavedAmount > 0 && (
+                          <span className="text-[11px] font-extrabold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-300 dark:border-emerald-800">
+                            Total Saved: {formatCurrency(totalHotelSavedAmount)}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="overflow-x-auto rounded border border-border bg-card">
                       <table className="w-full text-left text-[11px]">
@@ -4769,89 +4901,109 @@ export default function BookingManager({
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border">
-                          {hotelPriceAdjustments.map((adj: any) => (
-                            <tr key={adj.id} className="hover:bg-secondary/20 transition-colors">
-                              <td className="py-1.5 px-2.5 font-medium whitespace-nowrap">
-                                {new Date(adj.adjustmentDate).toLocaleDateString("en-GB")}
-                              </td>
-                              <td className="py-1.5 px-2 font-bold text-foreground">
-                                {adj.accommodation?.hotelName || "Hotel"}
-                              </td>
-                              <td className="py-1.5 px-2">
-                                <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${
-                                  adj.adjustmentType === 'UPGRADE'
-                                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
-                                    : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
-                                }`}>
-                                  {adj.adjustmentType || (adj.savedAmount > 0 ? 'SAVINGS' : 'ADJUSTMENT')}
-                                </span>
-                              </td>
-                              <td className="py-1.5 px-2 text-muted-foreground">
-                                {formatCurrency(adj.baselinePrice)}
-                              </td>
-                              <td className="py-1.5 px-2 font-bold text-foreground">
-                                {formatCurrency(adj.newPrice)}
-                              </td>
-                              <td className="py-1.5 px-2 font-extrabold text-foreground">
-                                {adj.adjustmentType === 'UPGRADE'
-                                  ? `+${formatCurrency(adj.diffAmount || (adj.newPrice - adj.baselinePrice))}`
-                                  : (adj.savedAmount > 0 ? `-${formatCurrency(adj.savedAmount)}` : `-${formatCurrency(adj.diffAmount || (adj.baselinePrice - adj.newPrice))}`)}
-                              </td>
-                              <td className="py-1.5 px-2 font-bold text-emerald-700 dark:text-emerald-400">
-                                {adj.additionalProfit > 0 && <span className="text-emerald-600">+{formatCurrency(adj.additionalProfit)}</span>}
-                                {adj.reducedProfit > 0 && <span className="text-rose-600">-{formatCurrency(adj.reducedProfit)}</span>}
-                                {adj.additionalProfit === 0 && adj.reducedProfit === 0 && <span>—</span>}
-                              </td>
-                              <td className="py-1.5 px-2 font-bold text-blue-600 dark:text-blue-400">
-                                {adj.additionalMargin > 0 && (
-                                  <span>
-                                    +{formatCurrency(adj.additionalMargin)}
-                                    {adj.marginRate > 0 && <span className="text-[9px] text-muted-foreground ml-0.5">({adj.marginRate}%)</span>}
+                          {hotelPriceAdjustments.map((adj: any) => {
+                            const isIncrease = adj.adjustmentType === 'UPGRADE' || adj.newPrice > adj.baselinePrice;
+                            const diff = adj.diffAmount || Math.abs(adj.newPrice - adj.baselinePrice);
+                            const reducedProf = adj.reducedProfit > 0 ? adj.reducedProfit : (isIncrease ? (adj.additionalProfit || diff) : 0);
+                            const addlProf = !isIncrease ? (adj.additionalProfit || adj.savedAmount || diff) : 0;
+                            const reducedMarg = adj.reducedMargin > 0 ? adj.reducedMargin : 0;
+                            const addlMarg = !isIncrease ? adj.additionalMargin : 0;
+
+                            return (
+                              <tr key={adj.id} className="hover:bg-secondary/20 transition-colors">
+                                <td className="py-1.5 px-2.5 font-medium whitespace-nowrap">
+                                  {new Date(adj.adjustmentDate).toLocaleDateString("en-GB")}
+                                </td>
+                                <td className="py-1.5 px-2 font-bold text-foreground">
+                                  {adj.accommodation?.hotelName || "Hotel"}
+                                </td>
+                                <td className="py-1.5 px-2">
+                                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${
+                                    isIncrease
+                                      ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800'
+                                      : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
+                                  }`}>
+                                    {isIncrease ? 'RATE INCREASE' : 'SAVINGS'}
                                   </span>
-                                )}
-                                {adj.reducedMargin > 0 && <span className="text-rose-600">-{formatCurrency(adj.reducedMargin)}</span>}
-                                {adj.additionalMargin === 0 && adj.reducedMargin === 0 && <span>—</span>}
-                              </td>
-                              <td className="py-1.5 px-2 text-muted-foreground">
-                                {adj.adjustedBy ? `${adj.adjustedBy.firstName} ${adj.adjustedBy.lastName}` : "Admin"}
-                              </td>
-                              <td className="py-1.5 px-2.5 text-right whitespace-nowrap">
-                                <div className="flex items-center justify-end gap-1.5">
-                                  {adj.additionalMargin > 0 ? (
-                                    adj.additionalMarginPaid ? (
-                                      <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                                        Paid {adj.additionalMarginPaidAt && `(${new Date(adj.additionalMarginPaidAt).toLocaleDateString('en-GB')})`}
+                                </td>
+                                <td className="py-1.5 px-2 text-muted-foreground">
+                                  {formatCurrency(adj.baselinePrice)}
+                                </td>
+                                <td className="py-1.5 px-2 font-bold text-foreground">
+                                  {formatCurrency(adj.newPrice)}
+                                </td>
+                                <td className={`py-1.5 px-2 font-extrabold ${isIncrease ? 'text-amber-700 dark:text-amber-400' : 'text-emerald-700 dark:text-emerald-400'}`}>
+                                  {isIncrease ? `+${formatCurrency(diff)}` : `-${formatCurrency(diff)}`}
+                                </td>
+                                <td className="py-1.5 px-2 font-bold">
+                                  {isIncrease ? (
+                                    <span className="text-rose-600 dark:text-rose-400">-{formatCurrency(reducedProf)}</span>
+                                  ) : addlProf > 0 ? (
+                                    <span className="text-emerald-600 dark:text-emerald-400">+{formatCurrency(addlProf)}</span>
+                                  ) : (
+                                    <span>—</span>
+                                  )}
+                                </td>
+                                <td className="py-1.5 px-2 font-bold">
+                                  {isIncrease ? (
+                                    reducedMarg > 0 ? (
+                                      <span className="text-rose-600 dark:text-rose-400">
+                                        -{formatCurrency(reducedMarg)}
+                                        {adj.marginRate > 0 && <span className="text-[9px] text-muted-foreground ml-0.5">({adj.marginRate}%)</span>}
                                       </span>
                                     ) : (
-                                      isAdminUser && !isAgent ? (
-                                        <button
-                                          type="button"
-                                          onClick={() => handlePayAdditionalMargin('hotel', adj.id)}
-                                          className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-600 hover:bg-blue-700 text-white transition-colors"
-                                        >
-                                          Pay Margin
-                                        </button>
-                                      ) : (
-                                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
-                                          Unpaid
-                                        </span>
-                                      )
+                                      <span className="text-muted-foreground">—</span>
                                     )
-                                  ) : null}
-                                  {(isAdminUser || isManagerUser || isOwner) && (
-                                    <button
-                                      type="button"
-                                      title="Remove price adjustment from booking"
-                                      onClick={() => handleDeleteAdjustment('hotel', adj.id)}
-                                      className="p-1 text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded transition-colors cursor-pointer"
-                                    >
-                                      <Trash2 size={13} />
-                                    </button>
+                                  ) : addlMarg > 0 ? (
+                                    <span className="text-blue-600 dark:text-blue-400">
+                                      +{formatCurrency(addlMarg)}
+                                      {adj.marginRate > 0 && <span className="text-[9px] text-muted-foreground ml-0.5">({adj.marginRate}%)</span>}
+                                    </span>
+                                  ) : (
+                                    <span>—</span>
                                   )}
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
+                                </td>
+                                <td className="py-1.5 px-2 text-muted-foreground">
+                                  {adj.adjustedBy ? `${adj.adjustedBy.firstName} ${adj.adjustedBy.lastName}` : "Admin"}
+                                </td>
+                                <td className="py-1.5 px-2.5 text-right whitespace-nowrap">
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    {!isIncrease && addlMarg > 0 ? (
+                                      adj.additionalMarginPaid ? (
+                                        <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                                          Paid {adj.additionalMarginPaidAt && `(${new Date(adj.additionalMarginPaidAt).toLocaleDateString('en-GB')})`}
+                                        </span>
+                                      ) : (
+                                        isAdminUser && !isAgent ? (
+                                          <button
+                                            type="button"
+                                            onClick={() => handlePayAdditionalMargin('hotel', adj.id)}
+                                            className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+                                          >
+                                            Pay Margin
+                                          </button>
+                                        ) : (
+                                          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                                            Unpaid
+                                          </span>
+                                        )
+                                      )
+                                    ) : null}
+                                    {(isAdminUser || isManagerUser || isOwner) && (
+                                      <button
+                                        type="button"
+                                        title="Remove price adjustment from booking"
+                                        onClick={() => handleDeleteAdjustment('hotel', adj.id)}
+                                        className="p-1 text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded transition-colors cursor-pointer"
+                                      >
+                                        <Trash2 size={13} />
+                                      </button>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -5088,29 +5240,52 @@ export default function BookingManager({
                                   </div>
                                 );
                               })()}
-                              {ts.isPriceAdjusted && (
-                                <div className="mt-1.5 p-1.5 rounded bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/50 flex flex-col gap-0.5 text-[11px]">
-                                  <div className="flex items-center justify-between text-emerald-800 dark:text-emerald-300 font-bold">
-                                    <span className="flex items-center gap-1">
-                                      <Tag size={11} />
-                                      Price Adjusted {ts.priceAdjustments?.[0]?.adjustmentType ? `(${ts.priceAdjustments[0].adjustmentType})` : ''}
-                                    </span>
-                                    {ts.originalPrice && (
-                                      <span className="line-through text-muted-foreground font-semibold">
-                                        Orig: {formatCurrency(ts.originalPrice)}
+                              {ts.isPriceAdjusted && (() => {
+                                const orig = ts.originalPrice ?? ts.price;
+                                const isIncrease = ts.price > orig;
+                                const diff = Math.abs(ts.price - orig);
+
+                                return (
+                                  <div className={`mt-1.5 p-1.5 rounded border flex flex-col gap-0.5 text-[11px] ${
+                                    isIncrease
+                                      ? "bg-amber-500/10 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700/60"
+                                      : "bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/50"
+                                  }`}>
+                                    <div className={`flex items-center justify-between font-bold ${
+                                      isIncrease
+                                        ? "text-amber-800 dark:text-amber-300"
+                                        : "text-emerald-800 dark:text-emerald-300"
+                                    }`}>
+                                      <span className="flex items-center gap-1">
+                                        {isIncrease ? (
+                                          <>
+                                            <ArrowUpRight size={11} className="text-amber-600 dark:text-amber-400" />
+                                            Rate Increased (+{formatCurrency(diff)})
+                                          </>
+                                        ) : (
+                                          <>
+                                            <ArrowDownRight size={11} className="text-emerald-600 dark:text-emerald-400" />
+                                            Price Adjusted (Saved: {formatCurrency(ts.totalSavedAmount || diff)})
+                                          </>
+                                        )}
                                       </span>
-                                    )}
-                                  </div>
-                                  {ts.originalBookingDate && (
-                                    <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-                                      <span>Booked: {new Date(ts.originalBookingDate).toLocaleDateString("en-GB")}</span>
-                                      {ts.priceAdjustments?.[0]?.adjustmentDate && (
-                                        <span>Adjusted: {new Date(ts.priceAdjustments[0].adjustmentDate).toLocaleDateString("en-GB")}</span>
+                                      {ts.originalPrice && (
+                                        <span className="line-through text-muted-foreground font-semibold">
+                                          Orig: {formatCurrency(ts.originalPrice)}
+                                        </span>
                                       )}
                                     </div>
-                                  )}
-                                </div>
-                              )}
+                                    {ts.originalBookingDate && (
+                                      <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                                        <span>Booked: {new Date(ts.originalBookingDate).toLocaleDateString("en-GB")}</span>
+                                        {ts.priceAdjustments?.[0]?.adjustmentDate && (
+                                          <span>Adjusted: {new Date(ts.priceAdjustments[0].adjustmentDate).toLocaleDateString("en-GB")}</span>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })()}
                             </div>
                           </td>
                           <td className="px-4 py-2.5 text-right text-[12px]">
@@ -5225,82 +5400,109 @@ export default function BookingManager({
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border">
-                          {transportPriceAdjustments.map((adj: any) => (
-                            <tr key={adj.id} className="hover:bg-secondary/20 transition-colors">
-                              <td className="py-1.5 px-2.5 font-medium whitespace-nowrap">
-                                {new Date(adj.adjustmentDate).toLocaleDateString("en-GB")}
-                              </td>
-                              <td className="py-1.5 px-2 font-bold text-foreground">
-                                {adj.transportService?.vehicleType || "Transfer"}
-                              </td>
-                              <td className="py-1.5 px-2">
-                                <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${
-                                  adj.adjustmentType === 'UPGRADE'
-                                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
-                                    : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
-                                }`}>
-                                  {adj.adjustmentType || (adj.savedAmount > 0 ? 'SAVINGS' : 'ADJUSTMENT')}
-                                </span>
-                              </td>
-                              <td className="py-1.5 px-2 text-muted-foreground">
-                                {formatCurrency(adj.baselinePrice)}
-                              </td>
-                              <td className="py-1.5 px-2 font-bold text-foreground">
-                                {formatCurrency(adj.newPrice)}
-                              </td>
-                              <td className="py-1.5 px-2 font-extrabold text-foreground">
-                                {adj.adjustmentType === 'UPGRADE' ? `+${formatCurrency(adj.diffAmount)}` : `-${formatCurrency(adj.diffAmount)}`}
-                              </td>
-                              <td className="py-1.5 px-2 font-bold text-emerald-700 dark:text-emerald-400">
-                                {adj.additionalProfit > 0 && <span className="text-emerald-600">+{formatCurrency(adj.additionalProfit)}</span>}
-                                {adj.reducedProfit > 0 && <span className="text-rose-600">-{formatCurrency(adj.reducedProfit)}</span>}
-                                {adj.additionalProfit === 0 && adj.reducedProfit === 0 && <span>—</span>}
-                              </td>
-                              <td className="py-1.5 px-2 font-bold text-blue-600 dark:text-blue-400">
-                                {adj.additionalMargin > 0 && <span>+{formatCurrency(adj.additionalMargin)}</span>}
-                                {adj.reducedMargin > 0 && <span className="text-rose-600">-{formatCurrency(adj.reducedMargin)}</span>}
-                                {adj.additionalMargin === 0 && adj.reducedMargin === 0 && <span>—</span>}
-                              </td>
-                              <td className="py-1.5 px-2 text-muted-foreground">
-                                {adj.adjustedBy ? `${adj.adjustedBy.firstName} ${adj.adjustedBy.lastName}` : "Admin"}
-                              </td>
-                              <td className="py-1.5 px-2.5 text-right whitespace-nowrap">
-                                <div className="flex items-center justify-end gap-1.5">
-                                  {adj.additionalMargin > 0 ? (
-                                    adj.additionalMarginPaid ? (
-                                      <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                                        Paid {adj.additionalMarginPaidAt && `(${new Date(adj.additionalMarginPaidAt).toLocaleDateString('en-GB')})`}
+                          {transportPriceAdjustments.map((adj: any) => {
+                            const isIncrease = adj.adjustmentType === 'UPGRADE' || adj.newPrice > adj.baselinePrice;
+                            const diff = adj.diffAmount || Math.abs(adj.newPrice - adj.baselinePrice);
+                            const reducedProf = adj.reducedProfit > 0 ? adj.reducedProfit : (isIncrease ? (adj.additionalProfit || diff) : 0);
+                            const addlProf = !isIncrease ? (adj.additionalProfit || adj.savedAmount || diff) : 0;
+                            const reducedMarg = adj.reducedMargin > 0 ? adj.reducedMargin : 0;
+                            const addlMarg = !isIncrease ? adj.additionalMargin : 0;
+
+                            return (
+                              <tr key={adj.id} className="hover:bg-secondary/20 transition-colors">
+                                <td className="py-1.5 px-2.5 font-medium whitespace-nowrap">
+                                  {new Date(adj.adjustmentDate).toLocaleDateString("en-GB")}
+                                </td>
+                                <td className="py-1.5 px-2 font-bold text-foreground">
+                                  {adj.transportService?.vehicleType || "Transfer"}
+                                </td>
+                                <td className="py-1.5 px-2">
+                                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${
+                                    isIncrease
+                                      ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800'
+                                      : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
+                                  }`}>
+                                    {isIncrease ? 'RATE INCREASE' : 'SAVINGS'}
+                                  </span>
+                                </td>
+                                <td className="py-1.5 px-2 text-muted-foreground">
+                                  {formatCurrency(adj.baselinePrice)}
+                                </td>
+                                <td className="py-1.5 px-2 font-bold text-foreground">
+                                  {formatCurrency(adj.newPrice)}
+                                </td>
+                                <td className={`py-1.5 px-2 font-extrabold ${isIncrease ? 'text-amber-700 dark:text-amber-400' : 'text-emerald-700 dark:text-emerald-400'}`}>
+                                  {isIncrease ? `+${formatCurrency(diff)}` : `-${formatCurrency(diff)}`}
+                                </td>
+                                <td className="py-1.5 px-2 font-bold">
+                                  {isIncrease ? (
+                                    <span className="text-rose-600 dark:text-rose-400">-{formatCurrency(reducedProf)}</span>
+                                  ) : addlProf > 0 ? (
+                                    <span className="text-emerald-600 dark:text-emerald-400">+{formatCurrency(addlProf)}</span>
+                                  ) : (
+                                    <span>—</span>
+                                  )}
+                                </td>
+                                <td className="py-1.5 px-2 font-bold">
+                                  {isIncrease ? (
+                                    reducedMarg > 0 ? (
+                                      <span className="text-rose-600 dark:text-rose-400">
+                                        -{formatCurrency(reducedMarg)}
+                                        {adj.marginRate > 0 && <span className="text-[9px] text-muted-foreground ml-0.5">({adj.marginRate}%)</span>}
                                       </span>
                                     ) : (
-                                      isAdminUser && !isAgent ? (
-                                        <button
-                                          type="button"
-                                          onClick={() => handlePayAdditionalMargin('transport', adj.id)}
-                                          className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-600 hover:bg-blue-700 text-white transition-colors"
-                                        >
-                                          Pay Margin
-                                        </button>
-                                      ) : (
-                                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
-                                          Unpaid
-                                        </span>
-                                      )
+                                      <span className="text-muted-foreground">—</span>
                                     )
-                                  ) : null}
-                                  {(isAdminUser || isManagerUser || isOwner) && (
-                                    <button
-                                      type="button"
-                                      title="Remove price adjustment from booking"
-                                      onClick={() => handleDeleteAdjustment('transport', adj.id)}
-                                      className="p-1 text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded transition-colors cursor-pointer"
-                                    >
-                                      <Trash2 size={13} />
-                                    </button>
+                                  ) : addlMarg > 0 ? (
+                                    <span className="text-blue-600 dark:text-blue-400">
+                                      +{formatCurrency(addlMarg)}
+                                      {adj.marginRate > 0 && <span className="text-[9px] text-muted-foreground ml-0.5">({adj.marginRate}%)</span>}
+                                    </span>
+                                  ) : (
+                                    <span>—</span>
                                   )}
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
+                                </td>
+                                <td className="py-1.5 px-2 text-muted-foreground">
+                                  {adj.adjustedBy ? `${adj.adjustedBy.firstName} ${adj.adjustedBy.lastName}` : "Admin"}
+                                </td>
+                                <td className="py-1.5 px-2.5 text-right whitespace-nowrap">
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    {!isIncrease && addlMarg > 0 ? (
+                                      adj.additionalMarginPaid ? (
+                                        <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                                          Paid {adj.additionalMarginPaidAt && `(${new Date(adj.additionalMarginPaidAt).toLocaleDateString('en-GB')})`}
+                                        </span>
+                                      ) : (
+                                        isAdminUser && !isAgent ? (
+                                          <button
+                                            type="button"
+                                            onClick={() => handlePayAdditionalMargin('transport', adj.id)}
+                                            className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+                                          >
+                                            Pay Margin
+                                          </button>
+                                        ) : (
+                                          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                                            Unpaid
+                                          </span>
+                                        )
+                                      )
+                                    ) : null}
+                                    {(isAdminUser || isManagerUser || isOwner) && (
+                                      <button
+                                        type="button"
+                                        title="Remove price adjustment from booking"
+                                        onClick={() => handleDeleteAdjustment('transport', adj.id)}
+                                        className="p-1 text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded transition-colors cursor-pointer"
+                                      >
+                                        <Trash2 size={13} />
+                                      </button>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -5417,29 +5619,52 @@ export default function BookingManager({
                             </p>
                           </div>
                         )}
-                        {vs.isPriceAdjusted && (
-                          <div className="p-1 px-2 rounded bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/50 flex flex-col gap-0.5 text-[10px]">
-                            <div className="flex items-center gap-1.5 text-emerald-800 dark:text-emerald-300 font-bold">
-                              <span className="flex items-center gap-1">
-                                <Tag size={10} />
-                                Price Adjusted {vs.priceAdjustments?.[0]?.adjustmentType ? `(${vs.priceAdjustments[0].adjustmentType})` : ''}
-                              </span>
-                              {vs.originalPrice && (
-                                <span className="line-through text-muted-foreground font-semibold">
-                                  Orig: {formatCurrency(vs.originalPrice)}
+                        {vs.isPriceAdjusted && (() => {
+                          const orig = vs.originalPrice ?? vs.price;
+                          const isIncrease = vs.price > orig;
+                          const diff = Math.abs(vs.price - orig);
+
+                          return (
+                            <div className={`p-1 px-2 rounded border flex flex-col gap-0.5 text-[10px] ${
+                              isIncrease
+                                ? "bg-amber-500/10 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700/60"
+                                : "bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/50"
+                            }`}>
+                              <div className={`flex items-center gap-1.5 font-bold ${
+                                isIncrease
+                                  ? "text-amber-800 dark:text-amber-300"
+                                  : "text-emerald-800 dark:text-emerald-300"
+                              }`}>
+                                <span className="flex items-center gap-1">
+                                  {isIncrease ? (
+                                    <>
+                                      <ArrowUpRight size={10} className="text-amber-600 dark:text-amber-400" />
+                                      Rate Increased (+{formatCurrency(diff)})
+                                    </>
+                                  ) : (
+                                    <>
+                                      <ArrowDownRight size={10} className="text-emerald-600 dark:text-emerald-400" />
+                                      Price Adjusted (Saved: {formatCurrency(vs.totalSavedAmount || diff)})
+                                    </>
+                                  )}
                                 </span>
-                              )}
-                            </div>
-                            {vs.originalBookingDate && (
-                              <div className="flex items-center gap-2 text-[9px] text-muted-foreground">
-                                <span>Booked: {new Date(vs.originalBookingDate).toLocaleDateString("en-GB")}</span>
-                                {vs.priceAdjustments?.[0]?.adjustmentDate && (
-                                  <span>Adjusted: {new Date(vs.priceAdjustments[0].adjustmentDate).toLocaleDateString("en-GB")}</span>
+                                {vs.originalPrice && (
+                                  <span className="line-through text-muted-foreground font-semibold">
+                                    Orig: {formatCurrency(vs.originalPrice)}
+                                  </span>
                                 )}
                               </div>
-                            )}
-                          </div>
-                        )}
+                              {vs.originalBookingDate && (
+                                <div className="flex items-center gap-2 text-[9px] text-muted-foreground">
+                                  <span>Booked: {new Date(vs.originalBookingDate).toLocaleDateString("en-GB")}</span>
+                                  {vs.priceAdjustments?.[0]?.adjustmentDate && (
+                                    <span>Adjusted: {new Date(vs.priceAdjustments[0].adjustmentDate).toLocaleDateString("en-GB")}</span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                       <div className="flex items-center gap-2">
                         <button
@@ -5535,82 +5760,109 @@ export default function BookingManager({
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border">
-                          {visaPriceAdjustments.map((adj: any) => (
-                            <tr key={adj.id} className="hover:bg-secondary/20 transition-colors">
-                              <td className="py-1.5 px-2.5 font-medium whitespace-nowrap">
-                                {new Date(adj.adjustmentDate).toLocaleDateString("en-GB")}
-                              </td>
-                              <td className="py-1.5 px-2 font-bold text-foreground">
-                                {adj.visaService?.passportNumber || "Visa"} ({adj.visaService?.visaType || ""})
-                              </td>
-                              <td className="py-1.5 px-2">
-                                <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${
-                                  adj.adjustmentType === 'UPGRADE'
-                                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
-                                    : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
-                                }`}>
-                                  {adj.adjustmentType || (adj.savedAmount > 0 ? 'SAVINGS' : 'ADJUSTMENT')}
-                                </span>
-                              </td>
-                              <td className="py-1.5 px-2 text-muted-foreground">
-                                {formatCurrency(adj.baselinePrice)}
-                              </td>
-                              <td className="py-1.5 px-2 font-bold text-foreground">
-                                {formatCurrency(adj.newPrice)}
-                              </td>
-                              <td className="py-1.5 px-2 font-extrabold text-foreground">
-                                {adj.adjustmentType === 'UPGRADE' ? `+${formatCurrency(adj.diffAmount)}` : `-${formatCurrency(adj.diffAmount)}`}
-                              </td>
-                              <td className="py-1.5 px-2 font-bold text-emerald-700 dark:text-emerald-400">
-                                {adj.additionalProfit > 0 && <span className="text-emerald-600">+{formatCurrency(adj.additionalProfit)}</span>}
-                                {adj.reducedProfit > 0 && <span className="text-rose-600">-{formatCurrency(adj.reducedProfit)}</span>}
-                                {adj.additionalProfit === 0 && adj.reducedProfit === 0 && <span>—</span>}
-                              </td>
-                              <td className="py-1.5 px-2 font-bold text-blue-600 dark:text-blue-400">
-                                {adj.additionalMargin > 0 && <span>+{formatCurrency(adj.additionalMargin)}</span>}
-                                {adj.reducedMargin > 0 && <span className="text-rose-600">-{formatCurrency(adj.reducedMargin)}</span>}
-                                {adj.additionalMargin === 0 && adj.reducedMargin === 0 && <span>—</span>}
-                              </td>
-                              <td className="py-1.5 px-2 text-muted-foreground">
-                                {adj.adjustedBy ? `${adj.adjustedBy.firstName} ${adj.adjustedBy.lastName}` : "Admin"}
-                              </td>
-                              <td className="py-1.5 px-2.5 text-right whitespace-nowrap">
-                                <div className="flex items-center justify-end gap-1.5">
-                                  {adj.additionalMargin > 0 ? (
-                                    adj.additionalMarginPaid ? (
-                                      <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                                        Paid {adj.additionalMarginPaidAt && `(${new Date(adj.additionalMarginPaidAt).toLocaleDateString('en-GB')})`}
+                          {visaPriceAdjustments.map((adj: any) => {
+                            const isIncrease = adj.adjustmentType === 'UPGRADE' || adj.newPrice > adj.baselinePrice;
+                            const diff = adj.diffAmount || Math.abs(adj.newPrice - adj.baselinePrice);
+                            const reducedProf = adj.reducedProfit > 0 ? adj.reducedProfit : (isIncrease ? (adj.additionalProfit || diff) : 0);
+                            const addlProf = !isIncrease ? (adj.additionalProfit || adj.savedAmount || diff) : 0;
+                            const reducedMarg = adj.reducedMargin > 0 ? adj.reducedMargin : 0;
+                            const addlMarg = !isIncrease ? adj.additionalMargin : 0;
+
+                            return (
+                              <tr key={adj.id} className="hover:bg-secondary/20 transition-colors">
+                                <td className="py-1.5 px-2.5 font-medium whitespace-nowrap">
+                                  {new Date(adj.adjustmentDate).toLocaleDateString("en-GB")}
+                                </td>
+                                <td className="py-1.5 px-2 font-bold text-foreground">
+                                  {adj.visaService?.passportNumber || "Visa"} ({adj.visaService?.visaType || ""})
+                                </td>
+                                <td className="py-1.5 px-2">
+                                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${
+                                    isIncrease
+                                      ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800'
+                                      : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
+                                  }`}>
+                                    {isIncrease ? 'RATE INCREASE' : 'SAVINGS'}
+                                  </span>
+                                </td>
+                                <td className="py-1.5 px-2 text-muted-foreground">
+                                  {formatCurrency(adj.baselinePrice)}
+                                </td>
+                                <td className="py-1.5 px-2 font-bold text-foreground">
+                                  {formatCurrency(adj.newPrice)}
+                                </td>
+                                <td className={`py-1.5 px-2 font-extrabold ${isIncrease ? 'text-amber-700 dark:text-amber-400' : 'text-emerald-700 dark:text-emerald-400'}`}>
+                                  {isIncrease ? `+${formatCurrency(diff)}` : `-${formatCurrency(diff)}`}
+                                </td>
+                                <td className="py-1.5 px-2 font-bold">
+                                  {isIncrease ? (
+                                    <span className="text-rose-600 dark:text-rose-400">-{formatCurrency(reducedProf)}</span>
+                                  ) : addlProf > 0 ? (
+                                    <span className="text-emerald-600 dark:text-emerald-400">+{formatCurrency(addlProf)}</span>
+                                  ) : (
+                                    <span>—</span>
+                                  )}
+                                </td>
+                                <td className="py-1.5 px-2 font-bold">
+                                  {isIncrease ? (
+                                    reducedMarg > 0 ? (
+                                      <span className="text-rose-600 dark:text-rose-400">
+                                        -{formatCurrency(reducedMarg)}
+                                        {adj.marginRate > 0 && <span className="text-[9px] text-muted-foreground ml-0.5">({adj.marginRate}%)</span>}
                                       </span>
                                     ) : (
-                                      isAdminUser && !isAgent ? (
-                                        <button
-                                          type="button"
-                                          onClick={() => handlePayAdditionalMargin('visa', adj.id)}
-                                          className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-600 hover:bg-blue-700 text-white transition-colors"
-                                        >
-                                          Pay Margin
-                                        </button>
-                                      ) : (
-                                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
-                                          Unpaid
-                                        </span>
-                                      )
+                                      <span className="text-muted-foreground">—</span>
                                     )
-                                  ) : null}
-                                  {(isAdminUser || isManagerUser || isOwner) && (
-                                    <button
-                                      type="button"
-                                      title="Remove price adjustment from booking"
-                                      onClick={() => handleDeleteAdjustment('visa', adj.id)}
-                                      className="p-1 text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded transition-colors cursor-pointer"
-                                    >
-                                      <Trash2 size={13} />
-                                    </button>
+                                  ) : addlMarg > 0 ? (
+                                    <span className="text-blue-600 dark:text-blue-400">
+                                      +{formatCurrency(addlMarg)}
+                                      {adj.marginRate > 0 && <span className="text-[9px] text-muted-foreground ml-0.5">({adj.marginRate}%)</span>}
+                                    </span>
+                                  ) : (
+                                    <span>—</span>
                                   )}
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
+                                </td>
+                                <td className="py-1.5 px-2 text-muted-foreground">
+                                  {adj.adjustedBy ? `${adj.adjustedBy.firstName} ${adj.adjustedBy.lastName}` : "Admin"}
+                                </td>
+                                <td className="py-1.5 px-2.5 text-right whitespace-nowrap">
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    {!isIncrease && addlMarg > 0 ? (
+                                      adj.additionalMarginPaid ? (
+                                        <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                                          Paid {adj.additionalMarginPaidAt && `(${new Date(adj.additionalMarginPaidAt).toLocaleDateString('en-GB')})`}
+                                        </span>
+                                      ) : (
+                                        isAdminUser && !isAgent ? (
+                                          <button
+                                            type="button"
+                                            onClick={() => handlePayAdditionalMargin('visa', adj.id)}
+                                            className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+                                          >
+                                            Pay Margin
+                                          </button>
+                                        ) : (
+                                          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                                            Unpaid
+                                          </span>
+                                        )
+                                      )
+                                    ) : null}
+                                    {(isAdminUser || isManagerUser || isOwner) && (
+                                      <button
+                                        type="button"
+                                        title="Remove price adjustment from booking"
+                                        onClick={() => handleDeleteAdjustment('visa', adj.id)}
+                                        className="p-1 text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded transition-colors cursor-pointer"
+                                      >
+                                        <Trash2 size={13} />
+                                      </button>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -5737,29 +5989,52 @@ export default function BookingManager({
                             </p>
                           </div>
                         )}
-                        {as.isPriceAdjusted && (
-                          <div className="p-1 px-2 rounded bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/50 flex flex-col gap-0.5 text-[10px]">
-                            <div className="flex items-center gap-1.5 text-emerald-800 dark:text-emerald-300 font-bold">
-                              <span className="flex items-center gap-1">
-                                <Tag size={10} />
-                                Price Adjusted {as.priceAdjustments?.[0]?.adjustmentType ? `(${as.priceAdjustments[0].adjustmentType})` : ''}
-                              </span>
-                              {as.originalPrice && (
-                                <span className="line-through text-muted-foreground font-semibold">
-                                  Orig: {formatCurrency(as.originalPrice)}
+                        {as.isPriceAdjusted && (() => {
+                          const orig = as.originalPrice ?? as.servicePrice;
+                          const isIncrease = as.servicePrice > orig;
+                          const diff = Math.abs(as.servicePrice - orig);
+
+                          return (
+                            <div className={`p-1 px-2 rounded border flex flex-col gap-0.5 text-[10px] ${
+                              isIncrease
+                                ? "bg-amber-500/10 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700/60"
+                                : "bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/50"
+                            }`}>
+                              <div className={`flex items-center gap-1.5 font-bold ${
+                                isIncrease
+                                  ? "text-amber-800 dark:text-amber-300"
+                                  : "text-emerald-800 dark:text-emerald-300"
+                              }`}>
+                                <span className="flex items-center gap-1">
+                                  {isIncrease ? (
+                                    <>
+                                      <ArrowUpRight size={10} className="text-amber-600 dark:text-amber-400" />
+                                      Rate Increased (+{formatCurrency(diff)})
+                                    </>
+                                  ) : (
+                                    <>
+                                      <ArrowDownRight size={10} className="text-emerald-600 dark:text-emerald-400" />
+                                      Price Adjusted (Saved: {formatCurrency(as.totalSavedAmount || diff)})
+                                    </>
+                                  )}
                                 </span>
-                              )}
-                            </div>
-                            {as.originalBookingDate && (
-                              <div className="flex items-center gap-2 text-[9px] text-muted-foreground">
-                                <span>Booked: {new Date(as.originalBookingDate).toLocaleDateString("en-GB")}</span>
-                                {as.priceAdjustments?.[0]?.adjustmentDate && (
-                                  <span>Adjusted: {new Date(as.priceAdjustments[0].adjustmentDate).toLocaleDateString("en-GB")}</span>
+                                {as.originalPrice && (
+                                  <span className="line-through text-muted-foreground font-semibold">
+                                    Orig: {formatCurrency(as.originalPrice)}
+                                  </span>
                                 )}
                               </div>
-                            )}
-                          </div>
-                        )}
+                              {as.originalBookingDate && (
+                                <div className="flex items-center gap-2 text-[9px] text-muted-foreground">
+                                  <span>Booked: {new Date(as.originalBookingDate).toLocaleDateString("en-GB")}</span>
+                                  {as.priceAdjustments?.[0]?.adjustmentDate && (
+                                    <span>Adjusted: {new Date(as.priceAdjustments[0].adjustmentDate).toLocaleDateString("en-GB")}</span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                       <div className="flex items-center gap-2">
                         <button
@@ -5855,82 +6130,109 @@ export default function BookingManager({
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border">
-                          {additionalServicePriceAdjustments.map((adj: any) => (
-                            <tr key={adj.id} className="hover:bg-secondary/20 transition-colors">
-                              <td className="py-1.5 px-2.5 font-medium whitespace-nowrap">
-                                {new Date(adj.adjustmentDate).toLocaleDateString("en-GB")}
-                              </td>
-                              <td className="py-1.5 px-2 font-bold text-foreground">
-                                {adj.additionalService?.serviceName || "Service"}
-                              </td>
-                              <td className="py-1.5 px-2">
-                                <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${
-                                  adj.adjustmentType === 'UPGRADE'
-                                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
-                                    : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
-                                }`}>
-                                  {adj.adjustmentType || (adj.savedAmount > 0 ? 'SAVINGS' : 'ADJUSTMENT')}
-                                </span>
-                              </td>
-                              <td className="py-1.5 px-2 text-muted-foreground">
-                                {formatCurrency(adj.baselinePrice)}
-                              </td>
-                              <td className="py-1.5 px-2 font-bold text-foreground">
-                                {formatCurrency(adj.newPrice)}
-                              </td>
-                              <td className="py-1.5 px-2 font-extrabold text-foreground">
-                                {adj.adjustmentType === 'UPGRADE' ? `+${formatCurrency(adj.diffAmount)}` : `-${formatCurrency(adj.diffAmount)}`}
-                              </td>
-                              <td className="py-1.5 px-2 font-bold text-emerald-700 dark:text-emerald-400">
-                                {adj.additionalProfit > 0 && <span className="text-emerald-600">+{formatCurrency(adj.additionalProfit)}</span>}
-                                {adj.reducedProfit > 0 && <span className="text-rose-600">-{formatCurrency(adj.reducedProfit)}</span>}
-                                {adj.additionalProfit === 0 && adj.reducedProfit === 0 && <span>—</span>}
-                              </td>
-                              <td className="py-1.5 px-2 font-bold text-blue-600 dark:text-blue-400">
-                                {adj.additionalMargin > 0 && <span>+{formatCurrency(adj.additionalMargin)}</span>}
-                                {adj.reducedMargin > 0 && <span className="text-rose-600">-{formatCurrency(adj.reducedMargin)}</span>}
-                                {adj.additionalMargin === 0 && adj.reducedMargin === 0 && <span>—</span>}
-                              </td>
-                              <td className="py-1.5 px-2 text-muted-foreground">
-                                {adj.adjustedBy ? `${adj.adjustedBy.firstName} ${adj.adjustedBy.lastName}` : "Admin"}
-                              </td>
-                              <td className="py-1.5 px-2.5 text-right whitespace-nowrap">
-                                <div className="flex items-center justify-end gap-1.5">
-                                  {adj.additionalMargin > 0 ? (
-                                    adj.additionalMarginPaid ? (
-                                      <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                                        Paid {adj.additionalMarginPaidAt && `(${new Date(adj.additionalMarginPaidAt).toLocaleDateString('en-GB')})`}
+                          {additionalServicePriceAdjustments.map((adj: any) => {
+                            const isIncrease = adj.adjustmentType === 'UPGRADE' || adj.newPrice > adj.baselinePrice;
+                            const diff = adj.diffAmount || Math.abs(adj.newPrice - adj.baselinePrice);
+                            const reducedProf = adj.reducedProfit > 0 ? adj.reducedProfit : (isIncrease ? (adj.additionalProfit || diff) : 0);
+                            const addlProf = !isIncrease ? (adj.additionalProfit || adj.savedAmount || diff) : 0;
+                            const reducedMarg = adj.reducedMargin > 0 ? adj.reducedMargin : 0;
+                            const addlMarg = !isIncrease ? adj.additionalMargin : 0;
+
+                            return (
+                              <tr key={adj.id} className="hover:bg-secondary/20 transition-colors">
+                                <td className="py-1.5 px-2.5 font-medium whitespace-nowrap">
+                                  {new Date(adj.adjustmentDate).toLocaleDateString("en-GB")}
+                                </td>
+                                <td className="py-1.5 px-2 font-bold text-foreground">
+                                  {adj.additionalService?.serviceName || "Service"}
+                                </td>
+                                <td className="py-1.5 px-2">
+                                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${
+                                    isIncrease
+                                      ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800'
+                                      : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
+                                  }`}>
+                                    {isIncrease ? 'RATE INCREASE' : 'SAVINGS'}
+                                  </span>
+                                </td>
+                                <td className="py-1.5 px-2 text-muted-foreground">
+                                  {formatCurrency(adj.baselinePrice)}
+                                </td>
+                                <td className="py-1.5 px-2 font-bold text-foreground">
+                                  {formatCurrency(adj.newPrice)}
+                                </td>
+                                <td className={`py-1.5 px-2 font-extrabold ${isIncrease ? 'text-amber-700 dark:text-amber-400' : 'text-emerald-700 dark:text-emerald-400'}`}>
+                                  {isIncrease ? `+${formatCurrency(diff)}` : `-${formatCurrency(diff)}`}
+                                </td>
+                                <td className="py-1.5 px-2 font-bold">
+                                  {isIncrease ? (
+                                    <span className="text-rose-600 dark:text-rose-400">-{formatCurrency(reducedProf)}</span>
+                                  ) : addlProf > 0 ? (
+                                    <span className="text-emerald-600 dark:text-emerald-400">+{formatCurrency(addlProf)}</span>
+                                  ) : (
+                                    <span>—</span>
+                                  )}
+                                </td>
+                                <td className="py-1.5 px-2 font-bold">
+                                  {isIncrease ? (
+                                    reducedMarg > 0 ? (
+                                      <span className="text-rose-600 dark:text-rose-400">
+                                        -{formatCurrency(reducedMarg)}
+                                        {adj.marginRate > 0 && <span className="text-[9px] text-muted-foreground ml-0.5">({adj.marginRate}%)</span>}
                                       </span>
                                     ) : (
-                                      isAdminUser && !isAgent ? (
-                                        <button
-                                          type="button"
-                                          onClick={() => handlePayAdditionalMargin('additional', adj.id)}
-                                          className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-600 hover:bg-blue-700 text-white transition-colors"
-                                        >
-                                          Pay Margin
-                                        </button>
-                                      ) : (
-                                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
-                                          Unpaid
-                                        </span>
-                                      )
+                                      <span className="text-muted-foreground">—</span>
                                     )
-                                  ) : null}
-                                  {(isAdminUser || isManagerUser || isOwner) && (
-                                    <button
-                                      type="button"
-                                      title="Remove price adjustment from booking"
-                                      onClick={() => handleDeleteAdjustment('additional', adj.id)}
-                                      className="p-1 text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded transition-colors cursor-pointer"
-                                    >
-                                      <Trash2 size={13} />
-                                    </button>
+                                  ) : addlMarg > 0 ? (
+                                    <span className="text-blue-600 dark:text-blue-400">
+                                      +{formatCurrency(addlMarg)}
+                                      {adj.marginRate > 0 && <span className="text-[9px] text-muted-foreground ml-0.5">({adj.marginRate}%)</span>}
+                                    </span>
+                                  ) : (
+                                    <span>—</span>
                                   )}
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
+                                </td>
+                                <td className="py-1.5 px-2 text-muted-foreground">
+                                  {adj.adjustedBy ? `${adj.adjustedBy.firstName} ${adj.adjustedBy.lastName}` : "Admin"}
+                                </td>
+                                <td className="py-1.5 px-2.5 text-right whitespace-nowrap">
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    {!isIncrease && addlMarg > 0 ? (
+                                      adj.additionalMarginPaid ? (
+                                        <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                                          Paid {adj.additionalMarginPaidAt && `(${new Date(adj.additionalMarginPaidAt).toLocaleDateString('en-GB')})`}
+                                        </span>
+                                      ) : (
+                                        isAdminUser && !isAgent ? (
+                                          <button
+                                            type="button"
+                                            onClick={() => handlePayAdditionalMargin('additional', adj.id)}
+                                            className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+                                          >
+                                            Pay Margin
+                                          </button>
+                                        ) : (
+                                          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                                            Unpaid
+                                          </span>
+                                        )
+                                      )
+                                    ) : null}
+                                    {(isAdminUser || isManagerUser || isOwner) && (
+                                      <button
+                                        type="button"
+                                        title="Remove price adjustment from booking"
+                                        onClick={() => handleDeleteAdjustment('additional', adj.id)}
+                                        className="p-1 text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded transition-colors cursor-pointer"
+                                      >
+                                        <Trash2 size={13} />
+                                      </button>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>

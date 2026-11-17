@@ -142,35 +142,35 @@ export default function ServicePriceAdjustmentModal({
     return 0;
   }, [booking]);
 
-  // Upgrade Calculations (Scenario B: when margin paid)
-  const additionalAgentMargin = useMemo(() => {
+  // Upgrade Calculations (Price Increased -> Vendor Cost Goes UP -> Profit & Margin REDUCED)
+  const reducedAgentMargin = useMemo(() => {
     if (!hasPaidMargin || !isUpgrade || diffAmount <= 0 || commissionRate <= 0) {
       return 0;
     }
     return Math.round(diffAmount * (commissionRate / 100) * 100) / 100;
   }, [hasPaidMargin, isUpgrade, diffAmount, commissionRate]);
 
-  const additionalProfit = useMemo(() => {
+  const reducedProfit = useMemo(() => {
     if (!hasPaidMargin || !isUpgrade || diffAmount <= 0) {
       return 0;
     }
-    return Math.round((diffAmount - additionalAgentMargin) * 100) / 100;
-  }, [hasPaidMargin, isUpgrade, diffAmount, additionalAgentMargin]);
+    return Math.round((diffAmount - reducedAgentMargin) * 100) / 100;
+  }, [hasPaidMargin, isUpgrade, diffAmount, reducedAgentMargin]);
 
-  // Downgrade Calculations (Scenario B: when margin paid)
-  const reducedAgentMargin = useMemo(() => {
+  // Downgrade Calculations (Price Decreased -> Vendor Cost Goes DOWN -> SAVINGS -> Additional Profit & Margin)
+  const additionalAgentMargin = useMemo(() => {
     if (!hasPaidMargin || !isDowngrade || diffAmount <= 0 || commissionRate <= 0) {
       return 0;
     }
     return Math.round(diffAmount * (commissionRate / 100) * 100) / 100;
   }, [hasPaidMargin, isDowngrade, diffAmount, commissionRate]);
 
-  const reducedProfit = useMemo(() => {
+  const additionalProfit = useMemo(() => {
     if (!hasPaidMargin || !isDowngrade || diffAmount <= 0) {
       return 0;
     }
-    return Math.round((diffAmount - reducedAgentMargin) * 100) / 100;
-  }, [hasPaidMargin, isDowngrade, diffAmount, reducedAgentMargin]);
+    return Math.round((diffAmount - additionalAgentMargin) * 100) / 100;
+  }, [hasPaidMargin, isDowngrade, diffAmount, additionalAgentMargin]);
 
   // Original profit calculation
   const originalProfit = useMemo(() => {
@@ -205,9 +205,9 @@ export default function ServicePriceAdjustmentModal({
 
   const totalProjectedProfit = useMemo(() => {
     if (isUpgrade) {
-      return Math.round((originalProfit + additionalProfit) * 100) / 100;
-    } else if (isDowngrade) {
       return Math.round((originalProfit - reducedProfit) * 100) / 100;
+    } else if (isDowngrade) {
+      return Math.round((originalProfit + additionalProfit) * 100) / 100;
     }
     return originalProfit;
   }, [originalProfit, isUpgrade, isDowngrade, additionalProfit, reducedProfit]);
@@ -330,15 +330,15 @@ export default function ServicePriceAdjustmentModal({
           <label className="text-xs font-bold text-foreground flex items-center justify-between">
             <span>New {serviceCategoryLabel} Price ({service?.currency || 'GBP'})</span>
             {isUpgrade && (
-              <span className="text-xs font-extrabold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/50 px-2 py-0.5 rounded border border-blue-300 dark:border-blue-800 flex items-center gap-1">
+              <span className="text-xs font-extrabold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 px-2 py-0.5 rounded border border-amber-300 dark:border-amber-800 flex items-center gap-1">
                 <ArrowUpRight size={13} />
-                Upgrade (+{formatCurrency(diffAmount)})
+                Rate Increased (+{formatCurrency(diffAmount)})
               </span>
             )}
             {isDowngrade && (
               <span className="text-xs font-extrabold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded border border-emerald-300 dark:border-emerald-800 flex items-center gap-1">
                 <ArrowDownRight size={13} />
-                Downgrade (-{formatCurrency(diffAmount)})
+                Rate Decreased / Savings (-{formatCurrency(diffAmount)})
               </span>
             )}
           </label>
@@ -370,69 +370,28 @@ export default function ServicePriceAdjustmentModal({
           <div className="bg-card p-3 rounded-lg border border-border shadow-xs space-y-2">
             <div className="flex items-center justify-between border-b border-border pb-1.5">
               <span className="text-xs font-bold text-foreground">
-                {isUpgrade ? 'Calculated Upgrade Breakdown' : 'Calculated Downgrade Breakdown'}
+                {isUpgrade ? 'Calculated Rate Increase Breakdown' : 'Calculated Savings Breakdown'}
               </span>
               <span className="text-[11px] font-semibold text-muted-foreground">
                 Adjustment Date: {new Date().toLocaleDateString('en-GB')}
               </span>
             </div>
 
-            {/* UPGRADE BLOCKS */}
+            {/* UPGRADE / RATE INCREASE BLOCKS */}
             {isUpgrade && (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1 text-xs">
-                <div className="p-2 rounded bg-secondary/40 border border-border/50">
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
-                    Upgrade Amount
+                <div className="p-2 rounded bg-amber-500/10 border border-amber-300 dark:border-amber-800/60">
+                  <span className="text-[10px] font-bold text-amber-800 dark:text-amber-300 uppercase tracking-wider block">
+                    Rate Increase Amount
                   </span>
-                  <span className="text-[13px] font-extrabold text-blue-600 dark:text-blue-400">
+                  <span className="text-[13px] font-extrabold text-amber-700 dark:text-amber-300">
                     +{formatCurrency(diffAmount)}
                   </span>
                 </div>
 
-                {/* Additional Agent Margin Block */}
-                <div className="p-2 rounded bg-secondary/40 border border-border/50">
-                  <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider block flex items-center gap-0.5">
-                    <BadgePercent size={11} />
-                    Additional Agent Margin
-                  </span>
-                  <span className="text-[13px] font-extrabold text-blue-600 dark:text-blue-400">
-                    +{formatCurrency(additionalAgentMargin)}
-                  </span>
-                  {commissionRate > 0 && (
-                    <span className="text-[10px] text-muted-foreground ml-1 font-semibold">
-                      ({commissionRate}%)
-                    </span>
-                  )}
-                </div>
-
-                {/* Additional Profit Block */}
-                <div className="p-2 rounded bg-secondary/40 border border-border/50 col-span-2 sm:col-span-1">
-                  <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider block flex items-center gap-0.5">
-                    <TrendingUp size={11} />
-                    Additional Profit
-                  </span>
-                  <span className="text-[13px] font-extrabold text-emerald-700 dark:text-emerald-400">
-                    +{formatCurrency(additionalProfit)}
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {/* DOWNGRADE BLOCKS */}
-            {isDowngrade && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1 text-xs">
-                <div className="p-2 rounded bg-secondary/40 border border-border/50">
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
-                    Downgrade Reduction
-                  </span>
-                  <span className="text-[13px] font-extrabold text-rose-600 dark:text-rose-400">
-                    -{formatCurrency(diffAmount)}
-                  </span>
-                </div>
-
                 {/* Reduced Agent Margin Block */}
-                <div className="p-2 rounded bg-secondary/40 border border-border/50">
-                  <span className="text-[10px] font-bold text-rose-600 uppercase tracking-wider block flex items-center gap-0.5">
+                <div className="p-2 rounded bg-rose-500/10 border border-rose-300 dark:border-rose-800/60">
+                  <span className="text-[10px] font-bold text-rose-700 dark:text-rose-300 uppercase tracking-wider block flex items-center gap-0.5">
                     <BadgePercent size={11} />
                     Reduced Agent Margin
                   </span>
@@ -447,8 +406,8 @@ export default function ServicePriceAdjustmentModal({
                 </div>
 
                 {/* Reduced Profit Block */}
-                <div className="p-2 rounded bg-secondary/40 border border-border/50 col-span-2 sm:col-span-1">
-                  <span className="text-[10px] font-bold text-rose-600 uppercase tracking-wider block flex items-center gap-0.5">
+                <div className="p-2 rounded bg-rose-500/10 border border-rose-300 dark:border-rose-800/60 col-span-2 sm:col-span-1">
+                  <span className="text-[10px] font-bold text-rose-700 dark:text-rose-300 uppercase tracking-wider block flex items-center gap-0.5">
                     <TrendingDown size={11} />
                     Reduced Profit
                   </span>
@@ -459,12 +418,53 @@ export default function ServicePriceAdjustmentModal({
               </div>
             )}
 
+            {/* DOWNGRADE / SAVINGS BLOCKS */}
+            {isDowngrade && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1 text-xs">
+                <div className="p-2 rounded bg-emerald-500/10 border border-emerald-300 dark:border-emerald-800/60">
+                  <span className="text-[10px] font-bold text-emerald-800 dark:text-emerald-300 uppercase tracking-wider block">
+                    Savings Amount
+                  </span>
+                  <span className="text-[13px] font-extrabold text-emerald-600 dark:text-emerald-400">
+                    +{formatCurrency(diffAmount)}
+                  </span>
+                </div>
+
+                {/* Additional Agent Margin Block */}
+                <div className="p-2 rounded bg-blue-500/10 border border-blue-300 dark:border-blue-800/60">
+                  <span className="text-[10px] font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wider block flex items-center gap-0.5">
+                    <BadgePercent size={11} />
+                    Additional Agent Margin
+                  </span>
+                  <span className="text-[13px] font-extrabold text-blue-600 dark:text-blue-400">
+                    +{formatCurrency(additionalAgentMargin)}
+                  </span>
+                  {commissionRate > 0 && (
+                    <span className="text-[10px] text-muted-foreground ml-1 font-semibold">
+                      ({commissionRate}%)
+                    </span>
+                  )}
+                </div>
+
+                {/* Additional Profit Block */}
+                <div className="p-2 rounded bg-emerald-500/10 border border-emerald-300 dark:border-emerald-800/60 col-span-2 sm:col-span-1">
+                  <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-wider block flex items-center gap-0.5">
+                    <TrendingUp size={11} />
+                    Additional Profit
+                  </span>
+                  <span className="text-[13px] font-extrabold text-emerald-700 dark:text-emerald-400">
+                    +{formatCurrency(additionalProfit)}
+                  </span>
+                </div>
+              </div>
+            )}
+
             <div className="pt-2 border-t border-dashed border-border/80 flex items-center justify-between text-xs font-bold">
               <span className="text-muted-foreground">Total Projected Profit:</span>
-              <span className="text-emerald-600 dark:text-emerald-400 font-extrabold text-sm">
+              <span className={`${totalProjectedProfit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'} font-extrabold text-sm`}>
                 {formatCurrency(totalProjectedProfit)}
                 <span className="text-[11px] font-normal text-muted-foreground ml-1">
-                  (Orig: {formatCurrency(originalProfit)} {isUpgrade ? `+ Addl: ${formatCurrency(additionalProfit)}` : `- Red: ${formatCurrency(reducedProfit)}`})
+                  (Orig: {formatCurrency(originalProfit)} {isUpgrade ? `- Red: ${formatCurrency(reducedProfit)}` : `+ Addl: ${formatCurrency(additionalProfit)}`})
                 </span>
               </span>
             </div>
