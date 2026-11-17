@@ -4935,6 +4935,163 @@ export class BookingsService {
   }
 
   /**
+   * Remove a price adjustment from the booking and restore the service price.
+   */
+  async deletePriceAdjustment(
+    bookingId: string,
+    serviceType: 'hotel' | 'transport' | 'visa' | 'additional',
+    adjustmentId: string,
+    actorId: string
+  ) {
+    let adjustment: any = null;
+
+    if (serviceType === 'hotel') {
+      adjustment = await prisma.hotelPriceAdjustment.findUnique({
+        where: { id: adjustmentId },
+        include: { accommodation: true },
+      });
+    } else if (serviceType === 'transport') {
+      adjustment = await prisma.transportPriceAdjustment.findUnique({
+        where: { id: adjustmentId },
+        include: { transport: true },
+      });
+    } else if (serviceType === 'visa') {
+      adjustment = await prisma.visaPriceAdjustment.findUnique({
+        where: { id: adjustmentId },
+        include: { visa: true },
+      });
+    } else if (serviceType === 'additional') {
+      adjustment = await prisma.additionalServicePriceAdjustment.findUnique({
+        where: { id: adjustmentId },
+        include: { additionalService: true },
+      });
+    }
+
+    if (!adjustment || adjustment.bookingId !== bookingId) {
+      throw new NotFoundException('Price adjustment record not found for this booking');
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // 1. If additionalMargin was paid out, delete the corresponding payout transaction
+      if (adjustment.additionalMarginPaid && adjustment.additionalMargin > 0) {
+        await tx.bookingTransaction.deleteMany({
+          where: {
+            bookingId: adjustment.bookingId,
+            notes: { contains: `${serviceType.toUpperCase()} Adjustment` },
+            amount: -adjustment.additionalMargin,
+          },
+        });
+      }
+
+      // 2. Revert service price back to baseline or previous adjustment rate
+      if (serviceType === 'hotel' && adjustment.accommodationId) {
+        const otherAdjustments = await tx.hotelPriceAdjustment.findMany({
+          where: {
+            accommodationId: adjustment.accommodationId,
+            id: { not: adjustmentId },
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+
+        const targetPrice = otherAdjustments.length > 0 ? otherAdjustments[0].newPrice : adjustment.baselinePrice;
+        const isAdjusted = otherAdjustments.length > 0;
+        const remainingSaved = otherAdjustments.reduce((sum, a) => sum + (a.savedAmount || 0), 0);
+
+        await tx.accommodationService.update({
+          where: { id: adjustment.accommodationId },
+          data: {
+            price: targetPrice,
+            isPriceAdjusted: isAdjusted,
+            totalSavedAmount: remainingSaved,
+          },
+        });
+        await tx.hotelPriceAdjustment.delete({ where: { id: adjustmentId } });
+      } else if (serviceType === 'transport' && adjustment.transportId) {
+        const otherAdjustments = await tx.transportPriceAdjustment.findMany({
+          where: {
+            transportId: adjustment.transportId,
+            id: { not: adjustmentId },
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+
+        const targetPrice = otherAdjustments.length > 0 ? otherAdjustments[0].newPrice : adjustment.baselinePrice;
+        const isAdjusted = otherAdjustments.length > 0;
+        const remainingSaved = otherAdjustments.reduce((sum, a) => sum + (a.savedAmount || 0), 0);
+
+        await tx.transportService.update({
+          where: { id: adjustment.transportId },
+          data: {
+            price: targetPrice,
+            isPriceAdjusted: isAdjusted,
+            totalSavedAmount: remainingSaved,
+          },
+        });
+        await tx.transportPriceAdjustment.delete({ where: { id: adjustmentId } });
+      } else if (serviceType === 'visa' && adjustment.visaId) {
+        const otherAdjustments = await tx.visaPriceAdjustment.findMany({
+          where: {
+            visaId: adjustment.visaId,
+            id: { not: adjustmentId },
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+
+        const targetPrice = otherAdjustments.length > 0 ? otherAdjustments[0].newPrice : adjustment.baselinePrice;
+        const isAdjusted = otherAdjustments.length > 0;
+        const remainingSaved = otherAdjustments.reduce((sum, a) => sum + (a.savedAmount || 0), 0);
+
+        await tx.visaService.update({
+          where: { id: adjustment.visaId },
+          data: {
+            price: targetPrice,
+            isPriceAdjusted: isAdjusted,
+            totalSavedAmount: remainingSaved,
+          },
+        });
+        await tx.visaPriceAdjustment.delete({ where: { id: adjustmentId } });
+      } else if (serviceType === 'additional' && adjustment.additionalServiceId) {
+        const otherAdjustments = await tx.additionalServicePriceAdjustment.findMany({
+          where: {
+            additionalServiceId: adjustment.additionalServiceId,
+            id: { not: adjustmentId },
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+
+        const targetPrice = otherAdjustments.length > 0 ? otherAdjustments[0].newPrice : adjustment.baselinePrice;
+        const isAdjusted = otherAdjustments.length > 0;
+        const remainingSaved = otherAdjustments.reduce((sum, a) => sum + (a.savedAmount || 0), 0);
+
+        await tx.additionalService.update({
+          where: { id: adjustment.additionalServiceId },
+          data: {
+            servicePrice: targetPrice,
+            isPriceAdjusted: isAdjusted,
+            totalSavedAmount: remainingSaved,
+          },
+        });
+        await tx.additionalServicePriceAdjustment.delete({ where: { id: adjustmentId } });
+      }
+    });
+
+    await vendorsService.syncBookingVendorPayments(bookingId);
+
+    await auditLogService.log({
+      userId: actorId,
+      action: 'Archive',
+      module: 'Bookings',
+      recordId: adjustmentId,
+      oldValue: { ...adjustment },
+      newValue: null,
+    });
+
+    await rabbitMQService.publish('booking.updated', { bookingId });
+
+    return { success: true, message: 'Price adjustment removed successfully' };
+  }
+
+  /**
    * Payout additional agent margin generated from refund surplus.
    */
   async payRefundSurplusMargin(

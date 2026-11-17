@@ -672,6 +672,23 @@ export const payAdditionalServiceMargin = asyncHandler(async (req: Authenticated
   });
 });
 
+export const deletePriceAdjustment = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const isAllowed = req.user!.roles.some((role: string) =>
+    ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'BRANCH_MANAGER', 'ADMINISTRATOR', 'ROOT'].includes(role.toUpperCase())
+  );
+  if (!isAllowed) {
+    res.status(403).json({ success: false, message: 'Only administrators or managers can remove price adjustments' });
+    return;
+  }
+  const { id, serviceType, adjustmentId } = req.params;
+  const result = await bookingsService.deletePriceAdjustment(id, serviceType as any, adjustmentId, req.user!.id);
+  res.status(200).json({
+    success: true,
+    message: 'Price adjustment removed successfully',
+    data: result,
+  });
+});
+
 export const payRefundSurplusMargin = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const isAllowed = req.user!.roles.some((role: string) =>
     ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'BRANCH_MANAGER'].includes(role.toUpperCase())

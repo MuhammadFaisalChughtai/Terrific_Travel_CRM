@@ -1229,6 +1229,30 @@ export default function BookingManager({
     }
   };
 
+  const handleDeleteAdjustment = async (serviceType: string, adjustmentId: string) => {
+    if (
+      !window.confirm(
+        "Are you sure you want to remove this price adjustment from the booking? The service price will be reverted back to its baseline price, and all financial totals will be recalculated."
+      )
+    ) {
+      return;
+    }
+    const bId = booking?.id || bookingId;
+    try {
+      await apiClient.delete(`/bookings/${bId}/adjustments/${serviceType}/${adjustmentId}`);
+      toast.success("Price adjustment removed successfully!");
+      queryClient.invalidateQueries({ queryKey: ["booking", bId] });
+      queryClient.invalidateQueries({ queryKey: ["bookings"] });
+      queryClient.invalidateQueries({ queryKey: ["agent-margins"] });
+    } catch (err: any) {
+      toast.error(
+        err.response?.data?.message ||
+          err.response?.data?.error ||
+          "Failed to remove price adjustment."
+      );
+    }
+  };
+
   const handlePayRefundAdditionalMargin = async () => {
     if (
       !window.confirm(
@@ -4792,29 +4816,39 @@ export default function BookingManager({
                                 {adj.adjustedBy ? `${adj.adjustedBy.firstName} ${adj.adjustedBy.lastName}` : "Admin"}
                               </td>
                               <td className="py-1.5 px-2.5 text-right whitespace-nowrap">
-                                {adj.additionalMargin > 0 ? (
-                                  adj.additionalMarginPaid ? (
-                                    <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                                      Paid {adj.additionalMarginPaidAt && `(${new Date(adj.additionalMarginPaidAt).toLocaleDateString('en-GB')})`}
-                                    </span>
-                                  ) : (
-                                    isAdminUser && !isAgent ? (
-                                      <button
-                                        type="button"
-                                        onClick={() => handlePayAdditionalMargin('hotel', adj.id)}
-                                        className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-600 hover:bg-blue-700 text-white transition-colors"
-                                      >
-                                        Pay Margin
-                                      </button>
-                                    ) : (
-                                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
-                                        Unpaid
+                                <div className="flex items-center justify-end gap-1.5">
+                                  {adj.additionalMargin > 0 ? (
+                                    adj.additionalMarginPaid ? (
+                                      <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                                        Paid {adj.additionalMarginPaidAt && `(${new Date(adj.additionalMarginPaidAt).toLocaleDateString('en-GB')})`}
                                       </span>
+                                    ) : (
+                                      isAdminUser && !isAgent ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => handlePayAdditionalMargin('hotel', adj.id)}
+                                          className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+                                        >
+                                          Pay Margin
+                                        </button>
+                                      ) : (
+                                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                                          Unpaid
+                                        </span>
+                                      )
                                     )
-                                  )
-                                ) : (
-                                  <span className="text-muted-foreground text-[10px]">—</span>
-                                )}
+                                  ) : null}
+                                  {(isAdminUser || isManagerUser || isOwner) && (
+                                    <button
+                                      type="button"
+                                      title="Remove price adjustment from booking"
+                                      onClick={() => handleDeleteAdjustment('hotel', adj.id)}
+                                      className="p-1 text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded transition-colors cursor-pointer"
+                                    >
+                                      <Trash2 size={13} />
+                                    </button>
+                                  )}
+                                </div>
                               </td>
                             </tr>
                           ))}
@@ -5231,29 +5265,39 @@ export default function BookingManager({
                                 {adj.adjustedBy ? `${adj.adjustedBy.firstName} ${adj.adjustedBy.lastName}` : "Admin"}
                               </td>
                               <td className="py-1.5 px-2.5 text-right whitespace-nowrap">
-                                {adj.additionalMargin > 0 ? (
-                                  adj.additionalMarginPaid ? (
-                                    <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                                      Paid {adj.additionalMarginPaidAt && `(${new Date(adj.additionalMarginPaidAt).toLocaleDateString('en-GB')})`}
-                                    </span>
-                                  ) : (
-                                    isAdminUser && !isAgent ? (
-                                      <button
-                                        type="button"
-                                        onClick={() => handlePayAdditionalMargin('transport', adj.id)}
-                                        className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-600 hover:bg-blue-700 text-white transition-colors"
-                                      >
-                                        Pay Margin
-                                      </button>
-                                    ) : (
-                                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
-                                        Unpaid
+                                <div className="flex items-center justify-end gap-1.5">
+                                  {adj.additionalMargin > 0 ? (
+                                    adj.additionalMarginPaid ? (
+                                      <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                                        Paid {adj.additionalMarginPaidAt && `(${new Date(adj.additionalMarginPaidAt).toLocaleDateString('en-GB')})`}
                                       </span>
+                                    ) : (
+                                      isAdminUser && !isAgent ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => handlePayAdditionalMargin('transport', adj.id)}
+                                          className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+                                        >
+                                          Pay Margin
+                                        </button>
+                                      ) : (
+                                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                                          Unpaid
+                                        </span>
+                                      )
                                     )
-                                  )
-                                ) : (
-                                  <span className="text-muted-foreground text-[10px]">—</span>
-                                )}
+                                  ) : null}
+                                  {(isAdminUser || isManagerUser || isOwner) && (
+                                    <button
+                                      type="button"
+                                      title="Remove price adjustment from booking"
+                                      onClick={() => handleDeleteAdjustment('transport', adj.id)}
+                                      className="p-1 text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded transition-colors cursor-pointer"
+                                    >
+                                      <Trash2 size={13} />
+                                    </button>
+                                  )}
+                                </div>
                               </td>
                             </tr>
                           ))}
@@ -5531,29 +5575,39 @@ export default function BookingManager({
                                 {adj.adjustedBy ? `${adj.adjustedBy.firstName} ${adj.adjustedBy.lastName}` : "Admin"}
                               </td>
                               <td className="py-1.5 px-2.5 text-right whitespace-nowrap">
-                                {adj.additionalMargin > 0 ? (
-                                  adj.additionalMarginPaid ? (
-                                    <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                                      Paid {adj.additionalMarginPaidAt && `(${new Date(adj.additionalMarginPaidAt).toLocaleDateString('en-GB')})`}
-                                    </span>
-                                  ) : (
-                                    isAdminUser && !isAgent ? (
-                                      <button
-                                        type="button"
-                                        onClick={() => handlePayAdditionalMargin('visa', adj.id)}
-                                        className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-600 hover:bg-blue-700 text-white transition-colors"
-                                      >
-                                        Pay Margin
-                                      </button>
-                                    ) : (
-                                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
-                                        Unpaid
+                                <div className="flex items-center justify-end gap-1.5">
+                                  {adj.additionalMargin > 0 ? (
+                                    adj.additionalMarginPaid ? (
+                                      <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                                        Paid {adj.additionalMarginPaidAt && `(${new Date(adj.additionalMarginPaidAt).toLocaleDateString('en-GB')})`}
                                       </span>
+                                    ) : (
+                                      isAdminUser && !isAgent ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => handlePayAdditionalMargin('visa', adj.id)}
+                                          className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+                                        >
+                                          Pay Margin
+                                        </button>
+                                      ) : (
+                                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                                          Unpaid
+                                        </span>
+                                      )
                                     )
-                                  )
-                                ) : (
-                                  <span className="text-muted-foreground text-[10px]">—</span>
-                                )}
+                                  ) : null}
+                                  {(isAdminUser || isManagerUser || isOwner) && (
+                                    <button
+                                      type="button"
+                                      title="Remove price adjustment from booking"
+                                      onClick={() => handleDeleteAdjustment('visa', adj.id)}
+                                      className="p-1 text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded transition-colors cursor-pointer"
+                                    >
+                                      <Trash2 size={13} />
+                                    </button>
+                                  )}
+                                </div>
                               </td>
                             </tr>
                           ))}
@@ -5841,29 +5895,39 @@ export default function BookingManager({
                                 {adj.adjustedBy ? `${adj.adjustedBy.firstName} ${adj.adjustedBy.lastName}` : "Admin"}
                               </td>
                               <td className="py-1.5 px-2.5 text-right whitespace-nowrap">
-                                {adj.additionalMargin > 0 ? (
-                                  adj.additionalMarginPaid ? (
-                                    <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                                      Paid {adj.additionalMarginPaidAt && `(${new Date(adj.additionalMarginPaidAt).toLocaleDateString('en-GB')})`}
-                                    </span>
-                                  ) : (
-                                    isAdminUser && !isAgent ? (
-                                      <button
-                                        type="button"
-                                        onClick={() => handlePayAdditionalMargin('additional', adj.id)}
-                                        className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-600 hover:bg-blue-700 text-white transition-colors"
-                                      >
-                                        Pay Margin
-                                      </button>
-                                    ) : (
-                                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
-                                        Unpaid
+                                <div className="flex items-center justify-end gap-1.5">
+                                  {adj.additionalMargin > 0 ? (
+                                    adj.additionalMarginPaid ? (
+                                      <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                                        Paid {adj.additionalMarginPaidAt && `(${new Date(adj.additionalMarginPaidAt).toLocaleDateString('en-GB')})`}
                                       </span>
+                                    ) : (
+                                      isAdminUser && !isAgent ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => handlePayAdditionalMargin('additional', adj.id)}
+                                          className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+                                        >
+                                          Pay Margin
+                                        </button>
+                                      ) : (
+                                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                                          Unpaid
+                                        </span>
+                                      )
                                     )
-                                  )
-                                ) : (
-                                  <span className="text-muted-foreground text-[10px]">—</span>
-                                )}
+                                  ) : null}
+                                  {(isAdminUser || isManagerUser || isOwner) && (
+                                    <button
+                                      type="button"
+                                      title="Remove price adjustment from booking"
+                                      onClick={() => handleDeleteAdjustment('additional', adj.id)}
+                                      className="p-1 text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded transition-colors cursor-pointer"
+                                    >
+                                      <Trash2 size={13} />
+                                    </button>
+                                  )}
+                                </div>
                               </td>
                             </tr>
                           ))}
