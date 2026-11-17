@@ -3953,6 +3953,7 @@ export function renderTransportVoucher(
   const managerName = rawManager || "—";
   const noteSupplierRef = rawManager || "Transport supplier";
 
+  html = html.replace(/{{TRANSPORT_MANAGER}}/g, managerName);
   html = html.replace(/{{COMPANY_MANAGER_NAME}}/g, managerName);
   html = html.replace(/{{VENDOR_MANAGER_NAME}}/g, managerName);
   html = html.replace(/{{COMPANY_NAME}}/g, managerName);
@@ -3965,17 +3966,17 @@ export function renderTransportVoucher(
     transfers[0]?.vendor?.supportEmail || "—",
   );
 
-  // In Fulfillment Vendor Details or any info-box, replace any Company Name / Vendor Name paragraph
-  // and ensure it displays "Company Manager Name: <managerName>"
+  // In Fulfillment Vendor Details or any info-box, replace any Company Manager Name / Company Name / Vendor Name paragraph
+  // and ensure it displays "Transport Manager: <managerName>"
   html = html.replace(
-    /<p[^>]*><strong>\s*(?:Company\s*Manager\s*Name|Vendor\s*Name|Company\s*Name):?\s*<\/strong>\s*(?:{{[^}]+}}|[^<]*)<\/p>/gi,
-    `<p><strong>Company Manager Name:</strong> ${managerName}</p>`
+    /<p[^>]*><strong>\s*(?:Transport\s*Manager(?:\s*Name)?|Company\s*Manager(?:\s*Name)?|Vendor\s*Name|Company\s*Name):?\s*<\/strong>\s*(?:{{[^}]+}}|[^<]*)<\/p>/gi,
+    `<p><strong>Transport Manager:</strong> ${managerName}</p>`
   );
 
-  // Instead of company/vendor name label in transport voucher, display Company Manager Name
+  // Instead of company/vendor name or company manager name label in transport voucher, display Transport Manager
   html = html.replace(
-    /(<p[^>]*><strong>\s*)(?:Vendor|Company)\s*Name:?(\s*<\/strong>)/gi,
-    `$1Company Manager Name:$2`
+    /(<p[^>]*><strong>\s*)(?:Transport\s*Manager(?:\s*Name)?|Company\s*Manager(?:\s*Name)?|Vendor\s*Name|Company\s*Name):?(\s*<\/strong>)/gi,
+    `$1Transport Manager:$2`
   );
 
   // Replace any standalone {{VENDOR_NAME}} placeholder left in notes

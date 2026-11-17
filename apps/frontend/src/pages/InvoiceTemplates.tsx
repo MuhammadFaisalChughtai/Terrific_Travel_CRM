@@ -381,7 +381,7 @@ tbody tr:nth-child(even) { background: #F8FAFC; }
       </div>
       <div class="info-box">
         <h3>Fulfillment Vendor Details</h3>
-        <p><strong>Company Manager Name:</strong> {{COMPANY_MANAGER_NAME}}</p>
+        <p><strong>Transport Manager:</strong> {{COMPANY_MANAGER_NAME}}</p>
         <p><strong>Phone:</strong> {{VENDOR_PHONE}}</p>
         <p><strong>Email:</strong> {{VENDOR_EMAIL}}</p>
       </div>
