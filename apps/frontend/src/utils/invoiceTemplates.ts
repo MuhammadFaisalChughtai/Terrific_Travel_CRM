@@ -861,14 +861,33 @@ export function downloadDocument(htmlContent: string, filename: string) {
     }
   } catch (err) {
     console.warn("downloadDocument pagination error:", err);
+  } finally {
+    // Clean up measurement attachment so html2pdf captures at (0, 0) and doesn't get clipped off-screen
+    if (document.body.contains(element)) {
+      document.body.removeChild(element);
+    }
+    element.style.position = "static";
+    element.style.left = "auto";
+    element.style.top = "auto";
+    element.style.width = "100%";
+    element.style.maxWidth = "800px";
+    element.style.margin = "0 auto";
+    element.style.background = "#FFFFFF";
   }
 
   const opt = {
-    margin: [12, 12, 12, 12] as [number, number, number, number],
+    margin: [10, 10, 10, 10] as [number, number, number, number],
     filename: filename,
     image: { type: "jpeg" as const, quality: 0.98 },
-    html2canvas: { scale: 2, useCORS: true },
-    jsPDF: { unit: "mm", format: "a4", orientation: "portrait" as const },
+    html2canvas: {
+      scale: 2,
+      useCORS: true,
+      letterRendering: true,
+      logging: false,
+      scrollX: 0,
+      scrollY: 0,
+    },
+    jsPDF: { unit: "mm" as const, format: "a4" as const, orientation: "portrait" as const },
     pagebreak: { mode: ["avoid-all", "css", "legacy"] },
   };
 
@@ -876,10 +895,8 @@ export function downloadDocument(htmlContent: string, filename: string) {
     .set(opt)
     .from(element)
     .save()
-    .finally(() => {
-      if (document.body.contains(element)) {
-        document.body.removeChild(element);
-      }
+    .catch((err: any) => {
+      console.error("downloadDocument failed:", err);
     });
 }
 
