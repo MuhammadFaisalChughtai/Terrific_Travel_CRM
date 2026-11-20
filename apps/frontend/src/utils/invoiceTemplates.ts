@@ -2035,28 +2035,35 @@ function getTicketNumber(
           (v: any) => v && typeof v === "object" && (v.eticket || v.ticketNo),
         );
         if (firstValWithTicket) {
-          return String((firstValWithTicket as any).eticket || (firstValWithTicket as any).ticketNo);
+          const fallbackTkt = String(
+            (firstValWithTicket as any).eticket ||
+              (firstValWithTicket as any).ticketNo,
+          ).trim();
+          if (fallbackTkt) return fallbackTkt;
         }
       } catch (e) {
-        // Fall back to raw string
+        // Ignore malformed JSON and fall through to flight-level / deterministic ticket lookup
       }
-    }
-    const list = raw
-      .split(/[,;\n]+/)
-      .map((s) => s.trim())
-      .filter(Boolean);
-    if (list.length > 1) {
-      if (passengerIndex < list.length) {
-        return list[passengerIndex];
+    } else if (!raw.startsWith("{")) {
+      const list = raw
+        .split(/[,;\n]+/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (list.length > 1) {
+        if (passengerIndex < list.length) {
+          return list[passengerIndex];
+        }
+        return list[0];
       }
-      return list[0];
+      return raw;
     }
-    if (!raw.startsWith("{")) return raw;
   }
-  if (passenger?.ticketNo && !String(passenger.ticketNo).startsWith("{")) return passenger.ticketNo;
+  if (passenger?.ticketNo && !String(passenger.ticketNo).trim().startsWith("{")) {
+    return String(passenger.ticketNo).trim();
+  }
 
   const rawFlightTickets = flight?.confirmationNumber || flight?.eTicket;
-  if (rawFlightTickets) {
+  if (rawFlightTickets && !String(rawFlightTickets).trim().startsWith("{")) {
     const list = String(rawFlightTickets)
       .split(/[,;\n]+/)
       .map((s) => s.trim())
