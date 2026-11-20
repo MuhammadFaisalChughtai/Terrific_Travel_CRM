@@ -1864,10 +1864,21 @@ function getAirlineName(flightNo: string): string {
   return airlines[code] || `${code} Air`;
 }
 
+// Helper to extract clean 3-letter IATA airport code
+function extractCleanAirportCode(str: string): string {
+  if (!str) return "";
+  const match = str.match(/\(([^)]+)\)/);
+  if (match) return match[1].trim().toUpperCase();
+  const clean = str.trim().toUpperCase();
+  if (/^[A-Z]{3}$/.test(clean)) return clean;
+  const wordMatch = clean.match(/\b([A-Z]{3})\b/);
+  return wordMatch ? wordMatch[1] : clean.substring(0, 3);
+}
+
 // Helper to resolve specific passenger PNR
 function getPassengerPnr(passenger: any, flight: any): string {
-  if (passenger?.eticket) {
-    const raw = String(passenger.eticket).trim();
+  const raw = String(passenger?.eticket || passenger?.ticketNo || "").trim();
+  if (raw) {
     if (raw.startsWith("{") && raw.endsWith("}")) {
       try {
         const map = JSON.parse(raw);
@@ -1875,11 +1886,9 @@ function getPassengerPnr(passenger: any, flight: any): string {
           .substring(0, 2)
           .toUpperCase();
         const flightAirlineName = getAirlineName(flight?.flightNo);
-        const flightPnr = (flight?.pnr || "").trim().toUpperCase();
-        const depCode =
-          (flight?.departedFrom || "").match(/\(([^)]+)\)/)?.[1] || "";
-        const arrCode =
-          (flight?.arrivedAt || "").match(/\(([^)]+)\)/)?.[1] || "";
+        const flightPnr = (flight?.pnr || flight?.gdsPnr || flight?.airlinePnr || "").trim().toUpperCase();
+        const depCode = extractCleanAirportCode(flight?.departedFrom || "");
+        const arrCode = extractCleanAirportCode(flight?.arrivedAt || "");
 
         let bestVal: any = null;
         let highestScore = -1;
@@ -1893,18 +1902,22 @@ function getPassengerPnr(passenger: any, flight: any): string {
           if (
             flightPnr &&
             flightPnr.length >= 2 &&
-            kUpper.includes(flightPnr)
+            (kUpper.includes(flightPnr) || (typeof val === "object" && val !== null && String((val as any).pnr || "").toUpperCase() === flightPnr))
           ) {
             score += 100;
           }
-          // 2. Route Sector Match (+30)
+          // 2. Route Sector Match (+60 for both, +20 for single)
           if (
             depCode &&
             arrCode &&
-            kUpper.includes(depCode.toUpperCase()) &&
-            kUpper.includes(arrCode.toUpperCase())
+            kUpper.includes(depCode) &&
+            kUpper.includes(arrCode)
           ) {
-            score += 30;
+            score += 60;
+          } else if (depCode && kUpper.includes(depCode)) {
+            score += 20;
+          } else if (arrCode && kUpper.includes(arrCode)) {
+            score += 20;
           }
           // 3. Airline / Carrier Match (+10)
           if (
@@ -1927,22 +1940,26 @@ function getPassengerPnr(passenger: any, flight: any): string {
             bestVal !== null &&
             (bestVal as any).pnr
           ) {
-            return String((bestVal as any).pnr);
+            return String((bestVal as any).pnr).trim();
           }
-          if (typeof bestVal === "string") return bestVal;
+          if (typeof bestVal === "string") return bestVal.trim();
         }
 
-        for (const val of Object.values(map)) {
-          if (typeof val === "object" && val !== null && (val as any).pnr) {
-            return String((val as any).pnr);
+        // If no match found by score, but flight has no pnr, do not blindly pick first if multiple exist
+        if (!flight?.pnr) {
+          const vals = Object.values(map);
+          if (vals.length === 1 && typeof vals[0] === "object" && vals[0] !== null && (vals[0] as any).pnr) {
+            return String((vals[0] as any).pnr).trim();
           }
         }
       } catch (e) {
         // Fall back
       }
+    } else if (!raw.startsWith("{")) {
+      return raw;
     }
   }
-  return flight?.pnr || "—";
+  return (flight?.pnr || flight?.gdsPnr || flight?.airlinePnr || "—").trim();
 }
 
 // Helper to generate deterministic realistic e-ticket number
@@ -1951,8 +1968,8 @@ function getTicketNumber(
   flight: any,
   passengerIndex: number = 0,
 ): string {
-  if (passenger?.eticket) {
-    const raw = String(passenger.eticket).trim();
+  const raw = String(passenger?.eticket || passenger?.ticketNo || "").trim();
+  if (raw) {
     if (raw.startsWith("{") && raw.endsWith("}")) {
       try {
         const map = JSON.parse(raw);
@@ -1960,11 +1977,9 @@ function getTicketNumber(
           .substring(0, 2)
           .toUpperCase();
         const flightAirlineName = getAirlineName(flight?.flightNo);
-        const flightPnr = (flight?.pnr || "").trim().toUpperCase();
-        const depCode =
-          (flight?.departedFrom || "").match(/\(([^)]+)\)/)?.[1] || "";
-        const arrCode =
-          (flight?.arrivedAt || "").match(/\(([^)]+)\)/)?.[1] || "";
+        const flightPnr = (flight?.pnr || flight?.gdsPnr || flight?.airlinePnr || "").trim().toUpperCase();
+        const depCode = extractCleanAirportCode(flight?.departedFrom || "");
+        const arrCode = extractCleanAirportCode(flight?.arrivedAt || "");
 
         let bestVal: any = null;
         let highestScore = -1;
@@ -1977,17 +1992,21 @@ function getTicketNumber(
           if (
             flightPnr &&
             flightPnr.length >= 2 &&
-            kUpper.includes(flightPnr)
+            (kUpper.includes(flightPnr) || (typeof val === "object" && val !== null && String((val as any).pnr || "").toUpperCase() === flightPnr))
           ) {
             score += 100;
           }
           if (
             depCode &&
             arrCode &&
-            kUpper.includes(depCode.toUpperCase()) &&
-            kUpper.includes(arrCode.toUpperCase())
+            kUpper.includes(depCode) &&
+            kUpper.includes(arrCode)
           ) {
-            score += 30;
+            score += 60;
+          } else if (depCode && kUpper.includes(depCode)) {
+            score += 20;
+          } else if (arrCode && kUpper.includes(arrCode)) {
+            score += 20;
           }
           if (
             (flightAirlineName &&
@@ -2005,17 +2024,18 @@ function getTicketNumber(
 
         if (bestVal) {
           if (typeof bestVal === "object" && bestVal !== null) {
-            return String((bestVal as any).eticket || "");
+            const tkt = (bestVal as any).eticket || (bestVal as any).ticketNo;
+            if (tkt) return String(tkt);
+          } else if (typeof bestVal === "string") {
+            return bestVal;
           }
-          return String(bestVal);
         }
 
-        const firstVal = Object.values(map).find((v) => !!v);
-        if (firstVal) {
-          if (typeof firstVal === "object" && firstVal !== null) {
-            return String((firstVal as any).eticket || "");
-          }
-          return String(firstVal);
+        const firstValWithTicket = Object.values(map).find(
+          (v: any) => v && typeof v === "object" && (v.eticket || v.ticketNo),
+        );
+        if (firstValWithTicket) {
+          return String((firstValWithTicket as any).eticket || (firstValWithTicket as any).ticketNo);
         }
       } catch (e) {
         // Fall back to raw string
@@ -2031,9 +2051,9 @@ function getTicketNumber(
       }
       return list[0];
     }
-    return raw;
+    if (!raw.startsWith("{")) return raw;
   }
-  if (passenger?.ticketNo) return passenger.ticketNo;
+  if (passenger?.ticketNo && !String(passenger.ticketNo).startsWith("{")) return passenger.ticketNo;
 
   const rawFlightTickets = flight?.confirmationNumber || flight?.eTicket;
   if (rawFlightTickets) {
@@ -2070,6 +2090,245 @@ function getTicketNumber(
   return `${prefix}${num}`;
 }
 
+// Helper to resolve all PNRs for a passenger across ticket flights with sector labels
+function getPassengerPnrsForTicket(
+  passenger: any,
+  flights: any[],
+): { pnr: string; label?: string }[] {
+  const result: { pnr: string; label?: string }[] = [];
+  const seenPnrs = new Set<string>();
+
+  if (flights && flights.length > 0) {
+    const flightPnrs: { flight: any; pnr: string }[] = [];
+    flights.forEach((f) => {
+      const pnr = getPassengerPnr(passenger, f);
+      if (
+        pnr &&
+        pnr !== "—" &&
+        pnr.toUpperCase() !== "PENDING" &&
+        pnr.toUpperCase() !== "N/A"
+      ) {
+        flightPnrs.push({ flight: f, pnr });
+      }
+    });
+
+    const uniquePnrs = Array.from(new Set(flightPnrs.map((item) => item.pnr)));
+
+    if (uniquePnrs.length === 1) {
+      return [{ pnr: uniquePnrs[0] }];
+    } else if (uniquePnrs.length > 1) {
+      uniquePnrs.forEach((pnrVal) => {
+        const segs = flightPnrs
+          .filter((item) => item.pnr === pnrVal)
+          .map((item) => item.flight);
+        let routeLabel = "";
+        if (segs.length > 0) {
+          const firstDep = extractCleanAirportCode(segs[0].departedFrom || "");
+          const lastArr = extractCleanAirportCode(
+            segs[segs.length - 1].arrivedAt || "",
+          );
+          if (firstDep && lastArr) {
+            routeLabel = `${firstDep} → ${lastArr}`;
+          }
+        }
+        result.push({ pnr: pnrVal, label: routeLabel });
+        seenPnrs.add(pnrVal.toUpperCase());
+      });
+      return result;
+    }
+  }
+
+  // Also check passenger eticket/ticketNo JSON if not yet captured
+  const raw = String(passenger?.eticket || passenger?.ticketNo || "").trim();
+  if (raw.startsWith("{") && raw.endsWith("}")) {
+    try {
+      const map = JSON.parse(raw);
+      Object.entries(map).forEach(([key, val]: [string, any]) => {
+        if (!val) return;
+        const pnrVal =
+          typeof val === "object" && val !== null ? val.pnr : (typeof val === "string" ? val : "");
+        if (pnrVal && typeof pnrVal === "string") {
+          const clean = pnrVal.trim().toUpperCase();
+          if (
+            clean &&
+            clean !== "—" &&
+            clean !== "PENDING" &&
+            clean !== "N/A" &&
+            !seenPnrs.has(clean)
+          ) {
+            seenPnrs.add(clean);
+            const match = key.match(/\(([^)]+)\)/);
+            const sectorLabel = match ? match[1].replace(/->/g, "→").trim() : "";
+            result.push({ pnr: pnrVal.trim(), label: sectorLabel });
+          }
+        }
+      });
+    } catch (e) {}
+  } else if (raw && !raw.startsWith("{") && result.length === 0) {
+    result.push({ pnr: raw });
+  }
+
+  if (result.length === 0) {
+    result.push({ pnr: flights?.[0]?.pnr || "—" });
+  }
+
+  return result;
+}
+
+// Helper to render Passenger PNR cell in ticket table
+function renderPassengerPnrsCell(passenger: any, flights: any[]): string {
+  const pnrList = getPassengerPnrsForTicket(passenger, flights);
+  if (!pnrList || pnrList.length === 0) {
+    return `<span style="color: #94A3B8;">—</span>`;
+  }
+  if (pnrList.length === 1 && !pnrList[0].label) {
+    return `<span style="color: #0EA5E9; font-family: monospace; font-size: 11px; font-weight: bold;">${pnrList[0].pnr}</span>`;
+  }
+  return `
+    <div style="display: flex; flex-direction: column; gap: 3px;">
+      ${pnrList
+        .map(
+          (item) => `
+        <div style="line-height: 1.3;">
+          <strong style="color: #0EA5E9; font-family: monospace; font-size: 11px;">${item.pnr}</strong>
+          ${item.label ? `<span style="font-size: 9px; color: #64748B; font-weight: 600; margin-left: 3px;">(${item.label})</span>` : ""}
+        </div>
+      `,
+        )
+        .join("")}
+    </div>
+  `;
+}
+
+// Helper to resolve all E-Ticket numbers for a passenger across ticket flights with sector labels
+function getPassengerTicketsForTicket(
+  passenger: any,
+  flights: any[],
+  passengerIndex: number = 0,
+): { ticket: string; label?: string }[] {
+  const result: { ticket: string; label?: string }[] = [];
+  const seenTickets = new Set<string>();
+
+  if (flights && flights.length > 0) {
+    const flightTkts: { flight: any; ticket: string }[] = [];
+    flights.forEach((f) => {
+      const tkt = getTicketNumber(passenger, f, passengerIndex);
+      if (tkt && tkt !== "—") {
+        flightTkts.push({ flight: f, ticket: tkt });
+      }
+    });
+
+    const uniqueTkts = Array.from(new Set(flightTkts.map((item) => item.ticket)));
+
+    if (uniqueTkts.length === 1) {
+      return [{ ticket: uniqueTkts[0] }];
+    } else if (uniqueTkts.length > 1) {
+      uniqueTkts.forEach((tktVal) => {
+        const segs = flightTkts
+          .filter((item) => item.ticket === tktVal)
+          .map((item) => item.flight);
+        let routeLabel = "";
+        if (segs.length > 0) {
+          const firstDep = extractCleanAirportCode(segs[0].departedFrom || "");
+          const lastArr = extractCleanAirportCode(
+            segs[segs.length - 1].arrivedAt || "",
+          );
+          if (firstDep && lastArr) {
+            routeLabel = `${firstDep} → ${lastArr}`;
+          }
+        }
+        result.push({ ticket: tktVal, label: routeLabel });
+        seenTickets.add(tktVal);
+      });
+      return result;
+    }
+  }
+
+  const singleTkt = getTicketNumber(passenger, flights?.[0] || {}, passengerIndex);
+  return [{ ticket: singleTkt || "—" }];
+}
+
+// Helper to render Passenger E-Ticket cell in ticket table
+function renderPassengerTicketsCell(
+  passenger: any,
+  flights: any[],
+  passengerIndex: number = 0,
+): string {
+  const ticketList = getPassengerTicketsForTicket(passenger, flights, passengerIndex);
+  if (!ticketList || ticketList.length === 0) {
+    return `<span style="color: #94A3B8;">—</span>`;
+  }
+  if (ticketList.length === 1 && !ticketList[0].label) {
+    return `<span style="color: #0284C7; font-family: monospace; font-size: 11px; font-weight: bold;">${ticketList[0].ticket}</span>`;
+  }
+  return `
+    <div style="display: flex; flex-direction: column; gap: 3px;">
+      ${ticketList
+        .map(
+          (item) => `
+        <div style="line-height: 1.3;">
+          <strong style="color: #0284C7; font-family: monospace; font-size: 11px;">${item.ticket}</strong>
+          ${item.label ? `<span style="font-size: 9px; color: #64748B; font-weight: 600; margin-left: 3px;">(${item.label})</span>` : ""}
+        </div>
+      `,
+        )
+        .join("")}
+    </div>
+  `;
+}
+
+// Helper to collect all PNRs for a flight segment across flight fields and passenger records
+function getFlightSegmentPnrs(
+  flight: any,
+  passengersList: any[],
+  booking?: any,
+): string[] {
+  const pnrs: string[] = [];
+  const seen = new Set<string>();
+
+  const addPnr = (raw: string | undefined | null) => {
+    if (!raw) return;
+    const parts = String(raw).split(/[,;/]+/);
+    parts.forEach((p) => {
+      const clean = p.trim().toUpperCase();
+      if (
+        clean &&
+        clean !== "—" &&
+        clean !== "PENDING" &&
+        clean !== "N/A" &&
+        clean !== booking?.bookingReference?.toUpperCase() &&
+        !seen.has(clean)
+      ) {
+        seen.add(clean);
+        pnrs.push(clean);
+      }
+    });
+  };
+
+  addPnr(flight.pnr);
+  addPnr(flight.gdsPnr);
+  addPnr(flight.airlinePnr);
+
+  const fAssignedIds = getFlightAssignedPassengerIds(flight);
+  const allPax =
+    booking?.passengers && booking.passengers.length > 0
+      ? booking.passengers
+      : passengersList || [];
+  const segmentPax =
+    fAssignedIds.length > 0
+      ? allPax.filter((p: any) => fAssignedIds.includes(p.id))
+      : allPax;
+
+  segmentPax.forEach((p: any) => {
+    const pPnr = getPassengerPnr(p, flight);
+    if (pPnr && pPnr !== "—") {
+      addPnr(pPnr);
+    }
+  });
+
+  return pnrs;
+}
+
 function generateConsolidatedTicketHtml(
   booking: any,
   passengersList: any[],
@@ -2080,10 +2339,74 @@ function generateConsolidatedTicketHtml(
   const ticketNo = primaryPax
     ? getTicketNumber(primaryPax, flights[0] || {})
     : "—";
-  const pnr = flights[0]?.pnr || booking.bookingReference || "—";
-  const issueDate = flights[0]?.issueDate
-    ? formatDate(flights[0].issueDate)
-    : formatDate(booking.createdAt || new Date());
+
+  // Collect all unique PNRs across the ticket
+  const allTicketPnrs = Array.from(
+    new Set([
+      ...flights.flatMap((f: any) =>
+        [f.pnr, f.gdsPnr, f.airlinePnr]
+          .filter(Boolean)
+          .flatMap((s: string) => String(s).split(/[,;/]+/))
+          .map((s: string) => s.trim().toUpperCase())
+          .filter(
+            (s) =>
+              s &&
+              s !== "—" &&
+              s !== "PENDING" &&
+              s !== "N/A" &&
+              s !== booking?.bookingReference?.toUpperCase(),
+          ),
+      ),
+      ...passengersList.flatMap((p: any) => {
+        const pnrs: string[] = [];
+        flights.forEach((f: any) => {
+          const pPnr = getPassengerPnr(p, f);
+          if (
+            pPnr &&
+            pPnr !== "—" &&
+            pPnr.toUpperCase() !== "PENDING" &&
+            pPnr.toUpperCase() !== "N/A" &&
+            pPnr.toUpperCase() !== booking?.bookingReference?.toUpperCase()
+          ) {
+            pnrs.push(pPnr.toUpperCase());
+          }
+        });
+        const raw = String(p?.eticket || p?.ticketNo || "").trim();
+        if (raw.startsWith("{") && raw.endsWith("}")) {
+          try {
+            const parsed = JSON.parse(raw);
+            Object.values(parsed).forEach((val: any) => {
+              if (typeof val === "object" && val !== null && val.pnr) {
+                const s = String(val.pnr).trim().toUpperCase();
+                if (
+                  s &&
+                  s !== "—" &&
+                  s !== "PENDING" &&
+                  s !== "N/A" &&
+                  s !== booking?.bookingReference?.toUpperCase()
+                ) {
+                  pnrs.push(s);
+                }
+              }
+            });
+          } catch (e) {}
+        }
+        return pnrs;
+      }),
+    ]),
+  );
+
+  const pnr =
+    allTicketPnrs.length > 0
+      ? allTicketPnrs.join(", ")
+      : flights[0]?.pnr || booking.bookingReference || "—";
+
+  const firstFlightWithDate = flights.find((f: any) => f?.issueDate);
+  const issueDate = firstFlightWithDate?.issueDate
+    ? formatDate(firstFlightWithDate.issueDate)
+    : flights[0]?.issueDate
+      ? formatDate(flights[0].issueDate)
+      : formatDate(booking.createdAt || new Date());
 
   let passengerSectionHtml = "";
 
@@ -2124,8 +2447,8 @@ function generateConsolidatedTicketHtml(
                 <td style="padding: 6px 10px; text-transform: uppercase; font-weight: bold; color: #334155;">${p.role || deriveAgeCategory(p.dateOfBirth)}</td>
                 <td style="padding: 6px 10px; color: #0F172A; text-transform: uppercase;"><strong>${formatPassengerName(p)}</strong></td>
                 <td style="padding: 6px 10px; color: #475569; font-weight: bold;">${p.nationality || "—"}</td>
-                <td style="padding: 6px 10px; color: #0EA5E9; font-family: monospace; font-size: 11px; font-weight: bold;">${getPassengerPnr(p, flights[0] || {})}</td>
-                <td style="padding: 6px 10px; color: #0284C7; font-family: monospace; font-size: 11px; font-weight: bold;">${getTicketNumber(p, flights[0] || {}, idx)}</td>
+                <td style="padding: 6px 10px;">${renderPassengerPnrsCell(p, flights)}</td>
+                <td style="padding: 6px 10px;">${renderPassengerTicketsCell(p, flights, idx)}</td>
                 <td style="padding: 6px 10px; color: #475569;">91206076</td>
               </tr>
             `,
@@ -2157,8 +2480,8 @@ function generateConsolidatedTicketHtml(
             <tr style="border-bottom: 1px solid #E2E8F0;">
               <td style="padding: 6px 10px; text-transform: uppercase; font-weight: bold; color: #334155;">${p.role || deriveAgeCategory(p.dateOfBirth)}</td>
               <td style="padding: 6px 10px; color: #0F172A; text-transform: uppercase;"><strong>${formatPassengerName(p)}</strong></td>
-              <td style="padding: 6px 10px; color: #0EA5E9; font-family: monospace; font-size: 11px; font-weight: bold;">${getPassengerPnr(p, flights[0] || {})}</td>
-              <td style="padding: 6px 10px; color: #0284C7; font-family: monospace; font-size: 11px; font-weight: bold;">${getTicketNumber(p, flights[0] || {}, idx)}</td>
+              <td style="padding: 6px 10px;">${renderPassengerPnrsCell(p, flights)}</td>
+              <td style="padding: 6px 10px;">${renderPassengerTicketsCell(p, flights, idx)}</td>
               <td style="padding: 6px 10px; color: #475569;">91206076</td>
             </tr>
           `,
@@ -2197,7 +2520,7 @@ function generateConsolidatedTicketHtml(
         </div>
         <div class="doc-meta" style="text-align: right; font-size: 10px; color: #475569;">
           <p style="margin: 0;">Booking Ref: <strong>${booking.bookingReference || "—"}</strong></p>
-          <p style="margin: 2px 0 0 0;">Supplier Ref (PNR): <strong style="font-family: monospace; font-size: 12px; color: #0EA5E9;">${pnr}</strong></p>
+          <p style="margin: 2px 0 0 0;">Supplier Ref (PNR): <strong style="font-family: monospace; font-size: 11px; color: #0EA5E9; word-break: break-all;">${pnr}</strong></p>
           <p style="margin: 2px 0 0 0;">Issue Date: <strong>${issueDate}</strong></p>
         </div>
       </div>
@@ -2255,6 +2578,9 @@ function generateConsolidatedTicketHtml(
           }
 
           const segmentETicket = f.confirmationNumber || f.eTicket || ticketNo;
+          const segPnrs = getFlightSegmentPnrs(f, passengersList, booking);
+          const segPnrDisplay =
+            segPnrs.length > 0 ? segPnrs.join(", ") : f.pnr || "—";
 
           return `
           <div class="ticket-card" style="border: 1px solid #E2E8F0; margin-bottom: 14px; border-radius: 6px; overflow: hidden; background: #FFFFFF;">
@@ -2264,7 +2590,7 @@ function generateConsolidatedTicketHtml(
                 <span>${f.flightNo}</span>
               </div>
               <div style="font-size: 10px; font-weight: 800; font-family: monospace; color: #38BDF8; background: rgba(56, 189, 248, 0.1); padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(56, 189, 248, 0.2);">
-                PNR: ${f.pnr || "—"}
+                PNR: ${segPnrDisplay}
               </div>
             </div>
             <div class="ticket-card-body" style="padding: 12px 14px; display: grid; grid-template-columns: 2fr 1.2fr 2fr; align-items: center; gap: 12px;">
@@ -2313,14 +2639,53 @@ function generateConsolidatedTicketHtml(
               </div>
               ${(() => {
                 const fAssignedIds = getFlightAssignedPassengerIds(f);
-                if (fAssignedIds.length > 0 && booking.passengers) {
-                  const names = booking.passengers
-                    .filter((p: any) => fAssignedIds.includes(p.id))
-                    .map((p: any) => formatPassengerName(p));
-                  if (names.length > 0) {
-                    return `<div>Traveling Passenger(s): <strong style="color: #4F46E5;">${names.join(", ")}</strong></div>`;
-                  }
+                const allPax =
+                  booking?.passengers && booking.passengers.length > 0
+                    ? booking.passengers
+                    : passengersList || [];
+                const segmentPax =
+                  fAssignedIds.length > 0
+                    ? allPax.filter((p: any) => fAssignedIds.includes(p.id))
+                    : allPax;
+
+                if (!segmentPax || segmentPax.length === 0) return "";
+
+                const paxWithPnrs = segmentPax.map((p: any) => {
+                  const pPnr = getPassengerPnr(p, f);
+                  return {
+                    name: formatPassengerName(p),
+                    pnr:
+                      pPnr && pPnr !== "—" && pPnr.toUpperCase() !== "PENDING"
+                        ? pPnr
+                        : null,
+                  };
+                });
+
+                const uniquePaxPnrs = Array.from(
+                  new Set(paxWithPnrs.map((x: any) => x.pnr).filter(Boolean)),
+                );
+
+                if (uniquePaxPnrs.length > 1) {
+                  const formatted = paxWithPnrs
+                    .map((x: any) =>
+                      x.pnr
+                        ? `${x.name} <span style="font-family: monospace; color: #0EA5E9; font-weight: 800;">(PNR: ${x.pnr})</span>`
+                        : x.name,
+                    )
+                    .join(", ");
+                  return `<div style="width: 100%; margin-top: 4px; padding-top: 4px; border-top: 1px dashed #E2E8F0; font-size: 9.5px;">Traveling Passenger(s): <strong style="color: #4F46E5;">${formatted}</strong></div>`;
                 }
+
+                if (
+                  fAssignedIds.length > 0 &&
+                  fAssignedIds.length < (booking.passengers?.length || 0)
+                ) {
+                  const names = segmentPax.map((p: any) =>
+                    formatPassengerName(p),
+                  );
+                  return `<div>Traveling Passenger(s): <strong style="color: #4F46E5;">${names.join(", ")}</strong></div>`;
+                }
+
                 return "";
               })()}
             </div>
