@@ -43,6 +43,22 @@ export const ROUTE_SUBTITLES: Record<string, string> = {
   "MKH ZIYARAT WITH JURANA": "Makkah Ziyarat including Masjid Al-Ji'ranah",
   "MED APT TO MKH HTL": "Madinah Airport to Makkah Hotel",
   "TAIF AIRPORT TO MKH HTL": "Taif Airport to Makkah Hotel",
+  "JEDDAH AIRPORT TO MAKKAH": "Jeddah Airport to Makkah Hotel",
+  "MAKKAH TO MADINAH": "Makkah to Madinah Hotel",
+  "JEDDAH TO MADINAH": "Jeddah Airport to Madinah Hotel",
+  "MAK HOTEL TO MAK TRS": "Makkah Hotel to Makkah Haramain Train Station",
+  "MAD HOTEL TO MAD TRS": "Madinah Hotel to Madinah Haramain Train Station",
+  "ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO JEDDAH AIRPORT": "Jeddah Airport ➔ Makkah ➔ Madinah ➔ Jeddah Airport (Round Trip)",
+  "ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO JEDDAH AIRPORT WITH MAZARAT": "Round Trip with Mazarat / Ziyarat in Makkah & Madinah",
+  "ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MADINAH AIRPORT": "Jeddah Airport ➔ Makkah ➔ Madinah ➔ Madinah Airport",
+  "ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MADINAH AIRPORT WITH MAZARAT": "Circuit ending at Madinah Airport with Mazarat",
+  "ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MAKKAH TO JEDDAH": "Jeddah ➔ Makkah ➔ Madinah ➔ Makkah ➔ Jeddah",
+  "ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MAKKAH TO JEDDAH WITH MAZARAT": "Full Extended Circuit with Mazarat",
+  "JEDDAH AIRPORT TO JEDDAH CITY TO JEDDAH AIRPORT": "Jeddah Airport to Jeddah City & Return",
+  "MAKKAH ZIARAT": "Holy Places Visit in Makkah (Ziyarat)",
+  "MADINAH ZIARAT": "Holy Places Visit in Madinah (Ziyarat)",
+  "MADINAH AIRPORT TO MADINAH HOTEL": "Madinah Airport to Madinah Hotel",
+  "MADINAH HOTEL TO MADINAH AIRPORT": "Madinah Hotel to Madinah Airport (MED)",
 };
 
 export const VEHICLE_SHORT_NAMES: Record<string, { label: string; sub: string }> = {
@@ -74,6 +90,25 @@ export const OFFICIAL_DEFAULT_RATES: Record<string, number[]> = {
   "TAIF AIRPORT TO MKH HTL": [600, 900, 700, 750, 850, 950, 1050],
 };
 
+export const AL_SULTAN_DEFAULT_RATES: Record<string, number[]> = {
+  "JEDDAH AIRPORT TO MAKKAH": [220, 390, 275, 325, 470, 820, 820],
+  "MAKKAH TO MADINAH": [405, 800, 500, 575, 780, 1100, 1100],
+  "JEDDAH TO MADINAH": [420, 820, 520, 620, 900, 1120, 1120],
+  "MAK HOTEL TO MAK TRS": [110, 270, 130, 220, 270, 520, 520],
+  "MAD HOTEL TO MAD TRS": [100, 270, 130, 220, 270, 520, 520],
+  "ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO JEDDAH AIRPORT": [1045, 2010, 1295, 1520, 2150, 3040, 3040],
+  "ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO JEDDAH AIRPORT WITH MAZARAT": [1355, 2610, 1735, 2060, 2890, 3940, 3940],
+  "ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MADINAH AIRPORT": [745, 1440, 945, 1160, 1570, 2370, 2370],
+  "ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MADINAH AIRPORT WITH MAZARAT": [1055, 2040, 1385, 1700, 2310, 3270, 3270],
+  "ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MAKKAH TO JEDDAH": [1250, 2380, 1550, 1800, 2500, 3840, 3840],
+  "ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MAKKAH TO JEDDAH WITH MAZARAT": [1560, 2980, 1990, 2340, 3240, 4740, 4740],
+  "JEDDAH AIRPORT TO JEDDAH CITY TO JEDDAH AIRPORT": [150, 370, 200, 220, 370, 570, 570],
+  "MAKKAH ZIARAT": [155, 300, 220, 270, 370, 450, 450],
+  "MADINAH ZIARAT": [155, 300, 220, 270, 370, 450, 450],
+  "MADINAH AIRPORT TO MADINAH HOTEL": [120, 250, 170, 260, 320, 450, 450],
+  "MADINAH HOTEL TO MADINAH AIRPORT": [120, 250, 170, 260, 320, 450, 450],
+};
+
 export default function CatalogPage() {
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
@@ -102,6 +137,15 @@ export default function CatalogPage() {
   const [selectedSeason, setSelectedSeason] = useState("1448H-(2026-2027)");
 
   // Modals state
+  const [selectedVendorId, setSelectedVendorId] = useState<string>("");
+  const [isAddCompanyModalOpen, setIsAddCompanyModalOpen] = useState(false);
+  const [newCompanyData, setNewCompanyData] = useState({
+    name: "",
+    phoneNumber: "",
+    companyManagerName: "",
+    copyFromVendorId: "",
+  });
+
   const [rateModalOpen, setRateModalOpen] = useState(false);
   const [editingRate, setEditingRate] = useState<{
     routeId: string;
@@ -159,14 +203,24 @@ export default function CatalogPage() {
     data: transportMatrixData,
     isLoading: isTransportLoading,
   } = useQuery({
-    queryKey: ["catalog-transport-matrix", selectedSeason],
+    queryKey: ["catalog-transport-matrix", selectedSeason, selectedVendorId],
     queryFn: async () => {
+      const params = new URLSearchParams();
+      if (selectedSeason) params.append("season", selectedSeason);
+      if (selectedVendorId) params.append("vendorId", selectedVendorId);
       const res = await apiClient.get(
-        `/catalog/transport-matrix?season=${encodeURIComponent(selectedSeason)}`
+        `/catalog/transport-matrix?${params.toString()}`
       );
       return res.data.data;
     },
   });
+
+  // Sync active vendor selection when transport data is loaded
+  React.useEffect(() => {
+    if (transportMatrixData?.selectedVendorId && !selectedVendorId) {
+      setSelectedVendorId(transportMatrixData.selectedVendorId);
+    }
+  }, [transportMatrixData?.selectedVendorId, selectedVendorId]);
 
   const {
     data: visaCatalogData,
@@ -188,6 +242,35 @@ export default function CatalogPage() {
   });
 
   // Mutations
+  const createCompanyMutation = useMutation({
+    mutationFn: async (payload: {
+      name: string;
+      phoneNumber?: string;
+      companyManagerName?: string;
+      copyFromVendorId?: string;
+    }) => {
+      const res = await apiClient.post("/catalog/transport-companies", payload);
+      return res.data;
+    },
+    onSuccess: (res: any) => {
+      toast.success("Transport company created successfully");
+      queryClient.invalidateQueries({ queryKey: ["catalog-transport-matrix"] });
+      queryClient.invalidateQueries({ queryKey: ["vendors"] });
+      if (res?.data?.id) {
+        setSelectedVendorId(res.data.id);
+      }
+      setIsAddCompanyModalOpen(false);
+      setNewCompanyData({
+        name: "",
+        phoneNumber: "",
+        companyManagerName: "",
+        copyFromVendorId: "",
+      });
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || "Failed to create transport company");
+    },
+  });
   const updateRateMutation = useMutation({
     mutationFn: async (payload: {
       routeId: string;
@@ -341,11 +424,14 @@ export default function CatalogPage() {
     const map: Record<string, Record<string, any>> = {};
     const vehiclesList = transportMatrixData?.vehicles || [];
     const routesList = transportMatrixData?.routes || [];
+    const currentVendorName = (transportMatrixData?.currentVendor?.name || "").toLowerCase();
+    const isAlSultan = currentVendorName.includes("sultan");
+    const fallbackSource = isAlSultan ? AL_SULTAN_DEFAULT_RATES : OFFICIAL_DEFAULT_RATES;
 
-    // 1. Seed fallback matrix from official sheet
+    // 1. Seed fallback matrix from appropriate sheet
     routesList.forEach((r: any) => {
       map[r.id] = {};
-      const defRates = OFFICIAL_DEFAULT_RATES[r.name.trim()] || [];
+      const defRates = fallbackSource[r.name.trim()] || [];
       vehiclesList.forEach((v: any, vIdx: number) => {
         if (defRates[vIdx] !== undefined) {
           map[r.id][v.id] = { price: defRates[vIdx], currency: "SAR" };
@@ -547,78 +633,133 @@ export default function CatalogPage() {
       {activeTab === "transport" && (
         <div className="space-y-4">
           {/* Card Header matching reference screenshot */}
-          <div className="bg-card p-4 rounded-xl border border-border flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs">
-            <div className="space-y-0.5">
-              <h2 className="text-lg md:text-xl font-extrabold text-foreground tracking-tight">
-                Complete Special Transport Rate Sheet
-              </h2>
-              <p className="text-xs text-muted-foreground">
-                Valid for the year 1448H / (2026–2027) up to 15 Sha'aban
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3 flex-wrap">
-              {/* Currency Selector: [ SAR ] [ £ GBP ] [ Both ] */}
-              <div className="inline-flex items-center bg-secondary/80 p-0.5 rounded-lg border border-border text-xs font-semibold">
-                <button
-                  type="button"
-                  onClick={() => setCurrencyMode("SAR")}
-                  className={`px-3 py-1 rounded-md transition-all ${
-                    currencyMode === "SAR"
-                      ? "bg-slate-900 text-white shadow-xs dark:bg-primary dark:text-primary-foreground font-bold"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  SAR
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCurrencyMode("GBP")}
-                  className={`px-3 py-1 rounded-md transition-all ${
-                    currencyMode === "GBP"
-                      ? "bg-slate-900 text-white shadow-xs dark:bg-primary dark:text-primary-foreground font-bold"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  £ GBP
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCurrencyMode("BOTH")}
-                  className={`px-3 py-1 rounded-md transition-all ${
-                    currencyMode === "BOTH"
-                      ? "bg-slate-900 text-white shadow-xs dark:bg-primary dark:text-primary-foreground font-bold"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Both
-                </button>
+          <div className="bg-card p-4 rounded-xl border border-border flex flex-col gap-4 shadow-xs">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-lg md:text-xl font-extrabold text-foreground tracking-tight">
+                    Complete Special Transport Rate Sheet
+                  </h2>
+                  {transportMatrixData?.currentVendor && (
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary border border-primary/20 flex items-center gap-1">
+                      <Building2 className="w-3.5 h-3.5" />
+                      {transportMatrixData.currentVendor.name}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Valid for the year 1448H / (2026–2027) up to 15 Sha'aban
+                </p>
               </div>
 
-              {/* Conversion Rate Input Control */}
-              <div className="inline-flex items-center gap-1.5 bg-secondary/80 px-2.5 py-1 rounded-lg border border-border text-xs shadow-2xs">
-                <span className="text-[11px] font-bold text-muted-foreground whitespace-nowrap">
-                  Rate: 1 GBP =
-                </span>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0.1"
-                  value={exchangeRate}
-                  onChange={(e) => {
-                    const val = parseFloat(e.target.value);
-                    const finalVal = isNaN(val) || val <= 0 ? 4.8 : val;
-                    setExchangeRate(finalVal);
-                    localStorage.setItem("tms_catalog_exchange_rate", String(finalVal));
-                  }}
-                  className="w-16 px-1.5 py-0.5 text-xs font-mono font-bold bg-background border border-border rounded text-center focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
-                  title="Edit conversion rate (SAR per 1 GBP)"
-                />
-                <span className="text-[11px] font-bold text-muted-foreground">SAR</span>
+              {/* Vendor Selector & Add Company */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="inline-flex items-center gap-1.5 bg-secondary/80 px-2.5 py-1.5 rounded-lg border border-border text-xs shadow-2xs">
+                  <Building2 className="w-4 h-4 text-primary" />
+                  <span className="text-[11px] font-bold text-muted-foreground whitespace-nowrap">
+                    Company:
+                  </span>
+                  <select
+                    value={selectedVendorId || transportMatrixData?.selectedVendorId || ""}
+                    onChange={(e) => {
+                      if (e.target.value === "__add_new__") {
+                        setIsAddCompanyModalOpen(true);
+                      } else {
+                        setSelectedVendorId(e.target.value);
+                      }
+                    }}
+                    className="text-xs font-bold bg-background border border-border rounded px-2.5 py-1 focus:outline-none focus:ring-1 focus:ring-primary text-foreground cursor-pointer min-w-[170px]"
+                  >
+                    {(transportMatrixData?.vendors || []).map((v: any) => (
+                      <option key={v.id} value={v.id}>
+                        {v.name}
+                      </option>
+                    ))}
+                    <option value="__add_new__" className="text-primary font-bold">
+                      + Add Another Company...
+                    </option>
+                  </select>
+
+                  {canEdit && (
+                    <button
+                      type="button"
+                      onClick={() => setIsAddCompanyModalOpen(true)}
+                      className="ml-1 px-2.5 py-1 rounded bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-colors flex items-center gap-1 shadow-2xs"
+                      title="Add new transport vendor/company"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Add Company
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Controls Bar: Currency, Exchange Rate, and Search */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-border/60">
+              <div className="flex items-center gap-3 flex-wrap">
+                {/* Currency Selector: [ SAR ] [ £ GBP ] [ Both ] */}
+                <div className="inline-flex items-center bg-secondary/80 p-0.5 rounded-lg border border-border text-xs font-semibold">
+                  <button
+                    type="button"
+                    onClick={() => setCurrencyMode("SAR")}
+                    className={`px-3 py-1 rounded-md transition-all ${
+                      currencyMode === "SAR"
+                        ? "bg-slate-900 text-white shadow-xs dark:bg-primary dark:text-primary-foreground font-bold"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    SAR
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCurrencyMode("GBP")}
+                    className={`px-3 py-1 rounded-md transition-all ${
+                      currencyMode === "GBP"
+                        ? "bg-slate-900 text-white shadow-xs dark:bg-primary dark:text-primary-foreground font-bold"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    £ GBP
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCurrencyMode("BOTH")}
+                    className={`px-3 py-1 rounded-md transition-all ${
+                      currencyMode === "BOTH"
+                        ? "bg-slate-900 text-white shadow-xs dark:bg-primary dark:text-primary-foreground font-bold"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Both
+                  </button>
+                </div>
+
+                {/* Conversion Rate Input Control */}
+                <div className="inline-flex items-center gap-1.5 bg-secondary/80 px-2.5 py-1 rounded-lg border border-border text-xs shadow-2xs">
+                  <span className="text-[11px] font-bold text-muted-foreground whitespace-nowrap">
+                    Rate: 1 GBP =
+                  </span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.1"
+                    value={exchangeRate}
+                    onChange={(e) => {
+                      const val = parseFloat(e.target.value);
+                      const finalVal = isNaN(val) || val <= 0 ? 4.8 : val;
+                      setExchangeRate(finalVal);
+                      localStorage.setItem("tms_catalog_exchange_rate", String(finalVal));
+                    }}
+                    className="w-16 px-1.5 py-0.5 text-xs font-mono font-bold bg-background border border-border rounded text-center focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
+                    title="Edit conversion rate (SAR per 1 GBP)"
+                  />
+                  <span className="text-[11px] font-bold text-muted-foreground">SAR</span>
+                </div>
               </div>
 
               {/* Search Box */}
-              <div className="relative w-60">
+              <div className="relative w-full sm:w-64">
                 <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <input
                   type="text"
@@ -707,7 +848,10 @@ export default function CatalogPage() {
 
                             {(transportMatrixData?.vehicles || []).map((v: any, vIdx: number) => {
                               const rateObj = ratesMatrix[route.id]?.[v.id];
-                              const defRates = OFFICIAL_DEFAULT_RATES[route.name.trim()] || [];
+                              const currentVendorName = (transportMatrixData?.currentVendor?.name || "").toLowerCase();
+                              const isAlSultan = currentVendorName.includes("sultan");
+                              const fallbackSource = isAlSultan ? AL_SULTAN_DEFAULT_RATES : OFFICIAL_DEFAULT_RATES;
+                              const defRates = fallbackSource[route.name.trim()] || [];
                               const fallbackPrice = defRates[vIdx];
                               const price =
                                 rateObj?.price !== undefined && rateObj?.price !== null
@@ -730,7 +874,7 @@ export default function CatalogPage() {
                                         vehicleName: v.name,
                                         price: hasPrice ? price : 0,
                                         currency: rateObj?.currency || "SAR",
-                                        vendorId: rateObj?.vendorId || rateObj?.vendor?.id || "",
+                                        vendorId: rateObj?.vendorId || rateObj?.vendor?.id || selectedVendorId || transportMatrixData?.currentVendor?.id || "",
                                       });
                                       setRateModalOpen(true);
                                     }
@@ -779,7 +923,10 @@ export default function CatalogPage() {
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    const defRates = OFFICIAL_DEFAULT_RATES[route.name.trim()] || [];
+                                    const currentVendorName = (transportMatrixData?.currentVendor?.name || "").toLowerCase();
+                                    const isAlSultan = currentVendorName.includes("sultan");
+                                    const fallbackSource = isAlSultan ? AL_SULTAN_DEFAULT_RATES : OFFICIAL_DEFAULT_RATES;
+                                    const defRates = fallbackSource[route.name.trim()] || [];
                                     const rowSummary =
                                       `${route.name}: ` +
                                       (transportMatrixData?.vehicles || [])
@@ -1569,6 +1716,128 @@ export default function CatalogPage() {
                   : editingVisa
                   ? "Update Visa"
                   : "Save Visa Package"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* MODAL 5: Add Transport Company */}
+      {isAddCompanyModalOpen && (
+        <Modal
+          isOpen={isAddCompanyModalOpen}
+          onClose={() => setIsAddCompanyModalOpen(false)}
+          title="Add New Transport Company / Vendor"
+        >
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!newCompanyData.name.trim()) {
+                toast.error("Company name is required");
+                return;
+              }
+              createCompanyMutation.mutate(newCompanyData);
+            }}
+            className="space-y-4"
+          >
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                Company / Vendor Name *
+              </label>
+              <input
+                required
+                type="text"
+                placeholder="e.g. Al Sultan Transfer, Rawabi Transport, Al Safwa"
+                value={newCompanyData.name}
+                onChange={(e) =>
+                  setNewCompanyData({ ...newCompanyData, name: e.target.value })
+                }
+                className="w-full text-xs py-2 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary font-medium"
+                autoFocus
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Contact Person / Manager Name
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Abu Fahad / Operations Manager"
+                  value={newCompanyData.companyManagerName}
+                  onChange={(e) =>
+                    setNewCompanyData({
+                      ...newCompanyData,
+                      companyManagerName: e.target.value,
+                    })
+                  }
+                  className="w-full text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Phone / WhatsApp Number
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. +966 50 123 4567"
+                  value={newCompanyData.phoneNumber}
+                  onChange={(e) =>
+                    setNewCompanyData({
+                      ...newCompanyData,
+                      phoneNumber: e.target.value,
+                    })
+                  }
+                  className="w-full text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                Copy Rates From Existing Company (Optional Template)
+              </label>
+              <select
+                value={newCompanyData.copyFromVendorId}
+                onChange={(e) =>
+                  setNewCompanyData({
+                    ...newCompanyData,
+                    copyFromVendorId: e.target.value,
+                  })
+                }
+                className="w-full text-xs py-2 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary font-medium cursor-pointer"
+              >
+                <option value="">-- Start with Blank Rates --</option>
+                {(transportMatrixData?.vendors || []).map((v: any) => (
+                  <option key={v.id} value={v.id}>
+                    Copy rates from {v.name}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Optionally duplicates the route pricing matrix from an existing vendor so you don't have to enter all sectors manually.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-border">
+              <button
+                type="button"
+                onClick={() => setIsAddCompanyModalOpen(false)}
+                className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-border hover:bg-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={createCompanyMutation.isPending}
+                className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1.5"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                {createCompanyMutation.isPending
+                  ? "Creating Company..."
+                  : "Create Transport Company"}
               </button>
             </div>
           </form>

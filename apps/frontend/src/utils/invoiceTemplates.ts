@@ -2076,25 +2076,8 @@ function getTicketNumber(
     }
   }
 
-  const nameCode =
-    ((passenger?.firstName || "").length * 7 +
-      (passenger?.lastName || "").length * 3) %
-    1000000;
-  const passIdCode = passenger?.id
-    ? parseInt(passenger.id.replace(/[^0-9]/g, "").substring(0, 7)) || 1234567
-    : 1234567;
-  const num = String((nameCode * passIdCode) % 1000000000).padStart(9, "0");
-
-  const flightCarrier = (flight?.flightNo || "").substring(0, 2).toUpperCase();
-  let prefix = "157"; // Qatar Airways
-  if (flightCarrier === "EK") prefix = "176";
-  else if (flightCarrier === "BA") prefix = "125";
-  else if (flightCarrier === "SV") prefix = "065";
-  else if (flightCarrier === "WY") prefix = "910";
-  else if (flightCarrier === "PC") prefix = "281";
-  else if (flightCarrier === "W9" || flightCarrier === "W6") prefix = "953";
-
-  return `${prefix}${num}`;
+  // Do not fabricate a fake e-ticket number when none has been entered
+  return "";
 }
 
 // Helper to resolve all PNRs for a passenger across ticket flights with sector labels
@@ -2266,6 +2249,9 @@ function renderPassengerTicketsCell(
     return `<span style="color: #94A3B8;">—</span>`;
   }
   if (ticketList.length === 1 && !ticketList[0].label) {
+    if (!ticketList[0].ticket || ticketList[0].ticket === "—") {
+      return `<span style="color: #94A3B8;">—</span>`;
+    }
     return `<span style="color: #0284C7; font-family: monospace; font-size: 11px; font-weight: bold;">${ticketList[0].ticket}</span>`;
   }
   return `
@@ -2584,7 +2570,7 @@ function generateConsolidatedTicketHtml(
             }
           }
 
-          const segmentETicket = f.confirmationNumber || f.eTicket || ticketNo;
+          const segmentETicket = f.confirmationNumber || f.eTicket || ticketNo || "—";
           const segPnrs = getFlightSegmentPnrs(f, passengersList, booking);
           const segPnrDisplay =
             segPnrs.length > 0 ? segPnrs.join(", ") : f.pnr || "—";

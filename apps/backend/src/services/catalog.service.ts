@@ -1,40 +1,67 @@
 import { prisma } from '../config';
 import { seedCatalogData } from '../../prisma/seed-catalog';
+import { BadRequestException } from '../middleware/error.middleware';
 
 export class CatalogService {
   /**
-   * Get transport matrix: vehicles, routes, and all rates
+   * Get transport matrix: vehicles, routes, and all rates for selected vendor
    * Auto-seeds if database is empty.
    */
-  async getTransportMatrix(season: string = '1448H-(2026-2027)') {
-    let [vehicles, routes, rates] = await Promise.all([
+  async getTransportMatrix(season: string = '1448H-(2026-2027)', vendorId?: string) {
+    // 1. Fetch all transport vendors
+    let transportVendors = await prisma.vendor.findMany({
+      where: {
+        OR: [
+          { vendorType: { in: ['Transportation', 'transportation', 'TRANSPORTATION', 'Transport', 'transport'] } },
+          { name: { in: ['Basma Transport', 'Al Sultan Transfer', 'Al Sultan'] } },
+        ],
+      },
+      orderBy: { name: 'asc' },
+    });
+
+    // Check if defaults exist
+    const hasBasma = transportVendors.some((v) => v.name.toLowerCase().includes('basma'));
+    const hasSultan = transportVendors.some((v) => v.name.toLowerCase().includes('sultan'));
+    const ratesCount = await prisma.transportRate.count({ where: { season } });
+
+    if (transportVendors.length === 0 || !hasBasma || !hasSultan || ratesCount < 100) {
+      await seedCatalogData(prisma);
+      transportVendors = await prisma.vendor.findMany({
+        where: {
+          OR: [
+            { vendorType: { in: ['Transportation', 'transportation', 'TRANSPORTATION', 'Transport', 'transport'] } },
+            { name: { in: ['Basma Transport', 'Al Sultan Transfer', 'Al Sultan'] } },
+          ],
+        },
+        orderBy: { name: 'asc' },
+      });
+    }
+
+    // Determine active vendor
+    const activeVendor =
+      (vendorId ? transportVendors.find((v) => v.id === vendorId) : null) ||
+      transportVendors.find((v) => v.name.toLowerCase().includes('basma')) ||
+      transportVendors[0];
+    const activeVendorId = activeVendor?.id;
+
+    // Fetch vehicles, routes, and rates for active vendor
+    const whereRates: any = { season };
+    if (activeVendorId) {
+      whereRates.vendorId = activeVendorId;
+    }
+
+    const [vehicles, allRoutes, rates] = await Promise.all([
       prisma.transportVehicle.findMany({ orderBy: { sortOrder: 'asc' } }),
       prisma.transportRoute.findMany({ orderBy: { sortOrder: 'asc' } }),
       prisma.transportRate.findMany({
-        where: { season },
+        where: whereRates,
         include: { vehicle: true, route: true, vendor: true },
       }),
     ]);
 
-    // If empty or incomplete (< 112 rates or < 16 routes), or rates are not assigned to Basma Transport, auto-seed and reload
-    const hasNonBasmaVendor = rates.some(
-      (r) => !r.vendorId || !r.vendor?.name?.toLowerCase().includes('basma')
-    );
-
-    if (vehicles.length === 0 || routes.length < 16 || rates.length < 112 || hasNonBasmaVendor) {
-      await seedCatalogData(prisma);
-      [vehicles, routes, rates] = await Promise.all([
-        prisma.transportVehicle.findMany({ orderBy: { sortOrder: 'asc' } }),
-        prisma.transportRoute.findMany({ orderBy: { sortOrder: 'asc' } }),
-        prisma.transportRate.findMany({
-          where: { season },
-          include: { vehicle: true, route: true, vendor: true },
-        }),
-      ]);
-    }
-
     // Build 2D matrix indexed by routeId and vehicleId
     const matrix: Record<string, Record<string, any>> = {};
+    const routeRateCount: Record<string, number> = {};
     for (const r of rates) {
       if (!matrix[r.routeId]) {
         matrix[r.routeId] = {};
@@ -47,10 +74,18 @@ export class CatalogService {
         vendorId: r.vendorId,
         vendor: r.vendor,
       };
+      routeRateCount[r.routeId] = (routeRateCount[r.routeId] || 0) + 1;
     }
+
+    // Prioritize routes that have rates for this vendor, followed by other catalog routes
+    const routesWithRates = allRoutes.filter((route) => (routeRateCount[route.id] || 0) > 0);
+    const routesWithoutRates = allRoutes.filter((route) => !routeRateCount[route.id]);
+    const routes = routesWithRates.length > 0 ? [...routesWithRates, ...routesWithoutRates] : allRoutes;
 
     return {
       season,
+      vendors: transportVendors,
+      selectedVendorId: activeVendorId,
       vehicles,
       routes,
       rates,
@@ -61,8 +96,8 @@ export class CatalogService {
   /**
    * Get flat list of transport options for booking modal dropdowns
    */
-  async getTransportOptions(season: string = '1448H-(2026-2027)') {
-    const { routes, vehicles, rates } = await this.getTransportMatrix(season);
+  async getTransportOptions(season: string = '1448H-(2026-2027)', vendorId?: string) {
+    const { routes, vehicles, rates } = await this.getTransportMatrix(season, vendorId);
 
     const rateMap: Record<string, number> = {};
     const currencyMap: Record<string, string> = {};
@@ -82,7 +117,7 @@ export class CatalogService {
         const key = `${route.id}_${vehicle.id}`;
         const price = rateMap[key] ?? 0;
         const currency = currencyMap[key] || 'SAR';
-        const vendorId = vendorIdMap[key] || null;
+        const optVendorId = vendorIdMap[key] || null;
         const vendorName = vendorNameMap[key] || null;
 
         options.push({
@@ -96,7 +131,7 @@ export class CatalogService {
           capacity: vehicle.capacity || '',
           price,
           currency,
-          vendorId,
+          vendorId: optVendorId,
           vendorName,
           label: `${route.name} | ${vehicle.name} (${currency} ${price})${vendorName ? ` [${vendorName}]` : ''}`,
         });
@@ -120,29 +155,42 @@ export class CatalogService {
   }) {
     const season = data.season || '1448H-(2026-2027)';
     const currency = data.currency || 'SAR';
+    const vendorId = data.vendorId || null;
 
-    return prisma.transportRate.upsert({
+    const existing = await prisma.transportRate.findFirst({
       where: {
-        routeId_vehicleId_season: {
-          routeId: data.routeId,
-          vehicleId: data.vehicleId,
-          season,
+        routeId: data.routeId,
+        vehicleId: data.vehicleId,
+        season,
+        vendorId,
+      },
+    });
+
+    if (existing) {
+      return prisma.transportRate.update({
+        where: { id: existing.id },
+        data: {
+          price: Number(data.price),
+          currency,
+          notes: data.notes,
         },
-      },
-      update: {
-        price: Number(data.price),
-        currency,
-        notes: data.notes,
-        ...(data.vendorId !== undefined ? { vendorId: data.vendorId || null } : {}),
-      },
-      create: {
+        include: {
+          vehicle: true,
+          route: true,
+          vendor: true,
+        },
+      });
+    }
+
+    return prisma.transportRate.create({
+      data: {
         routeId: data.routeId,
         vehicleId: data.vehicleId,
         price: Number(data.price),
         currency,
         season,
         notes: data.notes,
-        vendorId: data.vendorId || null,
+        vendorId,
       },
       include: {
         vehicle: true,
@@ -150,6 +198,74 @@ export class CatalogService {
         vendor: true,
       },
     });
+  }
+
+  /**
+   * Create a new transport vendor/company
+   */
+  async createTransportCompany(data: {
+    name: string;
+    phoneNumber?: string;
+    companyManagerName?: string;
+    copyFromVendorId?: string;
+  }) {
+    const cleanName = data.name.trim();
+    if (!cleanName) throw new BadRequestException('Company name is required');
+
+    let vendor = await prisma.vendor.findFirst({
+      where: { name: { equals: cleanName, mode: 'insensitive' } },
+    });
+
+    if (vendor) {
+      if (vendor.vendorType !== 'Transportation') {
+        vendor = await prisma.vendor.update({
+          where: { id: vendor.id },
+          data: { vendorType: 'Transportation' },
+        });
+      }
+    } else {
+      vendor = await prisma.vendor.create({
+        data: {
+          name: cleanName,
+          phoneNumber: data.phoneNumber ? data.phoneNumber.trim() : '+966000000000',
+          companyManagerName: data.companyManagerName ? data.companyManagerName.trim() : null,
+          vendorType: 'Transportation',
+          walletBalance: 0,
+        },
+      });
+    }
+
+    // Optional: copy routes and rates from existing template
+    if (data.copyFromVendorId) {
+      const season = '1448H-(2026-2027)';
+      const sourceRates = await prisma.transportRate.findMany({
+        where: { season, vendorId: data.copyFromVendorId },
+      });
+      for (const src of sourceRates) {
+        const existing = await prisma.transportRate.findFirst({
+          where: {
+            routeId: src.routeId,
+            vehicleId: src.vehicleId,
+            season,
+            vendorId: vendor.id,
+          },
+        });
+        if (!existing) {
+          await prisma.transportRate.create({
+            data: {
+              routeId: src.routeId,
+              vehicleId: src.vehicleId,
+              price: src.price,
+              currency: src.currency || 'SAR',
+              season,
+              vendorId: vendor.id,
+            },
+          });
+        }
+      }
+    }
+
+    return vendor;
   }
 
   /**

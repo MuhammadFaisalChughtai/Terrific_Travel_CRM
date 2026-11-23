@@ -3,6 +3,7 @@ import {
   getTransportMatrix,
   getTransportOptions,
   upsertTransportRate,
+  createTransportCompany,
   createRoute,
   updateRoute,
   deleteRoute,
@@ -26,6 +27,7 @@ router.use(authMiddleware as any);
 router.get('/transport-matrix', getTransportMatrix);
 router.get('/transport-options', getTransportOptions);
 router.post('/transport-rates', upsertTransportRate);
+router.post('/transport-companies', createTransportCompany);
 
 // Transport Routes & Vehicles
 router.post('/transport-routes', createRoute);

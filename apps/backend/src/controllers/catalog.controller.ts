@@ -15,14 +15,24 @@ const isAdminOrManager = (user?: any) => {
 
 export const getTransportMatrix = asyncHandler(async (req: Request, res: Response) => {
   const season = (req.query.season as string) || undefined;
-  const result = await catalogService.getTransportMatrix(season);
+  const vendorId = (req.query.vendorId as string) || undefined;
+  const result = await catalogService.getTransportMatrix(season, vendorId);
   res.status(200).json({ success: true, data: result });
 });
 
 export const getTransportOptions = asyncHandler(async (req: Request, res: Response) => {
   const season = (req.query.season as string) || undefined;
-  const result = await catalogService.getTransportOptions(season);
+  const vendorId = (req.query.vendorId as string) || undefined;
+  const result = await catalogService.getTransportOptions(season, vendorId);
   res.status(200).json({ success: true, data: result });
+});
+
+export const createTransportCompany = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  if (!isAdminOrManager(req.user)) {
+    return res.status(403).json({ success: false, message: 'Forbidden: Only Admins and Managers can add transport companies.' });
+  }
+  const result = await catalogService.createTransportCompany(req.body);
+  res.status(201).json({ success: true, data: result });
 });
 
 export const upsertTransportRate = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {

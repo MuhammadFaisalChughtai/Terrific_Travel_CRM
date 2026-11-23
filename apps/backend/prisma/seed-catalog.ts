@@ -50,6 +50,44 @@ export const CATALOG_RATES_MATRIX: Record<string, number[]> = {
   'TAIF AIRPORT TO MKH HTL': [600, 900, 700, 750, 850, 950, 1050],
 };
 
+export const AL_SULTAN_ROUTES = [
+  { name: 'JEDDAH AIRPORT TO MAKKAH', fromLocation: 'Jeddah Airport (JED)', toLocation: 'Makkah Hotel', sortOrder: 101 },
+  { name: 'MAKKAH TO MADINAH', fromLocation: 'Makkah Hotel', toLocation: 'Madinah Hotel', sortOrder: 102 },
+  { name: 'JEDDAH TO MADINAH', fromLocation: 'Jeddah Airport (JED)', toLocation: 'Madinah Hotel', sortOrder: 103 },
+  { name: 'MAK HOTEL TO MAK TRS', fromLocation: 'Makkah Hotel', toLocation: 'Makkah Train Station (Haramain)', sortOrder: 104 },
+  { name: 'MAD HOTEL TO MAD TRS', fromLocation: 'Madinah Hotel', toLocation: 'Madinah Train Station (Haramain)', sortOrder: 105 },
+  { name: 'ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO JEDDAH AIRPORT', fromLocation: 'Jeddah Airport (JED)', toLocation: 'Jeddah Airport (Circuit)', sortOrder: 106 },
+  { name: 'ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO JEDDAH AIRPORT WITH MAZARAT', fromLocation: 'Jeddah Airport (JED)', toLocation: 'Jeddah Airport (Circuit with Ziyarat)', sortOrder: 107 },
+  { name: 'ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MADINAH AIRPORT', fromLocation: 'Jeddah Airport (JED)', toLocation: 'Madinah Airport (Circuit)', sortOrder: 108 },
+  { name: 'ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MADINAH AIRPORT WITH MAZARAT', fromLocation: 'Jeddah Airport (JED)', toLocation: 'Madinah Airport (Circuit with Ziyarat)', sortOrder: 109 },
+  { name: 'ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MAKKAH TO JEDDAH', fromLocation: 'Jeddah', toLocation: 'Jeddah (Full Circuit)', sortOrder: 110 },
+  { name: 'ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MAKKAH TO JEDDAH WITH MAZARAT', fromLocation: 'Jeddah', toLocation: 'Jeddah (Full Circuit with Ziyarat)', sortOrder: 111 },
+  { name: 'JEDDAH AIRPORT TO JEDDAH CITY TO JEDDAH AIRPORT', fromLocation: 'Jeddah Airport (JED)', toLocation: 'Jeddah City & Return', sortOrder: 112 },
+  { name: 'MAKKAH ZIARAT', fromLocation: 'Makkah Hotel', toLocation: 'Makkah Holy Sites (Ziyarat)', sortOrder: 113 },
+  { name: 'MADINAH ZIARAT', fromLocation: 'Madinah Hotel', toLocation: 'Madinah Holy Sites (Ziyarat)', sortOrder: 114 },
+  { name: 'MADINAH AIRPORT TO MADINAH HOTEL', fromLocation: 'Madinah Airport (MED)', toLocation: 'Madinah Hotel', sortOrder: 115 },
+  { name: 'MADINAH HOTEL TO MADINAH AIRPORT', fromLocation: 'Madinah Hotel', toLocation: 'Madinah Airport (MED)', sortOrder: 116 },
+];
+
+export const AL_SULTAN_RATES_MATRIX: Record<string, number[]> = {
+  'JEDDAH AIRPORT TO MAKKAH': [220, 390, 275, 325, 470, 820, 820],
+  'MAKKAH TO MADINAH': [405, 800, 500, 575, 780, 1100, 1100],
+  'JEDDAH TO MADINAH': [420, 820, 520, 620, 900, 1120, 1120],
+  'MAK HOTEL TO MAK TRS': [110, 270, 130, 220, 270, 520, 520],
+  'MAD HOTEL TO MAD TRS': [100, 270, 130, 220, 270, 520, 520],
+  'ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO JEDDAH AIRPORT': [1045, 2010, 1295, 1520, 2150, 3040, 3040],
+  'ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO JEDDAH AIRPORT WITH MAZARAT': [1355, 2610, 1735, 2060, 2890, 3940, 3940],
+  'ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MADINAH AIRPORT': [745, 1440, 945, 1160, 1570, 2370, 2370],
+  'ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MADINAH AIRPORT WITH MAZARAT': [1055, 2040, 1385, 1700, 2310, 3270, 3270],
+  'ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MAKKAH TO JEDDAH': [1250, 2380, 1550, 1800, 2500, 3840, 3840],
+  'ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MAKKAH TO JEDDAH WITH MAZARAT': [1560, 2980, 1990, 2340, 3240, 4740, 4740],
+  'JEDDAH AIRPORT TO JEDDAH CITY TO JEDDAH AIRPORT': [150, 370, 200, 220, 370, 570, 570],
+  'MAKKAH ZIARAT': [155, 300, 220, 270, 370, 450, 450],
+  'MADINAH ZIARAT': [155, 300, 220, 270, 370, 450, 450],
+  'MADINAH AIRPORT TO MADINAH HOTEL': [120, 250, 170, 260, 320, 450, 450],
+  'MADINAH HOTEL TO MADINAH AIRPORT': [120, 250, 170, 260, 320, 450, 450],
+};
+
 export const CATALOG_VISAS = [
   {
     country: 'Saudi Arabia',
@@ -168,6 +206,35 @@ export async function seedCatalogData(db: PrismaClient = prisma) {
     });
   }
 
+  // Find or create Al Sultan Transfer Vendor
+  let alSultanVendor = await db.vendor.findFirst({
+    where: {
+      name: { contains: 'Al Sultan', mode: 'insensitive' },
+    },
+  });
+
+  if (!alSultanVendor) {
+    alSultanVendor = await db.vendor.findFirst({
+      where: {
+        name: { contains: 'Sultan', mode: 'insensitive' },
+      },
+    });
+  }
+
+  if (!alSultanVendor) {
+    alSultanVendor = await db.vendor.upsert({
+      where: { id: '61fe8f3e-5a75-4c78-cba0-8bc19d57393c' },
+      update: { name: 'Al Sultan Transfer', vendorType: 'Transportation' },
+      create: {
+        id: '61fe8f3e-5a75-4c78-cba0-8bc19d57393c',
+        name: 'Al Sultan Transfer',
+        phoneNumber: '+966 50 000 0000',
+        vendorType: 'Transportation',
+        walletBalance: 0,
+      },
+    });
+  }
+
   // Find or create default Visa Vendor
   let visaVendor = await db.vendor.findFirst({
     where: {
@@ -202,7 +269,8 @@ export async function seedCatalogData(db: PrismaClient = prisma) {
 
   console.log('Seeding Transport Routes...');
   const routeMap: Record<string, string> = {};
-  for (const r of CATALOG_ROUTES) {
+  const allRoutesToSeed = [...CATALOG_ROUTES, ...AL_SULTAN_ROUTES];
+  for (const r of allRoutesToSeed) {
     const route = await db.transportRoute.upsert({
       where: { name: r.name },
       update: { fromLocation: r.fromLocation, toLocation: r.toLocation, sortOrder: r.sortOrder },
@@ -211,7 +279,7 @@ export async function seedCatalogData(db: PrismaClient = prisma) {
     routeMap[r.name] = route.id;
   }
 
-  console.log('Seeding Transport Rates Matrix (1448H-(2026-2027))...');
+  console.log('Seeding Transport Rates Matrix for Basma Transport (1448H-(2026-2027))...');
   const season = '1448H-(2026-2027)';
   for (const [routeName, rates] of Object.entries(CATALOG_RATES_MATRIX)) {
     const routeId = routeMap[routeName];
@@ -224,34 +292,79 @@ export async function seedCatalogData(db: PrismaClient = prisma) {
       if (!vehicleId) continue;
 
       const price = rates[i];
-      await db.transportRate.upsert({
+      const existing = await db.transportRate.findFirst({
         where: {
-          routeId_vehicleId_season: {
-            routeId,
-            vehicleId,
-            season,
-          },
-        },
-        update: {
-          price,
-          currency: 'SAR',
-          vendorId: transportVendor.id,
-        },
-        create: {
           routeId,
           vehicleId,
-          price,
-          currency: 'SAR',
           season,
           vendorId: transportVendor.id,
         },
       });
+
+      if (existing) {
+        await db.transportRate.update({
+          where: { id: existing.id },
+          data: { price, currency: 'SAR', vendorId: transportVendor.id },
+        });
+      } else {
+        await db.transportRate.create({
+          data: {
+            routeId,
+            vehicleId,
+            price,
+            currency: 'SAR',
+            season,
+            vendorId: transportVendor.id,
+          },
+        });
+      }
     }
   }
 
-  // Ensure all transport rates for this season have Basma Transport assigned
+  console.log('Seeding Transport Rates Matrix for Al Sultan Transfer (1448H-(2026-2027))...');
+  for (const [routeName, rates] of Object.entries(AL_SULTAN_RATES_MATRIX)) {
+    const routeId = routeMap[routeName];
+    if (!routeId) continue;
+
+    for (let i = 0; i < rates.length; i++) {
+      const vehicleDef = CATALOG_VEHICLES[i];
+      if (!vehicleDef) continue;
+      const vehicleId = vehicleMap[vehicleDef.name];
+      if (!vehicleId) continue;
+
+      const price = rates[i];
+      const existing = await db.transportRate.findFirst({
+        where: {
+          routeId,
+          vehicleId,
+          season,
+          vendorId: alSultanVendor.id,
+        },
+      });
+
+      if (existing) {
+        await db.transportRate.update({
+          where: { id: existing.id },
+          data: { price, currency: 'SAR', vendorId: alSultanVendor.id },
+        });
+      } else {
+        await db.transportRate.create({
+          data: {
+            routeId,
+            vehicleId,
+            price,
+            currency: 'SAR',
+            season,
+            vendorId: alSultanVendor.id,
+          },
+        });
+      }
+    }
+  }
+
+  // Ensure any orphaned transport rates for this season have Basma Transport assigned
   await db.transportRate.updateMany({
-    where: { season },
+    where: { season, vendorId: null },
     data: { vendorId: transportVendor.id },
   });
 

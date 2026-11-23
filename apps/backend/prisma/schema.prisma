@@ -1441,7 +1441,7 @@ model TransportRate {
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
 
-  @@unique([routeId, vehicleId, season])
+  @@unique([routeId, vehicleId, season, vendorId])
   @@index([routeId])
   @@index([vehicleId])
   @@index([vendorId])
