@@ -419,19 +419,64 @@ export default function CatalogPage() {
     },
   });
 
+  // Active vendor resolution
+  const activeVendor =
+    transportMatrixData?.vendors?.find(
+      (v: any) => v.id === (selectedVendorId || transportMatrixData?.selectedVendorId)
+    ) ||
+    transportMatrixData?.currentVendor ||
+    (transportMatrixData?.vendors?.[0] ?? null);
+
+  const activeVendorName = (activeVendor?.name || "").toLowerCase();
+  const isAlSultan = activeVendorName.includes("sultan");
+  const fallbackSource = isAlSultan ? AL_SULTAN_DEFAULT_RATES : OFFICIAL_DEFAULT_RATES;
+
+  // Resolve routes strictly based on the company sheet
+  const companyRoutes = React.useMemo(() => {
+    const serverRoutes: any[] = transportMatrixData?.routes || [];
+
+    if (isAlSultan) {
+      const alSultanNames = Object.keys(AL_SULTAN_DEFAULT_RATES);
+      const matched = serverRoutes.filter((r) => alSultanNames.includes(r.name?.trim()));
+      if (matched.length > 0) {
+        return [...matched].sort(
+          (a, b) => alSultanNames.indexOf(a.name?.trim()) - alSultanNames.indexOf(b.name?.trim())
+        );
+      }
+      return alSultanNames.map((name, idx) => ({
+        id: `alsultan_${idx}`,
+        name,
+        defaultDeparture: "",
+        defaultArrival: "",
+        sortOrder: idx,
+      }));
+    } else {
+      const basmaNames = Object.keys(OFFICIAL_DEFAULT_RATES);
+      const matched = serverRoutes.filter((r) => basmaNames.includes(r.name?.trim()));
+      if (matched.length > 0) {
+        return [...matched].sort(
+          (a, b) => basmaNames.indexOf(a.name?.trim()) - basmaNames.indexOf(b.name?.trim())
+        );
+      }
+      return basmaNames.map((name, idx) => ({
+        id: `basma_${idx}`,
+        name,
+        defaultDeparture: "",
+        defaultArrival: "",
+        sortOrder: idx,
+      }));
+    }
+  }, [transportMatrixData?.routes, isAlSultan]);
+
   // Pre-index matrix with fallback to official sheet rates so no cell is ever empty
   const ratesMatrix = React.useMemo(() => {
     const map: Record<string, Record<string, any>> = {};
     const vehiclesList = transportMatrixData?.vehicles || [];
-    const routesList = transportMatrixData?.routes || [];
-    const currentVendorName = (transportMatrixData?.currentVendor?.name || "").toLowerCase();
-    const isAlSultan = currentVendorName.includes("sultan");
-    const fallbackSource = isAlSultan ? AL_SULTAN_DEFAULT_RATES : OFFICIAL_DEFAULT_RATES;
 
     // 1. Seed fallback matrix from appropriate sheet
-    routesList.forEach((r: any) => {
+    companyRoutes.forEach((r: any) => {
       map[r.id] = {};
-      const defRates = fallbackSource[r.name.trim()] || [];
+      const defRates = fallbackSource[r.name?.trim()] || [];
       vehiclesList.forEach((v: any, vIdx: number) => {
         if (defRates[vIdx] !== undefined) {
           map[r.id][v.id] = { price: defRates[vIdx], currency: "SAR" };
@@ -465,10 +510,10 @@ export default function CatalogPage() {
     }
 
     return map;
-  }, [transportMatrixData]);
+  }, [companyRoutes, transportMatrixData?.vehicles, transportMatrixData?.rates, transportMatrixData?.matrix, fallbackSource]);
 
   // Filter transport routes
-  const filteredRoutes = (transportMatrixData?.routes || []).filter((r: any) =>
+  const filteredRoutes = companyRoutes.filter((r: any) =>
     r.name.toLowerCase().includes(transportSearch.toLowerCase())
   );
 
@@ -604,9 +649,9 @@ export default function CatalogPage() {
         >
           <Car className="w-4 h-4" />
           Transportation Rates Matrix (1448H / 2026-2027)
-          {transportMatrixData?.routes?.length > 0 && (
+          {companyRoutes.length > 0 && (
             <span className="ml-1 px-1.5 py-0.2 bg-primary/10 text-primary rounded-full text-[10px]">
-              {transportMatrixData.routes.length} Sectors
+              {companyRoutes.length} Sectors
             </span>
           )}
         </button>
@@ -638,17 +683,19 @@ export default function CatalogPage() {
               <div className="space-y-0.5">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h2 className="text-lg md:text-xl font-extrabold text-foreground tracking-tight">
-                    Complete Special Transport Rate Sheet
+                    {isAlSultan ? "Al Sultan Transfer Rate Sheet" : "Complete Special Transport Rate Sheet"}
                   </h2>
-                  {transportMatrixData?.currentVendor && (
+                  {activeVendor && (
                     <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary border border-primary/20 flex items-center gap-1">
                       <Building2 className="w-3.5 h-3.5" />
-                      {transportMatrixData.currentVendor.name}
+                      {activeVendor.name}
                     </span>
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Valid for the year 1448H / (2026–2027) up to 15 Sha'aban
+                  {isAlSultan
+                    ? "Umrah Transport Rate List for Season 26/27"
+                    : "Valid for the year 1448H / (2026–2027) up to 15 Sha'aban"}
                 </p>
               </div>
 
@@ -848,9 +895,6 @@ export default function CatalogPage() {
 
                             {(transportMatrixData?.vehicles || []).map((v: any, vIdx: number) => {
                               const rateObj = ratesMatrix[route.id]?.[v.id];
-                              const currentVendorName = (transportMatrixData?.currentVendor?.name || "").toLowerCase();
-                              const isAlSultan = currentVendorName.includes("sultan");
-                              const fallbackSource = isAlSultan ? AL_SULTAN_DEFAULT_RATES : OFFICIAL_DEFAULT_RATES;
                               const defRates = fallbackSource[route.name.trim()] || [];
                               const fallbackPrice = defRates[vIdx];
                               const price =
@@ -874,7 +918,7 @@ export default function CatalogPage() {
                                         vehicleName: v.name,
                                         price: hasPrice ? price : 0,
                                         currency: rateObj?.currency || "SAR",
-                                        vendorId: rateObj?.vendorId || rateObj?.vendor?.id || selectedVendorId || transportMatrixData?.currentVendor?.id || "",
+                                        vendorId: rateObj?.vendorId || rateObj?.vendor?.id || activeVendor?.id || selectedVendorId || "",
                                       });
                                       setRateModalOpen(true);
                                     }
@@ -923,9 +967,6 @@ export default function CatalogPage() {
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    const currentVendorName = (transportMatrixData?.currentVendor?.name || "").toLowerCase();
-                                    const isAlSultan = currentVendorName.includes("sultan");
-                                    const fallbackSource = isAlSultan ? AL_SULTAN_DEFAULT_RATES : OFFICIAL_DEFAULT_RATES;
                                     const defRates = fallbackSource[route.name.trim()] || [];
                                     const rowSummary =
                                       `${route.name}: ` +

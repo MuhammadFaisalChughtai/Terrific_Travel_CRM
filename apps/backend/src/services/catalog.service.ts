@@ -22,9 +22,13 @@ export class CatalogService {
     // Check if defaults exist
     const hasBasma = transportVendors.some((v) => v.name.toLowerCase().includes('basma'));
     const hasSultan = transportVendors.some((v) => v.name.toLowerCase().includes('sultan'));
+    const sultanVendor = transportVendors.find((v) => v.name.toLowerCase().includes('sultan'));
+    const sultanRatesCount = sultanVendor
+      ? await prisma.transportRate.count({ where: { season, vendorId: sultanVendor.id } })
+      : 0;
     const ratesCount = await prisma.transportRate.count({ where: { season } });
 
-    if (transportVendors.length === 0 || !hasBasma || !hasSultan || ratesCount < 100) {
+    if (transportVendors.length === 0 || !hasBasma || !hasSultan || ratesCount < 100 || sultanRatesCount === 0) {
       await seedCatalogData(prisma);
       transportVendors = await prisma.vendor.findMany({
         where: {
@@ -77,15 +81,76 @@ export class CatalogService {
       routeRateCount[r.routeId] = (routeRateCount[r.routeId] || 0) + 1;
     }
 
-    // Prioritize routes that have rates for this vendor, followed by other catalog routes
-    const routesWithRates = allRoutes.filter((route) => (routeRateCount[route.id] || 0) > 0);
-    const routesWithoutRates = allRoutes.filter((route) => !routeRateCount[route.id]);
-    const routes = routesWithRates.length > 0 ? [...routesWithRates, ...routesWithoutRates] : allRoutes;
+    const isAlSultan = activeVendor?.name?.toLowerCase().includes('sultan');
+    const isBasma = activeVendor?.name?.toLowerCase().includes('basma');
+
+    // Filter routes strictly based on the company sheet
+    let routes: typeof allRoutes;
+    if (isAlSultan) {
+      const alSultanRouteNames = [
+        'JEDDAH AIRPORT TO MAKKAH',
+        'MAKKAH TO MADINAH',
+        'JEDDAH TO MADINAH',
+        'MAK HOTEL TO MAK TRS',
+        'MAD HOTEL TO MAD TRS',
+        'ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO JEDDAH AIRPORT',
+        'ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO JEDDAH AIRPORT WITH MAZARAT',
+        'ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MADINAH AIRPORT',
+        'ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MADINAH AIRPORT WITH MAZARAT',
+        'ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MAKKAH TO JEDDAH',
+        'ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MAKKAH TO JEDDAH WITH MAZARAT',
+        'JEDDAH AIRPORT TO JEDDAH CITY TO JEDDAH AIRPORT',
+        'MAKKAH ZIARAT',
+        'MADINAH ZIARAT',
+        'MADINAH AIRPORT TO MADINAH HOTEL',
+        'MADINAH HOTEL TO MADINAH AIRPORT',
+      ];
+      routes = allRoutes.filter((r) => alSultanRouteNames.includes(r.name.trim()));
+      routes.sort(
+        (a, b) =>
+          alSultanRouteNames.indexOf(a.name.trim()) - alSultanRouteNames.indexOf(b.name.trim())
+      );
+    } else if (isBasma) {
+      const basmaRouteNames = [
+        'JED-MKH',
+        'MKH-JED',
+        'MAKAH TO MADINA',
+        'JED APT TO MED HTL',
+        'MAKKAH TO JEDDAH APT/CITY',
+        'MAKAH ZIYARAT',
+        'MADINA ZIYARAT',
+        'MADINAH APT-MADINAH HTL',
+        'JEDDAH AIRPORT-JEDDAH CITY',
+        'MKH TO TAIF VISIT',
+        'MKH HTL TO MKH STN',
+        'MED STN TO MED HTL',
+        'MKH TO MED VIA BADAR EXTRA',
+        'MKH ZIYARAT WITH JURANA',
+        'MED APT TO MKH HTL',
+        'TAIF AIRPORT TO MKH HTL',
+      ];
+      routes = allRoutes.filter((r) => basmaRouteNames.includes(r.name.trim()));
+      routes.sort(
+        (a, b) =>
+          basmaRouteNames.indexOf(a.name.trim()) - basmaRouteNames.indexOf(b.name.trim())
+      );
+    } else {
+      const routesWithRates = allRoutes.filter((route) => (routeRateCount[route.id] || 0) > 0);
+      routes = routesWithRates.length > 0 ? routesWithRates : allRoutes;
+    }
 
     return {
       season,
       vendors: transportVendors,
       selectedVendorId: activeVendorId,
+      currentVendor: activeVendor
+        ? {
+            id: activeVendor.id,
+            name: activeVendor.name,
+            phoneNumber: activeVendor.phoneNumber,
+            companyManagerName: activeVendor.companyManagerName,
+          }
+        : null,
       vehicles,
       routes,
       rates,
