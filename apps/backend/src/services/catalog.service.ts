@@ -1,5 +1,10 @@
 import { prisma } from '../config';
-import { seedCatalogData } from '../../prisma/seed-catalog';
+import {
+  seedCatalogData,
+  CATALOG_VEHICLES,
+  CATALOG_RATES_MATRIX,
+  AL_SULTAN_RATES_MATRIX,
+} from '../../prisma/seed-catalog';
 import { BadRequestException } from '../middleware/error.middleware';
 
 export class CatalogService {
@@ -162,7 +167,7 @@ export class CatalogService {
    * Get flat list of transport options for booking modal dropdowns
    */
   async getTransportOptions(season: string = '1448H-(2026-2027)', vendorId?: string) {
-    const { routes, vehicles, rates } = await this.getTransportMatrix(season, vendorId);
+    const { routes, vehicles, rates, currentVendor } = await this.getTransportMatrix(season, vendorId);
 
     const rateMap: Record<string, number> = {};
     const currencyMap: Record<string, string> = {};
@@ -180,10 +185,25 @@ export class CatalogService {
     for (const route of routes) {
       for (const vehicle of vehicles) {
         const key = `${route.id}_${vehicle.id}`;
-        const price = rateMap[key] ?? 0;
+        let price = rateMap[key] ?? 0;
+
+        if (!price || price === 0) {
+          const vIdx = CATALOG_VEHICLES.findIndex(
+            (cv) => cv.name.trim().toUpperCase() === vehicle.name.trim().toUpperCase()
+          );
+          if (vIdx >= 0) {
+            const isAlSultan = currentVendor?.name?.toLowerCase().includes('sultan');
+            const fallbackMatrix = isAlSultan ? AL_SULTAN_RATES_MATRIX : CATALOG_RATES_MATRIX;
+            const defRates = fallbackMatrix[route.name.trim()];
+            if (defRates && defRates[vIdx] !== undefined) {
+              price = defRates[vIdx];
+            }
+          }
+        }
+
         const currency = currencyMap[key] || 'SAR';
-        const optVendorId = vendorIdMap[key] || null;
-        const vendorName = vendorNameMap[key] || null;
+        const optVendorId = vendorIdMap[key] || currentVendor?.id || null;
+        const vendorName = vendorNameMap[key] || currentVendor?.name || null;
 
         options.push({
           id: key,

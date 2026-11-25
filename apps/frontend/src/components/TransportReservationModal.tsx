@@ -5,6 +5,201 @@ import { useAuthStore } from '../store/auth.store';
 import Modal from './Modal';
 import { toast } from 'sonner';
 import { Loader2, Plane, Plus, X, Sparkles, Layers, Building2 } from 'lucide-react';
+import { OFFICIAL_DEFAULT_RATES, AL_SULTAN_DEFAULT_RATES } from '../pages/Catalog';
+
+// Canonical sectors map for both Basma & Al Sultan
+const CANONICAL_SECTORS: Record<string, { basma: string; sultan: string }> = {
+  JED_MKH: {
+    basma: 'JED-MKH',
+    sultan: 'JEDDAH AIRPORT TO MAKKAH',
+  },
+  MKH_JED: {
+    basma: 'MKH-JED',
+    sultan: 'JEDDAH AIRPORT TO MAKKAH',
+  },
+  MKH_MED: {
+    basma: 'MAKAH TO MADINA',
+    sultan: 'MAKKAH TO MADINAH',
+  },
+  JED_MED: {
+    basma: 'JED APT TO MED HTL',
+    sultan: 'JEDDAH TO MADINAH',
+  },
+  MKH_JED_CITY: {
+    basma: 'MAKKAH TO JEDDAH APT/CITY',
+    sultan: 'JEDDAH AIRPORT TO MAKKAH',
+  },
+  MKH_ZIYARAT: {
+    basma: 'MAKAH ZIYARAT',
+    sultan: 'MAKKAH ZIARAT',
+  },
+  MED_ZIYARAT: {
+    basma: 'MADINA ZIYARAT',
+    sultan: 'MADINAH ZIARAT',
+  },
+  MED_APT_HTL: {
+    basma: 'MADINAH APT-MADINAH HTL',
+    sultan: 'MADINAH AIRPORT TO MADINAH HOTEL',
+  },
+  MED_HTL_APT: {
+    basma: 'MADINAH APT-MADINAH HTL',
+    sultan: 'MADINAH HOTEL TO MADINAH AIRPORT',
+  },
+  JED_CITY: {
+    basma: 'JEDDAH AIRPORT-JEDDAH CITY',
+    sultan: 'JEDDAH AIRPORT TO JEDDAH CITY TO JEDDAH AIRPORT',
+  },
+  MKH_TAIF: {
+    basma: 'MKH TO TAIF VISIT',
+    sultan: 'MAKKAH ZIARAT',
+  },
+  MKH_STN: {
+    basma: 'MKH HTL TO MKH STN',
+    sultan: 'MAK HOTEL TO MAK TRS',
+  },
+  MED_STN: {
+    basma: 'MED STN TO MED HTL',
+    sultan: 'MAD HOTEL TO MAD TRS',
+  },
+  MKH_MED_BADR: {
+    basma: 'MKH TO MED VIA BADAR EXTRA',
+    sultan: 'MAKKAH TO MADINAH',
+  },
+  MKH_JURANA: {
+    basma: 'MKH ZIYARAT WITH JURANA',
+    sultan: 'MAKKAH ZIARAT',
+  },
+  MED_APT_MKH: {
+    basma: 'MED APT TO MKH HTL',
+    sultan: 'JEDDAH TO MADINAH',
+  },
+  TAIF_MKH: {
+    basma: 'TAIF AIRPORT TO MKH HTL',
+    sultan: 'MAKKAH ZIARAT',
+  },
+};
+
+function getVehicleIndex(vehicleName: string): number {
+  const v = (vehicleName || '').toUpperCase();
+  if (v.includes('GMC') || v.includes('YUKON')) return 1;
+  if (v.includes('STARIA') || v.includes('H1') || v.includes('H-1') || v.includes('6 PERSON') || v.includes('6 PAX')) return 2;
+  if (v.includes('HIACE') || v.includes('MINI BUS') || v.includes('09 SEATER') || v.includes('9 SEATER')) return 3;
+  if (v.includes('COASTER') || v.includes('15 SEATER')) return 4;
+  if (v.includes('BUS NEW') || v.includes('49')) return 6;
+  if (v.includes('BUS') || v.includes('47')) return 5;
+  return 0; // Default Ford / Equiv 3 Seater / Car
+}
+
+function detectSectorKey(routeName?: string, dep?: string, arr?: string): string {
+  const r = (routeName || '').toUpperCase().trim();
+  const d = (dep || '').toUpperCase().trim();
+  const a = (arr || '').toUpperCase().trim();
+
+  // Direct route name match in CANONICAL_SECTORS
+  for (const [key, sec] of Object.entries(CANONICAL_SECTORS)) {
+    if (r === sec.basma.toUpperCase() || r === sec.sultan.toUpperCase()) return key;
+  }
+
+  // Al Sultan specific round trip routes
+  if (r.includes('ROUND TRIP') || d.includes('ROUND TRIP') || a.includes('ROUND TRIP')) {
+    if (r.includes('MAKKAH TO JEDDAH') && r.includes('MAZARAT')) return 'ROUND_TRIP_6';
+    if (r.includes('MAKKAH TO JEDDAH')) return 'ROUND_TRIP_5';
+    if (r.includes('MADINAH AIRPORT') && r.includes('MAZARAT')) return 'ROUND_TRIP_4';
+    if (r.includes('MADINAH AIRPORT')) return 'ROUND_TRIP_3';
+    if (r.includes('MAZARAT')) return 'ROUND_TRIP_2';
+    return 'ROUND_TRIP_1';
+  }
+
+  // Match by departure & arrival destinations
+  const isJedDep = d.includes('JED') || d.includes('JEDDAH');
+  const isJedArr = a.includes('JED') || a.includes('JEDDAH');
+  const isMkhDep = d.includes('MKH') || d.includes('MAKKAH') || d.includes('MECCA');
+  const isMkhArr = a.includes('MKH') || a.includes('MAKKAH') || a.includes('MECCA');
+  const isMedDep = d.includes('MED') || d.includes('MADINAH') || d.includes('MADINA');
+  const isMedArr = a.includes('MED') || a.includes('MADINAH') || a.includes('MADINA');
+  const isTaifDep = d.includes('TAIF') || d.includes('TIF');
+  const isTaifArr = a.includes('TAIF') || a.includes('TIF');
+  const isStnDep = d.includes('STN') || d.includes('STATION') || d.includes('TRS') || d.includes('TRAIN');
+  const isStnArr = a.includes('STN') || a.includes('STATION') || a.includes('TRS') || a.includes('TRAIN');
+  const isZiyarat = r.includes('ZIYARAT') || r.includes('ZIARAT') || d.includes('ZIYARAT') || a.includes('ZIYARAT');
+
+  if (isTaifDep || isTaifArr) return 'MKH_TAIF';
+  if (isMkhDep && isStnArr) return 'MKH_STN';
+  if (isStnDep && isMkhArr) return 'MKH_STN';
+  if (isMedDep && isStnArr) return 'MED_STN';
+  if (isStnDep && isMedArr) return 'MED_STN';
+
+  if (isZiyarat) {
+    if (isMedDep || isMedArr) return 'MED_ZIYARAT';
+    return 'MKH_ZIYARAT';
+  }
+
+  if (isJedDep && isMedArr) return 'JED_MED';
+  if (isMedDep && isJedArr) return 'JED_MED';
+  if (isMkhDep && isMedArr) return 'MKH_MED';
+  if (isMedDep && isMkhArr) return 'MKH_MED';
+  if (isJedDep && isMkhArr) return 'JED_MKH';
+  if (isMkhDep && isJedArr) return 'MKH_JED';
+
+  if (isMedDep && (a.includes('AIRPORT') || a.includes('APT'))) return 'MED_HTL_APT';
+  if ((d.includes('AIRPORT') || d.includes('APT')) && isMedArr) return 'MED_APT_HTL';
+  if (isJedDep && isJedArr) return 'JED_CITY';
+
+  return 'JED_MKH'; // Default standard sector
+}
+
+function getVendorRateForSectorAndVehicle(
+  vendorName: string,
+  sectorKey: string,
+  vehicleIdx: number
+): { rateSAR: number; routeLabel: string } | null {
+  const isSultan = (vendorName || '').toLowerCase().includes('sultan');
+
+  if (isSultan) {
+    // Al Sultan round trips
+    if (sectorKey === 'ROUND_TRIP_1') {
+      const r = 'ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO JEDDAH AIRPORT';
+      return { rateSAR: AL_SULTAN_DEFAULT_RATES[r]?.[vehicleIdx] ?? 1045, routeLabel: r };
+    }
+    if (sectorKey === 'ROUND_TRIP_2') {
+      const r = 'ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO JEDDAH AIRPORT WITH MAZARAT';
+      return { rateSAR: AL_SULTAN_DEFAULT_RATES[r]?.[vehicleIdx] ?? 1355, routeLabel: r };
+    }
+    if (sectorKey === 'ROUND_TRIP_3') {
+      const r = 'ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MADINAH AIRPORT';
+      return { rateSAR: AL_SULTAN_DEFAULT_RATES[r]?.[vehicleIdx] ?? 745, routeLabel: r };
+    }
+    if (sectorKey === 'ROUND_TRIP_4') {
+      const r = 'ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MADINAH AIRPORT WITH MAZARAT';
+      return { rateSAR: AL_SULTAN_DEFAULT_RATES[r]?.[vehicleIdx] ?? 1055, routeLabel: r };
+    }
+    if (sectorKey === 'ROUND_TRIP_5') {
+      const r = 'ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MAKKAH TO JEDDAH';
+      return { rateSAR: AL_SULTAN_DEFAULT_RATES[r]?.[vehicleIdx] ?? 1250, routeLabel: r };
+    }
+    if (sectorKey === 'ROUND_TRIP_6') {
+      const r = 'ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MAKKAH TO JEDDAH WITH MAZARAT';
+      return { rateSAR: AL_SULTAN_DEFAULT_RATES[r]?.[vehicleIdx] ?? 1560, routeLabel: r };
+    }
+
+    const sec = CANONICAL_SECTORS[sectorKey];
+    const rName = sec?.sultan || 'JEDDAH AIRPORT TO MAKKAH';
+    const rates = AL_SULTAN_DEFAULT_RATES[rName] || AL_SULTAN_DEFAULT_RATES['JEDDAH AIRPORT TO MAKKAH'];
+    return {
+      rateSAR: rates[vehicleIdx] !== undefined ? rates[vehicleIdx] : rates[0],
+      routeLabel: rName,
+    };
+  } else {
+    // Basma Transport / Default
+    const sec = CANONICAL_SECTORS[sectorKey];
+    const rName = sec?.basma || 'JED-MKH';
+    const rates = OFFICIAL_DEFAULT_RATES[rName] || OFFICIAL_DEFAULT_RATES['JED-MKH'];
+    return {
+      rateSAR: rates[vehicleIdx] !== undefined ? rates[vehicleIdx] : rates[0],
+      routeLabel: rName,
+    };
+  }
+}
 
 
 interface TransportReservationModalProps {
@@ -162,11 +357,14 @@ export default function TransportReservationModal({
     }
   }, [isOpen, transportToEdit, booking]);
 
-  // Fetch Catalog Transport Options (Rate Matrix)
+  // Fetch Catalog Transport Options (Rate Matrix) for selected vendor
   const { data: catalogTransportOptions } = useQuery({
-    queryKey: ['catalog-transport-options'],
+    queryKey: ['catalog-transport-options', vendorId],
     queryFn: async () => {
-      const res = await apiClient.get('/catalog/transport-options');
+      const url = vendorId
+        ? `/catalog/transport-options?vendorId=${encodeURIComponent(vendorId)}`
+        : '/catalog/transport-options';
+      const res = await apiClient.get(url);
       return res.data.data || [];
     },
     enabled: isOpen,
@@ -239,8 +437,69 @@ export default function TransportReservationModal({
     setSelectedCatalogVehicleType(chosenVehicle);
     if (chosenVehicle) {
       setVehicleType(chosenVehicle);
+
+      // If route or destinations are present, update rate for currently selected vendor
+      if (!isPriceDisabled && (departureDestination || arrivalDestination || selectedCatalogTransportId)) {
+        const chosenVendor =
+          vendorsData?.find((v: any) => v.id === vendorId) ||
+          transportVendors.find((v: any) => v.id === vendorId);
+        if (chosenVendor) {
+          const vIdx = getVehicleIndex(chosenVehicle);
+          const opt = catalogTransportOptions?.find((o: any) => o.id === selectedCatalogTransportId);
+          const secKey = detectSectorKey(opt?.routeName, departureDestination, arrivalDestination);
+          const rateInfo = getVendorRateForSectorAndVehicle(chosenVendor.name, secKey, vIdx);
+          if (rateInfo && rateInfo.rateSAR > 0) {
+            const savedRate = Number(localStorage.getItem('tms_catalog_exchange_rate')) || 4.8;
+            const currentRate = Number(conversionRate) > 0 ? Number(conversionRate) : savedRate;
+
+            setCurrency('GBP');
+            setOtherCurrencyType('SAR');
+            setOtherCurrencyAmount(String(rateInfo.rateSAR));
+            setConversionRate(String(currentRate));
+            const gbpPrice = (rateInfo.rateSAR / currentRate).toFixed(2);
+            setPrice(gbpPrice);
+          }
+        }
+      }
     }
     setSelectedCatalogTransportId('');
+  };
+
+  const handleVendorChange = (newVendorId: string) => {
+    setVendorId(newVendorId);
+    if (!newVendorId) return;
+
+    const chosenVendor =
+      vendorsData?.find((v: any) => v.id === newVendorId) ||
+      transportVendors.find((v: any) => v.id === newVendorId);
+    if (!chosenVendor) return;
+
+    if (isPriceDisabled) return;
+
+    // Detect vehicle index
+    const activeVehicleName = vehicleType || selectedCatalogVehicleType || 'FORD OR EQUIVALENT 3 SEATER';
+    const vIdx = getVehicleIndex(activeVehicleName);
+
+    // Detect sector
+    const opt = catalogTransportOptions?.find((o: any) => o.id === selectedCatalogTransportId);
+    const secKey = detectSectorKey(opt?.routeName, departureDestination, arrivalDestination);
+
+    const rateInfo = getVendorRateForSectorAndVehicle(chosenVendor.name, secKey, vIdx);
+    if (rateInfo && rateInfo.rateSAR > 0) {
+      const savedRate = Number(localStorage.getItem('tms_catalog_exchange_rate')) || 4.8;
+      const currentRate = Number(conversionRate) > 0 ? Number(conversionRate) : savedRate;
+
+      setCurrency('GBP');
+      setOtherCurrencyType('SAR');
+      setOtherCurrencyAmount(String(rateInfo.rateSAR));
+      setConversionRate(String(currentRate));
+      const gbpPrice = (rateInfo.rateSAR / currentRate).toFixed(2);
+      setPrice(gbpPrice);
+
+      toast.success(
+        `Rate updated for ${chosenVendor.name}: ${rateInfo.rateSAR} SAR (£${gbpPrice}) [${rateInfo.routeLabel}]`
+      );
+    }
   };
 
   const handleSelectCatalogTransport = (rateId: string, explicitVehicleName?: string) => {
@@ -304,6 +563,8 @@ export default function TransportReservationModal({
 
     if (opt.vendorId) {
       setVendorId(opt.vendorId);
+    } else if (vendorId) {
+      // Keep existing selected vendor
     } else if (basmaVendor) {
       setVendorId(basmaVendor.id);
     } else if (transportVendors.length > 0) {
@@ -1240,7 +1501,7 @@ export default function TransportReservationModal({
                 <select
                   required
                   value={vendorId}
-                  onChange={(e) => setVendorId(e.target.value)}
+                  onChange={(e) => handleVendorChange(e.target.value)}
                   className="w-full text-xs py-1.5 px-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                 >
                   <option value="">-- Select Transport Vendor --</option>
