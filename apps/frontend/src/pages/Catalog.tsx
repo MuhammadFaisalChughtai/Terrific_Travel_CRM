@@ -27,38 +27,29 @@ import {
 } from "lucide-react";
 
 export const ROUTE_SUBTITLES: Record<string, string> = {
-  "JED-MKH": "Jeddah Airport to Makkah Hotel",
-  "MKH-JED": "Makkah Hotel to Jeddah Airport",
-  "MAKAH TO MADINA": "Makkah to Madinah",
-  "JED APT TO MED HTL": "Jeddah Airport to Madinah Hotel",
-  "MAKKAH TO JEDDAH APT/CITY": "Makkah to Jeddah Airport or City",
-  "MAKAH ZIYARAT": "Holy Places Visit in Makkah",
-  "MADINA ZIYARAT": "Holy Places Visit in Madinah",
-  "MADINAH APT-MADINAH HTL": "Madinah Airport to Madinah Hotel",
-  "JEDDAH AIRPORT-JEDDAH CITY": "Jeddah Airport to Jeddah City",
-  "MKH TO TAIF VISIT": "Makkah to Taif Day Trip / Visit",
-  "MKH HTL TO MKH STN": "Makkah Hotel to Makkah Haramain Train Station",
-  "MED STN TO MED HTL": "Madinah Haramain Train Station to Madinah Hotel",
-  "MKH TO MED VIA BADAR EXTRA": "Makkah to Madinah via Badar (Extra)",
-  "MKH ZIYARAT WITH JURANA": "Makkah Ziyarat including Masjid Al-Ji'ranah",
-  "MED APT TO MKH HTL": "Madinah Airport to Makkah Hotel",
-  "TAIF AIRPORT TO MKH HTL": "Taif Airport to Makkah Hotel",
-  "JEDDAH AIRPORT TO MAKKAH": "Jeddah Airport to Makkah Hotel",
-  "MAKKAH TO MADINAH": "Makkah to Madinah Hotel",
-  "JEDDAH TO MADINAH": "Jeddah Airport to Madinah Hotel",
-  "MAK HOTEL TO MAK TRS": "Makkah Hotel to Makkah Haramain Train Station",
-  "MAD HOTEL TO MAD TRS": "Madinah Hotel to Madinah Haramain Train Station",
+  "JEDDAH AIRPORT TO MAKKAH": "Jeddah Airport (JED) ➔ Makkah Hotel (JED-MKH)",
+  "MAKKAH TO JEDDAH AIRPORT": "Makkah Hotel ➔ Jeddah Airport (MKH-JED)",
+  "MAKKAH TO MADINAH": "Makkah Hotel ➔ Madinah Hotel",
+  "JEDDAH AIRPORT TO MADINAH": "Jeddah Airport (JED) ➔ Madinah Hotel (JED APT TO MED HTL)",
+  "MAKKAH TO JEDDAH CITY / AIRPORT": "Makkah Hotel ➔ Jeddah Airport or City",
+  "MAKKAH ZIYARAT": "Holy Places Visit in Makkah (Ziyarat / Mazarat)",
+  "MADINAH ZIYARAT": "Holy Places Visit in Madinah (Ziyarat / Mazarat)",
+  "MADINAH AIRPORT TO MADINAH HOTEL": "Madinah Airport (MED) ➔ Madinah Hotel",
+  "MADINAH HOTEL TO MADINAH AIRPORT": "Madinah Hotel ➔ Madinah Airport (MED)",
+  "JEDDAH AIRPORT TO JEDDAH CITY": "Jeddah Airport ➔ Jeddah City & Return",
+  "MAKKAH HOTEL TO MAKKAH TRAIN STATION": "Makkah Hotel ➔ Haramain Train Station (Rusaifah / TRS)",
+  "MADINAH TRAIN STATION TO MADINAH HOTEL": "Madinah Haramain Train Station ➔ Madinah Hotel",
+  "MAKKAH TO TAIF VISIT": "Makkah to Taif Day Trip / Visit",
+  "MAKKAH TO MADINAH VIA BADAR (EXTRA)": "Makkah to Madinah via Badr Heritage",
+  "MAKKAH ZIYARAT WITH JURANA": "Makkah Ziyarat including Masjid Al-Ji'ranah",
+  "MADINAH AIRPORT TO MAKKAH HOTEL": "Madinah Airport (MED) ➔ Makkah Hotel",
+  "TAIF AIRPORT TO MAKKAH HOTEL": "Taif Airport ➔ Makkah Hotel",
   "ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO JEDDAH AIRPORT": "Jeddah Airport ➔ Makkah ➔ Madinah ➔ Jeddah Airport (Round Trip)",
   "ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO JEDDAH AIRPORT WITH MAZARAT": "Round Trip with Mazarat / Ziyarat in Makkah & Madinah",
   "ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MADINAH AIRPORT": "Jeddah Airport ➔ Makkah ➔ Madinah ➔ Madinah Airport",
   "ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MADINAH AIRPORT WITH MAZARAT": "Circuit ending at Madinah Airport with Mazarat",
   "ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MAKKAH TO JEDDAH": "Jeddah ➔ Makkah ➔ Madinah ➔ Makkah ➔ Jeddah",
   "ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MAKKAH TO JEDDAH WITH MAZARAT": "Full Extended Circuit with Mazarat",
-  "JEDDAH AIRPORT TO JEDDAH CITY TO JEDDAH AIRPORT": "Jeddah Airport to Jeddah City & Return",
-  "MAKKAH ZIARAT": "Holy Places Visit in Makkah (Ziyarat)",
-  "MADINAH ZIARAT": "Holy Places Visit in Madinah (Ziyarat)",
-  "MADINAH AIRPORT TO MADINAH HOTEL": "Madinah Airport to Madinah Hotel",
-  "MADINAH HOTEL TO MADINAH AIRPORT": "Madinah Hotel to Madinah Airport (MED)",
 };
 
 export const VEHICLE_SHORT_NAMES: Record<string, { label: string; sub: string }> = {
@@ -72,41 +63,55 @@ export const VEHICLE_SHORT_NAMES: Record<string, { label: string; sub: string }>
 };
 
 export const OFFICIAL_DEFAULT_RATES: Record<string, number[]> = {
-  "JED-MKH": [260, 410, 325, 375, 550, 800, 900],
-  "MKH-JED": [195, 350, 290, 280, 450, 700, 800],
-  "MAKAH TO MADINA": [425, 830, 520, 575, 790, 1050, 1150],
-  "JED APT TO MED HTL": [520, 870, 600, 650, 900, 1150, 1250],
-  "MAKKAH TO JEDDAH APT/CITY": [195, 350, 290, 280, 450, 700, 800],
-  "MAKAH ZIYARAT": [190, 350, 260, 295, 350, 450, 500],
-  "MADINA ZIYARAT": [190, 350, 260, 295, 350, 450, 500],
-  "MADINAH APT-MADINAH HTL": [180, 260, 220, 270, 330, 450, 500],
-  "JEDDAH AIRPORT-JEDDAH CITY": [180, 330, 250, 280, 300, 450, 500],
-  "MKH TO TAIF VISIT": [600, 950, 690, 750, 830, 1000, 1100],
-  "MKH HTL TO MKH STN": [150, 250, 210, 290, 310, 350, 400],
-  "MED STN TO MED HTL": [150, 250, 210, 290, 310, 350, 400],
-  "MKH TO MED VIA BADAR EXTRA": [220, 300, 230, 270, 280, 300, 350],
-  "MKH ZIYARAT WITH JURANA": [250, 450, 400, 395, 400, 450, 500],
-  "MED APT TO MKH HTL": [700, 980, 800, 875, 1150, 1400, 1550],
-  "TAIF AIRPORT TO MKH HTL": [600, 900, 700, 750, 850, 950, 1050],
-};
-
-export const AL_SULTAN_DEFAULT_RATES: Record<string, number[]> = {
-  "JEDDAH AIRPORT TO MAKKAH": [220, 390, 275, 325, 470, 820, 820],
-  "MAKKAH TO MADINAH": [405, 800, 500, 575, 780, 1100, 1100],
-  "JEDDAH TO MADINAH": [420, 820, 520, 620, 900, 1120, 1120],
-  "MAK HOTEL TO MAK TRS": [110, 270, 130, 220, 270, 520, 520],
-  "MAD HOTEL TO MAD TRS": [100, 270, 130, 220, 270, 520, 520],
+  "JEDDAH AIRPORT TO MAKKAH": [260, 410, 325, 375, 550, 800, 900],
+  "MAKKAH TO JEDDAH AIRPORT": [195, 350, 290, 280, 450, 700, 800],
+  "MAKKAH TO MADINAH": [425, 830, 520, 575, 790, 1050, 1150],
+  "JEDDAH AIRPORT TO MADINAH": [520, 870, 600, 650, 900, 1150, 1250],
+  "MAKKAH TO JEDDAH CITY / AIRPORT": [195, 350, 290, 280, 450, 700, 800],
+  "MAKKAH ZIYARAT": [190, 350, 260, 295, 350, 450, 500],
+  "MADINAH ZIYARAT": [190, 350, 260, 295, 350, 450, 500],
+  "MADINAH AIRPORT TO MADINAH HOTEL": [180, 260, 220, 270, 330, 450, 500],
+  "MADINAH HOTEL TO MADINAH AIRPORT": [180, 260, 220, 270, 330, 450, 500],
+  "JEDDAH AIRPORT TO JEDDAH CITY": [180, 330, 250, 280, 300, 450, 500],
+  "MAKKAH HOTEL TO MAKKAH TRAIN STATION": [150, 250, 210, 290, 310, 350, 400],
+  "MADINAH TRAIN STATION TO MADINAH HOTEL": [150, 250, 210, 290, 310, 350, 400],
+  "MAKKAH TO TAIF VISIT": [600, 950, 690, 750, 830, 1000, 1100],
+  "MAKKAH TO MADINAH VIA BADAR (EXTRA)": [220, 300, 230, 270, 280, 300, 350],
+  "MAKKAH ZIYARAT WITH JURANA": [250, 450, 400, 395, 400, 450, 500],
+  "MADINAH AIRPORT TO MAKKAH HOTEL": [700, 980, 800, 875, 1150, 1400, 1550],
+  "TAIF AIRPORT TO MAKKAH HOTEL": [600, 900, 700, 750, 850, 950, 1050],
   "ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO JEDDAH AIRPORT": [1045, 2010, 1295, 1520, 2150, 3040, 3040],
   "ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO JEDDAH AIRPORT WITH MAZARAT": [1355, 2610, 1735, 2060, 2890, 3940, 3940],
   "ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MADINAH AIRPORT": [745, 1440, 945, 1160, 1570, 2370, 2370],
   "ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MADINAH AIRPORT WITH MAZARAT": [1055, 2040, 1385, 1700, 2310, 3270, 3270],
   "ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MAKKAH TO JEDDAH": [1250, 2380, 1550, 1800, 2500, 3840, 3840],
   "ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MAKKAH TO JEDDAH WITH MAZARAT": [1560, 2980, 1990, 2340, 3240, 4740, 4740],
-  "JEDDAH AIRPORT TO JEDDAH CITY TO JEDDAH AIRPORT": [150, 370, 200, 220, 370, 570, 570],
-  "MAKKAH ZIARAT": [155, 300, 220, 270, 370, 450, 450],
-  "MADINAH ZIARAT": [155, 300, 220, 270, 370, 450, 450],
+};
+
+export const AL_SULTAN_DEFAULT_RATES: Record<string, number[]> = {
+  "JEDDAH AIRPORT TO MAKKAH": [220, 390, 275, 325, 470, 820, 820],
+  "MAKKAH TO JEDDAH AIRPORT": [220, 390, 275, 325, 470, 820, 820],
+  "MAKKAH TO MADINAH": [405, 800, 500, 575, 780, 1100, 1100],
+  "JEDDAH AIRPORT TO MADINAH": [420, 820, 520, 620, 900, 1120, 1120],
+  "MAKKAH TO JEDDAH CITY / AIRPORT": [220, 390, 275, 325, 470, 820, 820],
+  "MAKKAH ZIYARAT": [155, 300, 220, 270, 370, 450, 450],
+  "MADINAH ZIYARAT": [155, 300, 220, 270, 370, 450, 450],
   "MADINAH AIRPORT TO MADINAH HOTEL": [120, 250, 170, 260, 320, 450, 450],
   "MADINAH HOTEL TO MADINAH AIRPORT": [120, 250, 170, 260, 320, 450, 450],
+  "JEDDAH AIRPORT TO JEDDAH CITY": [150, 370, 200, 220, 370, 570, 570],
+  "MAKKAH HOTEL TO MAKKAH TRAIN STATION": [110, 270, 130, 220, 270, 520, 520],
+  "MADINAH TRAIN STATION TO MADINAH HOTEL": [100, 270, 130, 220, 270, 520, 520],
+  "MAKKAH TO TAIF VISIT": [600, 950, 690, 750, 830, 1000, 1100],
+  "MAKKAH TO MADINAH VIA BADAR (EXTRA)": [220, 300, 230, 270, 280, 300, 350],
+  "MAKKAH ZIYARAT WITH JURANA": [250, 450, 400, 395, 400, 450, 500],
+  "MADINAH AIRPORT TO MAKKAH HOTEL": [700, 980, 800, 875, 1150, 1400, 1550],
+  "TAIF AIRPORT TO MAKKAH HOTEL": [600, 900, 700, 750, 850, 950, 1050],
+  "ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO JEDDAH AIRPORT": [1045, 2010, 1295, 1520, 2150, 3040, 3040],
+  "ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO JEDDAH AIRPORT WITH MAZARAT": [1355, 2610, 1735, 2060, 2890, 3940, 3940],
+  "ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MADINAH AIRPORT": [745, 1440, 945, 1160, 1570, 2370, 2370],
+  "ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MADINAH AIRPORT WITH MAZARAT": [1055, 2040, 1385, 1700, 2310, 3270, 3270],
+  "ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MAKKAH TO JEDDAH": [1250, 2380, 1550, 1800, 2500, 3840, 3840],
+  "ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MAKKAH TO JEDDAH WITH MAZARAT": [1560, 2980, 1990, 2340, 3240, 4740, 4740],
 };
 
 export default function CatalogPage() {
@@ -431,42 +436,21 @@ export default function CatalogPage() {
   const isAlSultan = activeVendorName.includes("sultan");
   const fallbackSource = isAlSultan ? AL_SULTAN_DEFAULT_RATES : OFFICIAL_DEFAULT_RATES;
 
-  // Resolve routes strictly based on the company sheet
+  // All vendors share the exact same unified routes list on UI
   const companyRoutes = React.useMemo(() => {
     const serverRoutes: any[] = transportMatrixData?.routes || [];
-
-    if (isAlSultan) {
-      const alSultanNames = Object.keys(AL_SULTAN_DEFAULT_RATES);
-      const matched = serverRoutes.filter((r) => alSultanNames.includes(r.name?.trim()));
-      if (matched.length > 0) {
-        return [...matched].sort(
-          (a, b) => alSultanNames.indexOf(a.name?.trim()) - alSultanNames.indexOf(b.name?.trim())
-        );
-      }
-      return alSultanNames.map((name, idx) => ({
-        id: `alsultan_${idx}`,
-        name,
-        defaultDeparture: "",
-        defaultArrival: "",
-        sortOrder: idx,
-      }));
-    } else {
-      const basmaNames = Object.keys(OFFICIAL_DEFAULT_RATES);
-      const matched = serverRoutes.filter((r) => basmaNames.includes(r.name?.trim()));
-      if (matched.length > 0) {
-        return [...matched].sort(
-          (a, b) => basmaNames.indexOf(a.name?.trim()) - basmaNames.indexOf(b.name?.trim())
-        );
-      }
-      return basmaNames.map((name, idx) => ({
-        id: `basma_${idx}`,
-        name,
-        defaultDeparture: "",
-        defaultArrival: "",
-        sortOrder: idx,
-      }));
+    if (serverRoutes.length > 0) {
+      return serverRoutes;
     }
-  }, [transportMatrixData?.routes, isAlSultan]);
+    const standardNames = Object.keys(OFFICIAL_DEFAULT_RATES);
+    return standardNames.map((name, idx) => ({
+      id: `std_${idx}`,
+      name,
+      defaultDeparture: "",
+      defaultArrival: "",
+      sortOrder: idx + 1,
+    }));
+  }, [transportMatrixData?.routes]);
 
   // Pre-index matrix with fallback to official sheet rates so no cell is ever empty
   const ratesMatrix = React.useMemo(() => {

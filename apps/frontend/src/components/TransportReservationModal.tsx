@@ -7,75 +7,99 @@ import { toast } from 'sonner';
 import { Loader2, Plane, Plus, X, Sparkles, Layers, Building2 } from 'lucide-react';
 import { OFFICIAL_DEFAULT_RATES, AL_SULTAN_DEFAULT_RATES } from '../pages/Catalog';
 
-// Canonical sectors map for both Basma & Al Sultan
-const CANONICAL_SECTORS: Record<string, { basma: string; sultan: string }> = {
+// Canonical unified sectors map across all vendors
+const CANONICAL_SECTORS: Record<string, { unified: string; aliases: string[] }> = {
   JED_MKH: {
-    basma: 'JED-MKH',
-    sultan: 'JEDDAH AIRPORT TO MAKKAH',
+    unified: 'JEDDAH AIRPORT TO MAKKAH',
+    aliases: ['JED-MKH', 'JEDDAH AIRPORT TO MAKKAH', 'JED TO MKH'],
   },
   MKH_JED: {
-    basma: 'MKH-JED',
-    sultan: 'JEDDAH AIRPORT TO MAKKAH',
+    unified: 'MAKKAH TO JEDDAH AIRPORT',
+    aliases: ['MKH-JED', 'MAKKAH TO JEDDAH', 'MKH TO JED'],
   },
   MKH_MED: {
-    basma: 'MAKAH TO MADINA',
-    sultan: 'MAKKAH TO MADINAH',
+    unified: 'MAKKAH TO MADINAH',
+    aliases: ['MAKAH TO MADINA', 'MAKKAH TO MADINAH', 'MKH TO MED'],
   },
   JED_MED: {
-    basma: 'JED APT TO MED HTL',
-    sultan: 'JEDDAH TO MADINAH',
+    unified: 'JEDDAH AIRPORT TO MADINAH',
+    aliases: ['JED APT TO MED HTL', 'JEDDAH TO MADINAH', 'JED TO MED'],
   },
   MKH_JED_CITY: {
-    basma: 'MAKKAH TO JEDDAH APT/CITY',
-    sultan: 'JEDDAH AIRPORT TO MAKKAH',
+    unified: 'MAKKAH TO JEDDAH CITY / AIRPORT',
+    aliases: ['MAKKAH TO JEDDAH APT/CITY'],
   },
   MKH_ZIYARAT: {
-    basma: 'MAKAH ZIYARAT',
-    sultan: 'MAKKAH ZIARAT',
+    unified: 'MAKKAH ZIYARAT',
+    aliases: ['MAKAH ZIYARAT', 'MAKKAH ZIARAT'],
   },
   MED_ZIYARAT: {
-    basma: 'MADINA ZIYARAT',
-    sultan: 'MADINAH ZIARAT',
+    unified: 'MADINAH ZIYARAT',
+    aliases: ['MADINA ZIYARAT', 'MADINAH ZIARAT'],
   },
   MED_APT_HTL: {
-    basma: 'MADINAH APT-MADINAH HTL',
-    sultan: 'MADINAH AIRPORT TO MADINAH HOTEL',
+    unified: 'MADINAH AIRPORT TO MADINAH HOTEL',
+    aliases: ['MADINAH APT-MADINAH HTL', 'MADINAH AIRPORT TO MADINAH HOTEL'],
   },
   MED_HTL_APT: {
-    basma: 'MADINAH APT-MADINAH HTL',
-    sultan: 'MADINAH HOTEL TO MADINAH AIRPORT',
+    unified: 'MADINAH HOTEL TO MADINAH AIRPORT',
+    aliases: ['MADINAH HOTEL TO MADINAH AIRPORT'],
   },
   JED_CITY: {
-    basma: 'JEDDAH AIRPORT-JEDDAH CITY',
-    sultan: 'JEDDAH AIRPORT TO JEDDAH CITY TO JEDDAH AIRPORT',
-  },
-  MKH_TAIF: {
-    basma: 'MKH TO TAIF VISIT',
-    sultan: 'MAKKAH ZIARAT',
+    unified: 'JEDDAH AIRPORT TO JEDDAH CITY',
+    aliases: ['JEDDAH AIRPORT-JEDDAH CITY', 'JEDDAH AIRPORT TO JEDDAH CITY TO JEDDAH AIRPORT'],
   },
   MKH_STN: {
-    basma: 'MKH HTL TO MKH STN',
-    sultan: 'MAK HOTEL TO MAK TRS',
+    unified: 'MAKKAH HOTEL TO MAKKAH TRAIN STATION',
+    aliases: ['MKH HTL TO MKH STN', 'MAK HOTEL TO MAK TRS', 'MAKKAH HOTEL TO MAKKAH TRAIN STATION'],
   },
   MED_STN: {
-    basma: 'MED STN TO MED HTL',
-    sultan: 'MAD HOTEL TO MAD TRS',
+    unified: 'MADINAH TRAIN STATION TO MADINAH HOTEL',
+    aliases: ['MED STN TO MED HTL', 'MAD HOTEL TO MAD TRS', 'MADINAH TRAIN STATION TO MADINAH HOTEL'],
+  },
+  MKH_TAIF: {
+    unified: 'MAKKAH TO TAIF VISIT',
+    aliases: ['MKH TO TAIF VISIT'],
   },
   MKH_MED_BADR: {
-    basma: 'MKH TO MED VIA BADAR EXTRA',
-    sultan: 'MAKKAH TO MADINAH',
+    unified: 'MAKKAH TO MADINAH VIA BADAR (EXTRA)',
+    aliases: ['MKH TO MED VIA BADAR EXTRA'],
   },
   MKH_JURANA: {
-    basma: 'MKH ZIYARAT WITH JURANA',
-    sultan: 'MAKKAH ZIARAT',
+    unified: 'MAKKAH ZIYARAT WITH JURANA',
+    aliases: ['MKH ZIYARAT WITH JURANA'],
   },
   MED_APT_MKH: {
-    basma: 'MED APT TO MKH HTL',
-    sultan: 'JEDDAH TO MADINAH',
+    unified: 'MADINAH AIRPORT TO MAKKAH HOTEL',
+    aliases: ['MED APT TO MKH HTL'],
   },
   TAIF_MKH: {
-    basma: 'TAIF AIRPORT TO MKH HTL',
-    sultan: 'MAKKAH ZIARAT',
+    unified: 'TAIF AIRPORT TO MAKKAH HOTEL',
+    aliases: ['TAIF AIRPORT TO MKH HTL'],
+  },
+  ROUND_TRIP_1: {
+    unified: 'ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO JEDDAH AIRPORT',
+    aliases: ['ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO JEDDAH AIRPORT'],
+  },
+  ROUND_TRIP_2: {
+    unified: 'ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO JEDDAH AIRPORT WITH MAZARAT',
+    aliases: ['ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO JEDDAH AIRPORT WITH MAZARAT', 'ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO JEDDAH AIRPORT WITH ZIYARAT'],
+  },
+  ROUND_TRIP_3: {
+    unified: 'ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MADINAH AIRPORT',
+    aliases: ['ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MADINAH AIRPORT'],
+  },
+  ROUND_TRIP_4: {
+    unified: 'ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MADINAH AIRPORT WITH MAZARAT',
+    aliases: ['ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MADINAH AIRPORT WITH MAZARAT', 'ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MADINAH AIRPORT WITH ZIYARAT'],
+  },
+  ROUND_TRIP_5: {
+    unified: 'ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MAKKAH TO JEDDAH',
+    aliases: ['ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MAKKAH TO JEDDAH'],
+  },
+  ROUND_TRIP_6: {
+    unified: 'ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MAKKAH TO JEDDAH WITH MAZARAT',
+    aliases: ['ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MAKKAH TO JEDDAH WITH MAZARAT', 'ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MAKKAH TO JEDDAH WITH ZIYARAT'],
   },
 };
 
@@ -97,16 +121,18 @@ function detectSectorKey(routeName?: string, dep?: string, arr?: string): string
 
   // Direct route name match in CANONICAL_SECTORS
   for (const [key, sec] of Object.entries(CANONICAL_SECTORS)) {
-    if (r === sec.basma.toUpperCase() || r === sec.sultan.toUpperCase()) return key;
+    if (r === sec.unified.toUpperCase() || sec.aliases.some((al) => r === al.toUpperCase())) {
+      return key;
+    }
   }
 
-  // Al Sultan specific round trip routes
+  // Round trip routes
   if (r.includes('ROUND TRIP') || d.includes('ROUND TRIP') || a.includes('ROUND TRIP')) {
-    if (r.includes('MAKKAH TO JEDDAH') && r.includes('MAZARAT')) return 'ROUND_TRIP_6';
+    if (r.includes('MAKKAH TO JEDDAH') && (r.includes('MAZARAT') || r.includes('ZIYARAT'))) return 'ROUND_TRIP_6';
     if (r.includes('MAKKAH TO JEDDAH')) return 'ROUND_TRIP_5';
-    if (r.includes('MADINAH AIRPORT') && r.includes('MAZARAT')) return 'ROUND_TRIP_4';
+    if (r.includes('MADINAH AIRPORT') && (r.includes('MAZARAT') || r.includes('ZIYARAT'))) return 'ROUND_TRIP_4';
     if (r.includes('MADINAH AIRPORT')) return 'ROUND_TRIP_3';
-    if (r.includes('MAZARAT')) return 'ROUND_TRIP_2';
+    if (r.includes('MAZARAT') || r.includes('ZIYARAT')) return 'ROUND_TRIP_2';
     return 'ROUND_TRIP_1';
   }
 
@@ -154,51 +180,15 @@ function getVendorRateForSectorAndVehicle(
   vehicleIdx: number
 ): { rateSAR: number; routeLabel: string } | null {
   const isSultan = (vendorName || '').toLowerCase().includes('sultan');
+  const rateTable = isSultan ? AL_SULTAN_DEFAULT_RATES : OFFICIAL_DEFAULT_RATES;
+  const sec = CANONICAL_SECTORS[sectorKey];
+  const rName = sec?.unified || 'JEDDAH AIRPORT TO MAKKAH';
+  const rates = rateTable[rName] || rateTable['JEDDAH AIRPORT TO MAKKAH'];
 
-  if (isSultan) {
-    // Al Sultan round trips
-    if (sectorKey === 'ROUND_TRIP_1') {
-      const r = 'ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO JEDDAH AIRPORT';
-      return { rateSAR: AL_SULTAN_DEFAULT_RATES[r]?.[vehicleIdx] ?? 1045, routeLabel: r };
-    }
-    if (sectorKey === 'ROUND_TRIP_2') {
-      const r = 'ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO JEDDAH AIRPORT WITH MAZARAT';
-      return { rateSAR: AL_SULTAN_DEFAULT_RATES[r]?.[vehicleIdx] ?? 1355, routeLabel: r };
-    }
-    if (sectorKey === 'ROUND_TRIP_3') {
-      const r = 'ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MADINAH AIRPORT';
-      return { rateSAR: AL_SULTAN_DEFAULT_RATES[r]?.[vehicleIdx] ?? 745, routeLabel: r };
-    }
-    if (sectorKey === 'ROUND_TRIP_4') {
-      const r = 'ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MADINAH AIRPORT WITH MAZARAT';
-      return { rateSAR: AL_SULTAN_DEFAULT_RATES[r]?.[vehicleIdx] ?? 1055, routeLabel: r };
-    }
-    if (sectorKey === 'ROUND_TRIP_5') {
-      const r = 'ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MAKKAH TO JEDDAH';
-      return { rateSAR: AL_SULTAN_DEFAULT_RATES[r]?.[vehicleIdx] ?? 1250, routeLabel: r };
-    }
-    if (sectorKey === 'ROUND_TRIP_6') {
-      const r = 'ROUND TRIP JEDDAH TO MAKKAH TO MADINAH TO MAKKAH TO JEDDAH WITH MAZARAT';
-      return { rateSAR: AL_SULTAN_DEFAULT_RATES[r]?.[vehicleIdx] ?? 1560, routeLabel: r };
-    }
-
-    const sec = CANONICAL_SECTORS[sectorKey];
-    const rName = sec?.sultan || 'JEDDAH AIRPORT TO MAKKAH';
-    const rates = AL_SULTAN_DEFAULT_RATES[rName] || AL_SULTAN_DEFAULT_RATES['JEDDAH AIRPORT TO MAKKAH'];
-    return {
-      rateSAR: rates[vehicleIdx] !== undefined ? rates[vehicleIdx] : rates[0],
-      routeLabel: rName,
-    };
-  } else {
-    // Basma Transport / Default
-    const sec = CANONICAL_SECTORS[sectorKey];
-    const rName = sec?.basma || 'JED-MKH';
-    const rates = OFFICIAL_DEFAULT_RATES[rName] || OFFICIAL_DEFAULT_RATES['JED-MKH'];
-    return {
-      rateSAR: rates[vehicleIdx] !== undefined ? rates[vehicleIdx] : rates[0],
-      routeLabel: rName,
-    };
-  }
+  return {
+    rateSAR: rates[vehicleIdx] !== undefined ? rates[vehicleIdx] : rates[0],
+    routeLabel: rName,
+  };
 }
 
 
