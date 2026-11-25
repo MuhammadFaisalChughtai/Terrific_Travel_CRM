@@ -9,6 +9,7 @@ import { vendorsService } from './vendors.service';
 import { auditLogService } from './audit.service';
 import { agentMarginService } from './agent-margin.service';
 import { isCustomerTransaction } from '../utils/booking-financials';
+import { sortFlightsChronologically, parseFlightTimeMinutes } from '../utils/flight-sorting';
 
 /**
  * Resolves a bookingDate according to UK (Europe/London) timezone.
@@ -59,6 +60,8 @@ export function resolveUkBookingDate(input?: string | Date | null): Date {
   const parsed = new Date(str);
   return isNaN(parsed.getTime()) ? new Date() : parsed;
 }
+
+export { parseFlightTimeMinutes, sortFlightsChronologically };
 
 export class BookingsService {
   async getNextReference() {
@@ -988,6 +991,10 @@ export class BookingsService {
         if (a.role !== 'Leader' && b.role === 'Leader') return 1;
         return a.id.localeCompare(b.id);
       });
+    }
+
+    if (booking.flightServices && booking.flightServices.length > 0) {
+      booking.flightServices = sortFlightsChronologically(booking.flightServices);
     }
 
     // Auto-heal legacy inverted price adjustments (where rate increase was stored with additionalProfit instead of reducedProfit)
@@ -2243,6 +2250,9 @@ export class BookingsService {
         throw new BadRequestException('No matching flight segments found.');
       }
     }
+
+    // Always sort flight segments chronologically by calendar day and departure time
+    flightsToSend = sortFlightsChronologically(flightsToSend);
 
     // Filter passengers by options.passengerIds if provided, else use all booking passengers
     let passengers = booking.passengers || [];

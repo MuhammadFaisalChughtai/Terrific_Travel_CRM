@@ -1,5 +1,6 @@
 import { formatCurrency } from "@tms/shared-utils";
 import { isCustomerTransaction } from "./bookingFinancials";
+import { sortFlightsChronologically, parseFlightTimeMinutes, getFlightCalendarTimestamp } from "./flightSorting";
 // @ts-ignore
 import html2pdf from "html2pdf.js";
 
@@ -806,26 +807,7 @@ function generateTimelineHtml(booking: any): string {
 
     // 2. Sort flights within each group chronologically
     Object.keys(flightGroups).forEach((key) => {
-      flightGroups[key].sort((a: any, b: any) => {
-        const dA = new Date(a.date).getTime();
-        const dB = new Date(b.date).getTime();
-        if (dA !== dB) return dA - dB;
-        const parseTime = (s: string) => {
-          if (!s) return 0;
-          const t = s.trim().toUpperCase();
-          const isPM = t.includes("P");
-          const isAM = t.includes("A");
-          let raw = t.replace(/[APM:\s]/g, "");
-          if (raw.length === 3) raw = "0" + raw;
-          if (raw.length < 4) return 0;
-          let h = parseInt(raw.substring(0, 2), 10);
-          const m = parseInt(raw.substring(2, 4), 10);
-          if (isPM && h < 12) h += 12;
-          if (isAM && h === 12) h = 0;
-          return h * 60 + (isNaN(m) ? 0 : m);
-        };
-        return parseTime(a.departTime) - parseTime(b.departTime);
-      });
+      flightGroups[key] = sortFlightsChronologically(flightGroups[key]);
     });
 
     // 3. Order the groups by earliest departure date
@@ -2779,12 +2761,7 @@ export function generateFlightTicketHtml(
       ? booking.flightServices
       : [flight];
 
-  let sortedFlights = [...flightsToRender].sort((a: any, b: any) => {
-    const dateA = new Date(a.date).getTime();
-    const dateB = new Date(b.date).getTime();
-    if (dateA !== dateB) return dateA - dateB;
-    return (a.departTime || "").localeCompare(b.departTime || "");
-  });
+  let sortedFlights = sortFlightsChronologically(flightsToRender);
 
   // Filter by selected airline if specified and not 'all'
   if (selectedAirline && selectedAirline !== "all") {

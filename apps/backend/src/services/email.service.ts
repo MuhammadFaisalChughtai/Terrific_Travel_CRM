@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as nodemailer from 'nodemailer';
 import { config, logger } from '../config';
 import { TERRIFIC_LOGO_BASE64 } from '../assets/logo.constant';
+import { sortFlightsChronologically } from '../utils/flight-sorting';
 
 export class EmailService {
   private transporter: nodemailer.Transporter;
@@ -1407,7 +1408,8 @@ export class EmailService {
       };
 
       const paxCount = passengers.length || 1;
-      flights.forEach((f: any, idx: number) => {
+      const sortedFlights = sortFlightsChronologically(flights || []);
+      sortedFlights.forEach((f: any, idx: number) => {
         const segNum = String(idx + 1).padStart(2, ' ');
         const flightNo = (f.flightNo || 'PC 1184').trim().toUpperCase();
         const flightClass = (f.flightClass || 'Y').trim().toUpperCase().charAt(0) || 'Y';

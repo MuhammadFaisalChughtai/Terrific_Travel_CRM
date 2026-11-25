@@ -67,6 +67,7 @@ import VisaReservationModal from "./VisaReservationModal";
 import AdditionalServiceModal from "./AdditionalServiceModal";
 import BookingTransactionModal from "./BookingTransactionModal";
 import { useAuthStore } from "../store/auth.store";
+import { sortFlightsChronologically, parseFlightTimeMinutes } from "../utils/flightSorting";
 import {
   printDocument,
   downloadDocument,
@@ -334,9 +335,10 @@ export default function BookingManager({
 
   const formatGdsFlightText = (pnr: string, flights: any[], passengers: any[]) => {
     const lines: string[] = [];
+    const sortedFlights = sortFlightsChronologically(flights || []);
     const pnrsFromFlights = Array.from(
       new Set(
-        (flights || [])
+        sortedFlights
           .map((f: any) => String(f.pnr || "").trim().toUpperCase())
           .filter(Boolean)
       )
@@ -439,7 +441,7 @@ export default function BookingManager({
     };
 
     const paxCount = (passengers || []).length || 1;
-    (flights || []).forEach((f: any, idx: number) => {
+    sortedFlights.forEach((f: any, idx: number) => {
       const segNum = String(idx + 1).padStart(2, " ");
       const flightNo = (f.flightNo || "PC 1184").trim().toUpperCase();
       const flightClass = (f.flightClass || "Y").trim().toUpperCase().charAt(0) || "Y";
@@ -470,7 +472,7 @@ export default function BookingManager({
     setTicketOrderPnr(pnr);
     setTicketOrderNotes("");
 
-    const allFlights = booking.flightServices || [];
+    const allFlights = sortFlightsChronologically(booking.flightServices || []);
     const activeFlights =
       pnr === "ALL" || !pnr
         ? allFlights
@@ -7023,7 +7025,7 @@ export default function BookingManager({
                 ),
               ).join(", ") || "PENDING";
 
-            const allFlights = booking.flightServices || [];
+            const allFlights = sortFlightsChronologically(booking.flightServices || []);
             const availablePnrs: string[] = Array.from<string>(
               new Set(
                 allFlights
