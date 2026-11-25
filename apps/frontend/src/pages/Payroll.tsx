@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useMemo } from "react";
 import { Navigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import html2pdf from "html2pdf.js";
@@ -273,9 +273,33 @@ export default function PayrollPage() {
     return <Navigate to="/" replace />;
   }
 
-  // Filter & Search states
+  // Helper to parse "Month YYYY" string to timestamp for chronological sorting
+  const parseMonthYearSortKey = (str: string): number => {
+    try {
+      const parts = str.trim().split(/\s+/);
+      if (parts.length === 2) {
+        const monthNames = [
+          "January", "February", "March", "April", "May", "June",
+          "July", "August", "September", "October", "November", "December",
+        ];
+        const mIdx = monthNames.findIndex((m) => m.toLowerCase() === parts[0].toLowerCase());
+        const year = parseInt(parts[1], 10);
+        if (mIdx !== -1 && !isNaN(year)) {
+          return new Date(year, mIdx, 1).getTime();
+        }
+      }
+      const d = new Date(str);
+      return isNaN(d.getTime()) ? 0 : d.getTime();
+    } catch {
+      return 0;
+    }
+  };
+
+  const defaultLastMonth = getPreviousMonthYear();
+
+  // Filter & Search states - activates the last month filter by default
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedMonth, setSelectedMonth] = useState("all");
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => getPreviousMonthYear());
   const [selectedAgentFilter, setSelectedAgentFilter] = useState("all");
   const [selectedStatusFilter, setSelectedStatusFilter] = useState("all");
 
@@ -404,10 +428,30 @@ export default function PayrollPage() {
       if (selectedMonth !== "all") params.append("monthYear", selectedMonth);
       if (selectedAgentFilter !== "all") params.append("agentId", selectedAgentFilter);
       if (selectedStatusFilter !== "all") params.append("status", selectedStatusFilter);
+      params.append("limit", "500");
       const res = await apiClient.get(`/payroll?${params.toString()}`);
       return res.data.data;
     },
   });
+
+  // Dynamic month options: combines default last month, backend distinct months, and rolling year options
+  const filterMonthOptions = useMemo(() => {
+    const set = new Set<string>();
+
+    if (defaultLastMonth) set.add(defaultLastMonth);
+
+    if (payrollData?.availableMonths && Array.isArray(payrollData.availableMonths)) {
+      payrollData.availableMonths.forEach((m: string) => {
+        if (m && typeof m === "string") set.add(m.trim());
+      });
+    }
+
+    getPayrollMonthOptions().forEach((m: string) => {
+      if (m && typeof m === "string") set.add(m.trim());
+    });
+
+    return Array.from(set).sort((a, b) => parseMonthYearSortKey(b) - parseMonthYearSortKey(a));
+  }, [payrollData?.availableMonths, defaultLastMonth]);
 
   // ----------------------------------------------------
   // Mutations
@@ -848,22 +892,29 @@ export default function PayrollPage() {
 
           {/* Filters */}
           <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-            <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="px-3 py-2 bg-secondary/30 border border-border/60 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/40 text-foreground"
-            >
-              <option value="all">All Months</option>
-              <option value="June 2026">June 2026</option>
-              <option value="May 2026">May 2026</option>
-              <option value="April 2026">April 2026</option>
-              <option value="March 2026">March 2026</option>
-            </select>
+            <div className="relative">
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className={`px-3 py-2 bg-secondary/30 border rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary/40 text-foreground transition-all cursor-pointer ${
+                  selectedMonth !== "all"
+                    ? "border-primary/50 bg-primary/5 font-semibold text-primary"
+                    : "border-border/60"
+                }`}
+              >
+                <option value="all">All Months</option>
+                {filterMonthOptions.map((m) => (
+                  <option key={m} value={m}>
+                    {m === defaultLastMonth ? `${m} (Last Month)` : m}
+                  </option>
+                ))}
+              </select>
+            </div>
 
             <select
               value={selectedAgentFilter}
               onChange={(e) => setSelectedAgentFilter(e.target.value)}
-              className="px-3 py-2 bg-secondary/30 border border-border/60 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/40 text-foreground"
+              className="px-3 py-2 bg-secondary/30 border border-border/60 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/40 text-foreground cursor-pointer"
             >
               <option value="all">All Staff & Agents</option>
               {agentsData?.map((ag) => (
@@ -876,7 +927,7 @@ export default function PayrollPage() {
             <select
               value={selectedStatusFilter}
               onChange={(e) => setSelectedStatusFilter(e.target.value)}
-              className="px-3 py-2 bg-secondary/30 border border-border/60 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/40 text-foreground"
+              className="px-3 py-2 bg-secondary/30 border border-border/60 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/40 text-foreground cursor-pointer"
             >
               <option value="all">All Statuses</option>
               <option value="Draft">Draft</option>
@@ -887,17 +938,88 @@ export default function PayrollPage() {
             <button
               onClick={() => {
                 setSearchTerm("");
-                setSelectedMonth("all");
+                setSelectedMonth(defaultLastMonth);
                 setSelectedAgentFilter("all");
                 setSelectedStatusFilter("all");
               }}
-              title="Reset Filters"
-              className="p-2 border border-border/60 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary/40 transition-colors"
+              title={`Reset Filters to Default (${defaultLastMonth})`}
+              className="p-2 border border-border/60 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary/40 transition-colors cursor-pointer"
             >
               <RefreshCw size={14} />
             </button>
           </div>
         </div>
+
+        {/* Active Filter Indicators */}
+        {(selectedMonth !== "all" || selectedAgentFilter !== "all" || selectedStatusFilter !== "all" || searchTerm) && (
+          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border/40 text-xs">
+            <span className="text-[11px] font-semibold text-muted-foreground">Active Filters:</span>
+            {selectedMonth !== "all" && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-primary/10 text-primary border border-primary/20">
+                <span>Month: {selectedMonth}{selectedMonth === defaultLastMonth ? " (Last Month)" : ""}</span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedMonth("all")}
+                  className="hover:text-primary/70 transition-colors text-xs font-bold ml-0.5 cursor-pointer"
+                  title="Clear month filter (view all months)"
+                >
+                  ×
+                </button>
+              </span>
+            )}
+            {selectedAgentFilter !== "all" && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-secondary text-foreground border border-border">
+                <span>Staff: {agentsData?.find((a) => a.id === selectedAgentFilter)?.name || selectedAgentFilter}</span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedAgentFilter("all")}
+                  className="hover:text-muted-foreground transition-colors text-xs font-bold ml-0.5 cursor-pointer"
+                  title="Clear staff filter"
+                >
+                  ×
+                </button>
+              </span>
+            )}
+            {selectedStatusFilter !== "all" && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-secondary text-foreground border border-border">
+                <span>Status: {selectedStatusFilter}</span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedStatusFilter("all")}
+                  className="hover:text-muted-foreground transition-colors text-xs font-bold ml-0.5 cursor-pointer"
+                  title="Clear status filter"
+                >
+                  ×
+                </button>
+              </span>
+            )}
+            {searchTerm && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-secondary text-foreground border border-border">
+                <span>Search: "{searchTerm}"</span>
+                <button
+                  type="button"
+                  onClick={() => setSearchTerm("")}
+                  className="hover:text-muted-foreground transition-colors text-xs font-bold ml-0.5 cursor-pointer"
+                  title="Clear search"
+                >
+                  ×
+                </button>
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setSearchTerm("");
+                setSelectedMonth("all");
+                setSelectedAgentFilter("all");
+                setSelectedStatusFilter("all");
+              }}
+              className="text-[11px] text-muted-foreground hover:text-foreground underline ml-1 cursor-pointer"
+            >
+              Clear all
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Salary Slips Table */}
@@ -931,10 +1053,26 @@ export default function PayrollPage() {
                   <td colSpan={8} className="py-12 text-center text-muted-foreground">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <Receipt size={32} className="text-muted-foreground/40" />
-                      <p className="font-semibold text-sm">No salary slips found</p>
-                      <p className="text-xs text-muted-foreground/80">
-                        Click "Generate Salary Slip" to create a new salary slip.
+                      <p className="font-semibold text-sm">
+                        {selectedMonth !== "all"
+                          ? `No salary slips found for ${selectedMonth}`
+                          : "No salary slips found"}
                       </p>
+                      <p className="text-xs text-muted-foreground/80">
+                        {selectedMonth !== "all"
+                          ? `There are no payroll records for ${selectedMonth}. You can switch to another month, view all records, or generate a salary slip.`
+                          : 'Click "Generate Salary Slip" to create a new salary slip.'}
+                      </p>
+                      {selectedMonth !== "all" && (
+                        <div className="flex items-center gap-2 mt-2">
+                          <button
+                            onClick={() => setSelectedMonth("all")}
+                            className="px-3 py-1.5 bg-secondary hover:bg-secondary/80 text-foreground font-semibold text-xs rounded-lg border border-border transition-colors cursor-pointer"
+                          >
+                            View All Months
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </td>
                 </tr>

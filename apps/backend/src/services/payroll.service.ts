@@ -125,7 +125,10 @@ export class PayrollService {
     }
 
     if (monthYear && monthYear !== 'all') {
-      where.monthYear = monthYear;
+      where.monthYear = {
+        equals: monthYear.trim(),
+        mode: 'insensitive',
+      };
     }
 
     if (status && status !== 'all') {
@@ -142,7 +145,25 @@ export class PayrollService {
       ];
     }
 
-    const [total, items] = await Promise.all([
+    // Determine summary where clause
+    const summaryWhere: any = {};
+    if (monthYear && monthYear !== 'all') {
+      summaryWhere.monthYear = {
+        equals: monthYear.trim(),
+        mode: 'insensitive',
+      };
+    }
+    if (agentId && agentId !== 'all') {
+      summaryWhere.agentId = agentId;
+    }
+    if (status && status !== 'all') {
+      summaryWhere.status = status;
+    }
+    if (search) {
+      summaryWhere.OR = where.OR;
+    }
+
+    const [total, items, distinctMonths, allSlips] = await Promise.all([
       prisma.payslip.count({ where }),
       prisma.payslip.findMany({
         where,
@@ -158,13 +179,16 @@ export class PayrollService {
           },
         },
       }),
+      prisma.payslip.findMany({
+        select: { monthYear: true },
+        distinct: ['monthYear'],
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.payslip.findMany({
+        where: summaryWhere,
+        select: { totalEarnings: true, totalDeductions: true, netSalary: true, status: true },
+      }),
     ]);
-
-    // Compute summary metrics
-    const allSlips = await prisma.payslip.findMany({
-      where: monthYear && monthYear !== 'all' ? { monthYear } : {},
-      select: { totalEarnings: true, totalDeductions: true, netSalary: true, status: true },
-    });
 
     const totalNetDisbursed = allSlips.reduce((sum: number, s: any) => sum + (s.netSalary || 0), 0);
     const totalGross = allSlips.reduce((sum: number, s: any) => sum + (s.totalEarnings || 0), 0);
@@ -172,9 +196,14 @@ export class PayrollService {
     const sentCount = allSlips.filter((s: any) => s.status === 'Sent' || s.status === 'Paid').length;
     const draftCount = allSlips.filter((s: any) => s.status === 'Draft').length;
 
+    const availableMonths = distinctMonths
+      .map((m: any) => m.monthYear)
+      .filter(Boolean);
+
     return {
       items,
       total,
+      availableMonths,
       summary: {
         totalNetDisbursed,
         totalGross,
