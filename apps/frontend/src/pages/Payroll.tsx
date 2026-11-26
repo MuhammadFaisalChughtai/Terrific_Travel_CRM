@@ -21,6 +21,7 @@ import {
   FileText,
   Download,
   Filter,
+  Calendar,
   RefreshCw,
   PlusCircle,
   MinusCircle,
@@ -106,6 +107,12 @@ export const getPreviousMonthYear = (): string => {
   const d = new Date();
   d.setDate(1); // prevent month rollover bug if current day is 31st
   d.setMonth(d.getMonth() - 1);
+  const monthName = d.toLocaleString("en-US", { month: "long" });
+  return `${monthName} ${d.getFullYear()}`;
+};
+
+export const getCurrentMonthYear = (): string => {
+  const d = new Date();
   const monthName = d.toLocaleString("en-US", { month: "long" });
   return `${monthName} ${d.getFullYear()}`;
 };
@@ -434,11 +441,20 @@ export default function PayrollPage() {
     },
   });
 
-  // Dynamic month options: combines default last month, backend distinct months, and rolling year options
+  // Dynamic month options: combines default last month, backend distinct months, table items, and rolling year options
   const filterMonthOptions = useMemo(() => {
     const set = new Set<string>();
 
     if (defaultLastMonth) set.add(defaultLastMonth);
+
+    // Guarantee that any month displayed in the table (on the UX) is always in the dropdown
+    if (payrollData?.items && Array.isArray(payrollData.items)) {
+      payrollData.items.forEach((item: any) => {
+        if (item.monthYear && typeof item.monthYear === "string") {
+          set.add(item.monthYear.trim());
+        }
+      });
+    }
 
     if (payrollData?.availableMonths && Array.isArray(payrollData.availableMonths)) {
       payrollData.availableMonths.forEach((m: string) => {
@@ -451,7 +467,7 @@ export default function PayrollPage() {
     });
 
     return Array.from(set).sort((a, b) => parseMonthYearSortKey(b) - parseMonthYearSortKey(a));
-  }, [payrollData?.availableMonths, defaultLastMonth]);
+  }, [payrollData?.items, payrollData?.availableMonths, defaultLastMonth]);
 
   // ----------------------------------------------------
   // Mutations
@@ -877,6 +893,47 @@ export default function PayrollPage() {
 
       {/* Filter & Controls Toolbar */}
       <div className="bg-card border border-border/60 rounded-xl p-4 shadow-sm space-y-3">
+        {/* Quick Period Presets */}
+        <div className="flex flex-wrap items-center gap-1.5 pb-2.5 border-b border-border/40">
+          <span className="text-[11px] font-bold text-muted-foreground mr-1 flex items-center gap-1">
+            <Calendar className="h-3.5 w-3.5 text-primary" />
+            Period Presets:
+          </span>
+          <button
+            type="button"
+            onClick={() => setSelectedMonth(defaultLastMonth)}
+            className={`text-xs px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+              selectedMonth === defaultLastMonth
+                ? "bg-primary text-primary-foreground font-bold shadow-xs"
+                : "bg-secondary/70 hover:bg-secondary text-secondary-foreground"
+            }`}
+          >
+            Last Month ({defaultLastMonth})
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedMonth(getCurrentMonthYear())}
+            className={`text-xs px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+              selectedMonth === getCurrentMonthYear()
+                ? "bg-primary text-primary-foreground font-bold shadow-xs"
+                : "bg-secondary/70 hover:bg-secondary text-secondary-foreground"
+            }`}
+          >
+            This Month ({getCurrentMonthYear()})
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedMonth("all")}
+            className={`text-xs px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+              selectedMonth === "all"
+                ? "bg-primary text-primary-foreground font-bold shadow-xs"
+                : "bg-secondary/70 hover:bg-secondary text-secondary-foreground"
+            }`}
+          >
+            All Months
+          </button>
+        </div>
+
         <div className="flex flex-col md:flex-row items-center gap-3 justify-between">
           {/* Search Box */}
           <div className="relative w-full md:w-80">

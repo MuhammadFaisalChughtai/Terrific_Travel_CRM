@@ -33,7 +33,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 import Modal from "../components/Modal";
 import DeleteConfirmModal from "../components/DeleteConfirmModal";
-import { PAYROLL_MONTH_OPTIONS } from "./Payroll";
+import { PAYROLL_MONTH_OPTIONS, getPreviousMonthYear, getPayrollMonthOptions } from "./Payroll";
 
 // Validation Schema for Agent basic fields (excluding slabs, which are validated manually)
 const agentSchema = z.object({
@@ -159,7 +159,7 @@ export default function AgentPage() {
   // Agent Payslip Modal States
   const [isPayslipModalOpen, setIsPayslipModalOpen] = useState(false);
   const [selectedAgentForPayslip, setSelectedAgentForPayslip] = useState<Agent | null>(null);
-  const [payslipMonth, setPayslipMonth] = useState("June 2026");
+  const [payslipMonth, setPayslipMonth] = useState<string>(() => getPreviousMonthYear());
   const [payslipBasic, setPayslipBasic] = useState(150000);
   const [payslipHra, setPayslipHra] = useState(65000);
   const [payslipTravel, setPayslipTravel] = useState(35000);
@@ -337,7 +337,7 @@ export default function AgentPage() {
 
   const handleOpenAgentPayslip = (agent: Agent) => {
     setSelectedAgentForPayslip(agent);
-    setPayslipMonth("June 2026");
+    setPayslipMonth(getPreviousMonthYear());
     setPayslipBasic(agent.basicSalary !== undefined && agent.basicSalary !== null ? Number(agent.basicSalary) : 150000);
     setPayslipDesignation(agent.designation || "Operations Manager");
     setIsPayslipModalOpen(true);
@@ -1246,7 +1246,7 @@ export default function AgentPage() {
                     onChange={(e) => setPayslipMonth(e.target.value)}
                     className="w-full px-3 py-1.5 bg-secondary/20 border border-border/60 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                   >
-                    {PAYROLL_MONTH_OPTIONS.map((opt) => (
+                    {getPayrollMonthOptions().map((opt) => (
                       <option key={opt} value={opt}>
                         {opt}
                       </option>
